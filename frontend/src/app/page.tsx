@@ -13,11 +13,7 @@ import HomeView from '../components/HomeView';
 import PricingModal from '../components/PricingModal';
 import ProcessingPage from '../components/ProcessingPage';
 import LoginModal from '../components/LoginModal';
-import {
-  ProcessingMethod,
-  ProcessingOptions,
-  defaultProcessingOptions,
-} from '../lib/processing';
+import { ProcessingMethod } from '../lib/processing';
 import { PricingTab } from '../lib/pricing';
 import {
   authenticate,
@@ -63,7 +59,6 @@ export default function Home() {
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [activeTab, setActiveTab] = useState<PricingTab>('包月会员');
   const [currentPage, setCurrentPage] = useState<PageState>('home');
-  const [options, setOptions] = useState<ProcessingOptions>(defaultProcessingOptions);
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -210,9 +205,7 @@ export default function Home() {
     setSuccessMessage('');
     setProcessedImage(null);
 
-    const optionsForMethod = options[currentPage];
-
-    createProcessingTask({ method: currentPage, image: uploadedImage, options: optionsForMethod, accessToken })
+    createProcessingTask({ method: currentPage, image: uploadedImage, accessToken })
       .then((response) => {
         const task = response.data;
 
@@ -235,16 +228,6 @@ export default function Home() {
       });
   };
 
-  const updateOptions = <T extends ProcessingMethod>(
-    method: T,
-    updates: Partial<ProcessingOptions[T]>,
-  ) => {
-    setOptions((prev) => ({
-      ...prev,
-      [method]: { ...prev[method], ...updates },
-    }));
-  };
-
   const renderPricingModal = () =>
     showPricingModal ? (
       <PricingModal
@@ -265,8 +248,6 @@ export default function Home() {
           processedImage={processedImage}
           isProcessing={isProcessing}
           hasUploadedImage={Boolean(uploadedImage)}
-          options={options}
-          updateOptions={updateOptions}
           onBack={() => {
             clearPolling();
             setCurrentPage('home');

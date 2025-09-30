@@ -293,7 +293,6 @@ class ProcessingService:
         task_type: str,
         image_info: Dict[str, Any],
         user: User,
-        options: Dict[str, Any] = None
     ) -> Dict[str, Any]:
         """预估算力消耗"""
         base_credits = self.credit_costs.get(task_type, 100)

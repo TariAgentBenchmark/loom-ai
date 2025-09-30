@@ -1,4 +1,4 @@
-import { ProcessingMethod, ProcessingOptions } from "./processing";
+import { ProcessingMethod } from "./processing";
 
 const DEFAULT_API_BASE_URL = "http://localhost:8000/v1";
 
@@ -199,16 +199,6 @@ export interface DownloadResult {
   filename: string;
 }
 
-type ProcessingOptionPayload = ProcessingOptions[ProcessingMethod];
-
-const serializeOptions = (options: ProcessingOptionPayload | undefined) => {
-  if (!options) {
-    return undefined;
-  }
-
-  return JSON.stringify(options);
-};
-
 export const login = (payload: LoginPayload) =>
   postJson<LoginResult, { email: string; password: string; remember_me: boolean }>(
     "/auth/login",
@@ -230,23 +220,16 @@ export const refreshToken = (refreshTokenValue: string) =>
 export interface ProcessingRequestPayload {
   method: ProcessingMethod;
   image: File;
-  options?: ProcessingOptionPayload;
   accessToken: string;
 }
 
 export const createProcessingTask = ({
   method,
   image,
-  options,
   accessToken,
 }: ProcessingRequestPayload) => {
   const formData = new FormData();
   formData.append("image", image);
-
-  const serialized = serializeOptions(options);
-  if (serialized) {
-    formData.append("options", serialized);
-  }
 
   const path = processingPathMap[method];
   return postFormData<ProcessingTaskData>(path, formData, accessToken);

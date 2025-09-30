@@ -6,64 +6,6 @@ export type ProcessingMethod =
   | 'watermark_removal'
   | 'noise_removal';
 
-export interface ProcessingOptions {
-  seamless: {
-    removeBackground: boolean;
-    seamlessLoop: boolean;
-  };
-  style: {
-    outputStyle: 'vector' | 'seamless';
-    outputRatio: '1:1' | '2:3' | '3:2';
-  };
-  embroidery: {
-    needleType: 'fine' | 'medium' | 'thick';
-    stitchDensity: 'low' | 'medium' | 'high';
-    enhanceDetails: boolean;
-  };
-  extract_pattern: {
-    preprocessing: boolean;
-    voiceControl: boolean;
-    patternType: 'floral' | 'geometric' | 'abstract';
-  };
-  watermark_removal: {
-    watermarkType: 'text' | 'logo' | 'transparent' | 'auto';
-    preserveDetail: boolean;
-  };
-  noise_removal: {
-    noiseType: 'fabric' | 'noise' | 'blur';
-    enhanceMode: 'standard' | 'vector_redraw';
-  };
-}
-
-export const defaultProcessingOptions: ProcessingOptions = {
-  seamless: {
-    removeBackground: true,
-    seamlessLoop: true,
-  },
-  style: {
-    outputStyle: 'vector',
-    outputRatio: '1:1',
-  },
-  embroidery: {
-    needleType: 'medium',
-    stitchDensity: 'medium',
-    enhanceDetails: true,
-  },
-  extract_pattern: {
-    preprocessing: true,
-    voiceControl: true,
-    patternType: 'floral',
-  },
-  watermark_removal: {
-    watermarkType: 'auto',
-    preserveDetail: true,
-  },
-  noise_removal: {
-    noiseType: 'fabric',
-    enhanceMode: 'standard',
-  },
-};
-
 interface ProcessingMethodInfo {
   title: string;
   description: string;
@@ -78,8 +20,8 @@ export const processingMethodInfo: Record<ProcessingMethod, ProcessingMethodInfo
     icon: '/AI四方连续转换.png',
     examples: [
       '上传矩形图片',
-      '选择去重叠区选项，避免边界重叠',
-      '启用无缝循环功能，确保完美拼接',
+      '保持原图主体清晰，避免重要元素贴近边缘',
+      '系统自动进行无缝拼接处理',
       '调整图案大小和位置',
       '生成可四方连续的打印图案',
     ],
@@ -90,8 +32,8 @@ export const processingMethodInfo: Record<ProcessingMethod, ProcessingMethodInfo
     icon: '/AI矢量化转SVG.png',
     examples: [
       '上传需要矢量化的图片',
-      '选择输出风格（矢量/无缝循环）',
-      '设置输出比例（1:1, 2:3, 3:2）',
+      '建议使用背景干净、线条清晰的原图',
+      '系统自动分析内容并输出矢量图',
       'AI自动矢量化处理',
       '生成高质量SVG矢量图',
     ],
@@ -102,9 +44,8 @@ export const processingMethodInfo: Record<ProcessingMethod, ProcessingMethodInfo
     icon: '/AI毛线刺绣增强.png',
     examples: [
       '上传刺绣类图片',
-      '选择针线类型（细针/中等/粗针）',
-      '设置针脚密度（稀疏/中等/密集）',
-      '启用增强细节纹理',
+      '保持主体轮廓清晰、色块分明',
+      '系统自动增强毛线纹理和细节',
       '生成逼真的毛线刺绣效果',
     ],
   },
@@ -114,9 +55,8 @@ export const processingMethodInfo: Record<ProcessingMethod, ProcessingMethodInfo
     icon: '/AI提取花型.png',
     examples: [
       '上传包含花型的图片',
-      '启用预处理功能',
-      '选择花型类型（花卉/几何/抽象）',
-      '通过语音控制调整提取',
+      '确保花型主体清晰、光线均匀',
+      '系统自动提取核心花型元素',
       'AI智能提取花型元素',
     ],
   },
@@ -126,8 +66,8 @@ export const processingMethodInfo: Record<ProcessingMethod, ProcessingMethodInfo
     icon: '/AI智能去水印.png',
     examples: [
       '上传带有水印的图片',
-      '选择水印类型（文字/Logo/透明/自动）',
-      '启用保留细节功能',
+      '保持原图清晰，避免过度裁剪',
+      '系统自动识别并去除水印',
       'AI自动识别和去除水印',
       '生成无水印的清洁图片',
     ],
@@ -138,8 +78,8 @@ export const processingMethodInfo: Record<ProcessingMethod, ProcessingMethodInfo
     icon: '/AI布纹去噪.png',
     examples: [
       '上传有噪点或布纹的图片',
-      '选择噪音类型（布纹/噪点/模糊）',
-      '选择增强模式（标准/矢量重绘）',
+      '请提供分辨率尽量高、压缩少的原图',
+      '系统自动判断噪音类型并处理',
       'AI智能去除噪点和布纹',
       '生成清晰的高质量图片',
     ],

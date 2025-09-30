@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from typing import Optional, Dict, Any
-import json
+from typing import Optional
 import os
 from datetime import datetime
 
@@ -19,17 +18,11 @@ processing_service = ProcessingService()
 @router.post("/seamless")
 async def seamless_pattern_conversion(
     image: UploadFile = File(...),
-    options: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """AI四方连续转换"""
     try:
-        # 解析选项
-        processing_options = {}
-        if options:
-            processing_options = json.loads(options)
-        
         # 读取图片数据
         image_bytes = await image.read()
         
@@ -40,7 +33,6 @@ async def seamless_pattern_conversion(
             task_type="seamless",
             image_bytes=image_bytes,
             original_filename=image.filename,
-            options=processing_options
         )
         
         return SuccessResponse(
@@ -61,16 +53,11 @@ async def seamless_pattern_conversion(
 @router.post("/vectorize")
 async def vectorize_image(
     image: UploadFile = File(...),
-    options: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """AI矢量化(转SVG)"""
     try:
-        processing_options = {}
-        if options:
-            processing_options = json.loads(options)
-        
         image_bytes = await image.read()
         
         task = await processing_service.create_task(
@@ -79,7 +66,6 @@ async def vectorize_image(
             task_type="vectorize",
             image_bytes=image_bytes,
             original_filename=image.filename,
-            options=processing_options
         )
         
         return SuccessResponse(
@@ -99,16 +85,11 @@ async def vectorize_image(
 @router.post("/extract-pattern")
 async def extract_pattern(
     image: UploadFile = File(...),
-    options: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """AI提取花型"""
     try:
-        processing_options = {}
-        if options:
-            processing_options = json.loads(options)
-        
         image_bytes = await image.read()
         
         task = await processing_service.create_task(
@@ -117,7 +98,6 @@ async def extract_pattern(
             task_type="extract_pattern",
             image_bytes=image_bytes,
             original_filename=image.filename,
-            options=processing_options
         )
         
         return SuccessResponse(
@@ -138,16 +118,11 @@ async def extract_pattern(
 @router.post("/remove-watermark")
 async def remove_watermark(
     image: UploadFile = File(...),
-    options: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """AI智能去水印"""
     try:
-        processing_options = {}
-        if options:
-            processing_options = json.loads(options)
-        
         image_bytes = await image.read()
         
         task = await processing_service.create_task(
@@ -156,7 +131,6 @@ async def remove_watermark(
             task_type="remove_watermark",
             image_bytes=image_bytes,
             original_filename=image.filename,
-            options=processing_options
         )
         
         return SuccessResponse(
@@ -177,16 +151,11 @@ async def remove_watermark(
 @router.post("/denoise")
 async def denoise_image(
     image: UploadFile = File(...),
-    options: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """AI布纹去噪"""
     try:
-        processing_options = {}
-        if options:
-            processing_options = json.loads(options)
-        
         image_bytes = await image.read()
         
         task = await processing_service.create_task(
@@ -195,7 +164,6 @@ async def denoise_image(
             task_type="denoise",
             image_bytes=image_bytes,
             original_filename=image.filename,
-            options=processing_options
         )
         
         return SuccessResponse(
@@ -216,16 +184,11 @@ async def denoise_image(
 @router.post("/embroidery")
 async def enhance_embroidery(
     image: UploadFile = File(...),
-    options: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """AI毛线刺绣增强"""
     try:
-        processing_options = {}
-        if options:
-            processing_options = json.loads(options)
-        
         image_bytes = await image.read()
         
         task = await processing_service.create_task(
@@ -234,7 +197,6 @@ async def enhance_embroidery(
             task_type="embroidery",
             image_bytes=image_bytes,
             original_filename=image.filename,
-            options=processing_options
         )
         
         return SuccessResponse(
@@ -431,7 +393,6 @@ async def delete_task(
 async def estimate_credits(
     task_type: str = Form(...),
     image: UploadFile = File(...),
-    options: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -443,17 +404,11 @@ async def estimate_credits(
         file_service = FileService()
         image_info = await file_service.get_image_info(image_bytes)
         
-        # 解析选项
-        processing_options = {}
-        if options:
-            processing_options = json.loads(options)
-        
         # 预估算力
         estimation = await processing_service.estimate_credits(
             task_type=task_type,
             image_info=image_info,
             user=current_user,
-            options=processing_options
         )
         
         return SuccessResponse(
