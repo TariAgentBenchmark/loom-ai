@@ -1,9 +1,12 @@
-import httpx
+import asyncio
 import base64
 import json
 import logging
-from typing import Dict, Any, Optional
 from io import BytesIO
+from random import uniform
+from typing import Any, Dict, List
+
+import httpx
 from PIL import Image
 
 from app.core.config import settings
@@ -25,24 +28,59 @@ class AIClient:
     async def _make_request(self, method: str, endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """发送API请求"""
         url = f"{self.base_url}{endpoint}"
-        
-        try:
-            async with httpx.AsyncClient(timeout=300.0) as client:
-                response = await client.request(
-                    method=method,
-                    url=url,
-                    headers=self.headers,
-                    json=data
-                )
-                response.raise_for_status()
-                return response.json()
-                
-        except httpx.HTTPStatusError as e:
-            logger.error(f"AI API request failed: {e.response.status_code} - {e.response.text}")
-            raise Exception(f"AI服务请求失败: {e.response.status_code}")
-        except Exception as e:
-            logger.error(f"AI API request error: {str(e)}")
-            raise Exception(f"AI服务连接失败: {str(e)}")
+
+        max_retries = 3
+        backoff_base = 1.5
+
+        for attempt in range(1, max_retries + 1):
+            try:
+                async with httpx.AsyncClient(timeout=300.0) as client:
+                    response = await client.request(
+                        method=method,
+                        url=url,
+                        headers=self.headers,
+                        json=data
+                    )
+                    response.raise_for_status()
+                    return response.json()
+
+            except httpx.HTTPStatusError as exc:
+                status = exc.response.status_code
+                body = exc.response.text
+                if 500 <= status < 600 and attempt < max_retries:
+                    wait_seconds = backoff_base * (2 ** (attempt - 1)) + uniform(0, 0.5)
+                    logger.warning(
+                        "AI API request failed with %s (attempt %s/%s). Body: %s. Retrying in %.2fs",
+                        status,
+                        attempt,
+                        max_retries,
+                        body,
+                        wait_seconds,
+                    )
+                    await asyncio.sleep(wait_seconds)
+                    continue
+
+                logger.error(f"AI API request failed: {status} - {body}")
+                raise Exception(f"AI服务请求失败: {status}")
+
+            except httpx.RequestError as exc:
+                if attempt < max_retries:
+                    wait_seconds = backoff_base * (2 ** (attempt - 1)) + uniform(0, 0.5)
+                    logger.warning(
+                        "AI API request error '%s' (attempt %s/%s). Retrying in %.2fs",
+                        exc,
+                        attempt,
+                        max_retries,
+                        wait_seconds,
+                    )
+                    await asyncio.sleep(wait_seconds)
+                    continue
+
+                logger.error(f"AI API request error: {str(exc)}")
+                raise Exception(f"AI服务连接失败: {str(exc)}")
+
+        # 理论上不会到达这里，保留兜底处理
+        raise Exception("AI服务连接失败: 未知错误")
 
     def _image_to_base64(self, image_bytes: bytes, format: str = "JPEG") -> str:
         """将图片字节转换为base64编码"""
@@ -302,10 +340,49 @@ class AIClient:
 
     def _process_gemini_response(self, content: Dict[str, Any]) -> str:
         """处理Gemini响应内容"""
-        # 这里需要根据Gemini的实际响应格式实现
-        # 暂时返回占位符，实际使用时需要调整
-        logger.warning("Gemini response processing not fully implemented")
-        return "https://cdn.loom-ai.com/temp/gemini_result.png"
+        logger.info(content)
+        try:
+            parts: List[Dict[str, Any]] = content.get("parts", []) if isinstance(content, dict) else []
+
+            for part in parts:
+                if not isinstance(part, dict):
+                    continue
+
+                # 处理文本中的图片链接
+                if "text" in part:
+                    text = part["text"]
+                    if isinstance(text, str):
+                        # 查找markdown格式的图片链接 ![image](url)
+                        import re
+                        image_pattern = r'!\[.*?\]\((https?://[^\)]+)\)'
+                        matches = re.findall(image_pattern, text)
+                        if matches:
+                            image_url = matches[0]
+                            logger.info("Found image URL in Gemini text response: %s", image_url)
+                            return image_url
+
+                # 处理内联数据
+                if "inline_data" in part:
+                    inline = part["inline_data"]
+                    if not isinstance(inline, dict):
+                        continue
+                    data = inline.get("data")
+                    if not data:
+                        continue
+                    return self._save_base64_image(data)
+
+                # 处理文件URI
+                if "file_uri" in part:
+                    file_uri = part["file_uri"]
+                    if isinstance(file_uri, str):
+                        logger.info("Gemini response contains file uri: %s", file_uri)
+                        return file_uri
+
+            raise Exception("Gemini响应缺少可用的图片数据")
+
+        except Exception as exc:
+            logger.error(f"Gemini response parsing failed: {str(exc)}")
+            raise Exception(f"Gemini响应解析失败: {str(exc)}")
 
     def _save_base64_image(self, base64_data: str) -> str:
         """保存base64图片并返回URL"""
