@@ -1,0 +1,111 @@
+version: '3.8'
+
+# 默认环境变量
+x-default-variables: &default-variables
+  REGISTRY: crpi-lxfoqbwevmx9mc1q.cn-chengdu.personal.cr.aliyuncs.com
+  NAMESPACE: tari_tech
+  FRONTEND_IMAGE: loomai
+  BACKEND_IMAGE: loomai-backend
+  IMAGE_TAG: latest
+
+services:
+  backend:
+    # 优先使用远程镜像，如果环境变量 USE_LOCAL_BUILD=true 则使用本地构建
+    image: ${REGISTRY:-crpi-lxfoqbwevmx9mc1q.cn-chengdu.personal.cr.aliyuncs.com}/${NAMESPACE:-tari_tech}/${BACKEND_IMAGE:-loomai-backend}:${IMAGE_TAG:-latest}
+    build:
+      context: ./backend
+      # 仅当 USE_LOCAL_BUILD=true 时才构建
+      <<: *default-variables
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./loom_ai.db
+      - REDIS_URL=redis://redis:6379/0
+      - TUZI_API_KEY=${TUZI_API_KEY:-}
+      - TUZI_BASE_URL=${TUZI_BASE_URL:-https://api.tu-zi.com}
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
+      - DEBUG=${DEBUG:-true}
+      - UPLOAD_PATH=./uploads
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/loom_ai.db:/app/loom_ai.db
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles:
+      - production
+      - remote
+
+  frontend:
+    # 优先使用远程镜像，如果环境变量 USE_LOCAL_BUILD=true 则使用本地构建
+    image: ${REGISTRY:-crpi-lxfoqbwevmx9mc1q.cn-chengdu.personal.cr.aliyuncs.com}/${NAMESPACE:-tari_tech}/${FRONTEND_IMAGE:-loomai}:${IMAGE_TAG:-latest}
+    build:
+      context: ./frontend
+      # 仅当 USE_LOCAL_BUILD=true 时才构建
+      <<: *default-variables
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000/v1}
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles:
+      - production
+      - remote
+
+  # 本地开发服务
+  backend-local:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./loom_ai.db
+      - REDIS_URL=redis://redis:6379/0
+      - TUZI_API_KEY=${TUZI_API_KEY:-}
+      - TUZI_BASE_URL=${TUZI_BASE_URL:-https://api.tu-zi.com}
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
+      - DEBUG=${DEBUG:-true}
+      - UPLOAD_PATH=./uploads
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/loom_ai.db:/app/loom_ai.db
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles:
+      - local
+
+  frontend-local:
+    build:
+      context: ./frontend
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000/v1}
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend-local:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles:
+      - local
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  redis_data:

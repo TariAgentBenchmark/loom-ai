@@ -40,6 +40,76 @@ The service exposes:
 
 Run tests with `uv run pytest`.
 
+## Docker deployment
+
+### Quick start with Docker Compose
+
+```bash
+# 使用远程镜像启动（默认）
+docker-compose up -d
+
+# 或者使用本地构建启动
+docker-compose --profile local up -d
+```
+
+This will start:
+- Frontend (Next.js) on port 3000
+- Backend (FastAPI) on port 8000
+- Redis on port 6379
+
+### Docker Compose Profiles
+
+项目支持多种启动方式：
+
+```bash
+# 使用远程镜像（生产环境）
+docker-compose --profile production up -d
+
+# 使用本地构建（开发环境）
+docker-compose --profile local up -d
+
+# 默认启动（使用远程镜像）
+docker-compose up -d
+```
+
+### 环境变量配置
+
+```bash
+# 复制环境变量示例文件
+cp .env.example .env
+
+# 编辑 .env 文件，设置镜像标签和其他配置
+# IMAGE_TAG=latest  # 使用最新版本
+# IMAGE_TAG=v1.0.0  # 使用特定版本
+```
+
+### Individual Docker builds
+
+```bash
+# Build frontend
+docker build -t loomai:latest ./frontend
+
+# Build backend
+docker build -t loomai-backend:latest ./backend
+```
+
+## GitHub Actions CI/CD
+
+This project includes automated Docker builds and deployments via GitHub Actions. See [docs/github-actions.md](docs/github-actions.md) for detailed configuration and usage instructions.
+
+### Automatic builds
+
+- **Main branch**: Builds and pushes `:latest` tags
+- **Pull requests**: Builds `:dev-{pr_number}` tags (build only, no push)
+- **Tags**: Builds and pushes versioned tags (e.g., `:v1.0.0`)
+- **Manual trigger**: Custom tag builds
+
+### Required secrets
+
+Configure these in your repository settings:
+- `ALIYUN_CR_USERNAME`: 阿里云容器镜像服务用户名
+- `ALIYUN_CR_PASSWORD`: 阿里云容器镜像服务密码
+
 ## Suggested dev workflow
 
 - Keep frontend and backend running in separate terminals during development.

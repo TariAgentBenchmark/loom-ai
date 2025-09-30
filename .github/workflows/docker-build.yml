@@ -1,0 +1,211 @@
+name: Build and Push Docker Images
+
+# 触发条件
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  create:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: '镜像标签'
+        required: false
+        default: 'custom'
+
+env:
+  REGISTRY: crpi-lxfoqbwevmx9mc1q.cn-chengdu.personal.cr.aliyuncs.com
+  NAMESPACE: tari_tech
+  FRONTEND_IMAGE_NAME: loomai
+  BACKEND_IMAGE_NAME: loomai-backend
+
+jobs:
+  # 确定镜像标签
+  determine-tags:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend-tag: ${{ steps.tags.outputs.frontend-tag }}
+      backend-tag: ${{ steps.tags.outputs.backend-tag }}
+      push-images: ${{ steps.tags.outputs.push-images }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Determine tags
+        id: tags
+        run: |
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "frontend-tag=latest" >> $GITHUB_OUTPUT
+            echo "backend-tag=latest" >> $GITHUB_OUTPUT
+            echo "push-images=true" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            PR_NUMBER=${{ github.event.number }}
+            echo "frontend-tag=dev-${PR_NUMBER}" >> $GITHUB_OUTPUT
+            echo "backend-tag=dev-${PR_NUMBER}" >> $GITHUB_OUTPUT
+            echo "push-images=false" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "create" && "${{ github.ref_type }}" == "tag" ]]; then
+            TAG_NAME=${{ github.ref_name }}
+            echo "frontend-tag=${TAG_NAME}" >> $GITHUB_OUTPUT
+            echo "backend-tag=${TAG_NAME}" >> $GITHUB_OUTPUT
+            echo "push-images=true" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            CUSTOM_TAG=${{ github.event.inputs.image_tag }}
+            echo "frontend-tag=${CUSTOM_TAG}" >> $GITHUB_OUTPUT
+            echo "backend-tag=${CUSTOM_TAG}" >> $GITHUB_OUTPUT
+            echo "push-images=true" >> $GITHUB_OUTPUT
+          else
+            echo "frontend-tag=latest" >> $GITHUB_OUTPUT
+            echo "backend-tag=latest" >> $GITHUB_OUTPUT
+            echo "push-images=false" >> $GITHUB_OUTPUT
+          fi
+
+  # 构建前端镜像
+  build-frontend:
+    runs-on: ubuntu-latest
+    needs: determine-tags
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image: ${{ steps.meta.outputs.tags }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Aliyun Container Registry
+        if: needs.determine-tags.outputs.push-images == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALIYUN_CR_USERNAME }}
+          password: ${{ secrets.ALIYUN_CR_PASSWORD }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.FRONTEND_IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ needs.determine-tags.outputs.frontend-tag }}
+
+      - name: Build and push frontend image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: ${{ needs.determine-tags.outputs.push-images == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+      - name: Run Trivy vulnerability scanner on frontend
+        if: needs.determine-tags.outputs.push-images == 'true'
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ needs.determine-tags.outputs.frontend-tag }}
+          format: 'sarif'
+          output: 'trivy-frontend-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        if: needs.determine-tags.outputs.push-images == 'true'
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-frontend-results.sarif'
+
+  # 构建后端镜像
+  build-backend:
+    runs-on: ubuntu-latest
+    needs: determine-tags
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image: ${{ steps.meta.outputs.tags }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Aliyun Container Registry
+        if: needs.determine-tags.outputs.push-images == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALIYUN_CR_USERNAME }}
+          password: ${{ secrets.ALIYUN_CR_PASSWORD }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.BACKEND_IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ needs.determine-tags.outputs.backend-tag }}
+
+      - name: Build and push backend image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: ${{ needs.determine-tags.outputs.push-images == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+      - name: Run Trivy vulnerability scanner on backend
+        if: needs.determine-tags.outputs.push-images == 'true'
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.BACKEND_IMAGE_NAME }}:${{ needs.determine-tags.outputs.backend-tag }}
+          format: 'sarif'
+          output: 'trivy-backend-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        if: needs.determine-tags.outputs.push-images == 'true'
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-backend-results.sarif'
+
+  # 汇总构建结果
+  build-summary:
+    runs-on: ubuntu-latest
+    needs: [determine-tags, build-frontend, build-backend]
+    if: always()
+    steps:
+      - name: Build Summary
+        run: |
+          echo "## Docker Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Frontend Image" >> $GITHUB_STEP_SUMMARY
+          echo "- Image: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ needs.determine-tags.outputs.frontend-tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Status: ${{ needs.build-frontend.result }}" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ needs.build-frontend.result }}" == "success" ]]; then
+            echo "- Digest: ${{ needs.build-frontend.outputs.image-digest }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Backend Image" >> $GITHUB_STEP_SUMMARY
+          echo "- Image: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.BACKEND_IMAGE_NAME }}:${{ needs.determine-tags.outputs.backend-tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Status: ${{ needs.build-backend.result }}" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ needs.build-backend.result }}" == "success" ]]; then
+            echo "- Digest: ${{ needs.build-backend.outputs.image-digest }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Push Status" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ needs.determine-tags.outputs.push-images }}" == "true" ]]; then
+            echo "- Images pushed to registry: ✅" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Images built but not pushed (PR build): ℹ️" >> $GITHUB_STEP_SUMMARY
+          fi
