@@ -1,9 +1,11 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { History } from 'lucide-react';
 import { ProcessingMethod, getProcessingMethodInfo } from '../lib/processing';
-import { resolveFileUrl } from '../lib/api';
+import { resolveFileUrl, HistoryTask } from '../lib/api';
+import HistoryList from './HistoryList';
+import ImagePreview from './ImagePreview';
 
 interface ProcessingPageProps {
   method: ProcessingMethod;
@@ -20,6 +22,7 @@ interface ProcessingPageProps {
   onFileInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   errorMessage?: string;
   successMessage?: string;
+  accessToken?: string;
 }
 
 const ProcessingPage: React.FC<ProcessingPageProps> = ({
@@ -37,8 +40,21 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   onFileInputChange,
   errorMessage,
   successMessage,
+  accessToken,
 }) => {
   const info = getProcessingMethodInfo(method);
+  const [selectedTask, setSelectedTask] = useState<HistoryTask | null>(null);
+  const [showImagePreview, setShowImagePreview] = useState(false);
+
+  const handleTaskSelect = (task: HistoryTask) => {
+    setSelectedTask(task);
+    setShowImagePreview(true);
+  };
+
+  const handleClosePreview = () => {
+    setShowImagePreview(false);
+    setSelectedTask(null);
+  };
 
   return (
     <div className="h-screen bg-gray-50 flex flex-col">
@@ -203,12 +219,24 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
             <History className="h-5 w-5 mr-2 text-gray-600" />
             历史记录
           </h3>
-          <div className="text-center text-gray-400 py-8">
-            <p className="text-sm">暂无历史记录</p>
-          </div>
+          {accessToken ? (
+            <HistoryList accessToken={accessToken} onTaskSelect={handleTaskSelect} />
+          ) : (
+            <div className="text-center text-gray-400 py-8">
+              <p className="text-sm">请登录后查看历史记录</p>
+            </div>
+          )}
         </div>
       </div>
 
+      {/* 图片预览弹窗 */}
+      {showImagePreview && selectedTask && (
+        <ImagePreview
+          task={selectedTask}
+          onClose={handleClosePreview}
+          accessToken={accessToken || ''}
+        />
+      )}
     </div>
   );
 };

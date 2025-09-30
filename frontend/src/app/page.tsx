@@ -260,6 +260,7 @@ export default function Home() {
           onFileInputChange={handleImageUpload}
           errorMessage={errorMessage}
           successMessage={successMessage}
+          accessToken={accessToken || undefined}
         />
       ) : (
         <HomeView

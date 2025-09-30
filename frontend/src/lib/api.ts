@@ -284,3 +284,79 @@ export const resolveFileUrl = (path: string | null | undefined) => {
 
 export const getUserProfile = (accessToken: string) =>
   getJson<UserProfile>("/user/profile", accessToken);
+
+// 历史记录相关接口
+export interface HistoryTask {
+  taskId: string;
+  type: string;
+  typeName: string;
+  status: string;
+  originalImage: {
+    url: string;
+    filename: string;
+    size: number;
+    dimensions?: { width: number; height: number };
+  };
+  resultImage?: {
+    url: string;
+    filename: string;
+    size: number;
+    dimensions?: { width: number; height: number };
+  };
+  creditsUsed: number;
+  processingTime?: number;
+  favorite: boolean;
+  tags: string[];
+  createdAt: string;
+  completedAt?: string;
+}
+
+export interface HistoryResponse {
+  tasks: HistoryTask[];
+  statistics: {
+    totalTasks: number;
+    completedTasks: number;
+    failedTasks: number;
+    totalCreditsUsed: number;
+    avgProcessingTime: number;
+  };
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface TaskDetail extends HistoryTask {
+  options?: any;
+  metadata?: any;
+  notes?: string;
+  downloadCount: number;
+  lastDownloaded?: string;
+  startedAt?: string;
+}
+
+export const getHistoryTasks = (
+  accessToken: string,
+  options?: {
+    type?: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+  }
+) => {
+  const params = new URLSearchParams();
+  if (options?.type) params.append('type', options.type);
+  if (options?.status) params.append('status', options.status);
+  if (options?.page) params.append('page', options.page.toString());
+  if (options?.limit) params.append('limit', options.limit.toString());
+  
+  const query = params.toString();
+  const path = `/history/tasks${query ? `?${query}` : ''}`;
+  
+  return getJson<HistoryResponse>(path, accessToken);
+};
+
+export const getTaskDetail = (taskId: string, accessToken: string) =>
+  getJson<TaskDetail>(`/history/tasks/${taskId}`, accessToken);
