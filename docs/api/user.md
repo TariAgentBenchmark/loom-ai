@@ -144,7 +144,6 @@ Authorization: Bearer access-token-here
     "usage": {
       "seamless": 234,           // 四方连续转换使用次数
       "vectorize": 189,          // 矢量化使用次数
-      "extractEdit": 156,        // 提取编辑使用次数
       "extractPattern": 145,     // 提取花型使用次数
       "removeWatermark": 234,    // 去水印使用次数
       "denoise": 178,            // 去噪使用次数

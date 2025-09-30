@@ -8,7 +8,7 @@
 - [**总览**](./README.md) - API概述、快速开始、基础信息
 - [**认证管理**](./auth.md) - 用户注册、登录、Token管理
 - [**用户管理**](./user.md) - 用户信息、账户统计、设置管理
-- [**图片处理**](./processing.md) - 7种AI图片处理功能的完整API
+- [**图片处理**](./processing.md) - 6种AI图片处理功能的完整API
 - [**算力管理**](./credits.md) - 算力查询、消耗记录、转赠功能
 - [**历史记录**](./history.md) - 处理历史、结果管理、收藏功能
 - [**套餐充值**](./payment.md) - 套餐购买、支付管理、退款流程
@@ -41,7 +41,6 @@
 |---------|------|----------|------|
 | AI四方连续转换 | `/processing/seamless` | 60 | 矩形图转四方连续打印图 |
 | AI矢量化(转SVG) | `/processing/vectorize` | 100 | 图片转SVG矢量图 |
-| AI提取编辑 | `/processing/extract-edit` | 80 | 智能编辑，支持语音控制 |
 | AI提取花型 | `/processing/extract-pattern` | 100 | 提取花型元素 |
 | AI智能去水印 | `/processing/remove-watermark` | 70 | 去除各类水印 |
 | AI布纹去噪 | `/processing/denoise` | 80 | 去噪点和布纹 |

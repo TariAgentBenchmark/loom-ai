@@ -162,11 +162,6 @@ Authorization: Bearer access-token-here
         "baseCredits": 100,
         "description": "使用AI一键将图片变成矢量图"
       },
-      "extractEdit": {
-        "name": "AI提取编辑",
-        "baseCredits": 80,
-        "description": "使用AI提取和编辑图片内容"
-      },
       "extractPattern": {
         "name": "AI提取花型",
         "baseCredits": 100,
@@ -440,7 +435,6 @@ Authorization: Bearer access-token-here
 |------|----------|------|
 | AI四方连续转换 | 60 | - |
 | AI矢量化(转SVG) | 100 | 复杂度较高 |
-| AI提取编辑 | 80 | 支持语音控制 |
 | AI提取花型 | 100 | 需要预处理 |
 | AI智能去水印 | 70 | - |
 | AI布纹去噪 | 80 | 可选矢量重绘 |

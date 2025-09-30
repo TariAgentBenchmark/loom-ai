@@ -21,7 +21,6 @@ Authorization: Bearer access-token-here
 - `type`: 处理类型过滤（可选）
   - `seamless`: AI四方连续转换
   - `vectorize`: AI矢量化(转SVG)
-  - `extractEdit`: AI提取编辑
   - `extractPattern`: AI提取花型
   - `removeWatermark`: AI智能去水印
   - `denoise`: AI布纹去噪

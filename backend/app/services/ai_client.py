@@ -184,25 +184,6 @@ class AIClient:
         result = await self.process_image_gemini(image_bytes, prompt, "image/png")
         return self._extract_image_url(result)
 
-    async def extract_and_edit(self, image_bytes: bytes, options: Dict[str, Any]) -> str:
-        """AI提取编辑"""
-        edit_mode = options.get('editMode', 'smart')
-        instructions = options.get('instructions', '')
-        
-        prompt = f"""
-        对这张图片进行智能编辑处理：
-        1. 编辑模式：{'智能自动编辑' if edit_mode == 'smart' else '精确手动编辑'}
-        2. 具体指令：{instructions if instructions else '优化图片质量和视觉效果'}
-        3. 保持图片的主要内容和结构
-        4. 提升图片的整体质量和美观度
-        5. 确保编辑结果自然真实
-        
-        请按照要求对图片进行编辑处理。
-        """
-        
-        result = await self.process_image_gemini(image_bytes, prompt, "image/jpeg")
-        return self._extract_image_url(result)
-
     async def extract_pattern(self, image_bytes: bytes, options: Dict[str, Any]) -> str:
         """AI提取花型"""
         pattern_type = options.get('patternType', 'floral')

@@ -228,11 +228,6 @@ async def get_pricing():
                     "baseCredits": 100,
                     "description": "使用AI一键将图片变成矢量图"
                 },
-                "extractEdit": {
-                    "name": "AI提取编辑",
-                    "baseCredits": 80,
-                    "description": "使用AI提取和编辑图片内容"
-                },
                 "extractPattern": {
                     "name": "AI提取花型",
                     "baseCredits": 100,

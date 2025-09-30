@@ -2,7 +2,7 @@
 
 ## 概述
 
-图片处理模块是LoomAI的核心功能，提供7种不同的AI图片处理服务。
+图片处理模块是LoomAI的核心功能，提供6种不同的AI图片处理服务。
 
 ## 通用处理流程
 
@@ -82,44 +82,7 @@
 }
 ```
 
-### 3. AI提取编辑
-
-**接口地址**: `POST /processing/extract-edit`
-
-**描述**: 智能编辑，支持语音控制
-
-**算力消耗**: 80算力
-
-**请求参数**:
-- **Form Data**:
-  - `image`: 图片文件（必填）
-  - `options`: JSON字符串（可选）
-
-**options参数**:
-```json
-{
-  "voiceControl": true,       // 启用语音控制
-  "editMode": "smart",        // 编辑模式：smart|manual
-  "instructions": "将背景换成白色" // 编辑指令（可选）
-}
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "data": {
-    "taskId": "task_extract_edit_123456789",
-    "status": "processing",
-    "estimatedTime": 150,
-    "creditsUsed": 80,
-    "createdAt": "2023-12-01T10:00:00Z"
-  },
-  "message": "智能编辑任务创建成功"
-}
-```
-
-### 4. AI提取花型
+### 3. AI提取花型
 
 **接口地址**: `POST /processing/extract-pattern`
 
@@ -156,7 +119,7 @@
 }
 ```
 
-### 5. AI智能去水印
+### 4. AI智能去水印
 
 **接口地址**: `POST /processing/remove-watermark`
 
@@ -192,7 +155,7 @@
 }
 ```
 
-### 6. AI布纹去噪
+### 5. AI布纹去噪
 
 **接口地址**: `POST /processing/denoise`
 
@@ -228,7 +191,7 @@
 }
 ```
 
-### 7. AI毛线刺绣增强
+### 6. AI毛线刺绣增强
 
 **接口地址**: `POST /processing/embroidery`
 
@@ -267,7 +230,7 @@
 
 ## 任务管理接口
 
-### 8. 查询任务状态
+### 7. 查询任务状态
 
 **接口地址**: `GET /processing/status/{taskId}`
 
@@ -301,7 +264,7 @@
 }
 ```
 
-### 9. 下载处理结果
+### 8. 下载处理结果
 
 **接口地址**: `GET /processing/result/{taskId}/download`
 
@@ -315,7 +278,7 @@
 
 **响应**: 直接返回图片文件流
 
-### 10. 获取任务列表
+### 9. 获取任务列表
 
 **接口地址**: `GET /processing/tasks`
 
@@ -353,7 +316,7 @@
 }
 ```
 
-### 11. 删除任务
+### 10. 删除任务
 
 **接口地址**: `DELETE /processing/task/{taskId}`
 
@@ -373,7 +336,7 @@
 
 ## 批量操作接口
 
-### 12. 批量下载
+### 11. 批量下载
 
 **接口地址**: `POST /processing/batch-download`
 

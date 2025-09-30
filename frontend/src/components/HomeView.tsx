@@ -253,27 +253,6 @@ const HomeView: React.FC<HomeViewProps> = ({
 
             <div
               className="bg-white rounded-2xl border border-gray-200 p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
-              onClick={() => onSelectMethod('extract_edit')}
-            >
-              <div className="text-center mb-6">
-                <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg mx-auto mb-4 group-hover:shadow-xl transition-all">
-                  <img src="/AI提取编辑.png" alt="提取编辑" className="h-12 w-12 object-contain" />
-                </div>
-                <h4 className="text-xl font-bold text-gray-900 mb-3">AI提取编辑</h4>
-                <p className="text-gray-600 leading-relaxed">
-                  使用AI提取和编辑图片内容，支持语音控制进行智能编辑。
-                </p>
-                <div className="inline-block bg-green-100 text-green-600 px-3 py-1 rounded-full text-sm font-medium mt-2">
-                  智能语音
-                </div>
-              </div>
-              <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white py-3 px-6 rounded-xl text-center font-medium hover:from-green-600 hover:to-emerald-600 transition-all">
-                立即使用
-              </div>
-            </div>
-
-            <div
-              className="bg-white rounded-2xl border border-gray-200 p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
               onClick={() => onSelectMethod('extract_pattern')}
             >
               <div className="text-center mb-6">

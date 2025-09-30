@@ -9,7 +9,6 @@ from app.core.database import Base
 class TaskType(PyEnum):
     SEAMLESS = "seamless"  # AI四方连续转换
     VECTORIZE = "vectorize"  # AI矢量化(转SVG)
-    EXTRACT_EDIT = "extract_edit"  # AI提取编辑
     EXTRACT_PATTERN = "extract_pattern"  # AI提取花型
     REMOVE_WATERMARK = "remove_watermark"  # AI智能去水印
     DENOISE = "denoise"  # AI布纹去噪
@@ -85,7 +84,6 @@ class Task(Base):
         type_names = {
             TaskType.SEAMLESS.value: "AI四方连续转换",
             TaskType.VECTORIZE.value: "AI矢量化(转SVG)",
-            TaskType.EXTRACT_EDIT.value: "AI提取编辑",
             TaskType.EXTRACT_PATTERN.value: "AI提取花型",
             TaskType.REMOVE_WATERMARK.value: "AI智能去水印",
             TaskType.DENOISE.value: "AI布纹去噪",

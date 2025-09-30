@@ -83,7 +83,6 @@ REDIS_URL=redis://localhost:6379/0
 |------|------|----------|------|
 | AI四方连续转换 | `POST /v1/processing/seamless` | 60 | 矩形图转四方连续 |
 | AI矢量化 | `POST /v1/processing/vectorize` | 100 | 图片转SVG矢量图 |
-| AI提取编辑 | `POST /v1/processing/extract-edit` | 80 | 智能编辑 |
 | AI提取花型 | `POST /v1/processing/extract-pattern` | 100 | 花型元素提取 |
 | AI智能去水印 | `POST /v1/processing/remove-watermark` | 70 | 水印去除 |
 | AI布纹去噪 | `POST /v1/processing/denoise` | 80 | 噪点布纹清理 |

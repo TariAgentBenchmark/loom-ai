@@ -25,7 +25,6 @@ class ProcessingService:
         self.credit_costs = {
             TaskType.SEAMLESS.value: 60,
             TaskType.VECTORIZE.value: 100,
-            TaskType.EXTRACT_EDIT.value: 80,
             TaskType.EXTRACT_PATTERN.value: 100,
             TaskType.REMOVE_WATERMARK.value: 70,
             TaskType.DENOISE.value: 80,
@@ -36,7 +35,6 @@ class ProcessingService:
         self.estimated_times = {
             TaskType.SEAMLESS.value: 120,
             TaskType.VECTORIZE.value: 180,
-            TaskType.EXTRACT_EDIT.value: 150,
             TaskType.EXTRACT_PATTERN.value: 200,
             TaskType.REMOVE_WATERMARK.value: 90,
             TaskType.DENOISE.value: 120,
@@ -156,8 +154,6 @@ class ProcessingService:
                     result_url = await ai_client.seamless_pattern_conversion(image_bytes, task.options)
                 elif task.type == TaskType.VECTORIZE.value:
                     result_url = await ai_client.vectorize_image(image_bytes, task.options)
-                elif task.type == TaskType.EXTRACT_EDIT.value:
-                    result_url = await ai_client.extract_and_edit(image_bytes, task.options)
                 elif task.type == TaskType.EXTRACT_PATTERN.value:
                     result_url = await ai_client.extract_pattern(image_bytes, task.options)
                 elif task.type == TaskType.REMOVE_WATERMARK.value:

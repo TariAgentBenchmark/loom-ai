@@ -98,7 +98,6 @@ const processingPathMap: Record<ProcessingMethod, string> = {
   seamless: "/processing/seamless",
   style: "/processing/vectorize",
   embroidery: "/processing/embroidery",
-  extract_edit: "/processing/extract-edit",
   extract_pattern: "/processing/extract-pattern",
   watermark_removal: "/processing/remove-watermark",
   noise_removal: "/processing/denoise",
@@ -302,4 +301,3 @@ export const resolveFileUrl = (path: string | null | undefined) => {
 
 export const getUserProfile = (accessToken: string) =>
   getJson<UserProfile>("/user/profile", accessToken);
-

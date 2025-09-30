@@ -2,7 +2,6 @@ export type ProcessingMethod =
   | 'seamless'
   | 'style'
   | 'embroidery'
-  | 'extract_edit'
   | 'extract_pattern'
   | 'watermark_removal'
   | 'noise_removal';
@@ -20,10 +19,6 @@ export interface ProcessingOptions {
     needleType: 'fine' | 'medium' | 'thick';
     stitchDensity: 'low' | 'medium' | 'high';
     enhanceDetails: boolean;
-  };
-  extract_edit: {
-    voiceControl: boolean;
-    editMode: 'smart' | 'manual';
   };
   extract_pattern: {
     preprocessing: boolean;
@@ -53,10 +48,6 @@ export const defaultProcessingOptions: ProcessingOptions = {
     needleType: 'medium',
     stitchDensity: 'medium',
     enhanceDetails: true,
-  },
-  extract_edit: {
-    voiceControl: true,
-    editMode: 'smart',
   },
   extract_pattern: {
     preprocessing: true,
@@ -115,18 +106,6 @@ export const processingMethodInfo: Record<ProcessingMethod, ProcessingMethodInfo
       '设置针脚密度（稀疏/中等/密集）',
       '启用增强细节纹理',
       '生成逼真的毛线刺绣效果',
-    ],
-  },
-  extract_edit: {
-    title: 'AI提取编辑',
-    description: '使用AI提取和编辑图片内容，支持语音控制进行智能编辑。',
-    icon: '/AI提取编辑.png',
-    examples: [
-      '上传需要编辑的图片',
-      '启用语音控制功能',
-      '选择智能编辑模式',
-      '通过语音描述编辑需求',
-      'AI智能完成图片编辑',
     ],
   },
   extract_pattern: {

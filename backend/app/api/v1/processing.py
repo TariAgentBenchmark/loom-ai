@@ -96,46 +96,6 @@ async def vectorize_image(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-
-@router.post("/extract-edit")
-async def extract_and_edit(
-    image: UploadFile = File(...),
-    options: Optional[str] = Form(None),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """AI提取编辑"""
-    try:
-        processing_options = {}
-        if options:
-            processing_options = json.loads(options)
-        
-        image_bytes = await image.read()
-        
-        task = await processing_service.create_task(
-            db=db,
-            user=current_user,
-            task_type="extract_edit",
-            image_bytes=image_bytes,
-            original_filename=image.filename,
-            options=processing_options
-        )
-        
-        return SuccessResponse(
-            data={
-                "taskId": task.task_id,
-                "status": task.status,
-                "estimatedTime": task.estimated_time,
-                "creditsUsed": task.credits_used,
-                "createdAt": task.created_at
-            },
-            message="智能编辑任务创建成功"
-        )
-        
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
 @router.post("/extract-pattern")
 async def extract_pattern(
     image: UploadFile = File(...),
