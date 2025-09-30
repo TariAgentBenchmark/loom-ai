@@ -28,7 +28,7 @@ export const processingMethodInfo: Record<ProcessingMethod, ProcessingMethodInfo
   },
   style: {
     title: 'AI矢量化(转SVG)',
-    description: '使用AI一键将图片变成矢量图，线条清晰，图片还原。助力您的产品设计。（100算力）',
+    description: '使用AI一键将图片变成矢量图，线条清晰，图片还原。助力您的产品设计。',
     icon: '/AI矢量化转SVG.png',
     examples: [
       '上传需要矢量化的图片',
@@ -51,7 +51,7 @@ export const processingMethodInfo: Record<ProcessingMethod, ProcessingMethodInfo
   },
   extract_pattern: {
     title: 'AI提取花型',
-    description: '需预处理图片，支持用嘴改图。提取图案中的花型元素，适合设计应用。（100算力）',
+    description: '需预处理图片，支持用嘴改图。提取图案中的花型元素，适合设计应用。',
     icon: '/AI提取花型.png',
     examples: [
       '上传包含花型的图片',
@@ -74,7 +74,7 @@ export const processingMethodInfo: Record<ProcessingMethod, ProcessingMethodInfo
   },
   noise_removal: {
     title: 'AI布纹去噪去',
-    description: '使用AI快速的去除图片中的噪点、布纹。还可用于对模糊矢量花的高清重绘。（80算力）',
+    description: '使用AI快速的去除图片中的噪点、布纹。还可用于对模糊矢量花的高清重绘。',
     icon: '/AI布纹去噪.png',
     examples: [
       '上传有噪点或布纹的图片',

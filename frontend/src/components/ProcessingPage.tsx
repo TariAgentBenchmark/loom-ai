@@ -41,7 +41,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   const info = getProcessingMethodInfo(method);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="h-screen bg-gray-50 flex flex-col">
       <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center space-x-4">
@@ -75,8 +75,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
         </div>
       </header>
 
-      <div className="flex">
-        <div className="w-80 bg-white border-r border-gray-200 p-6">
+      <div className="flex flex-1 overflow-hidden">
+        <div className="w-80 bg-white border-r border-gray-200 p-6 overflow-y-auto">
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">上传图片</h3>
             <div
@@ -115,6 +115,23 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
           </div>
 
           <div className="mb-6">
+            <button
+              onClick={onProcessImage}
+              disabled={!hasUploadedImage || isProcessing}
+              className="w-full bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-medium py-4 px-6 rounded-xl text-lg shadow-lg transition-all transform hover:scale-105 disabled:hover:scale-100"
+            >
+              {isProcessing ? (
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
+                  <span>处理中...</span>
+                </div>
+              ) : (
+                '一键生成'
+              )}
+            </button>
+          </div>
+
+          <div className="mb-6">
             <h4 className="text-base font-semibold text-gray-900 mb-3">使用提示</h4>
             <p className="text-sm text-gray-600 mb-4">{info.description}</p>
           </div>
@@ -132,7 +149,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
         </div>
 
         <div className="flex-1 p-8">
-          <div className="flex flex-col items-center justify-center min-h-[500px] space-y-4">
+          <div className="flex flex-col items-center justify-center h-full space-y-4">
             {errorMessage && (
               <div className="w-full max-w-lg rounded-xl border border-red-200 bg-red-50 px-6 py-4 text-sm text-red-600">
                 {errorMessage}
@@ -144,11 +161,11 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
               </div>
             )}
             {processedImage ? (
-              <div className="text-center">
+              <div className="text-center w-full h-full flex flex-col items-center justify-center">
                 <img
                   src={resolveFileUrl(processedImage)}
                   alt="Processed"
-                  className="mx-auto max-h-96 rounded-lg border border-gray-200 shadow-lg mb-6"
+                  className="max-w-full max-h-[80vh] w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-lg mb-6"
                 />
                 <a
                   className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-xl font-medium transition shadow-lg"
@@ -181,7 +198,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
           </div>
         </div>
 
-        <div className="w-80 bg-white border-l border-gray-200 p-6">
+        <div className="w-80 bg-white border-l border-gray-200 p-6 overflow-y-auto">
           <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
             <History className="h-5 w-5 mr-2 text-gray-600" />
             历史记录
@@ -192,22 +209,6 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
         </div>
       </div>
 
-      <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2">
-        <button
-          onClick={onProcessImage}
-          disabled={!hasUploadedImage || isProcessing}
-          className="bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-medium py-4 px-12 rounded-full text-lg shadow-2xl transition-all transform hover:scale-105 disabled:hover:scale-100"
-        >
-          {isProcessing ? (
-            <div className="flex items-center space-x-2">
-              <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
-              <span>处理中...</span>
-            </div>
-          ) : (
-            '一键生成'
-          )}
-        </button>
-      </div>
     </div>
   );
 };

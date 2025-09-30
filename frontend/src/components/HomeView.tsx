@@ -242,9 +242,6 @@ const HomeView: React.FC<HomeViewProps> = ({
                 <p className="text-gray-600 leading-relaxed">
                   使用AI一键将图片变成矢量图，线条清晰，图片还原。助力您的产品设计。
                 </p>
-                <div className="inline-block bg-orange-100 text-orange-600 px-3 py-1 rounded-full text-sm font-medium mt-2">
-                  100算力
-                </div>
               </div>
               <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white py-3 px-6 rounded-xl text-center font-medium hover:from-purple-600 hover:to-pink-600 transition-all">
                 立即使用
@@ -263,9 +260,6 @@ const HomeView: React.FC<HomeViewProps> = ({
                 <p className="text-gray-600 leading-relaxed">
                   需预处理图片，支持用嘴改图。提取图案中的花型元素，适合设计应用。
                 </p>
-                <div className="inline-block bg-orange-100 text-orange-600 px-3 py-1 rounded-full text-sm font-medium mt-2">
-                  100算力
-                </div>
               </div>
               <div className="bg-gradient-to-r from-rose-500 to-pink-500 text-white py-3 px-6 rounded-xl text-center font-medium hover:from-rose-600 hover:to-pink-600 transition-all">
                 立即使用
@@ -302,9 +296,6 @@ const HomeView: React.FC<HomeViewProps> = ({
                 <p className="text-gray-600 leading-relaxed">
                   使用AI快速的去除图片中的噪点、布纹。还可用于对模糊矢量花的高清重绘。
                 </p>
-                <div className="inline-block bg-amber-100 text-amber-600 px-3 py-1 rounded-full text-sm font-medium mt-2">
-                  80算力
-                </div>
               </div>
               <div className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white py-3 px-6 rounded-xl text-center font-medium hover:from-amber-600 hover:to-yellow-600 transition-all">
                 立即使用
