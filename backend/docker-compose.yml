@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./loom_ai.db
+      - REDIS_URL=redis://redis:6379/0
+      - TUZI_API_KEY=${TUZI_API_KEY}
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
+      - DEBUG=true
+    volumes:
+      - ./uploads:/app/uploads
+      - ./loom_ai.db:/app/loom_ai.db
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  redis_data:
