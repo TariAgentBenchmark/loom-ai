@@ -7,6 +7,7 @@ import {
   ProcessingOptions,
   getProcessingMethodInfo,
 } from '../lib/processing';
+import { resolveFileUrl } from '../lib/api';
 
 interface ProcessingPageProps {
   method: ProcessingMethod;
@@ -26,6 +27,8 @@ interface ProcessingPageProps {
   onDrop: (event: React.DragEvent<HTMLDivElement>) => void;
   fileInputRef: React.RefObject<HTMLInputElement>;
   onFileInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  errorMessage?: string;
+  successMessage?: string;
 }
 
 const ProcessingPage: React.FC<ProcessingPageProps> = ({
@@ -43,6 +46,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   onDrop,
   fileInputRef,
   onFileInputChange,
+  errorMessage,
+  successMessage,
 }) => {
   const info = getProcessingMethodInfo(method);
 
@@ -451,7 +456,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
               {imagePreview ? (
                 <div className="space-y-4">
                   <img
-                    src={imagePreview}
+                    src={resolveFileUrl(imagePreview)}
                     alt="Preview"
                     className="mx-auto max-h-32 rounded-lg border border-gray-200"
                   />
@@ -495,17 +500,33 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
         </div>
 
         <div className="flex-1 p-8">
-          <div className="flex flex-col items-center justify-center min-h-[500px]">
+          <div className="flex flex-col items-center justify-center min-h-[500px] space-y-4">
+            {errorMessage && (
+              <div className="w-full max-w-lg rounded-xl border border-red-200 bg-red-50 px-6 py-4 text-sm text-red-600">
+                {errorMessage}
+              </div>
+            )}
+            {successMessage && !errorMessage && (
+              <div className="w-full max-w-lg rounded-xl border border-green-200 bg-green-50 px-6 py-4 text-sm text-green-600">
+                {successMessage}
+              </div>
+            )}
             {processedImage ? (
               <div className="text-center">
                 <img
-                  src={processedImage}
+                  src={resolveFileUrl(processedImage)}
                   alt="Processed"
                   className="mx-auto max-h-96 rounded-lg border border-gray-200 shadow-lg mb-6"
                 />
-                <button className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-xl font-medium transition shadow-lg">
+                <a
+                  className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-xl font-medium transition shadow-lg"
+                  href={resolveFileUrl(processedImage)}
+                  download
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   下载结果
-                </button>
+                </a>
               </div>
             ) : (
               <div className="text-center">
@@ -545,22 +566,20 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
       </div>
 
       <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2">
-        {hasUploadedImage && (
-          <button
-            onClick={onProcessImage}
-            disabled={isProcessing}
-            className="bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-medium py-4 px-12 rounded-full text-lg shadow-2xl transition-all transform hover:scale-105 disabled:hover:scale-100"
-          >
-            {isProcessing ? (
-              <div className="flex items-center space-x-2">
-                <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
-                <span>处理中...</span>
-              </div>
-            ) : (
-              '一键生成'
-            )}
-          </button>
-        )}
+        <button
+          onClick={onProcessImage}
+          disabled={!hasUploadedImage || isProcessing}
+          className="bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-medium py-4 px-12 rounded-full text-lg shadow-2xl transition-all transform hover:scale-105 disabled:hover:scale-100"
+        >
+          {isProcessing ? (
+            <div className="flex items-center space-x-2">
+              <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
+              <span>处理中...</span>
+            </div>
+          ) : (
+            '一键生成'
+          )}
+        </button>
       </div>
     </div>
   );

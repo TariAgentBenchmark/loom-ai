@@ -19,14 +19,14 @@ if settings.database_url.startswith("sqlite"):
             "timeout": 20
         },
         poolclass=StaticPool,
-        echo=settings.debug
+        echo=settings.sqlalchemy_echo
     )
 else:
     # PostgreSQL或其他数据库配置
     engine = create_engine(
         settings.database_url,
         pool_pre_ping=True,
-        echo=settings.debug
+        echo=settings.sqlalchemy_echo
     )
 
 # 创建SessionLocal类

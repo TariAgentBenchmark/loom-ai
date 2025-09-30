@@ -17,6 +17,7 @@ class Settings(BaseSettings):
 
     # 数据库配置
     database_url: str = "sqlite:///./loom_ai.db"
+    sqlalchemy_echo: bool = False
 
     # Redis配置
     redis_url: str = "redis://localhost:6379/0"
