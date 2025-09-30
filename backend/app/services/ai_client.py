@@ -4,7 +4,7 @@ import json
 import logging
 from io import BytesIO
 from random import uniform
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import httpx
 from PIL import Image
@@ -149,14 +149,18 @@ class AIClient:
         logger.info(f"Processing image with Gemini: {prompt[:100]}...")
         return await self._make_request("POST", endpoint, data)
 
-    async def seamless_pattern_conversion(self, image_bytes: bytes, options: Dict[str, Any]) -> str:
+    async def seamless_pattern_conversion(
+        self,
+        image_bytes: bytes,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> str:
         """AI四方连续转换"""
-        prompt = f"""
+        prompt = """
         将这张图片转换为可以四方连续拼接的图案。要求：
         1. 确保图案边缘可以无缝连接
         2. 保持原有图案的主要特征和风格
-        3. {'去除背景元素' if options.get('removeBackground', True) else '保留背景'}
-        4. {'确保完美的循环拼接效果' if options.get('seamlessLoop', True) else ''}
+        3. 去除背景元素
+        4. 确保完美的循环拼接效果
         5. 输出为PNG格式，保持透明背景
         
         请生成一个可以四方连续拼接的图案版本。
@@ -165,15 +169,16 @@ class AIClient:
         result = await self.process_image_gemini(image_bytes, prompt, "image/png")
         return self._extract_image_url(result)
 
-    async def vectorize_image(self, image_bytes: bytes, options: Dict[str, Any]) -> str:
+    async def vectorize_image(
+        self,
+        image_bytes: bytes,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> str:
         """AI矢量化(转SVG)"""
-        output_style = options.get('outputStyle', 'vector')
-        output_ratio = options.get('outputRatio', '1:1')
-        
-        prompt = f"""
+        prompt = """
         将这张图片转换为矢量风格的图案：
-        1. 输出风格：{'矢量风格，线条清晰简洁' if output_style == 'vector' else '无缝循环风格'}
-        2. 输出比例：{output_ratio}
+        1. 输出风格：矢量风格，线条清晰简洁
+        2. 输出比例：1:1
         3. 保持图片的主要特征和识别度
         4. 线条要清晰，颜色要准确
         5. 适合用于产品设计和印刷
@@ -184,47 +189,32 @@ class AIClient:
         result = await self.process_image_gemini(image_bytes, prompt, "image/png")
         return self._extract_image_url(result)
 
-    async def extract_pattern(self, image_bytes: bytes, options: Dict[str, Any]) -> str:
+    async def extract_pattern(
+        self,
+        image_bytes: bytes,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> str:
         """AI提取花型"""
-        pattern_type = options.get('patternType', 'floral')
-        preprocessing = options.get('preprocessing', True)
-        
-        pattern_descriptions = {
-            'floral': '花卉图案，包括花朵、叶子等植物元素',
-            'geometric': '几何图案，包括线条、形状等几何元素', 
-            'abstract': '抽象图案，包括艺术化的抽象元素'
-        }
-        
-        prompt = f"""
-        从这张图片中提取{pattern_descriptions.get(pattern_type, '图案')}：
-        1. {'先进行图片预处理，提升清晰度' if preprocessing else '直接处理原图'}
-        2. 专注提取{pattern_type}类型的图案元素
-        3. 去除背景和无关元素
-        4. 保持图案的完整性和细节
-        5. 输出清晰的图案，适合设计应用
-        
-        请提取出清晰的{pattern_type}图案。
-        """
-        
+        prompt = (
+            "把衣服图案展开，分析图案，提炼图案，图案细节图案密度一致，去掉皱褶，无阴影。"
+            "增强细节，生成8K分辨率、超高清、高细节、照片级写实的印刷级品质2D平面图案。"
+            "确保生成的是一个完整的、无缺失的图案。务必确保图像中只包含图案本身，排除图案以外内容，排除生成衣服形状。"
+            "只输出最终整理好的完整图案平铺图，不要输出其他内容。"
+        )
+
         result = await self.process_image_gemini(image_bytes, prompt, "image/png")
         return self._extract_image_url(result)
 
-    async def remove_watermark(self, image_bytes: bytes, options: Dict[str, Any]) -> str:
+    async def remove_watermark(
+        self,
+        image_bytes: bytes,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> str:
         """AI智能去水印"""
-        watermark_type = options.get('watermarkType', 'auto')
-        preserve_detail = options.get('preserveDetail', True)
-        
-        watermark_descriptions = {
-            'auto': '自动识别并去除所有类型的水印',
-            'text': '重点去除文字水印',
-            'logo': '重点去除Logo水印',
-            'transparent': '去除半透明水印'
-        }
-        
-        prompt = f"""
+        prompt = """
         去除这张图片中的水印：
-        1. 水印类型：{watermark_descriptions.get(watermark_type, '自动识别')}
-        2. {'保留图片的原有细节和质量' if preserve_detail else '优先去除水印，可适当牺牲细节'}
+        1. 水印类型：自动识别并去除所有类型的水印
+        2. 保留图片的原有细节和质量
         3. 确保去除水印后图片看起来自然
         4. 不要留下水印的痕迹或空白区域
         5. 保持图片的整体美观
@@ -235,21 +225,16 @@ class AIClient:
         result = await self.process_image_gemini(image_bytes, prompt, "image/jpeg")
         return self._extract_image_url(result)
 
-    async def denoise_image(self, image_bytes: bytes, options: Dict[str, Any]) -> str:
+    async def denoise_image(
+        self,
+        image_bytes: bytes,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> str:
         """AI布纹去噪"""
-        noise_type = options.get('noiseType', 'fabric')
-        enhance_mode = options.get('enhanceMode', 'standard')
-        
-        noise_descriptions = {
-            'fabric': '布纹纹理',
-            'noise': '图片噪点',
-            'blur': '模糊效果'
-        }
-        
-        prompt = f"""
-        去除这张图片中的{noise_descriptions.get(noise_type, '噪音')}：
-        1. 重点处理：{noise_type}类型的问题
-        2. 处理模式：{'标准去噪处理' if enhance_mode == 'standard' else '矢量重绘模式，重新绘制清晰版本'}
+        prompt = """
+        去除这张图片中的布纹纹理：
+        1. 重点处理：fabric类型的问题
+        2. 处理模式：标准去噪处理
         3. 保持图片的主要内容和结构
         4. 提升图片的清晰度和质量
         5. 确保处理后的图片自然美观
@@ -260,29 +245,17 @@ class AIClient:
         result = await self.process_image_gemini(image_bytes, prompt, "image/png")
         return self._extract_image_url(result)
 
-    async def enhance_embroidery(self, image_bytes: bytes, options: Dict[str, Any]) -> str:
+    async def enhance_embroidery(
+        self,
+        image_bytes: bytes,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> str:
         """AI毛线刺绣增强"""
-        needle_type = options.get('needleType', 'medium')
-        stitch_density = options.get('stitchDensity', 'medium')
-        enhance_details = options.get('enhanceDetails', True)
-        
-        needle_descriptions = {
-            'fine': '细针，精细的针脚效果',
-            'medium': '中等针脚，平衡的刺绣效果',
-            'thick': '粗针，明显的针脚纹理'
-        }
-        
-        density_descriptions = {
-            'low': '稀疏的针脚密度',
-            'medium': '适中的针脚密度',
-            'high': '密集的针脚密度'
-        }
-        
-        prompt = f"""
+        prompt = """
         将这张图片转换为毛线刺绣效果：
-        1. 针线类型：{needle_descriptions.get(needle_type, '中等针脚')}
-        2. 针脚密度：{density_descriptions.get(stitch_density, '适中密度')}
-        3. {'增强纹理细节，展现真实的毛线质感' if enhance_details else '保持简洁的刺绣风格'}
+        1. 针线类型：中等针脚，平衡的刺绣效果
+        2. 针脚密度：适中的针脚密度
+        3. 增强纹理细节，展现真实的毛线质感
         4. 保持原图的主体形状和轮廓
         5. 营造真实的手工刺绣效果
         6. 色彩要自然，符合毛线刺绣的特点
