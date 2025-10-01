@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 7
 
     # 数据库配置
-    database_url: str = "sqlite:///./loom_ai.db"
+    database_url: str = "sqlite:///./data/loom_ai.db"
     sqlalchemy_echo: bool = False
 
     # Redis配置

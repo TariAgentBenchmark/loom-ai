@@ -28,7 +28,7 @@ COPY . ./
 RUN cp env.example .env
 
 # 创建必要目录
-RUN mkdir -p uploads/originals uploads/results uploads/temp
+RUN mkdir -p uploads/originals uploads/results uploads/temp data
 
 # 暴露端口
 EXPOSE 8000
@@ -37,5 +37,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# 启动命令
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# 初始化数据库并启动服务
+CMD ["sh", "-c", "uv run init_db.py && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000"]
