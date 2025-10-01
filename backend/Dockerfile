@@ -13,17 +13,19 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # 安装uv
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/root/.cargo/bin:$PATH"
+RUN pip install --no-cache-dir uv
 
-# 复制项目文件
+# 复制依赖文件并安装依赖
 COPY pyproject.toml ./
-COPY app/ ./app/
-COPY env.example ./.env
+COPY uv.lock ./
+COPY README.md ./
 
 # 安装Python依赖
-RUN uv venv && \
-    uv pip install -e .
+RUN uv sync --frozen
+
+# 复制项目文件
+COPY . ./
+RUN cp env.example .env
 
 # 创建必要目录
 RUN mkdir -p uploads/originals uploads/results uploads/temp
