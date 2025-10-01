@@ -179,11 +179,11 @@ class CreditService:
         if sender.id == recipient.id:
             raise Exception("不能向自己转赠算力")
         
-        # 检查发送方余额
+        # 检查发送方余额（管理员用户有无限算力）
         if not sender.can_afford(amount):
             raise Exception("算力余额不足")
         
-        # 执行转账
+        # 执行转账（管理员用户不需要扣除算力）
         sender.deduct_credits(amount)
         recipient.add_credits(amount)
         

@@ -29,6 +29,11 @@ class UserLogin(BaseModel):
     remember_me: bool = False
 
 
+class AdminLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+
 class PasswordReset(BaseModel):
     reset_token: str
     new_password: str
@@ -124,6 +129,53 @@ async def login(
     except HTTPException:
         raise
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/admin/login")
+async def admin_login(
+    admin_data: AdminLogin,
+    db: Session = Depends(get_db)
+):
+    """管理员登录"""
+    try:
+        user = await auth_service.authenticate_admin(
+            db=db,
+            email=admin_data.email,
+            password=admin_data.password
+        )
+        
+        if not user:
+            raise HTTPException(status_code=401, detail="邮箱或密码错误")
+        
+        # 创建管理员令牌
+        tokens = auth_service.create_admin_login_tokens(user)
+        
+        return SuccessResponse(
+            data={
+                "accessToken": tokens["access_token"],
+                "refreshToken": tokens["refresh_token"],
+                "expiresIn": tokens["expires_in"],
+                "tokenType": tokens["token_type"],
+                "isAdmin": tokens["is_admin"],
+                "adminSession": tokens["admin_session"],
+                "user": {
+                    "userId": user.user_id,
+                    "email": user.email,
+                    "nickname": user.nickname,
+                    "credits": user.credits,
+                    "avatar": user.avatar_url,
+                    "isAdmin": user.is_admin
+                }
+            },
+            message="管理员登录成功"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        if "非管理员账户" in str(e):
+            raise HTTPException(status_code=403, detail=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 

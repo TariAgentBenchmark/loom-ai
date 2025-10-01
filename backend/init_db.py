@@ -108,7 +108,8 @@ def create_admin_user():
             credits=999999,
             membership_type=MembershipType.ENTERPRISE,
             status=UserStatus.ACTIVE,
-            is_email_verified=True
+            is_email_verified=True,
+            is_admin=True
         )
         
         db.add(admin_user)

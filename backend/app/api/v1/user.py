@@ -35,7 +35,8 @@ async def get_profile(
             "monthlyProcessed": current_user.monthly_processed,
             "joinedAt": current_user.created_at,
             "lastLoginAt": current_user.last_login_at,
-            "status": current_user.status.value
+            "status": current_user.status.value,
+            "isAdmin": current_user.is_admin
         },
         message="获取用户信息成功"
     )

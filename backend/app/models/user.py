@@ -43,6 +43,7 @@ class User(Base):
     # 账户状态
     status = Column(Enum(UserStatus), default=UserStatus.ACTIVE)
     is_email_verified = Column(Boolean, default=False)
+    is_admin = Column(Boolean, default=False)  # 管理员标识
     email_verification_token = Column(String(255), nullable=True)
     
     # 密码重置
@@ -86,10 +87,16 @@ class User(Base):
 
     def can_afford(self, credits_needed: int) -> bool:
         """检查是否有足够算力"""
+        # 管理员用户有无限算力
+        if self.is_admin:
+            return True
         return self.credits >= credits_needed
 
     def deduct_credits(self, amount: int) -> bool:
         """扣除算力"""
+        # 管理员用户不需要扣除算力
+        if self.is_admin:
+            return True
         if self.can_afford(amount):
             self.credits -= amount
             return True

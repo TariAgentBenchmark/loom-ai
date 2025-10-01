@@ -132,6 +132,28 @@ class AuthService:
         
         return user
 
+    async def authenticate_admin(self, db: Session, email: str, password: str) -> Optional[User]:
+        """认证管理员用户"""
+        user = db.query(User).filter(User.email == email).first()
+        
+        if not user:
+            return None
+        
+        if not self.verify_password(password, user.hashed_password):
+            return None
+        
+        if not user.is_admin:
+            raise Exception("非管理员账户")
+        
+        if user.status != UserStatus.ACTIVE:
+            raise Exception("管理员账户已被暂停")
+        
+        # 更新最后登录时间
+        user.last_login_at = datetime.utcnow()
+        db.commit()
+        
+        return user
+
     async def get_user_by_token(self, db: Session, token: str) -> Optional[User]:
         """通过令牌获取用户"""
         payload = self.verify_token(token)
@@ -207,15 +229,37 @@ class AuthService:
     def create_login_tokens(self, user: User) -> Dict[str, Any]:
         """创建登录令牌"""
         access_token = self.create_access_token(
-            data={"sub": user.user_id, "email": user.email}
+            data={"sub": user.user_id, "email": user.email, "is_admin": user.is_admin}
         )
         refresh_token = self.create_refresh_token(
-            data={"sub": user.user_id, "email": user.email}
+            data={"sub": user.user_id, "email": user.email, "is_admin": user.is_admin}
         )
         
         return {
             "access_token": access_token,
             "refresh_token": refresh_token,
             "token_type": "bearer",
-            "expires_in": self.access_token_expire_minutes * 60
+            "expires_in": self.access_token_expire_minutes * 60,
+            "is_admin": user.is_admin
+        }
+
+    def create_admin_login_tokens(self, user: User) -> Dict[str, Any]:
+        """创建管理员登录令牌"""
+        if not user.is_admin:
+            raise Exception("非管理员账户无法创建管理员令牌")
+            
+        access_token = self.create_access_token(
+            data={"sub": user.user_id, "email": user.email, "is_admin": True, "admin_session": True}
+        )
+        refresh_token = self.create_refresh_token(
+            data={"sub": user.user_id, "email": user.email, "is_admin": True, "admin_session": True}
+        )
+        
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "expires_in": self.access_token_expire_minutes * 60,
+            "is_admin": True,
+            "admin_session": True
         }

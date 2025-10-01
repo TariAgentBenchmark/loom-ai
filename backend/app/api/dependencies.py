@@ -44,6 +44,14 @@ async def get_current_user(
                 detail="账户已被暂停"
             )
         
+        # 验证管理员会话（如果token中包含admin_session标记）
+        is_admin_session = payload.get("admin_session", False)
+        if is_admin_session and not user.is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="无效的管理员会话"
+            )
+        
         return user
         
     except HTTPException:
@@ -85,5 +93,29 @@ async def check_credits(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"算力不足，需要{required_credits}算力"
+        )
+    return current_user
+
+
+async def get_admin_user(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """获取管理员用户"""
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="需要管理员权限"
+        )
+    return current_user
+
+
+async def get_current_active_admin(
+    current_user: User = Depends(get_admin_user)
+) -> User:
+    """获取当前活跃管理员用户"""
+    if not current_user.status.value == "active":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="管理员账户未激活"
         )
     return current_user
