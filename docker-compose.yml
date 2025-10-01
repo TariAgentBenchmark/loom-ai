@@ -64,7 +64,7 @@ services:
       - remote
 
   redis:
-    image: redis:7-alpine
+    image: m.daocloud.io/docker.io/redis:7-alpine
     # 生产环境中不直接暴露Redis端口
     # ports:
     #   - "6379:6379"
