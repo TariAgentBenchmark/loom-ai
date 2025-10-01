@@ -10,7 +10,7 @@ x-default-variables: &default-variables
 
 services:
   nginx:
-    image: nginx:alpine
+    image: m.daocloud.io/docker.io/nginx:alpine
     ports:
       - "80:80"
       - "443:443"
@@ -29,10 +29,6 @@ services:
   backend:
     # 优先使用远程镜像，如果环境变量 USE_LOCAL_BUILD=true 则使用本地构建
     image: ${REGISTRY:-crpi-lxfoqbwevmx9mc1q.cn-chengdu.personal.cr.aliyuncs.com}/${NAMESPACE:-tari_tech}/${BACKEND_IMAGE:-loomai-backend}:${IMAGE_TAG:-latest}
-    build:
-      context: ./backend
-      # 仅当 USE_LOCAL_BUILD=true 时才构建
-      <<: *default-variables
     # 不再直接暴露端口，通过nginx代理
     environment:
       - DATABASE_URL=sqlite:///./loom_ai.db
@@ -56,10 +52,6 @@ services:
   frontend:
     # 优先使用远程镜像，如果环境变量 USE_LOCAL_BUILD=true 则使用本地构建
     image: ${REGISTRY:-crpi-lxfoqbwevmx9mc1q.cn-chengdu.personal.cr.aliyuncs.com}/${NAMESPACE:-tari_tech}/${FRONTEND_IMAGE:-loomai}:${IMAGE_TAG:-latest}
-    build:
-      context: ./frontend
-      # 仅当 USE_LOCAL_BUILD=true 时才构建
-      <<: *default-variables
     environment:
       - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-https://tuyun.website/api}
     # 不再直接暴露端口，通过nginx代理
