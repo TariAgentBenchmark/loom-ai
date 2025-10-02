@@ -1,9 +1,14 @@
 import pytest
 import asyncio
+import sys
+from pathlib import Path
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 import json
+
+# 添加项目根目录到Python路径
+sys.path.append(str(Path(__file__).parent.parent.parent))
 
 from app.main import app
 from app.core.database import get_db, Base

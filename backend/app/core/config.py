@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     # 第三方API配置
     tuzi_api_key: str = ""
     tuzi_base_url: str = "https://api.tu-zi.com"
+    
+    # 美图API配置
+    meitu_api_key: str = ""
+    meitu_api_secret: str = ""
+    meitu_base_url: str = "https://openapi.mtlab.meitu.com"
 
     # 文件存储配置
     upload_path: str = "./uploads"

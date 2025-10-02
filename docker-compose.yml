@@ -33,6 +33,9 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - TUZI_API_KEY=${TUZI_API_KEY:-}
       - TUZI_BASE_URL=${TUZI_BASE_URL:-https://api.tu-zi.com}
+      - MEITU_API_KEY=${MEITU_API_KEY:-}
+      - MEITU_API_SECRET=${MEITU_API_SECRET:-}
+      - MEITU_BASE_URL=${MEITU_BASE_URL:-https://openapi.mtlab.meitu.com}
       - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
       - DEBUG=${DEBUG:-true}
       - UPLOAD_PATH=./uploads

@@ -5,7 +5,13 @@
 
 import asyncio
 import json
+import sys
+from pathlib import Path
 from sqlalchemy.orm import Session
+
+# 添加项目根目录到Python路径
+sys.path.append(str(Path(__file__).parent.parent.parent))
+
 from app.core.database import get_db, init_db
 from app.models.user import User, UserStatus
 from app.services.auth_service import AuthService

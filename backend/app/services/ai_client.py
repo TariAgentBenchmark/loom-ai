@@ -24,6 +24,14 @@ class AIClient:
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
+        
+        # 美图API配置
+        self.meitu_base_url = settings.meitu_base_url
+        self.meitu_api_key = settings.meitu_api_key
+        self.meitu_api_secret = settings.meitu_api_secret
+        self.meitu_headers = {
+            "Content-Type": "application/json"
+        }
     
     async def _make_request(self, method: str, endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """发送API请求"""
@@ -81,6 +89,132 @@ class AIClient:
 
         # 理论上不会到达这里，保留兜底处理
         raise Exception("AI服务连接失败: 未知错误")
+    
+    async def _make_meitu_request(self, endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        """发送美图API请求"""
+        url = f"{self.meitu_base_url}{endpoint}"
+        url_with_params = f"{url}?api_key={self.meitu_api_key}&api_secret={self.meitu_api_secret}"
+        
+        max_retries = 3
+        backoff_base = 1.5
+
+        for attempt in range(1, max_retries + 1):
+            try:
+                async with httpx.AsyncClient(timeout=300.0) as client:
+                    response = await client.request(
+                        method="POST",
+                        url=url_with_params,
+                        headers=self.meitu_headers,
+                        json=data
+                    )
+                    response.raise_for_status()
+                    return response.json()
+
+            except httpx.HTTPStatusError as exc:
+                status = exc.response.status_code
+                body = exc.response.text
+                if 500 <= status < 600 and attempt < max_retries:
+                    wait_seconds = backoff_base * (2 ** (attempt - 1)) + uniform(0, 0.5)
+                    logger.warning(
+                        "Meitu API request failed with %s (attempt %s/%s). Body: %s. Retrying in %.2fs",
+                        status,
+                        attempt,
+                        max_retries,
+                        body,
+                        wait_seconds,
+                    )
+                    await asyncio.sleep(wait_seconds)
+                    continue
+
+                logger.error(f"Meitu API request failed: {status} - {body}")
+                raise Exception(f"美图API请求失败: {status}")
+
+            except httpx.RequestError as exc:
+                if attempt < max_retries:
+                    wait_seconds = backoff_base * (2 ** (attempt - 1)) + uniform(0, 0.5)
+                    logger.warning(
+                        "Meitu API request error '%s' (attempt %s/%s). Retrying in %.2fs",
+                        exc,
+                        attempt,
+                        max_retries,
+                        wait_seconds,
+                    )
+                    await asyncio.sleep(wait_seconds)
+                    continue
+
+                logger.error(f"Meitu API request error: {str(exc)}")
+                raise Exception(f"美图API连接失败: {str(exc)}")
+
+        # 理论上不会到达这里，保留兜底处理
+        raise Exception("美图API连接失败: 未知错误")
+    
+    async def _make_meitu_async_request(self, endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        """发送美图异步API请求"""
+        url = f"{self.meitu_base_url}{endpoint}"
+        url_with_params = f"{url}?api_key={self.meitu_api_key}&api_secret={self.meitu_api_secret}"
+        
+        max_retries = 3
+        backoff_base = 1.5
+
+        for attempt in range(1, max_retries + 1):
+            try:
+                async with httpx.AsyncClient(timeout=300.0) as client:
+                    response = await client.request(
+                        method="POST",
+                        url=url_with_params,
+                        headers=self.meitu_headers,
+                        json=data
+                    )
+                    response.raise_for_status()
+                    return response.json()
+
+            except httpx.HTTPStatusError as exc:
+                status = exc.response.status_code
+                body = exc.response.text
+                if 500 <= status < 600 and attempt < max_retries:
+                    wait_seconds = backoff_base * (2 ** (attempt - 1)) + uniform(0, 0.5)
+                    logger.warning(
+                        "Meitu async API request failed with %s (attempt %s/%s). Body: %s. Retrying in %.2fs",
+                        status,
+                        attempt,
+                        max_retries,
+                        body,
+                        wait_seconds,
+                    )
+                    await asyncio.sleep(wait_seconds)
+                    continue
+
+                logger.error(f"Meitu async API request failed: {status} - {body}")
+                raise Exception(f"美图异步API请求失败: {status}")
+
+            except httpx.RequestError as exc:
+                if attempt < max_retries:
+                    wait_seconds = backoff_base * (2 ** (attempt - 1)) + uniform(0, 0.5)
+                    logger.warning(
+                        "Meitu async API request error '%s' (attempt %s/%s). Retrying in %.2fs",
+                        exc,
+                        attempt,
+                        max_retries,
+                        wait_seconds,
+                    )
+                    await asyncio.sleep(wait_seconds)
+                    continue
+
+                logger.error(f"Meitu async API request error: {str(exc)}")
+                raise Exception(f"美图异步API连接失败: {str(exc)}")
+
+        # 理论上不会到达这里，保留兜底处理
+        raise Exception("美图异步API连接失败: 未知错误")
+    
+    async def query_meitu_task_status(self, task_id: str) -> Dict[str, Any]:
+        """查询美图异步任务状态"""
+        endpoint = "/api/v1/sdk/sync/status"
+        data = {
+            "task_id": task_id
+        }
+        
+        logger.info(f"Querying Meitu task status: {task_id}")
+        return await self._make_meitu_async_request(endpoint, data)
 
     def _image_to_base64(self, image_bytes: bytes, format: str = "JPEG") -> str:
         """将图片字节转换为base64编码"""
@@ -210,20 +344,54 @@ class AIClient:
         image_bytes: bytes,
         options: Optional[Dict[str, Any]] = None,
     ) -> str:
-        """AI智能去水印"""
-        prompt = """
-        去除这张图片中的水印：
-        1. 水印类型：自动识别并去除所有类型的水印
-        2. 保留图片的原有细节和质量
-        3. 确保去除水印后图片看起来自然
-        4. 不要留下水印的痕迹或空白区域
-        5. 保持图片的整体美观
-        
-        请彻底去除水印并修复图片。
-        """
-        
-        result = await self.process_image_gemini(image_bytes, prompt, "image/jpeg")
-        return self._extract_image_url(result)
+        """AI智能去水印（使用美图API）"""
+        try:
+            # 将图片转换为base64
+            image_base64 = self._image_to_base64(image_bytes, "JPEG")
+            
+            # 构建请求数据
+            data = {
+                "parameter": {
+                    "rsp_media_type": "jpg",
+                    "is_text": True  # 指定算法处理方式为文档消除模型算法
+                },
+                "media_info_list": [
+                    {
+                        "media_data": image_base64,
+                        "media_extra": {},
+                        "media_profiles": {
+                            "media_data_type": "jpg"
+                        }
+                    }
+                ]
+            }
+            
+            # 如果提供了用户框选区域，添加到请求中
+            if options and "userboxes" in options:
+                data["parameter"]["userboxes"] = options["userboxes"]
+            
+            logger.info("Sending request to Meitu AI eraser API")
+            result = await self._make_meitu_request("/v1/ai_eraser_watermark", data)
+            
+            # 检查响应是否包含错误
+            if "ErrorCode" in result:
+                error_code = result["ErrorCode"]
+                error_msg = result.get("ErrorMsg", "未知错误")
+                logger.error(f"Meitu API error: {error_code} - {error_msg}")
+                raise Exception(f"美图API处理失败: {error_msg}")
+            
+            # 提取处理后的图片数据
+            if "media_info_list" in result and len(result["media_info_list"]) > 0:
+                media_info = result["media_info_list"][0]
+                if "media_data" in media_info:
+                    # 保存处理后的图片并返回URL
+                    return self._save_base64_image(media_info["media_data"])
+            
+            raise Exception("无法从美图API响应中提取处理后的图片")
+            
+        except Exception as e:
+            logger.error(f"Remove watermark failed: {str(e)}")
+            raise Exception(f"智能去水印失败: {str(e)}")
 
     async def denoise_image(
         self,
@@ -244,6 +412,119 @@ class AIClient:
         
         result = await self.process_image_gemini(image_bytes, prompt, "image/png")
         return self._extract_image_url(result)
+    
+    async def upscale_image(
+        self,
+        image_url: str,
+        scale_factor: int = 2,
+        custom_width: Optional[int] = None,
+        custom_height: Optional[int] = None,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """无损放大图片（使用美图API）"""
+        try:
+            # 构建参数
+            if custom_width and custom_height:
+                # 自定义尺寸放大
+                params = {
+                    "sr_mode": 2,  # 自定义尺寸放大
+                    "ir_mode": 4,
+                    "rsp_media_type": "url",
+                    "save_photo_format": 1,
+                    "max_width": 8000,
+                    "max_height": 8000,
+                    "sr_size_w": custom_width,
+                    "sr_size_h": custom_height
+                }
+            else:
+                # 固定倍数放大
+                params = {
+                    "sr_mode": 1,  # 2、4、8倍放大
+                    "ir_mode": 4,
+                    "rsp_media_type": "url",
+                    "save_photo_format": 1,
+                    "max_width": 8000,
+                    "max_height": 8000,
+                    "sr_num": scale_factor
+                }
+            
+            # 构建请求数据
+            data = {
+                "params": json.dumps({"parameter": params}),
+                "init_images": [{
+                    "url": image_url
+                }],
+                "task": "v1/mtimagesr_async",
+                "task_type": "mtlab"
+            }
+            
+            # 如果提供了自定义任务ID，添加到请求中
+            if options and "task_id" in options:
+                data["task_id"] = options["task_id"]
+            
+            # 如果提供了同步超时时间，添加到请求中
+            if options and "sync_timeout" in options:
+                data["sync_timeout"] = options["sync_timeout"]
+            
+            logger.info(f"Sending upscale request to Meitu API with scale factor: {scale_factor}")
+            result = await self._make_meitu_async_request("/api/v1/sdk/sync/push", data)
+            
+            # 检查响应是否包含错误
+            if "error_code" in result:
+                error_code = result["error_code"]
+                error_msg = result.get("error_msg", "未知错误")
+                logger.error(f"Meitu upscale API error: {error_code} - {error_msg}")
+                raise Exception(f"美图无损放大API处理失败: {error_msg}")
+            
+            # 检查任务状态
+            if "data" in result:
+                task_data = result["data"]
+                status = task_data.get("status", -1)
+                
+                if status == 10:  # 任务成功
+                    if "result" in task_data and "urls" in task_data["result"]:
+                        urls = task_data["result"]["urls"]
+                        if urls and len(urls) > 0:
+                            return urls[0]
+                
+                elif status == 9:  # 需要查询结果
+                    if "result" in task_data and "id" in task_data["result"]:
+                        task_id = task_data["result"]["id"]
+                        logger.info(f"Task {task_id} requires status polling")
+                        
+                        # 轮询任务状态
+                        max_attempts = 30  # 最多轮询30次
+                        for attempt in range(max_attempts):
+                            await asyncio.sleep(2)  # 等待2秒
+                            
+                            status_result = await self.query_meitu_task_status(task_id)
+                            if "data" in status_result:
+                                status_data = status_result["data"]
+                                current_status = status_data.get("status", -1)
+                                
+                                if current_status == 10:  # 任务成功
+                                    if "result" in status_data and "urls" in status_data["result"]:
+                                        urls = status_data["result"]["urls"]
+                                        if urls and len(urls) > 0:
+                                            return urls[0]
+                                
+                                elif current_status == 2:  # 任务失败
+                                    error_msg = status_data.get("msg", "任务执行失败")
+                                    raise Exception(f"无损放大任务失败: {error_msg}")
+                                
+                                logger.info(f"Task {task_id} status: {current_status}, progress: {status_data.get('progress', 0)}")
+                        
+                        raise Exception(f"无损放大任务超时: {task_id}")
+                
+                elif status == 2:  # 任务失败
+                    error_msg = task_data.get("msg", "任务执行失败")
+                    raise Exception(f"无损放大任务失败: {error_msg}")
+            
+            raise Exception("无法从美图无损放大API响应中提取结果")
+            
+        except Exception as e:
+            logger.error(f"Upscale image failed: {str(e)}")
+            raise Exception(f"无损放大失败: {str(e)}")
 
     async def enhance_embroidery(
         self,
