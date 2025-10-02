@@ -2,6 +2,7 @@ import asyncio
 import base64
 import json
 import logging
+import os
 from io import BytesIO
 from random import uniform
 from typing import Any, Dict, List, Optional
@@ -32,6 +33,10 @@ class AIClient:
         self.meitu_headers = {
             "Content-Type": "application/json"
         }
+        
+        # Dewatermark.ai API配置
+        self.dewatermark_api_key = settings.dewatermark_api_key
+        self.dewatermark_url = "https://platform.dewatermark.ai/api/object_removal/v1/erase_watermark"
     
     async def _make_request(self, method: str, endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """发送API请求"""
@@ -344,50 +349,60 @@ class AIClient:
         image_bytes: bytes,
         options: Optional[Dict[str, Any]] = None,
     ) -> str:
-        """AI智能去水印（使用美图API）"""
+        """AI智能去水印（使用Dewatermark.ai API）"""
         try:
             # 将图片转换为base64
             image_base64 = self._image_to_base64(image_bytes, "JPEG")
             
-            # 构建请求数据
-            data = {
-                "parameter": {
-                    "rsp_media_type": "jpg",
-                    "is_text": True  # 指定算法处理方式为文档消除模型算法
-                },
-                "media_info_list": [
-                    {
-                        "media_data": image_base64,
-                        "media_extra": {},
-                        "media_profiles": {
-                            "media_data_type": "jpg"
-                        }
-                    }
-                ]
+            # 准备文件数据
+            files = {}
+            
+            # 添加原始图片
+            files["original_preview_image"] = ("original_preview_image.jpeg",
+                                             BytesIO(base64.b64decode(image_base64)))
+            
+            # 添加mask_brush（如果提供）
+            if options and "mask_brush" in options:
+                mask_brush_path = options["mask_brush"]
+                if os.path.exists(mask_brush_path):
+                    files["mask_brush"] = ("mask_brush.png", open(mask_brush_path, "rb"))
+            
+            # 添加remove_text参数
+            files["remove_text"] = (None, "true")
+            
+            # 准备请求头
+            headers = {
+                "X-API-KEY": self.dewatermark_api_key
             }
             
-            # 如果提供了用户框选区域，添加到请求中
-            if options and "userboxes" in options:
-                data["parameter"]["userboxes"] = options["userboxes"]
+            logger.info("Sending request to Dewatermark.ai API")
             
-            logger.info("Sending request to Meitu AI eraser API")
-            result = await self._make_meitu_request("/v1/ai_eraser_watermark", data)
+            # 发送请求
+            async with httpx.AsyncClient(timeout=300.0) as client:
+                response = await client.post(
+                    self.dewatermark_url,
+                    headers=headers,
+                    files=files
+                )
+                response.raise_for_status()
+                result = response.json()
             
-            # 检查响应是否包含错误
-            if "ErrorCode" in result:
-                error_code = result["ErrorCode"]
-                error_msg = result.get("ErrorMsg", "未知错误")
-                logger.error(f"Meitu API error: {error_code} - {error_msg}")
-                raise Exception(f"美图API处理失败: {error_msg}")
+            # 关闭打开的文件
+            if "mask_brush" in files and hasattr(files["mask_brush"][1], 'close'):
+                files["mask_brush"][1].close()
+            
+            # 检查响应
+            if "edited_image" not in result:
+                logger.error(f"Dewatermark.ai API unexpected response: {result}")
+                raise Exception("Dewatermark.ai API响应格式错误")
             
             # 提取处理后的图片数据
-            if "media_info_list" in result and len(result["media_info_list"]) > 0:
-                media_info = result["media_info_list"][0]
-                if "media_data" in media_info:
-                    # 保存处理后的图片并返回URL
-                    return self._save_base64_image(media_info["media_data"])
+            edited_image = result["edited_image"]
+            if "image" in edited_image:
+                # 保存处理后的图片并返回URL
+                return self._save_base64_image(edited_image["image"])
             
-            raise Exception("无法从美图API响应中提取处理后的图片")
+            raise Exception("无法从Dewatermark.ai API响应中提取处理后的图片")
             
         except Exception as e:
             logger.error(f"Remove watermark failed: {str(e)}")

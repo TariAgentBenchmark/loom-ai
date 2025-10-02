@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     meitu_api_key: str = ""
     meitu_api_secret: str = ""
     meitu_base_url: str = "https://openapi.mtlab.meitu.com"
+    
+    # Dewatermark.ai API配置
+    dewatermark_api_key: str = ""
 
     # 文件存储配置
     upload_path: str = "./uploads"
