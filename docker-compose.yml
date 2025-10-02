@@ -39,6 +39,9 @@ services:
       - DEWATERMARK_API_KEY=${DEWATERMARK_API_KEY:-}
       - VECTORIZER_API_KEY=${VECTORIZER_API_KEY:-}
       - VECTORIZER_API_SECRET=${VECTORIZER_API_SECRET:-}
+      - JIMENG_API_KEY=${JIMENG_API_KEY:-}
+      - JIMENG_API_SECRET=${JIMENG_API_SECRET:-}
+      - JIMENG_BASE_URL=${JIMENG_BASE_URL:-https://visual.volcengineapi.com}
       - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
       - DEBUG=${DEBUG:-true}
       - UPLOAD_PATH=./uploads

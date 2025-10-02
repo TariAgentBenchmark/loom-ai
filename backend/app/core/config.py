@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     # Vectorizer.ai API配置
     vectorizer_api_key: str = ""
     vectorizer_api_secret: str = ""
+    
+    # 即梦API配置
+    jimeng_api_key: str = ""
+    jimeng_api_secret: str = ""
+    jimeng_base_url: str = "https://visual.volcengineapi.com"
 
     # 文件存储配置
     upload_path: str = "./uploads"

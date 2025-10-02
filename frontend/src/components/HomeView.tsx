@@ -307,15 +307,15 @@ const HomeView: React.FC<HomeViewProps> = ({
               onClick={() => onSelectMethod('embroidery')}
             >
               <div className="text-center mb-6">
-                <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-50 to-purple-50 shadow-lg mx-auto mb-4 group-hover:shadow-xl transition-all">
+                <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-red-50 to-pink-50 shadow-lg mx-auto mb-4 group-hover:shadow-xl transition-all">
                   <img src="/AI毛线刺绣增强.png" alt="AI毛线刺绣增强" className="h-12 w-12 object-contain" />
                 </div>
                 <h4 className="text-xl font-bold text-gray-900 mb-3">AI毛线刺绣增强</h4>
                 <p className="text-gray-600 leading-relaxed">
-                  针对毛线刺绣转换的针对处理，转换出的刺绣对原图主体形状保持度高，毛线感的针法。
+                  使用即梦AI技术进行毛线刺绣增强，支持4K超高清输出，提供更真实的毛线质感和精细的针脚效果。
                 </p>
               </div>
-              <div className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white py-3 px-6 rounded-xl text-center font-medium hover:from-indigo-600 hover:to-purple-600 transition-all">
+              <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white py-3 px-6 rounded-xl text-center font-medium hover:from-red-600 hover:to-pink-600 transition-all">
                 立即使用
               </div>
             </div>

@@ -42,6 +42,11 @@ class AIClient:
         self.vectorizer_api_key = settings.vectorizer_api_key
         self.vectorizer_api_secret = settings.vectorizer_api_secret
         self.vectorizer_url = "https://vectorizer.ai/api/v1/vectorize"
+        
+        # 即梦API配置
+        self.jimeng_api_key = settings.jimeng_api_key
+        self.jimeng_api_secret = settings.jimeng_api_secret
+        self.jimeng_base_url = settings.jimeng_base_url
     
     async def _make_request(self, method: str, endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """发送API请求"""
@@ -215,6 +220,110 @@ class AIClient:
 
         # 理论上不会到达这里，保留兜底处理
         raise Exception("美图异步API连接失败: 未知错误")
+    
+    async def _make_jimeng_request(self, method: str, endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        """发送即梦API请求"""
+        url = f"{self.jimeng_base_url}{endpoint}"
+        
+        # 添加查询参数
+        query_params = {
+            "Action": data.get("Action", "CVSync2AsyncSubmitTask"),
+            "Version": data.get("Version", "2022-08-31")
+        }
+        
+        # 构建完整URL
+        import urllib.parse
+        query_string = urllib.parse.urlencode(query_params)
+        full_url = f"{url}?{query_string}"
+        
+        # 准备请求数据
+        request_data = {
+            "req_key": data.get("req_key", "jimeng_t2i_v40"),
+        }
+        
+        # 添加其他参数
+        if "prompt" in data:
+            request_data["prompt"] = data["prompt"]
+        if "image_urls" in data:
+            request_data["image_urls"] = data["image_urls"]
+        if "size" in data:
+            request_data["size"] = data["size"]
+        if "width" in data:
+            request_data["width"] = data["width"]
+        if "height" in data:
+            request_data["height"] = data["height"]
+        if "scale" in data:
+            request_data["scale"] = data["scale"]
+        if "force_single" in data:
+            request_data["force_single"] = data["force_single"]
+        if "min_ratio" in data:
+            request_data["min_ratio"] = data["min_ratio"]
+        if "max_ratio" in data:
+            request_data["max_ratio"] = data["max_ratio"]
+        
+        max_retries = 3
+        backoff_base = 1.5
+
+        for attempt in range(1, max_retries + 1):
+            try:
+                async with httpx.AsyncClient(timeout=300.0) as client:
+                    response = await client.request(
+                        method=method,
+                        url=full_url,
+                        json=request_data
+                    )
+                    response.raise_for_status()
+                    return response.json()
+
+            except httpx.HTTPStatusError as exc:
+                status = exc.response.status_code
+                body = exc.response.text
+                if 500 <= status < 600 and attempt < max_retries:
+                    wait_seconds = backoff_base * (2 ** (attempt - 1)) + uniform(0, 0.5)
+                    logger.warning(
+                        "Jimeng API request failed with %s (attempt %s/%s). Body: %s. Retrying in %.2fs",
+                        status,
+                        attempt,
+                        max_retries,
+                        body,
+                        wait_seconds,
+                    )
+                    await asyncio.sleep(wait_seconds)
+                    continue
+
+                logger.error(f"Jimeng API request failed: {status} - {body}")
+                raise Exception(f"即梦API请求失败: {status}")
+
+            except httpx.RequestError as exc:
+                if attempt < max_retries:
+                    wait_seconds = backoff_base * (2 ** (attempt - 1)) + uniform(0, 0.5)
+                    logger.warning(
+                        "Jimeng API request error '%s' (attempt %s/%s). Retrying in %.2fs",
+                        exc,
+                        attempt,
+                        max_retries,
+                        wait_seconds,
+                    )
+                    await asyncio.sleep(wait_seconds)
+                    continue
+
+                logger.error(f"Jimeng API request error: {str(exc)}")
+                raise Exception(f"即梦API连接失败: {str(exc)}")
+
+        # 理论上不会到达这里，保留兜底处理
+        raise Exception("即梦API连接失败: 未知错误")
+    
+    async def query_jimeng_task_status(self, task_id: str) -> Dict[str, Any]:
+        """查询即梦异步任务状态"""
+        data = {
+            "Action": "CVSync2AsyncGetResult",
+            "Version": "2022-08-31",
+            "req_key": "jimeng_t2i_v40",
+            "task_id": task_id
+        }
+        
+        logger.info(f"Querying Jimeng task status: {task_id}")
+        return await self._make_jimeng_request("POST", "", data)
     
     async def query_meitu_task_status(self, task_id: str) -> Dict[str, Any]:
         """查询美图异步任务状态"""
@@ -598,21 +707,137 @@ class AIClient:
         image_bytes: bytes,
         options: Optional[Dict[str, Any]] = None,
     ) -> str:
-        """AI毛线刺绣增强"""
-        prompt = """
-        将这张图片转换为毛线刺绣效果：
-        1. 针线类型：中等针脚，平衡的刺绣效果
-        2. 针脚密度：适中的针脚密度
-        3. 增强纹理细节，展现真实的毛线质感
-        4. 保持原图的主体形状和轮廓
-        5. 营造真实的手工刺绣效果
-        6. 色彩要自然，符合毛线刺绣的特点
-        
-        请生成逼真的毛线刺绣效果图。
-        """
-        
-        result = await self.process_image_gemini(image_bytes, prompt, "image/png")
-        return self._extract_image_url(result)
+        """AI毛线刺绣增强（使用即梦API）"""
+        try:
+            # 将图片转换为base64并保存为临时文件
+            import uuid
+            import os
+            
+            # 生成临时文件名
+            temp_filename = f"temp_embroidery_{uuid.uuid4().hex[:8]}.jpg"
+            temp_file_path = f"{settings.upload_path}/originals/{temp_filename}"
+            
+            # 确保目录存在
+            os.makedirs(os.path.dirname(temp_file_path), exist_ok=True)
+            
+            # 保存临时文件
+            with open(temp_file_path, "wb") as f:
+                f.write(image_bytes)
+            
+            # 构建图片URL（这里需要根据实际的文件服务配置调整）
+            image_url = f"/files/originals/{temp_filename}"
+            
+            # 构建请求参数
+            prompt = """
+            将这张图片转换为毛线刺绣效果：
+            1. 针线类型：中等针脚，平衡的刺绣效果
+            2. 针脚密度：适中的针脚密度
+            3. 增强纹理细节，展现真实的毛线质感
+            4. 保持原图的主体形状和轮廓
+            5. 营造真实的手工刺绣效果
+            6. 色彩要自然，符合毛线刺绣的特点
+            
+            请生成逼真的毛线刺绣效果图。
+            """
+            
+            data = {
+                "Action": "CVSync2AsyncSubmitTask",
+                "Version": "2022-08-31",
+                "req_key": "jimeng_t2i_v40",
+                "prompt": prompt,
+                "image_urls": [image_url],
+                "size": 2048 * 2048,  # 2K分辨率
+                "scale": 0.7,  # 文本描述影响程度
+                "force_single": True,  # 强制生成单图
+                "min_ratio": 1/3,
+                "max_ratio": 3
+            }
+            
+            # 如果提供了额外选项，添加到请求中
+            if options:
+                if "scale" in options:
+                    data["scale"] = options["scale"]
+                if "size" in options:
+                    data["size"] = options["size"]
+                if "width" in options and "height" in options:
+                    data["width"] = options["width"]
+                    data["height"] = options["height"]
+                if "force_single" in options:
+                    data["force_single"] = options["force_single"]
+            
+            logger.info("Sending embroidery enhancement request to Jimeng API")
+            result = await self._make_jimeng_request("POST", "", data)
+            
+            # 检查响应是否包含错误
+            if "code" in result and result["code"] != 10000:
+                error_msg = result.get("message", "未知错误")
+                logger.error(f"Jimeng embroidery API error: {result['code']} - {error_msg}")
+                raise Exception(f"即梦毛线刺绣API处理失败: {error_msg}")
+            
+            # 提取任务ID
+            if "data" not in result or "task_id" not in result["data"]:
+                logger.error(f"Jimeng embroidery API unexpected response: {result}")
+                raise Exception("即梦毛线刺绣API响应格式错误")
+            
+            task_id = result["data"]["task_id"]
+            logger.info(f"Jimeng embroidery task created: {task_id}")
+            
+            # 轮询任务状态
+            max_attempts = 30  # 最多轮询30次
+            for attempt in range(max_attempts):
+                await asyncio.sleep(3)  # 等待3秒
+                
+                status_result = await self.query_jimeng_task_status(task_id)
+                if "code" in status_result and status_result["code"] != 10000:
+                    error_msg = status_result.get("message", "未知错误")
+                    logger.error(f"Jimeng embroidery status query error: {status_result['code']} - {error_msg}")
+                    raise Exception(f"即梦毛线刺绣状态查询失败: {error_msg}")
+                
+                if "data" in status_result:
+                    status_data = status_result["data"]
+                    current_status = status_data.get("status", "")
+                    
+                    if current_status == "done":  # 任务成功
+                        if "image_urls" in status_data and status_data["image_urls"]:
+                            image_urls = status_data["image_urls"]
+                            if image_urls and len(image_urls) > 0:
+                                # 下载并保存结果图片
+                                result_url = image_urls[0]
+                                result_bytes = await self._download_image_from_url(result_url)
+                                
+                                # 保存结果文件
+                                result_filename = f"embroidery_{uuid.uuid4().hex[:8]}.png"
+                                result_file_path = f"{settings.upload_path}/results/{result_filename}"
+                                
+                                os.makedirs(os.path.dirname(result_file_path), exist_ok=True)
+                                with open(result_file_path, "wb") as f:
+                                    f.write(result_bytes)
+                                
+                                # 返回文件URL格式
+                                return f"/files/results/{result_filename}"
+                    
+                    elif current_status in ["failed", "expired", "not_found"]:
+                        error_msg = status_data.get("message", "任务执行失败")
+                        raise Exception(f"毛线刺绣任务失败: {error_msg}")
+                    
+                    logger.info(f"Jimeng embroidery task {task_id} status: {current_status}")
+            
+            raise Exception(f"毛线刺绣任务超时: {task_id}")
+            
+        except Exception as e:
+            logger.error(f"Enhance embroidery failed: {str(e)}")
+            raise Exception(f"毛线刺绣增强失败: {str(e)}")
+    
+    async def _download_image_from_url(self, url: str) -> bytes:
+        """从URL下载图片"""
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.get(url)
+                response.raise_for_status()
+                return response.content
+        except Exception as e:
+            logger.error(f"Failed to download image from URL {url}: {str(e)}")
+            raise Exception(f"下载图片失败: {str(e)}")
 
     def _extract_image_url(self, api_response: Dict[str, Any]) -> str:
         """从API响应中提取图片URL"""

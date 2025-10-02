@@ -28,7 +28,7 @@ class ProcessingService:
             TaskType.EXTRACT_PATTERN.value: 100,
             TaskType.REMOVE_WATERMARK.value: 70,
             TaskType.DENOISE.value: 80,
-            TaskType.EMBROIDERY.value: 90,
+            TaskType.EMBROIDERY.value: 120,  # 使用即梦API，成本更高
         }
         
         # 预计处理时间（秒）
@@ -38,7 +38,7 @@ class ProcessingService:
             TaskType.EXTRACT_PATTERN.value: 200,
             TaskType.REMOVE_WATERMARK.value: 90,
             TaskType.DENOISE.value: 120,
-            TaskType.EMBROIDERY.value: 160,
+            TaskType.EMBROIDERY.value: 200,  # 使用即梦API，处理时间更长
         }
 
     def calculate_credits_needed(self, task_type: str, image_info: Dict[str, Any], user: User) -> int:

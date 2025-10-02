@@ -184,12 +184,22 @@ async def denoise_image(
 @router.post("/embroidery")
 async def enhance_embroidery(
     image: UploadFile = File(...),
+    scale: float = Form(0.7),
+    size: int = Form(2048*2048),
+    force_single: bool = Form(True),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """AI毛线刺绣增强"""
+    """AI毛线刺绣增强（使用即梦API）"""
     try:
         image_bytes = await image.read()
+        
+        # 构建选项
+        options = {
+            "scale": scale,
+            "size": size,
+            "force_single": force_single
+        }
         
         task = await processing_service.create_task(
             db=db,
@@ -197,6 +207,7 @@ async def enhance_embroidery(
             task_type="embroidery",
             image_bytes=image_bytes,
             original_filename=image.filename,
+            options=options
         )
         
         return SuccessResponse(
