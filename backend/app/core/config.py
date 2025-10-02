@@ -33,11 +33,15 @@ class Settings(BaseSettings):
     
     # Dewatermark.ai API配置
     dewatermark_api_key: str = ""
+    
+    # Vectorizer.ai API配置
+    vectorizer_api_key: str = ""
+    vectorizer_api_secret: str = ""
 
     # 文件存储配置
     upload_path: str = "./uploads"
     max_file_size: int = 52428800  # 50MB
-    allowed_extensions: str = "png,jpg,jpeg,gif,bmp,webp"
+    allowed_extensions: str = "png,jpg,jpeg,gif,bmp,webp,svg"
 
     # AWS S3配置 (可选)
     aws_access_key_id: Optional[str] = None

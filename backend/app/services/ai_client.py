@@ -37,6 +37,11 @@ class AIClient:
         # Dewatermark.ai API配置
         self.dewatermark_api_key = settings.dewatermark_api_key
         self.dewatermark_url = "https://platform.dewatermark.ai/api/object_removal/v1/erase_watermark"
+        
+        # Vectorizer.ai API配置
+        self.vectorizer_api_key = settings.vectorizer_api_key
+        self.vectorizer_api_secret = settings.vectorizer_api_secret
+        self.vectorizer_url = "https://vectorizer.ai/api/v1/vectorize"
     
     async def _make_request(self, method: str, endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """发送API请求"""
@@ -313,20 +318,67 @@ class AIClient:
         image_bytes: bytes,
         options: Optional[Dict[str, Any]] = None,
     ) -> str:
-        """AI矢量化(转SVG)"""
-        prompt = """
-        将这张图片转换为矢量风格的图案：
-        1. 输出风格：矢量风格，线条清晰简洁
-        2. 输出比例：1:1
-        3. 保持图片的主要特征和识别度
-        4. 线条要清晰，颜色要准确
-        5. 适合用于产品设计和印刷
-        
-        请生成高质量的矢量风格图案。
-        """
-        
-        result = await self.process_image_gemini(image_bytes, prompt, "image/png")
-        return self._extract_image_url(result)
+        """AI矢量化(转SVG) - 使用Vectorizer.ai API"""
+        try:
+            # 准备文件数据
+            files = {
+                'image': ('image.jpeg', BytesIO(image_bytes))
+            }
+            
+            # 准备认证信息
+            auth = (self.vectorizer_api_key, self.vectorizer_api_secret)
+            
+            # 准备请求数据
+            data = {}
+            
+            # 如果提供了额外选项，添加到请求中
+            if options:
+                # Vectorizer.ai支持的各种选项
+                if 'mode' in options:
+                    data['mode'] = options['mode']
+                if 'colors' in options:
+                    data['colors'] = options['colors']
+                if 'filter_speckle' in options:
+                    data['filter_speckle'] = options['filter_speckle']
+                if 'corners_threshold' in options:
+                    data['corners_threshold'] = options['corners_threshold']
+                if 'iterations' in options:
+                    data['iterations'] = options['iterations']
+                if 'layering' in options:
+                    data['layering'] = options['layering']
+                if 'pathsimplify' in options:
+                    data['pathsimplify'] = options['pathsimplify']
+            
+            logger.info("Sending request to Vectorizer.ai API")
+            
+            # 发送请求
+            async with httpx.AsyncClient(timeout=300.0) as client:
+                response = await client.post(
+                    self.vectorizer_url,
+                    files=files,
+                    data=data,
+                    auth=auth
+                )
+                response.raise_for_status()
+                
+                # 保存结果为SVG文件
+                import uuid
+                filename = f"vectorized_{uuid.uuid4().hex[:8]}.svg"
+                file_path = f"{settings.upload_path}/results/{filename}"
+                
+                # 确保目录存在
+                os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                
+                # 保存文件
+                with open(file_path, "wb") as f:
+                    f.write(response.content)
+                
+                # 返回文件URL格式，让处理服务可以访问
+                return f"/files/results/{filename}"
+            
+        except Exception as e:
+            logger.error(f"Vectorize image failed: {str(e)}")
+            raise Exception(f"矢量化失败: {str(e)}")
 
     async def extract_pattern(
         self,

@@ -37,6 +37,8 @@ services:
       - MEITU_API_SECRET=${MEITU_API_SECRET:-}
       - MEITU_BASE_URL=${MEITU_BASE_URL:-https://openapi.mtlab.meitu.com}
       - DEWATERMARK_API_KEY=${DEWATERMARK_API_KEY:-}
+      - VECTORIZER_API_KEY=${VECTORIZER_API_KEY:-}
+      - VECTORIZER_API_SECRET=${VECTORIZER_API_SECRET:-}
       - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
       - DEBUG=${DEBUG:-true}
       - UPLOAD_PATH=./uploads

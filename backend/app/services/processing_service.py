@@ -173,8 +173,15 @@ class ProcessingService:
                 processing_time = int((datetime.utcnow() - start_time).total_seconds())
                 
                 # 获取结果文件信息
-                result_bytes = await self.file_service.download_from_url(result_url)
-                result_filename = f"result_{task.task_id}.png"
+                # 检查是否是本地文件路径（Vectorizer.ai返回的是本地文件）
+                if result_url.startswith("/files/results/"):
+                    # 本地文件，直接读取
+                    result_bytes = await self.file_service.read_file(result_url)
+                    result_filename = f"result_{task.task_id}.svg"
+                else:
+                    # 远程URL，下载文件
+                    result_bytes = await self.file_service.download_from_url(result_url)
+                    result_filename = f"result_{task.task_id}.png"
                 
                 # 保存结果文件
                 final_result_url = await self.file_service.save_upload_file(

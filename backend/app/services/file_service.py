@@ -37,6 +37,17 @@ class FileService:
         if file_ext not in self.allowed_extensions:
             raise Exception(f"不支持的文件格式，支持格式: {', '.join(self.allowed_extensions)}")
         
+        # 对于SVG文件，跳过图片验证
+        if file_ext == 'svg':
+            return {
+                "valid": True,
+                "width": 500,  # 默认值
+                "height": 500,  # 默认值
+                "format": "SVG",
+                "mode": "RGB",
+                "size": len(file_bytes)
+            }
+        
         # 检查图片是否有效
         try:
             image = Image.open(BytesIO(file_bytes))
