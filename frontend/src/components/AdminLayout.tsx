@@ -90,6 +90,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             <button
               type="button"
               className="text-gray-400 hover:text-gray-600"
+              aria-label="close"
               onClick={() => setSidebarOpen(false)}
             >
               <X className="h-6 w-6" />
@@ -206,6 +207,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
               <button
                 type="button"
                 className="text-gray-500 hover:text-gray-600"
+                aria-label="menu"
                 onClick={() => setSidebarOpen(true)}
               >
                 <Menu className="h-6 w-6" />

@@ -213,9 +213,10 @@ const HomeView: React.FC<HomeViewProps> = ({
         <main className="flex-1 p-8">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
             <div
-              className="bg-white rounded-2xl border border-gray-200 p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
+              className="relative bg-white rounded-2xl border border-gray-200 p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
               onClick={() => onSelectMethod('seamless')}
             >
+              <div className="absolute top-3 right-3 text-[10px] font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded-full border border-amber-200">会员专享</div>
               <div className="text-center mb-6">
                 <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 shadow-lg mx-auto mb-4 group-hover:shadow-xl transition-all">
                   <img src="/AI四方连续转换.png" alt="四方连续转换" className="h-12 w-12 object-contain" />
@@ -231,9 +232,10 @@ const HomeView: React.FC<HomeViewProps> = ({
             </div>
 
             <div
-              className="bg-white rounded-2xl border border-gray-200 p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
+              className="relative bg-white rounded-2xl border border-gray-200 p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
               onClick={() => onSelectMethod('style')}
             >
+              <div className="absolute top-3 right-3 text-[10px] font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded-full border border-amber-200">会员专享</div>
               <div className="text-center mb-6">
                 <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-50 to-pink-50 shadow-lg mx-auto mb-4 group-hover:shadow-xl transition-all">
                   <img src="/AI矢量化转SVG.png" alt="矢量化" className="h-12 w-12 object-contain" />
@@ -249,9 +251,10 @@ const HomeView: React.FC<HomeViewProps> = ({
             </div>
 
             <div
-              className="bg-white rounded-2xl border border-gray-200 p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
+              className="relative bg-white rounded-2xl border border-gray-200 p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
               onClick={() => onSelectMethod('extract_pattern')}
             >
+              <div className="absolute top-3 right-3 text-[10px] font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded-full border border-amber-200">会员专享</div>
               <div className="text-center mb-6">
                 <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-50 to-pink-50 shadow-lg mx-auto mb-4 group-hover:shadow-xl transition-all">
                   <img src="/AI提取花型.png" alt="提取花型" className="h-12 w-12 object-contain" />
@@ -267,9 +270,10 @@ const HomeView: React.FC<HomeViewProps> = ({
             </div>
 
             <div
-              className="bg-white rounded-2xl border border-gray-200 p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
+              className="relative bg-white rounded-2xl border border-gray-200 p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
               onClick={() => onSelectMethod('watermark_removal')}
             >
+              <div className="absolute top-3 right-3 text-[10px] font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded-full border border-amber-200">会员专享</div>
               <div className="text-center mb-6">
                 <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-50 to-blue-50 shadow-lg mx-auto mb-4 group-hover:shadow-xl transition-all">
                   <img src="/AI智能去水印.png" alt="智能去水印" className="h-12 w-12 object-contain" />
@@ -285,9 +289,10 @@ const HomeView: React.FC<HomeViewProps> = ({
             </div>
 
             <div
-              className="bg-white rounded-2xl border border-gray-200 p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
+              className="relative bg-white rounded-2xl border border-gray-200 p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
               onClick={() => onSelectMethod('noise_removal')}
             >
+              <div className="absolute top-3 right-3 text-[10px] font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded-full border border-amber-200">会员专享</div>
               <div className="text-center mb-6">
                 <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-50 to-yellow-50 shadow-lg mx-auto mb-4 group-hover:shadow-xl transition-all">
                   <img src="/AI布纹去噪.png" alt="布纹去噪" className="h-12 w-12 object-contain" />
@@ -303,9 +308,10 @@ const HomeView: React.FC<HomeViewProps> = ({
             </div>
 
             <div
-              className="bg-white rounded-2xl border border-gray-200 p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
+              className="relative bg-white rounded-2xl border border-gray-200 p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
               onClick={() => onSelectMethod('embroidery')}
             >
+              <div className="absolute top-3 right-3 text-[10px] font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded-full border border-amber-200">会员专享</div>
               <div className="text-center mb-6">
                 <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-red-50 to-pink-50 shadow-lg mx-auto mb-4 group-hover:shadow-xl transition-all">
                   <img src="/AI毛线刺绣增强.png" alt="AI毛线刺绣增强" className="h-12 w-12 object-contain" />

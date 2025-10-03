@@ -17,18 +17,21 @@ jest.mock('next/navigation', () => ({
 // Mock admin auth context
 const mockLogout = jest.fn()
 
-jest.mock('@/contexts/AdminAuthContext', () => ({
-  ...jest.requireActual('@/contexts/AdminAuthContext'),
-  useAdminAuth: () => ({
-    logout: mockLogout,
-    state: { status: 'authenticated' }
-  }),
-  useAdminUser: () => ({
-    user: createMockAdminUser(),
-    accessToken: 'mock-token',
-    refreshToken: 'mock-refresh-token'
-  })
-}))
+jest.mock('@/contexts/AdminAuthContext', () => {
+  const actual = jest.requireActual('@/contexts/AdminAuthContext')
+  return {
+    ...actual,
+    useAdminAuth: jest.fn(() => ({
+      logout: mockLogout,
+      state: { status: 'authenticated' },
+    })),
+    useAdminUser: jest.fn(() => ({
+      user: createMockAdminUser(),
+      accessToken: 'mock-token',
+      refreshToken: 'mock-refresh-token',
+    })),
+  }
+})
 
 describe('AdminLayout', () => {
   beforeEach(() => {
