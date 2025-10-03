@@ -575,16 +575,7 @@ class AIClient:
         options: Optional[Dict[str, Any]] = None,
     ) -> str:
         """AI布纹去噪"""
-        prompt = """
-        去除这张图片中的布纹纹理：
-        1. 重点处理：fabric类型的问题
-        2. 处理模式：标准去噪处理
-        3. 保持图片的主要内容和结构
-        4. 提升图片的清晰度和质量
-        5. 确保处理后的图片自然美观
-        
-        请生成清晰、高质量的图片。
-        """
+        prompt = "Remove the fabric texture from this image, make the surface smooth while preserving the original color tone and overall appearance as much as possible."
         
         result = await self.process_image_gemini(image_bytes, prompt, "image/png")
         return self._extract_image_url(result)
