@@ -485,16 +485,7 @@ class AIClient:
         options: Optional[Dict[str, Any]] = None,
     ) -> str:
         """AI四方连续转换"""
-        prompt = """
-        将这张图片转换为可以四方连续拼接的图案。要求：
-        1. 确保图案边缘可以无缝连接
-        2. 保持原有图案的主要特征和风格
-        3. 去除背景元素
-        4. 确保完美的循环拼接效果
-        5. 输出为PNG格式，保持透明背景
-        
-        请生成一个可以四方连续拼接的图案版本。
-        """
+        prompt = """将图案处理为四方连续的循环图案，适合大面积印花使用，图案可无缝拼接。"""
         
         result = await self.process_image_gemini(image_bytes, prompt, "image/png")
         return self._extract_image_url(result)
