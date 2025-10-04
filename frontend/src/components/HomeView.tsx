@@ -319,6 +319,24 @@ const HomeView: React.FC<HomeViewProps> = ({
                 立即使用
               </div>
             </div>
+
+            <div
+              className="relative bg-white rounded-2xl border border-gray-200 p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
+              onClick={() => onSelectMethod('upscale')}
+            >
+              <div className="text-center mb-6">
+                <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg mx-auto mb-4 group-hover:shadow-xl transition-all">
+                  <img src="/进一步处理.png" alt="无损放大" className="h-12 w-12 object-contain" />
+                </div>
+                <h4 className="text-xl font-bold text-gray-900 mb-3">AI无损放大</h4>
+                <p className="text-gray-600 leading-relaxed">
+                  使用AI技术对图片进行无损放大，最高支持8K分辨率，保持图片清晰度和细节，适合印刷和展示。
+                </p>
+              </div>
+              <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white py-3 px-6 rounded-xl text-center font-medium hover:from-green-600 hover:to-emerald-600 transition-all">
+                立即使用
+              </div>
+            </div>
           </div>
         </main>
       </div>

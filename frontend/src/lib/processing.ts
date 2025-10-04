@@ -4,7 +4,8 @@ export type ProcessingMethod =
   | 'embroidery'
   | 'extract_pattern'
   | 'watermark_removal'
-  | 'noise_removal';
+  | 'noise_removal'
+  | 'upscale';
 
 interface ProcessingMethodInfo {
   title: string;
@@ -83,6 +84,18 @@ export const processingMethodInfo: Record<ProcessingMethod, ProcessingMethodInfo
       '系统自动判断噪音类型并处理',
       'AI智能去除噪点和布纹',
       '生成清晰的高质量图片',
+    ],
+  },
+  upscale: {
+    title: 'AI无损放大',
+    description: '使用AI技术对图片进行无损放大，最高支持8K分辨率，保持图片清晰度和细节。',
+    icon: '/进一步处理.png',
+    examples: [
+      '上传需要放大的图片',
+      '选择放大倍数或自定义尺寸',
+      'AI智能分析并放大图片',
+      '保持原始清晰度和细节',
+      '生成高质量放大图片',
     ],
   },
 };

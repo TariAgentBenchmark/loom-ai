@@ -30,6 +30,7 @@ class ProcessingService:
             TaskType.REMOVE_WATERMARK.value: 70,
             TaskType.DENOISE.value: 80,
             TaskType.EMBROIDERY.value: 120,  # 成本更高
+            TaskType.UPSCALE.value: 90,  # 无损放大
         }
         
         # 预计处理时间（秒）
@@ -41,6 +42,7 @@ class ProcessingService:
             TaskType.REMOVE_WATERMARK.value: 90,
             TaskType.DENOISE.value: 120,
             TaskType.EMBROIDERY.value: 200,  # 处理时间更长
+            TaskType.UPSCALE.value: 180,  # 无损放大
         }
 
     def calculate_credits_needed(self, task_type: str, image_info: Dict[str, Any], user: User) -> int:
@@ -166,6 +168,22 @@ class ProcessingService:
                     result_url = await ai_client.denoise_image(image_bytes, task.options)
                 elif task.type == TaskType.EMBROIDERY.value:
                     result_url = await ai_client.enhance_embroidery(image_bytes, task.options)
+                elif task.type == TaskType.UPSCALE.value:
+                    # For upscale, we need to first save the image and get its URL
+                    temp_filename = f"temp_upscale_{task.task_id}.jpg"
+                    temp_url = await self.file_service.save_upload_file(
+                        image_bytes, temp_filename, "originals", purpose="upscale"
+                    )
+                    # Get the full URL for the image - use the relative URL that the server can serve
+                    # The file service should handle serving these files via the /files/ endpoint
+                    image_url = f"/files/originals/{temp_filename}"
+                    result_url = await ai_client.upscale_image(
+                        image_url,
+                        task.options.get("scale_factor", 2),
+                        task.options.get("custom_width"),
+                        task.options.get("custom_height"),
+                        task.options
+                    )
                 else:
                     raise Exception(f"不支持的任务类型: {task.type}")
                 

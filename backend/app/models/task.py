@@ -14,6 +14,7 @@ class TaskType(PyEnum):
     REMOVE_WATERMARK = "remove_watermark"  # AI智能去水印
     DENOISE = "denoise"  # AI布纹去噪
     EMBROIDERY = "embroidery"  # AI毛线刺绣增强
+    UPSCALE = "upscale"  # AI无损放大
 
 
 class TaskStatus(PyEnum):
@@ -89,7 +90,8 @@ class Task(Base):
             TaskType.EXTRACT_PATTERN.value: "AI提取花型",
             TaskType.REMOVE_WATERMARK.value: "AI智能去水印",
             TaskType.DENOISE.value: "AI布纹去噪",
-            TaskType.EMBROIDERY.value: "AI毛线刺绣增强"
+            TaskType.EMBROIDERY.value: "AI毛线刺绣增强",
+            TaskType.UPSCALE.value: "AI无损放大"
         }
         return type_names.get(self.type, self.type)
 

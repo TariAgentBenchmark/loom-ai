@@ -268,6 +268,53 @@ async def enhance_embroidery(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post("/upscale")
+async def upscale_image(
+    image: UploadFile = File(...),
+    scale_factor: int = Form(2),
+    custom_width: Optional[int] = Form(None),
+    custom_height: Optional[int] = Form(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """AI无损放大"""
+    try:
+        image_bytes = await image.read()
+        
+        # 构建选项
+        options = {
+            "scale_factor": scale_factor,
+        }
+        
+        if custom_width:
+            options["custom_width"] = custom_width
+        if custom_height:
+            options["custom_height"] = custom_height
+        
+        task = await processing_service.create_task(
+            db=db,
+            user=current_user,
+            task_type="upscale",
+            image_bytes=image_bytes,
+            original_filename=image.filename,
+            options=options
+        )
+        
+        return SuccessResponse(
+            data={
+                "taskId": task.task_id,
+                "status": task.status,
+                "estimatedTime": task.estimated_time,
+                "creditsUsed": task.credits_used,
+                "createdAt": task.created_at
+            },
+            message="无损放大任务创建成功"
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.get("/status/{task_id}")
 async def get_task_status(
     task_id: str,
