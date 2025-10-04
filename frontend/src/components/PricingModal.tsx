@@ -125,7 +125,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ activeTab, onChangeTab, onC
                 </div>
                 <div className="flex items-center">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span className="text-gray-700">矢量风格转换(会员专享)</span>
+                  <span className="text-gray-700">矢量风格转换</span>
                 </div>
                 <div className="flex items-center">
                   <span className="text-green-500 mr-2">✓</span>
@@ -174,7 +174,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ activeTab, onChangeTab, onC
                 </div>
                 <div className="flex items-center">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span className="text-gray-700">矢量风格转换(会员专享)</span>
+                  <span className="text-gray-700">矢量风格转换</span>
                 </div>
                 <div className="flex items-center">
                   <span className="text-green-500 mr-2">✓</span>
@@ -219,11 +219,11 @@ const PricingModal: React.FC<PricingModalProps> = ({ activeTab, onChangeTab, onC
                 </div>
                 <div className="flex items-center">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span className="text-gray-700">矢量风格转换(会员专享)</span>
+                  <span className="text-gray-700">矢量风格转换</span>
                 </div>
                 <div className="flex items-center">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span className="text-gray-700">进一步处理(会员专享)</span>
+                  <span className="text-gray-700">进一步处理</span>
                 </div>
                 <div className="flex items-center">
                   <span className="text-green-500 mr-2">✓</span>
