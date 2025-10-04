@@ -318,7 +318,7 @@ const HomeView: React.FC<HomeViewProps> = ({
                 </div>
                 <h4 className="text-xl font-bold text-gray-900 mb-3">AI毛线刺绣增强</h4>
                 <p className="text-gray-600 leading-relaxed">
-                  使用即梦AI技术进行毛线刺绣增强，支持4K超高清输出，提供更真实的毛线质感和精细的针脚效果。
+                  使用AI技术进行毛线刺绣增强，支持4K超高清输出，提供更真实的毛线质感和精细的针脚效果。
                 </p>
               </div>
               <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white py-3 px-6 rounded-xl text-center font-medium hover:from-red-600 hover:to-pink-600 transition-all">

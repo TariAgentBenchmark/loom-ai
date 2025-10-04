@@ -28,7 +28,7 @@ class ProcessingService:
             TaskType.EXTRACT_PATTERN.value: 100,
             TaskType.REMOVE_WATERMARK.value: 70,
             TaskType.DENOISE.value: 80,
-            TaskType.EMBROIDERY.value: 120,  # 使用即梦API，成本更高
+            TaskType.EMBROIDERY.value: 120,  # 成本更高
         }
         
         # 预计处理时间（秒）
@@ -38,7 +38,7 @@ class ProcessingService:
             TaskType.EXTRACT_PATTERN.value: 200,
             TaskType.REMOVE_WATERMARK.value: 90,
             TaskType.DENOISE.value: 120,
-            TaskType.EMBROIDERY.value: 200,  # 使用即梦API，处理时间更长
+            TaskType.EMBROIDERY.value: 200,  # 处理时间更长
         }
 
     def calculate_credits_needed(self, task_type: str, image_info: Dict[str, Any], user: User) -> int:
@@ -77,7 +77,7 @@ class ProcessingService:
         
         # 保存原始图片
         original_url = await self.file_service.save_upload_file(
-            image_bytes, original_filename, "originals"
+            image_bytes, original_filename, "originals", purpose="jimeng" if task_type == TaskType.EMBROIDERY.value else "general"
         )
         
         # 获取图片信息
@@ -173,15 +173,27 @@ class ProcessingService:
                 processing_time = int((datetime.utcnow() - start_time).total_seconds())
                 
                 # 获取结果文件信息
-                # 检查是否是本地文件路径（Vectorizer.ai返回的是本地文件）
-                if result_url.startswith("/files/results/"):
-                    # 本地文件，直接读取
-                    result_bytes = await self.file_service.read_file(result_url)
-                    result_filename = f"result_{task.task_id}.svg"
+                # 根据任务类型确定文件格式
+                if task.type == TaskType.VECTORIZE.value:
+                    # 矢量化任务返回SVG格式
+                    if result_url.startswith("/files/results/"):
+                        # 本地文件，直接读取
+                        result_bytes = await self.file_service.read_file(result_url)
+                        result_filename = f"result_{task.task_id}.svg"
+                    else:
+                        # 远程URL，下载文件
+                        result_bytes = await self.file_service.download_from_url(result_url)
+                        result_filename = f"result_{task.task_id}.svg"
                 else:
-                    # 远程URL，下载文件
-                    result_bytes = await self.file_service.download_from_url(result_url)
-                    result_filename = f"result_{task.task_id}.png"
+                    # 其他任务返回PNG格式
+                    if result_url.startswith("/files/results/"):
+                        # 本地文件，直接读取
+                        result_bytes = await self.file_service.read_file(result_url)
+                        result_filename = f"result_{task.task_id}.png"
+                    else:
+                        # 远程URL，下载文件
+                        result_bytes = await self.file_service.download_from_url(result_url)
+                        result_filename = f"result_{task.task_id}.png"
                 
                 # 保存结果文件
                 final_result_url = await self.file_service.save_upload_file(

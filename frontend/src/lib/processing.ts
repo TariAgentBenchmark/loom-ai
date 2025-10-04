@@ -40,12 +40,12 @@ export const processingMethodInfo: Record<ProcessingMethod, ProcessingMethodInfo
   },
   embroidery: {
     title: 'AI毛线刺绣增强',
-    description: '使用即梦AI技术进行毛线刺绣增强，支持4K超高清输出，提供更真实的毛线质感和精细的针脚效果。',
+    description: '使用AI技术进行毛线刺绣增强，支持4K超高清输出，提供更真实的毛线质感和精细的针脚效果。',
     icon: '/AI毛线刺绣增强.png',
     examples: [
       '上传需要刺绣增强的图片',
       '支持多种图片格式，建议使用高分辨率图片',
-      '即梦AI智能分析图片内容',
+      'AI智能分析图片内容',
       '生成高质量毛线刺绣效果图',
       '支持4K超高清输出，细节更丰富',
     ],

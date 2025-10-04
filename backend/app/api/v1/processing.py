@@ -190,7 +190,7 @@ async def enhance_embroidery(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """AI毛线刺绣增强（使用即梦API）"""
+    """AI毛线刺绣增强"""
     try:
         image_bytes = await image.read()
         

@@ -43,6 +43,14 @@ class Settings(BaseSettings):
     jimeng_api_secret: str = ""
     jimeng_base_url: str = "https://visual.volcengineapi.com"
 
+    # 阿里云OSS配置
+    oss_access_key_id: str = ""
+    oss_access_key_secret: str = ""
+    oss_endpoint: str = "https://oss-cn-hangzhou.aliyuncs.com"
+    oss_bucket_name: str = ""
+    oss_bucket_domain: str = ""
+    oss_expiration_time: int = 3600  # URL过期时间（秒）
+
     # 文件存储配置
     upload_path: str = "./uploads"
     max_file_size: int = 52428800  # 50MB

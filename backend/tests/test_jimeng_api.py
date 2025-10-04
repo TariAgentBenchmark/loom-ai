@@ -12,7 +12,16 @@ class TestJimengAPI:
     @pytest.fixture
     def ai_client(self):
         """创建AI客户端实例"""
-        return AIClient()
+        original_key = settings.jimeng_api_key
+        original_secret = settings.jimeng_api_secret
+        settings.jimeng_api_key = "test_key"
+        settings.jimeng_api_secret = "test_secret"
+
+        try:
+            yield AIClient()
+        finally:
+            settings.jimeng_api_key = original_key
+            settings.jimeng_api_secret = original_secret
     
     @pytest.fixture
     def sample_image_bytes(self):

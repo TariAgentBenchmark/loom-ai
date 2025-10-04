@@ -1,11 +1,15 @@
 import asyncio
 import base64
+import datetime
+import hashlib
+import hmac
 import json
 import logging
 import os
 from io import BytesIO
 from random import uniform
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 import httpx
 from PIL import Image
@@ -47,6 +51,8 @@ class AIClient:
         self.jimeng_api_key = settings.jimeng_api_key
         self.jimeng_api_secret = settings.jimeng_api_secret
         self.jimeng_base_url = settings.jimeng_base_url
+        self.jimeng_region = "cn-north-1"
+        self.jimeng_service = "cv"
     
     async def _make_request(self, method: str, endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """发送API请求"""
@@ -225,16 +231,23 @@ class AIClient:
         """发送即梦API请求"""
         url = f"{self.jimeng_base_url}{endpoint}"
         
+        if not self.jimeng_api_key or not self.jimeng_api_secret:
+            raise Exception("即梦API密钥未配置")
+
         # 添加查询参数
         query_params = {
             "Action": data.get("Action", "CVSync2AsyncSubmitTask"),
-            "Version": data.get("Version", "2022-08-31")
+            "Version": data.get("Version", "2022-08-31"),
         }
-        
-        # 构建完整URL
-        import urllib.parse
-        query_string = urllib.parse.urlencode(query_params)
-        full_url = f"{url}?{query_string}"
+
+        canonical_querystring = "&".join(
+            f"{key}={query_params[key]}" for key in sorted(query_params)
+        )
+        full_url = f"{url}?{canonical_querystring}" if canonical_querystring else url
+
+        parsed_url = urlparse(full_url)
+        canonical_uri = parsed_url.path or "/"
+        host = parsed_url.netloc
         
         # 准备请求数据
         request_data = {
@@ -260,7 +273,70 @@ class AIClient:
             request_data["min_ratio"] = data["min_ratio"]
         if "max_ratio" in data:
             request_data["max_ratio"] = data["max_ratio"]
+        if "task_id" in data:
+            request_data["task_id"] = data["task_id"]
         
+        body_json = json.dumps(request_data, ensure_ascii=False, separators=(",", ":"))
+        body_bytes = body_json.encode("utf-8")
+
+        payload_hash = hashlib.sha256(body_bytes).hexdigest()
+        content_type = "application/json"
+        method_upper = method.upper()
+
+        timestamp = datetime.datetime.utcnow()
+        current_date = timestamp.strftime("%Y%m%dT%H%M%SZ")
+        datestamp = timestamp.strftime("%Y%m%d")
+
+        signed_headers = "content-type;host;x-content-sha256;x-date"
+        canonical_headers = (
+            f"content-type:{content_type}\n"
+            f"host:{host}\n"
+            f"x-content-sha256:{payload_hash}\n"
+            f"x-date:{current_date}\n"
+        )
+
+        canonical_request = (
+            f"{method_upper}\n"
+            f"{canonical_uri}\n"
+            f"{canonical_querystring}\n"
+            f"{canonical_headers}\n"
+            f"{signed_headers}\n"
+            f"{payload_hash}"
+        )
+
+        algorithm = "HMAC-SHA256"
+        credential_scope = f"{datestamp}/{self.jimeng_region}/{self.jimeng_service}/request"
+        string_to_sign = (
+            f"{algorithm}\n"
+            f"{current_date}\n"
+            f"{credential_scope}\n"
+            f"{hashlib.sha256(canonical_request.encode('utf-8')).hexdigest()}"
+        )
+
+        def _sign(key: bytes, msg: str) -> bytes:
+            return hmac.new(key, msg.encode("utf-8"), hashlib.sha256).digest()
+
+        k_date = _sign(self.jimeng_api_secret.encode("utf-8"), datestamp)
+        k_region = _sign(k_date, self.jimeng_region)
+        k_service = _sign(k_region, self.jimeng_service)
+        signing_key = _sign(k_service, "request")
+        signature = hmac.new(signing_key, string_to_sign.encode("utf-8"), hashlib.sha256).hexdigest()
+
+        authorization_header = (
+            f"{algorithm} "
+            f"Credential={self.jimeng_api_key}/{credential_scope}, "
+            f"SignedHeaders={signed_headers}, "
+            f"Signature={signature}"
+        )
+
+        headers = {
+            "Content-Type": content_type,
+            "Authorization": authorization_header,
+            "X-Date": current_date,
+            "X-Content-Sha256": payload_hash,
+            "Host": host,
+        }
+
         max_retries = 3
         backoff_base = 1.5
 
@@ -268,9 +344,10 @@ class AIClient:
             try:
                 async with httpx.AsyncClient(timeout=300.0) as client:
                     response = await client.request(
-                        method=method,
+                        method=method_upper,
                         url=full_url,
-                        json=request_data
+                        headers=headers,
+                        content=body_bytes,
                     )
                     response.raise_for_status()
                     return response.json()
@@ -698,25 +775,34 @@ class AIClient:
         image_bytes: bytes,
         options: Optional[Dict[str, Any]] = None,
     ) -> str:
-        """AI毛线刺绣增强（使用即梦API）"""
+        """AI毛线刺绣增强"""
         try:
-            # 将图片转换为base64并保存为临时文件
-            import uuid
-            import os
+            # 导入OSS服务
+            from app.services.oss_service import oss_service
             
             # 生成临时文件名
+            import uuid
             temp_filename = f"temp_embroidery_{uuid.uuid4().hex[:8]}.jpg"
-            temp_file_path = f"{settings.upload_path}/originals/{temp_filename}"
             
-            # 确保目录存在
-            os.makedirs(os.path.dirname(temp_file_path), exist_ok=True)
-            
-            # 保存临时文件
-            with open(temp_file_path, "wb") as f:
-                f.write(image_bytes)
-            
-            # 构建图片URL（这里需要根据实际的文件服务配置调整）
-            image_url = f"/files/originals/{temp_filename}"
+            # 上传图片到OSS获取公开URL
+            logger.info(f"OSS配置状态: {'已配置' if oss_service.is_configured() else '未配置'}")
+            if oss_service.is_configured():
+                logger.info("上传图片到OSS以供处理使用")
+                image_url = await oss_service.upload_image_for_jimeng(image_bytes, temp_filename)
+                logger.info(f"OSS上传完成，获得的URL: {image_url}")
+            else:
+                # 如果OSS未配置，保存到本地并使用相对路径（不推荐用于生产环境）
+                logger.warning("OSS未配置，使用本地存储")
+                import os
+                
+                temp_file_path = f"{settings.upload_path}/originals/{temp_filename}"
+                os.makedirs(os.path.dirname(temp_file_path), exist_ok=True)
+                
+                with open(temp_file_path, "wb") as f:
+                    f.write(image_bytes)
+                
+                image_url = f"/files/originals/{temp_filename}"
+                logger.warning(f"使用本地路径: {image_url}")
             
             # 构建请求参数
             prompt = """
@@ -756,62 +842,128 @@ class AIClient:
                 if "force_single" in options:
                     data["force_single"] = options["force_single"]
             
-            logger.info("Sending embroidery enhancement request to Jimeng API")
+            logger.info(f"Sending embroidery enhancement request with image URL: {image_url}")
             result = await self._make_jimeng_request("POST", "", data)
             
             # 检查响应是否包含错误
             if "code" in result and result["code"] != 10000:
                 error_msg = result.get("message", "未知错误")
-                logger.error(f"Jimeng embroidery API error: {result['code']} - {error_msg}")
-                raise Exception(f"即梦毛线刺绣API处理失败: {error_msg}")
+                logger.error(f"Embroidery enhancement API error: {result['code']} - {error_msg}")
+                raise Exception(f"毛线刺绣增强处理失败: {error_msg}")
             
             # 提取任务ID
             if "data" not in result or "task_id" not in result["data"]:
-                logger.error(f"Jimeng embroidery API unexpected response: {result}")
-                raise Exception("即梦毛线刺绣API响应格式错误")
+                logger.error(f"Embroidery enhancement API unexpected response: {result}")
+                raise Exception("毛线刺绣增强响应格式错误")
             
             task_id = result["data"]["task_id"]
-            logger.info(f"Jimeng embroidery task created: {task_id}")
+            logger.info(f"Embroidery enhancement task created: {task_id}")
             
             # 轮询任务状态
-            max_attempts = 30  # 最多轮询30次
+            max_attempts = 40  # 最多轮询40次（增加到约2分钟）
             for attempt in range(max_attempts):
-                await asyncio.sleep(3)  # 等待3秒
+                # 动态调整等待时间：前20次等待3秒，后20次等待5秒
+                wait_time = 3 if attempt < 20 else 5
+                await asyncio.sleep(wait_time)
                 
                 status_result = await self.query_jimeng_task_status(task_id)
                 if "code" in status_result and status_result["code"] != 10000:
                     error_msg = status_result.get("message", "未知错误")
-                    logger.error(f"Jimeng embroidery status query error: {status_result['code']} - {error_msg}")
-                    raise Exception(f"即梦毛线刺绣状态查询失败: {error_msg}")
+                    logger.error(f"Embroidery enhancement status query error: {status_result['code']} - {error_msg}")
+                    raise Exception(f"毛线刺绣增强状态查询失败: {error_msg}")
                 
                 if "data" in status_result:
                     status_data = status_result["data"]
                     current_status = status_data.get("status", "")
+                    logger.info(f"Task {task_id} status: {current_status}")
+                    logger.debug(f"Full status response: {status_result}")
                     
                     if current_status == "done":  # 任务成功
+                        logger.info(f"Embroidery enhancement task {task_id} completed successfully")
+                        
+                        # 检查image_urls位置 - 可能在data中，也可能在根级别
+                        image_urls = None
                         if "image_urls" in status_data and status_data["image_urls"]:
                             image_urls = status_data["image_urls"]
-                            if image_urls and len(image_urls) > 0:
-                                # 下载并保存结果图片
-                                result_url = image_urls[0]
-                                result_bytes = await self._download_image_from_url(result_url)
+                        elif "image_urls" in status_result and status_result["image_urls"]:
+                            image_urls = status_result["image_urls"]
+                        
+                        # 检查是否有二进制数据
+                        binary_data = None
+                        if "binary_data_base64" in status_data and status_data["binary_data_base64"]:
+                            binary_data = status_data["binary_data_base64"]
+                        elif "binary_data_base64" in status_result and status_result["binary_data_base64"]:
+                            binary_data = status_result["binary_data_base64"]
+                        
+                        if image_urls and len(image_urls) > 0:
+                            # 下载并保存结果图片
+                            result_url = image_urls[0]
+                            logger.info(f"Downloading result from: {result_url}")
+                            result_bytes = await self._download_image_from_url(result_url)
+                            
+                            # 保存结果文件
+                            result_filename = f"embroidery_{uuid.uuid4().hex[:8]}.png"
+                            result_file_path = f"{settings.upload_path}/results/{result_filename}"
+                            
+                            os.makedirs(os.path.dirname(result_file_path), exist_ok=True)
+                            with open(result_file_path, "wb") as f:
+                                f.write(result_bytes)
+                            
+                            # 返回文件URL格式
+                            logger.info(f"Result saved to: {result_file_path}")
+                            return f"/files/results/{result_filename}"
+                        elif binary_data:
+                            # 处理base64编码的图片数据
+                            logger.info("Processing base64 encoded image data")
+                            try:
+                                import base64
+                                # 处理binary_data可能是列表的情况
+                                if isinstance(binary_data, list):
+                                    if binary_data and len(binary_data) > 0:
+                                        binary_data = binary_data[0]
+                                    else:
+                                        logger.error("Binary data list is empty")
+                                        raise Exception("二进制数据列表为空")
+                                
+                                # 确保binary_data是字符串
+                                if not isinstance(binary_data, str):
+                                    logger.error(f"Binary data is not a string: {type(binary_data)}")
+                                    raise Exception(f"二进制数据格式错误: {type(binary_data)}")
+                                
+                                result_bytes = base64.b64decode(binary_data)
                                 
                                 # 保存结果文件
                                 result_filename = f"embroidery_{uuid.uuid4().hex[:8]}.png"
                                 result_file_path = f"{settings.upload_path}/results/{result_filename}"
                                 
+                                # 确保目录存在
+                                import os
                                 os.makedirs(os.path.dirname(result_file_path), exist_ok=True)
                                 with open(result_file_path, "wb") as f:
                                     f.write(result_bytes)
                                 
                                 # 返回文件URL格式
+                                logger.info(f"Result saved to: {result_file_path}")
                                 return f"/files/results/{result_filename}"
+                            except Exception as e:
+                                logger.error(f"Failed to process base64 image data: {str(e)}")
+                                raise Exception(f"处理base64图片数据失败: {str(e)}")
+                        else:
+                            # 任务状态为done但没有结果，可能需要等待更长时间
+                            if attempt < max_attempts - 1:  # 不是最后一次尝试
+                                logger.warning(f"Task done but no results yet, retrying... (attempt {attempt + 1}/{max_attempts})")
+                                continue
+                            else:
+                                logger.error("Task completed but no image URLs or binary data found in response")
+                                logger.error(f"Status data: {status_data}")
+                                logger.error(f"Full response: {status_result}")
+                                raise Exception("任务完成但未找到结果图片")
                     
                     elif current_status in ["failed", "expired", "not_found"]:
                         error_msg = status_data.get("message", "任务执行失败")
                         raise Exception(f"毛线刺绣任务失败: {error_msg}")
                     
-                    logger.info(f"Jimeng embroidery task {task_id} status: {current_status}")
+                    logger.info(f"Embroidery enhancement task {task_id} status: {current_status}")
             
             raise Exception(f"毛线刺绣任务超时: {task_id}")
             
