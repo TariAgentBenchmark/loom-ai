@@ -490,6 +490,42 @@ class AIClient:
         result = await self.process_image_gemini(image_bytes, prompt, "image/png")
         return self._extract_image_url(result)
 
+    async def prompt_edit_image(
+        self,
+        image_bytes: bytes,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """根据自然语言指令编辑图片"""
+        options = options or {}
+        instruction = (options.get("instruction") or "").strip()
+        if not instruction:
+            raise Exception("请提供修改指令")
+
+        model_choice = (options.get("model") or "new").strip().lower()
+        if model_choice not in {"new", "original"}:
+            model_choice = "new"
+
+        if model_choice == "original":
+            prefix = (
+                "你是一名专业的服装与电商图片修图师，偏好保守的风格调整，"
+                "执行时保持原图细节与主体结构稳定，不引入额外装饰。"
+            )
+        else:
+            prefix = (
+                "你是一名专业的图像编辑AI助手，使用最新的模型快速响应用户需求，"
+                "在保证人物和主体自然的前提下，可以适度进行创造性调整。"
+            )
+
+        prompt = (
+            f"{prefix}\n"
+            "请仔细阅读用户的中文指令，根据指令对上传的图片进行精准修改。"
+            "确保修改区域自然融入，避免出现明显的编辑痕迹或违背常识的结果。\n"
+            f"用户指令：{instruction}"
+        )
+
+        result = await self.process_image_gemini(image_bytes, prompt, "image/png")
+        return self._extract_image_url(result)
+
     async def vectorize_image(
         self,
         image_bytes: bytes,

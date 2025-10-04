@@ -32,6 +32,7 @@ import {
   UserProfile,
   createProcessingTask,
   getProcessingStatus,
+  ProcessingRequestPayload,
   ProcessingStatusData,
 } from '../lib/api';
 
@@ -59,6 +60,7 @@ export default function Home() {
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [activeTab, setActiveTab] = useState<PricingTab>('包月会员');
   const [currentPage, setCurrentPage] = useState<PageState>('home');
+  const [promptInstruction, setPromptInstruction] = useState<string>('');
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -199,13 +201,32 @@ export default function Home() {
       return;
     }
 
+    let trimmedInstruction = '';
+    if (currentPage === 'prompt_edit') {
+      trimmedInstruction = promptInstruction.trim();
+      if (!trimmedInstruction) {
+        setErrorMessage('请输入要执行的修改指令');
+        return;
+      }
+    }
+
     clearPolling();
     setIsProcessing(true);
     setErrorMessage('');
     setSuccessMessage('');
     setProcessedImage(null);
 
-    createProcessingTask({ method: currentPage, image: uploadedImage, accessToken })
+    const payload: ProcessingRequestPayload = {
+      method: currentPage,
+      image: uploadedImage,
+      accessToken,
+    };
+
+    if (currentPage === 'prompt_edit') {
+      payload.instruction = trimmedInstruction;
+    }
+
+    createProcessingTask(payload)
       .then((response) => {
         const task = response.data;
 
@@ -251,6 +272,7 @@ export default function Home() {
           onBack={() => {
             clearPolling();
             setCurrentPage('home');
+            setPromptInstruction('');
           }}
           onOpenPricingModal={() => setShowPricingModal(true)}
           onProcessImage={handleProcessImage}
@@ -261,6 +283,8 @@ export default function Home() {
           errorMessage={errorMessage}
           successMessage={successMessage}
           accessToken={accessToken || undefined}
+          promptInstruction={promptInstruction}
+          onPromptInstructionChange={setPromptInstruction}
         />
       ) : (
         <HomeView
@@ -268,6 +292,9 @@ export default function Home() {
             setCurrentPage(method);
             setProcessedImage(null);
             setErrorMessage('');
+            if (method === 'prompt_edit') {
+              setPromptInstruction('');
+            }
           }}
           onOpenPricingModal={() => setShowPricingModal(true)}
           onLogout={() => {

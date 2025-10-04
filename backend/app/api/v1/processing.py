@@ -50,6 +50,49 @@ async def seamless_pattern_conversion(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post("/prompt-edit")
+async def prompt_edit_image(
+    image: UploadFile = File(...),
+    instruction: str = Form(...),
+    model: str = Form("new"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """AI用嘴改图"""
+    try:
+        image_bytes = await image.read()
+
+        instruction_value = instruction.strip()
+        if not instruction_value:
+            raise ValueError("请填写修改指令")
+
+        task = await processing_service.create_task(
+            db=db,
+            user=current_user,
+            task_type="prompt_edit",
+            image_bytes=image_bytes,
+            original_filename=image.filename,
+            options={
+                "instruction": instruction_value,
+                "model": (model or "new").strip().lower() or "new",
+            }
+        )
+
+        return SuccessResponse(
+            data={
+                "taskId": task.task_id,
+                "status": task.status,
+                "estimatedTime": task.estimated_time,
+                "creditsUsed": task.credits_used,
+                "createdAt": task.created_at
+            },
+            message="指令改图任务创建成功"
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.post("/vectorize")
 async def vectorize_image(
     image: UploadFile = File(...),

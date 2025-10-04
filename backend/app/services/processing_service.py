@@ -23,6 +23,7 @@ class ProcessingService:
         
         # 各功能的基础算力消耗
         self.credit_costs = {
+            TaskType.PROMPT_EDIT.value: 80,
             TaskType.SEAMLESS.value: 60,
             TaskType.VECTORIZE.value: 100,
             TaskType.EXTRACT_PATTERN.value: 100,
@@ -33,6 +34,7 @@ class ProcessingService:
         
         # 预计处理时间（秒）
         self.estimated_times = {
+            TaskType.PROMPT_EDIT.value: 150,
             TaskType.SEAMLESS.value: 120,
             TaskType.VECTORIZE.value: 180,
             TaskType.EXTRACT_PATTERN.value: 200,
@@ -152,6 +154,8 @@ class ProcessingService:
             try:
                 if task.type == TaskType.SEAMLESS.value:
                     result_url = await ai_client.seamless_pattern_conversion(image_bytes, task.options)
+                elif task.type == TaskType.PROMPT_EDIT.value:
+                    result_url = await ai_client.prompt_edit_image(image_bytes, task.options)
                 elif task.type == TaskType.VECTORIZE.value:
                     result_url = await ai_client.vectorize_image(image_bytes, task.options)
                 elif task.type == TaskType.EXTRACT_PATTERN.value:

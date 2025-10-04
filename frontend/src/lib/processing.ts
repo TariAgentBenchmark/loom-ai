@@ -1,5 +1,5 @@
 export type ProcessingMethod =
-  | 'seamless'
+  | 'prompt_edit'
   | 'style'
   | 'embroidery'
   | 'extract_pattern'
@@ -14,16 +14,16 @@ interface ProcessingMethodInfo {
 }
 
 export const processingMethodInfo: Record<ProcessingMethod, ProcessingMethodInfo> = {
-  seamless: {
-    title: 'AI四方连续转换',
-    description: '对独幅矩形图转换成可四方连续的打印图，如需对结果放大请用AI无缝图放大功能。',
-    icon: '/AI四方连续转换.png',
+  prompt_edit: {
+    title: 'AI用嘴改图',
+    description: '上传需要修改的图片，输入一句中文指令即可完成智能修图，快速得到前后对比效果。',
+    icon: '/AI用嘴改图.png',
     examples: [
-      '上传矩形图片',
-      '保持原图主体清晰，避免重要元素贴近边缘',
-      '系统自动进行无缝拼接处理',
-      '调整图案大小和位置',
-      '生成可四方连续的打印图案',
+      '上传需要修改的图片（支持JPG/PNG，推荐小于5MB）',
+      '确保图片主体清晰，避免重要元素被裁切',
+      '用一句话描述想要修改的细节，例如“把裙子换成白色”',
+      '点击开始处理，等待AI返回修改后的图片',
+      '下载或查看处理前后的对比效果',
     ],
   },
   style: {

@@ -7,6 +7,7 @@ from app.core.database import Base
 
 
 class TaskType(PyEnum):
+    PROMPT_EDIT = "prompt_edit"  # AI用嘴改图
     SEAMLESS = "seamless"  # AI四方连续转换
     VECTORIZE = "vectorize"  # AI矢量化(转SVG)
     EXTRACT_PATTERN = "extract_pattern"  # AI提取花型
@@ -82,6 +83,7 @@ class Task(Base):
     def type_name(self) -> str:
         """获取任务类型的中文名称"""
         type_names = {
+            TaskType.PROMPT_EDIT.value: "AI用嘴改图",
             TaskType.SEAMLESS.value: "AI四方连续转换",
             TaskType.VECTORIZE.value: "AI矢量化(转SVG)",
             TaskType.EXTRACT_PATTERN.value: "AI提取花型",

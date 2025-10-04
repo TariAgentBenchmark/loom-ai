@@ -95,7 +95,7 @@ const getJson = async <TData>(path: string, accessToken: string) => {
 };
 
 const processingPathMap: Record<ProcessingMethod, string> = {
-  seamless: "/processing/seamless",
+  prompt_edit: "/processing/prompt-edit",
   style: "/processing/vectorize",
   embroidery: "/processing/embroidery",
   extract_pattern: "/processing/extract-pattern",
@@ -221,15 +221,24 @@ export interface ProcessingRequestPayload {
   method: ProcessingMethod;
   image: File;
   accessToken: string;
+  instruction?: string;
+  model?: "new" | "original";
 }
 
 export const createProcessingTask = ({
   method,
   image,
   accessToken,
+  instruction,
+  model,
 }: ProcessingRequestPayload) => {
   const formData = new FormData();
   formData.append("image", image);
+
+  if (method === "prompt_edit") {
+    formData.append("instruction", instruction ?? "");
+    formData.append("model", model ?? "new");
+  }
 
   const path = processingPathMap[method];
   return postFormData<ProcessingTaskData>(path, formData, accessToken);

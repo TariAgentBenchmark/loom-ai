@@ -32,7 +32,7 @@ const HistoryList: React.FC<HistoryListProps> = ({ accessToken, onTaskSelect }) 
 
   const typeOptions = [
     { value: 'all', label: '全部类型' },
-    { value: 'seamless', label: 'AI四方连续转换' },
+    { value: 'prompt_edit', label: 'AI用嘴改图' },
     { value: 'vectorize', label: 'AI矢量化(转SVG)' },
     { value: 'extract_pattern', label: 'AI提取花型' },
     { value: 'remove_watermark', label: 'AI智能去水印' },

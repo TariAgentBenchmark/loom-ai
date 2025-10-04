@@ -214,15 +214,15 @@ const HomeView: React.FC<HomeViewProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
             <div
               className="relative bg-white rounded-2xl border border-gray-200 p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
-              onClick={() => onSelectMethod('seamless')}
+              onClick={() => onSelectMethod('prompt_edit')}
             >
               <div className="text-center mb-6">
                 <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 shadow-lg mx-auto mb-4 group-hover:shadow-xl transition-all">
-                  <img src="/AI四方连续转换.png" alt="四方连续转换" className="h-12 w-12 object-contain" />
+                  <img src="/AI用嘴改图.png" alt="用嘴改图" className="h-12 w-12 object-contain" />
                 </div>
-                <h4 className="text-xl font-bold text-gray-900 mb-3">AI四方连续转换</h4>
+                <h4 className="text-xl font-bold text-gray-900 mb-3">AI用嘴改图</h4>
                 <p className="text-gray-600 leading-relaxed">
-                  对独幅矩形图转换成可四方连续的打印图，如需对结果放大请用AI无缝图放大功能。
+                  上传图片并输入一句中文指令，AI即可帮你快速完成改图，适合服装电商等使用场景。
                 </p>
               </div>
               <div className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-3 px-6 rounded-xl text-center font-medium hover:from-blue-600 hover:to-indigo-600 transition-all">

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { History } from 'lucide-react';
 import { ProcessingMethod, getProcessingMethodInfo } from '../lib/processing';
 import { resolveFileUrl, HistoryTask } from '../lib/api';
@@ -23,6 +23,8 @@ interface ProcessingPageProps {
   errorMessage?: string;
   successMessage?: string;
   accessToken?: string;
+  promptInstruction?: string;
+  onPromptInstructionChange?: (value: string) => void;
 }
 
 const ProcessingPage: React.FC<ProcessingPageProps> = ({
@@ -41,10 +43,27 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   errorMessage,
   successMessage,
   accessToken,
+  promptInstruction,
+  onPromptInstructionChange,
 }) => {
   const info = getProcessingMethodInfo(method);
   const [selectedTask, setSelectedTask] = useState<HistoryTask | null>(null);
   const [showImagePreview, setShowImagePreview] = useState(false);
+  const isPromptReady = method !== 'prompt_edit' || Boolean(promptInstruction?.trim());
+  const isActionDisabled = !hasUploadedImage || isProcessing || !isPromptReady;
+
+  const handlePromptTemplateSelect = (template: string) => {
+    if (onPromptInstructionChange) {
+      onPromptInstructionChange(template);
+    }
+  };
+
+  const promptTemplates = [
+    '把图中裙子改成白色',
+    '调整背景为浅灰色并保留人物',
+    '把模特的上衣改成牛仔材质',
+    '让图片中的包包换成黑色皮质',
+  ];
 
   const handleTaskSelect = (task: HistoryTask) => {
     setSelectedTask(task);
@@ -133,7 +152,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
           <div className="mb-6">
             <button
               onClick={onProcessImage}
-              disabled={!hasUploadedImage || isProcessing}
+              disabled={isActionDisabled}
               className="w-full bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-medium py-4 px-6 rounded-xl text-lg shadow-lg transition-all transform hover:scale-105 disabled:hover:scale-100"
             >
               {isProcessing ? (
@@ -146,6 +165,45 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
               )}
             </button>
           </div>
+
+          {method === 'prompt_edit' && (
+            <div className="mb-6 space-y-4">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-base font-semibold text-gray-900">输入指令</h4>
+                  <div className="relative">
+                    <select
+                      className="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-600 focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+                      defaultValue=""
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        if (value) {
+                          handlePromptTemplateSelect(value);
+                          event.target.selectedIndex = 0;
+                        }
+                      }}
+                    >
+                      <option value="" disabled>
+                        指令参考
+                      </option>
+                      {promptTemplates.map((template) => (
+                        <option key={template} value={template}>
+                          {template}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <textarea
+                  value={promptInstruction ?? ''}
+                  onChange={(event) => onPromptInstructionChange?.(event.target.value)}
+                  placeholder="例如：把图中裙子的颜色改成白色"
+                  className="w-full min-h-[110px] rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 resize-none"
+                />
+                <p className="text-xs text-gray-500 mt-2">一句话描述想要修改的细节，AI会自动处理。</p>
+              </div>
+            </div>
+          )}
 
           <div className="mb-6">
             <h4 className="text-base font-semibold text-gray-900 mb-3">使用提示</h4>
