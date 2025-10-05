@@ -1,9 +1,23 @@
 import { ProcessingMethod } from "./processing";
 
-const DEFAULT_API_BASE_URL = "http://localhost:8000/v1";
+const DEFAULT_API_BASE_URL = typeof window !== "undefined" 
+  ? `${window.location.origin}/api`
+  : "http://localhost:8000/v1";
 
-const resolveApiBaseUrl = () =>
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? DEFAULT_API_BASE_URL;
+const resolveApiBaseUrl = () => {
+  const envUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+  if (envUrl) {
+    return envUrl.replace(/\/$/, "");
+  }
+  
+  // 在浏览器环境中，使用当前域名 + /api
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}/api`;
+  }
+  
+  // 在服务端渲染时，使用 localhost（仅用于 SSR）
+  return "http://localhost:8000/v1";
+};
 
 const API_BASE_URL = resolveApiBaseUrl();
 
