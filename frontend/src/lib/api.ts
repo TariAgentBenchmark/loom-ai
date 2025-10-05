@@ -101,6 +101,7 @@ const processingPathMap: Record<ProcessingMethod, string> = {
   extract_pattern: "/processing/extract-pattern",
   watermark_removal: "/processing/remove-watermark",
   noise_removal: "/processing/denoise",
+  upscale: "/processing/upscale",
 };
 
 export interface ApiSuccessResponse<T> {
