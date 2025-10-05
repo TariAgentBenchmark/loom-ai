@@ -169,64 +169,6 @@ class AIClient:
         # 理论上不会到达这里，保留兜底处理
         raise Exception("美图API连接失败: 未知错误")
     
-    async def _make_meitu_async_request(self, endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
-        """发送美图异步API请求"""
-        url = f"{self.meitu_base_url}{endpoint}"
-        url_with_params = f"{url}?api_key={self.meitu_api_key}&api_secret={self.meitu_api_secret}"
-        
-        max_retries = 3
-        backoff_base = 1.5
-
-        for attempt in range(1, max_retries + 1):
-            try:
-                async with httpx.AsyncClient(timeout=300.0) as client:
-                    response = await client.request(
-                        method="POST",
-                        url=url_with_params,
-                        headers=self.meitu_headers,
-                        json=data
-                    )
-                    response.raise_for_status()
-                    return response.json()
-
-            except httpx.HTTPStatusError as exc:
-                status = exc.response.status_code
-                body = exc.response.text
-                if 500 <= status < 600 and attempt < max_retries:
-                    wait_seconds = backoff_base * (2 ** (attempt - 1)) + uniform(0, 0.5)
-                    logger.warning(
-                        "Meitu async API request failed with %s (attempt %s/%s). Body: %s. Retrying in %.2fs",
-                        status,
-                        attempt,
-                        max_retries,
-                        body,
-                        wait_seconds,
-                    )
-                    await asyncio.sleep(wait_seconds)
-                    continue
-
-                logger.error(f"Meitu async API request failed: {status} - {body}")
-                raise Exception(f"美图异步API请求失败: {status}")
-
-            except httpx.RequestError as exc:
-                if attempt < max_retries:
-                    wait_seconds = backoff_base * (2 ** (attempt - 1)) + uniform(0, 0.5)
-                    logger.warning(
-                        "Meitu async API request error '%s' (attempt %s/%s). Retrying in %.2fs",
-                        exc,
-                        attempt,
-                        max_retries,
-                        wait_seconds,
-                    )
-                    await asyncio.sleep(wait_seconds)
-                    continue
-
-                logger.error(f"Meitu async API request error: {str(exc)}")
-                raise Exception(f"美图异步API连接失败: {str(exc)}")
-
-        # 理论上不会到达这里，保留兜底处理
-        raise Exception("美图异步API连接失败: 未知错误")
-    
     async def _make_jimeng_request(self, method: str, endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """发送即梦API请求"""
         url = f"{self.jimeng_base_url}{endpoint}"
@@ -402,15 +344,6 @@ class AIClient:
         logger.info(f"Querying Jimeng task status: {task_id}")
         return await self._make_jimeng_request("POST", "", data)
     
-    async def query_meitu_task_status(self, task_id: str) -> Dict[str, Any]:
-        """查询美图异步任务状态"""
-        endpoint = "/api/v1/sdk/sync/status"
-        data = {
-            "task_id": task_id
-        }
-        
-        logger.info(f"Querying Meitu task status: {task_id}")
-        return await self._make_meitu_async_request(endpoint, data)
 
     def _image_to_base64(self, image_bytes: bytes, format: str = "JPEG") -> str:
         """将图片字节转换为base64编码"""
@@ -692,60 +625,124 @@ class AIClient:
         custom_height: Optional[int] = None,
         options: Optional[Dict[str, Any]] = None,
     ) -> str:
-        """无损放大图片（使用美图API）"""
+        """无损放大图片（使用美图AI超清V2）
+        
+        注意：image_url必须是公开可访问的URL，不能是本地路径
+        如果传入的是本地路径，需要先上传到OSS
+        """
         try:
-            # 构建参数
-            if custom_width and custom_height:
-                # 自定义尺寸放大
-                params = {
-                    "sr_mode": 2,  # 自定义尺寸放大
-                    "ir_mode": 4,
-                    "rsp_media_type": "url",
-                    "save_photo_format": 1,
-                    "max_width": 8000,
-                    "max_height": 8000,
-                    "sr_size_w": custom_width,
-                    "sr_size_h": custom_height
-                }
-            else:
-                # 固定倍数放大
-                params = {
-                    "sr_mode": 1,  # 2、4、8倍放大
-                    "ir_mode": 4,
-                    "rsp_media_type": "url",
-                    "save_photo_format": 1,
-                    "max_width": 8000,
-                    "max_height": 8000,
+            from app.services.sign_meitu import Signer
+            
+            # 检查是否是本地路径，如果是则需要上传到OSS
+            if image_url.startswith("/files/"):
+                logger.warning(f"Image URL is a local path: {image_url}, attempting to upload to OSS")
+                
+                # 导入OSS服务
+                from app.services.oss_service import oss_service
+                
+                if not oss_service.is_configured():
+                    raise Exception(
+                        "图片URL必须是公开可访问的URL。"
+                        "本地路径需要OSS配置才能使用。"
+                        "请配置OSS或提供公开可访问的图片URL。"
+                    )
+                
+                # 读取本地文件并上传到OSS
+                import uuid
+                # image_url 格式: /files/originals/temp_upscale_xxx.jpg
+                # 需要转换为: ./uploads/originals/temp_upscale_xxx.jpg
+                relative_path = image_url.replace('/files/', '')  # originals/temp_upscale_xxx.jpg
+                local_path = os.path.join(settings.upload_path, relative_path)
+                
+                if not os.path.exists(local_path):
+                    raise Exception(f"本地文件不存在: {local_path}")
+                
+                with open(local_path, "rb") as f:
+                    image_bytes = f.read()
+                
+                # 上传到OSS
+                temp_filename = f"temp_upscale_{uuid.uuid4().hex[:8]}.jpg"
+                image_url = await oss_service.upload_image_for_jimeng(image_bytes, temp_filename)
+                logger.info(f"Uploaded image to OSS: {image_url}")
+            
+            # 根据scale_factor确定参数
+            # AI超清V2: 2倍为高清(效果优先)，4倍为超清(分辨率优先)
+            if scale_factor not in [2, 4]:
+                logger.warning(f"Invalid scale_factor {scale_factor}, defaulting to 2")
+                scale_factor = 2
+            
+            # 构建params参数
+            params = {
+                "parameter": {
                     "sr_num": scale_factor
                 }
-            
-            # 构建请求数据
-            data = {
-                "params": json.dumps({"parameter": params}),
-                "init_images": [{
-                    "url": image_url
-                }],
-                "task": "v1/mtimagesr_async",
-                "task_type": "mtlab"
             }
             
-            # 如果提供了自定义任务ID，添加到请求中
-            if options and "task_id" in options:
-                data["task_id"] = options["task_id"]
+            # 当sr_num为2时，需要设置area_size为1920
+            if scale_factor == 2:
+                params["parameter"]["area_size"] = 1920
+            # 当sr_num为4时，默认area_size为2560，无需传值
             
-            # 如果提供了同步超时时间，添加到请求中
+            # 构建请求数据
+            request_data = {
+                "params": json.dumps(params),
+                "init_images": [
+                    {
+                        "url": image_url,
+                        "profile": {
+                            "media_profiles": {
+                                "media_data_type": "url"
+                            }
+                        }
+                    }
+                ],
+                "task": "/v1/Ultra_High_Definition_V2/478332",
+                "task_type": "formula",
+                "sync_timeout": 30,
+                "rsp_media_type": "url"  # 返回URL格式
+            }
+            
+            # 如果提供了同步超时时间，使用自定义值
             if options and "sync_timeout" in options:
-                data["sync_timeout"] = options["sync_timeout"]
+                request_data["sync_timeout"] = options["sync_timeout"]
             
-            logger.info(f"Sending upscale request to Meitu API with scale factor: {scale_factor}")
-            result = await self._make_meitu_async_request("/api/v1/sdk/sync/push", data)
+            # 准备请求
+            url = "https://openapi.meitu.com/api/v1/sdk/sync/push"
+            method = "POST"
+            headers = {
+                "Content-Type": "application/json",
+                "Host": "openapi.meitu.com",
+                "X-Sdk-Content-Sha256": "UNSIGNED-PAYLOAD"  # 不对body进行签名
+            }
             
-            # 检查响应是否包含错误
-            if "error_code" in result:
-                error_code = result["error_code"]
-                error_msg = result.get("error_msg", "未知错误")
-                logger.error(f"Meitu upscale API error: {error_code} - {error_msg}")
-                raise Exception(f"美图无损放大API处理失败: {error_msg}")
+            body = json.dumps(request_data, separators=(',', ':'))
+            
+            # 使用签名SDK进行签名，获取签名后的headers
+            signer = Signer(self.meitu_api_key, self.meitu_api_secret)
+            # 调用sign方法会修改headers，添加Authorization和X-Sdk-Date
+            # 注意：sign方法会直接修改传入的headers字典
+            _ = signer.sign(url, method, headers, body)
+            
+            logger.info(f"Sending AI超清V2 request with scale factor: {scale_factor}")
+            
+            # 使用httpx发送请求
+            async with httpx.AsyncClient(timeout=300.0) as client:
+                response = await client.request(
+                    method=method,
+                    url=url,
+                    headers=headers,
+                    content=body
+                )
+                response.raise_for_status()
+                result = response.json()
+            
+            logger.info(f"AI超清V2 response: {result}")
+            
+            # 检查响应
+            if result.get("code") != 0:
+                error_msg = result.get("message", "未知错误")
+                logger.error(f"AI超清V2 API error: {result.get('code')} - {error_msg}")
+                raise Exception(f"AI超清V2处理失败: {error_msg}")
             
             # 检查任务状态
             if "data" in result:
@@ -756,9 +753,10 @@ class AIClient:
                     if "result" in task_data and "urls" in task_data["result"]:
                         urls = task_data["result"]["urls"]
                         if urls and len(urls) > 0:
+                            logger.info(f"AI超清V2 completed successfully: {urls[0]}")
                             return urls[0]
                 
-                elif status == 9:  # 需要查询结果
+                elif status == 9:  # 需要异步查询结果
                     if "result" in task_data and "id" in task_data["result"]:
                         task_id = task_data["result"]["id"]
                         logger.info(f"Task {task_id} requires status polling")
@@ -768,34 +766,60 @@ class AIClient:
                         for attempt in range(max_attempts):
                             await asyncio.sleep(2)  # 等待2秒
                             
-                            status_result = await self.query_meitu_task_status(task_id)
+                            # 查询任务状态 - 使用相同的推送接口，但传入task_id
+                            status_query_data = {
+                                "id": task_id
+                            }
+                            status_body = json.dumps(status_query_data, separators=(',', ':'))
+                            
+                            status_headers = {
+                                "Content-Type": "application/json",
+                                "Host": "openapi.meitu.com",
+                                "X-Sdk-Content-Sha256": "UNSIGNED-PAYLOAD"
+                            }
+                            
+                            # 对状态查询请求进行签名 - 使用同一个URL
+                            query_url = "https://openapi.meitu.com/api/v1/sdk/sync/push"
+                            signer.sign(query_url, "POST", status_headers, status_body)
+                            
+                            async with httpx.AsyncClient(timeout=60.0) as client:
+                                status_response = await client.request(
+                                    method="POST",
+                                    url=query_url,
+                                    headers=status_headers,
+                                    content=status_body
+                                )
+                                status_response.raise_for_status()
+                                status_result = status_response.json()
+                            
                             if "data" in status_result:
-                                status_data = status_result["data"]
-                                current_status = status_data.get("status", -1)
+                                current_data = status_result["data"]
+                                current_status = current_data.get("status", -1)
                                 
                                 if current_status == 10:  # 任务成功
-                                    if "result" in status_data and "urls" in status_data["result"]:
-                                        urls = status_data["result"]["urls"]
+                                    if "result" in current_data and "urls" in current_data["result"]:
+                                        urls = current_data["result"]["urls"]
                                         if urls and len(urls) > 0:
+                                            logger.info(f"AI超清V2 async task completed: {urls[0]}")
                                             return urls[0]
                                 
                                 elif current_status == 2:  # 任务失败
-                                    error_msg = status_data.get("msg", "任务执行失败")
-                                    raise Exception(f"无损放大任务失败: {error_msg}")
+                                    error_msg = current_data.get("msg", "任务执行失败")
+                                    raise Exception(f"AI超清V2任务失败: {error_msg}")
                                 
-                                logger.info(f"Task {task_id} status: {current_status}, progress: {status_data.get('progress', 0)}")
+                                logger.info(f"Task {task_id} status: {current_status}, progress: {current_data.get('progress', 0)}")
                         
-                        raise Exception(f"无损放大任务超时: {task_id}")
+                        raise Exception(f"AI超清V2任务超时: {task_id}")
                 
                 elif status == 2:  # 任务失败
                     error_msg = task_data.get("msg", "任务执行失败")
-                    raise Exception(f"无损放大任务失败: {error_msg}")
+                    raise Exception(f"AI超清V2任务失败: {error_msg}")
             
-            raise Exception("无法从美图无损放大API响应中提取结果")
+            raise Exception("无法从AI超清V2 API响应中提取结果")
             
         except Exception as e:
-            logger.error(f"Upscale image failed: {str(e)}")
-            raise Exception(f"无损放大失败: {str(e)}")
+            logger.error(f"AI超清V2 upscale failed: {str(e)}")
+            raise Exception(f"AI超清放大失败: {str(e)}")
 
     async def enhance_embroidery(
         self,

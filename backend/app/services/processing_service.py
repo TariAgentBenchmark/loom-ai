@@ -171,12 +171,11 @@ class ProcessingService:
                 elif task.type == TaskType.UPSCALE.value:
                     # For upscale, we need to first save the image and get its URL
                     temp_filename = f"temp_upscale_{task.task_id}.jpg"
-                    temp_url = await self.file_service.save_upload_file(
+                    # save_upload_file 返回的是完整的URL路径（如 /files/originals/xxx.jpg）
+                    image_url = await self.file_service.save_upload_file(
                         image_bytes, temp_filename, "originals", purpose="upscale"
                     )
-                    # Get the full URL for the image - use the relative URL that the server can serve
-                    # The file service should handle serving these files via the /files/ endpoint
-                    image_url = f"/files/originals/{temp_filename}"
+                    # image_url 现在已经是正确的格式了，直接使用
                     result_url = await ai_client.upscale_image(
                         image_url,
                         task.options.get("scale_factor", 2),
