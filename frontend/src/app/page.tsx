@@ -289,6 +289,10 @@ export default function Home() {
       ) : (
         <HomeView
           onSelectMethod={(method) => {
+            if (!isLoggedIn) {
+              setShowLoginModal(true);
+              return;
+            }
             setCurrentPage(method);
             setProcessedImage(null);
             setErrorMessage('');
