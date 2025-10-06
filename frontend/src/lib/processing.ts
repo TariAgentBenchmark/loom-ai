@@ -75,7 +75,7 @@ export const processingMethodInfo: Record<ProcessingMethod, ProcessingMethodInfo
     ],
   },
   noise_removal: {
-    title: 'AI布纹去噪去',
+    title: 'AI布纹去噪',
     description: '使用AI快速的去除图片中的噪点、布纹。还可用于对模糊矢量花的高清重绘。',
     icon: '/AI布纹去噪.png',
     examples: [
