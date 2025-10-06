@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Bell,
   Crown,
@@ -74,6 +74,8 @@ const HomeView: React.FC<HomeViewProps> = ({
   const [showHistory, setShowHistory] = useState(false);
   const [selectedTask, setSelectedTask] = useState<HistoryTask | null>(null);
   const [showBatchDownload, setShowBatchDownload] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const creditsLabel = formatNumber(accountSummary?.credits, isLoggedIn ? '0' : '--');
   const monthlyLabel = formatNumber(accountSummary?.monthlyProcessed, isLoggedIn ? '0' : '--');
   const totalLabel = formatNumber(accountSummary?.totalProcessed, isLoggedIn ? '0' : '--');
@@ -89,9 +91,35 @@ const HomeView: React.FC<HomeViewProps> = ({
     setSidebarOpen(false);
   };
 
+  const handleNotificationClick = () => {
+    setShowNotifications(!showNotifications);
+    setShowUserMenu(false);
+  };
+
+  const handleUserClick = () => {
+    setShowUserMenu(!showUserMenu);
+    setShowNotifications(false);
+  };
+
+  // 点击外部关闭下拉菜单
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('.notification-menu') && !target.closest('.user-menu')) {
+        setShowNotifications(false);
+        setShowUserMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
+      <header className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
         <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4">
           <div className="flex items-center space-x-2 md:space-x-3">
             <button
@@ -124,9 +152,145 @@ const HomeView: React.FC<HomeViewProps> = ({
                     {membershipLabel(accountSummary?.membershipType)}
                   </span>
                 )}
-                <div className="flex items-center space-x-2">
-                  <Bell className="h-4 w-4 md:h-5 md:w-5 text-gray-600" />
-                  <User className="h-4 w-4 md:h-5 md:w-5 text-gray-600" />
+                <div className="flex items-center space-x-2 relative">
+                  <div className="notification-menu">
+                    <button
+                      onClick={handleNotificationClick}
+                      className="relative p-1 text-gray-600 hover:text-gray-900 transition"
+                    >
+                      <Bell className="h-4 w-4 md:h-5 md:w-5" />
+                      <span className="absolute top-0 right-0 h-2 w-2 bg-red-500 rounded-full"></span>
+                    </button>
+                  </div>
+                  <div className="user-menu">
+                    <button
+                      onClick={handleUserClick}
+                      className="p-1 text-gray-600 hover:text-gray-900 transition"
+                    >
+                      <User className="h-4 w-4 md:h-5 md:w-5" />
+                    </button>
+                  </div>
+                  
+                  {/* 通知下拉菜单 */}
+                  {showNotifications && (
+                    <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                      <div className="p-4 border-b border-gray-200">
+                        <h3 className="text-lg font-semibold text-gray-900">通知</h3>
+                      </div>
+                      <div className="max-h-96 overflow-y-auto">
+                        <div className="p-4 space-y-3">
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <div className="flex items-start space-x-3">
+                              <div className="flex-shrink-0">
+                                <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                  <span className="text-white text-sm font-medium">系</span>
+                                </div>
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-gray-900">系统通知</p>
+                                <p className="text-xs text-gray-600 mt-1">欢迎使用AI图像处理平台！您现在可以体验多种AI图像处理功能。</p>
+                                <p className="text-xs text-gray-500 mt-2">刚刚</p>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                            <div className="flex items-start space-x-3">
+                              <div className="flex-shrink-0">
+                                <div className="h-8 w-8 bg-green-500 rounded-full flex items-center justify-center">
+                                  <span className="text-white text-sm font-medium">成</span>
+                                </div>
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-gray-900">处理完成</p>
+                                <p className="text-xs text-gray-600 mt-1">您的图像处理任务已完成，可以查看结果了。</p>
+                                <p className="text-xs text-gray-500 mt-2">5分钟前</p>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                            <div className="flex items-start space-x-3">
+                              <div className="flex-shrink-0">
+                                <div className="h-8 w-8 bg-yellow-500 rounded-full flex items-center justify-center">
+                                  <span className="text-white text-sm font-medium">提</span>
+                                </div>
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-gray-900">使用提示</p>
+                                <p className="text-xs text-gray-600 mt-1">上传前先裁剪图片，可节省20%算力消耗。</p>
+                                <p className="text-xs text-gray-500 mt-2">1小时前</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="p-3 border-t border-gray-200 text-center">
+                        <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                          查看全部通知
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* 用户菜单下拉 */}
+                  {showUserMenu && (
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                      <div className="p-4 border-b border-gray-200">
+                        <p className="text-sm font-medium text-gray-900">
+                          {accountSummary?.nickname || '用户'}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {membershipLabel(accountSummary?.membershipType)}
+                        </p>
+                      </div>
+                      <div className="py-2">
+                        <button
+                          onClick={() => {
+                            setShowUserMenu(false);
+                            setShowHistory(true);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                        >
+                          <History className="h-4 w-4" />
+                          <span>历史记录</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowUserMenu(false);
+                            handleBatchDownload();
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                        >
+                          <Download className="h-4 w-4" />
+                          <span>批量下载</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowUserMenu(false);
+                            onOpenPricingModal();
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                        >
+                          <Crown className="h-4 w-4" />
+                          <span>套餐充值</span>
+                        </button>
+                        <hr className="my-2" />
+                        {onLogout && (
+                          <button
+                            onClick={() => {
+                              setShowUserMenu(false);
+                              onLogout();
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                          >
+                            <X className="h-4 w-4" />
+                            <span>退出登录</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 {onLogout && (
                   <button
