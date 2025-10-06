@@ -292,6 +292,11 @@ export default function Home() {
             setCurrentPage(method);
             setProcessedImage(null);
             setErrorMessage('');
+            setSuccessMessage('');
+            setImagePreview(null);
+            setUploadedImage(null);
+            setIsProcessing(false);
+            clearPolling();
             if (method === 'prompt_edit') {
               setPromptInstruction('');
             }
