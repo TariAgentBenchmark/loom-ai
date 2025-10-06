@@ -494,10 +494,6 @@ const HomeView: React.FC<HomeViewProps> = ({
               使用技巧
             </h3>
             <div className="space-y-3">
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2 md:p-3">
-                <div className="text-xs md:text-sm font-medium text-yellow-800 mb-1">💰 节省算力</div>
-                <div className="text-xs text-yellow-700">上传前先裁剪图片，可节省20%算力消耗</div>
-              </div>
               <div className="bg-green-50 border border-green-200 rounded-lg p-2 md:p-3">
                 <div className="text-xs md:text-sm font-medium text-green-800 mb-1">🎯 最佳效果</div>
                 <div className="text-xs text-green-700">图片分辨率建议在1024-2048px之间</div>
