@@ -11,6 +11,9 @@ import {
   Loader2,
   Filter,
   ChevronDown,
+  Check,
+  Square,
+  Archive,
 } from 'lucide-react';
 import { HistoryTask, getHistoryTasks, getTaskDetail } from '../lib/api';
 import { resolveFileUrl } from '../lib/api';
@@ -18,9 +21,10 @@ import { resolveFileUrl } from '../lib/api';
 interface HistoryListProps {
   accessToken: string;
   onTaskSelect?: (task: HistoryTask) => void;
+  showBatchSelection?: boolean;
 }
 
-const HistoryList: React.FC<HistoryListProps> = ({ accessToken, onTaskSelect }) => {
+const HistoryList: React.FC<HistoryListProps> = ({ accessToken, onTaskSelect, showBatchSelection = false }) => {
   const [tasks, setTasks] = useState<HistoryTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,6 +33,8 @@ const HistoryList: React.FC<HistoryListProps> = ({ accessToken, onTaskSelect }) 
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
+  const [selectAll, setSelectAll] = useState(false);
 
   const typeOptions = [
     { value: 'all', label: '全部类型' },
@@ -145,6 +151,64 @@ const HistoryList: React.FC<HistoryListProps> = ({ accessToken, onTaskSelect }) 
     }
   };
 
+  const handleBatchDownload = async () => {
+    if (selectedTasks.size === 0) return;
+    
+    const selectedTasksData = tasks.filter(task => selectedTasks.has(task.taskId) && task.resultImage);
+    
+    if (selectedTasksData.length === 0) {
+      alert('没有可下载的图片');
+      return;
+    }
+
+    try {
+      // 创建一个临时目录来存储所有下载的文件
+      for (const task of selectedTasksData) {
+        if (task.resultImage) {
+          const response = await fetch(resolveFileUrl(task.resultImage.url));
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = task.resultImage.filename;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+          
+          // 添加延迟以避免浏览器阻止多个下载
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+    } catch (err) {
+      console.error('批量下载失败:', err);
+      alert('批量下载失败，请重试');
+    }
+  };
+
+  const toggleTaskSelection = (taskId: string) => {
+    const newSelectedTasks = new Set(selectedTasks);
+    if (newSelectedTasks.has(taskId)) {
+      newSelectedTasks.delete(taskId);
+    } else {
+      newSelectedTasks.add(taskId);
+    }
+    setSelectedTasks(newSelectedTasks);
+    setSelectAll(newSelectedTasks.size === tasks.filter(task => task.resultImage).length);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectAll) {
+      setSelectedTasks(new Set());
+      setSelectAll(false);
+    } else {
+      const completedTasks = tasks.filter(task => task.resultImage);
+      const newSelectedTasks = new Set(completedTasks.map(task => task.taskId));
+      setSelectedTasks(newSelectedTasks);
+      setSelectAll(true);
+    }
+  };
+
   if (error) {
     return (
       <div className="text-center py-8">
@@ -161,6 +225,38 @@ const HistoryList: React.FC<HistoryListProps> = ({ accessToken, onTaskSelect }) 
 
   return (
     <div className="h-full flex flex-col">
+      {/* 批量操作栏 */}
+      {showBatchSelection && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={toggleSelectAll}
+                className="flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-700"
+              >
+                {selectAll ? <Check className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+                <span>全选</span>
+              </button>
+              <span className="text-sm text-blue-600">
+                已选择 {selectedTasks.size} 项
+              </span>
+            </div>
+            <button
+              onClick={handleBatchDownload}
+              disabled={selectedTasks.size === 0}
+              className={`flex items-center space-x-2 px-3 py-1 rounded text-sm font-medium transition-colors ${
+                selectedTasks.size > 0
+                  ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              <Archive className="h-4 w-4" />
+              <span>批量下载</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 筛选器 */}
       <div className="mb-4">
         <button
@@ -216,9 +312,32 @@ const HistoryList: React.FC<HistoryListProps> = ({ accessToken, onTaskSelect }) 
           tasks.map((task) => (
             <div
               key={task.taskId}
-              className="bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition cursor-pointer"
-              onClick={() => onTaskSelect?.(task)}
+              className={`bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition cursor-pointer ${
+                showBatchSelection ? 'flex items-start space-x-3' : ''
+              }`}
+              onClick={() => !showBatchSelection && onTaskSelect?.(task)}
             >
+              {showBatchSelection && (
+                <div className="flex-shrink-0 mt-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleTaskSelection(task.taskId);
+                    }}
+                    className={`${
+                      selectedTasks.has(task.taskId)
+                        ? 'text-blue-500'
+                        : 'text-gray-400 hover:text-gray-600'
+                    } transition`}
+                  >
+                    {selectedTasks.has(task.taskId) ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <Square className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+              )}
               <div className="flex items-start space-x-3">
                 {/* 缩略图 */}
                 <div className="flex-shrink-0">
@@ -261,7 +380,11 @@ const HistoryList: React.FC<HistoryListProps> = ({ accessToken, onTaskSelect }) 
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleDownload(task);
+                          if (showBatchSelection) {
+                            toggleTaskSelection(task.taskId);
+                          } else {
+                            handleDownload(task);
+                          }
                         }}
                         className="text-blue-500 hover:text-blue-600 transition"
                       >

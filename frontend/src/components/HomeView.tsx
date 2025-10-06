@@ -13,6 +13,9 @@ import {
   X,
 } from 'lucide-react';
 import { ProcessingMethod } from '../lib/processing';
+import HistoryList from './HistoryList';
+import ImagePreview from './ImagePreview';
+import { HistoryTask } from '../lib/api';
 
 type MembershipTag = 'free' | 'basic' | 'premium' | 'enterprise' | string | undefined;
 
@@ -34,6 +37,7 @@ interface HomeViewProps {
   authError?: string;
   accountSummary?: AccountSummary;
   onOpenLoginModal: () => void;
+  accessToken?: string;
 }
 
 const formatNumber = (value: number | undefined, fallback: string) =>
@@ -64,11 +68,26 @@ const HomeView: React.FC<HomeViewProps> = ({
   authError,
   accountSummary,
   onOpenLoginModal,
+  accessToken,
 }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<HistoryTask | null>(null);
+  const [showBatchDownload, setShowBatchDownload] = useState(false);
   const creditsLabel = formatNumber(accountSummary?.credits, isLoggedIn ? '0' : '--');
   const monthlyLabel = formatNumber(accountSummary?.monthlyProcessed, isLoggedIn ? '0' : '--');
   const totalLabel = formatNumber(accountSummary?.totalProcessed, isLoggedIn ? '0' : '--');
+
+  const handleLogout = () => {
+    if (onLogout) {
+      onLogout();
+    }
+  };
+
+  const handleBatchDownload = () => {
+    setShowBatchDownload(true);
+    setSidebarOpen(false);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -205,11 +224,20 @@ const HomeView: React.FC<HomeViewProps> = ({
                     <Crown className="h-3 w-3" />
                     <span>充值算力</span>
                   </button>
-                  <button className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center space-x-2">
+                  <button
+                    onClick={() => {
+                      setShowHistory(true);
+                      setSidebarOpen(false);
+                    }}
+                    className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center space-x-2"
+                  >
                     <History className="h-3 w-3" />
                     <span>查看历史</span>
                   </button>
-                  <button className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center space-x-2">
+                  <button
+                    onClick={handleBatchDownload}
+                    className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center space-x-2"
+                  >
                     <Download className="h-3 w-3" />
                     <span>批量下载</span>
                   </button>
@@ -279,11 +307,17 @@ const HomeView: React.FC<HomeViewProps> = ({
                 <Crown className="h-3 w-3 md:h-4 md:w-4" />
                 <span>充值算力</span>
               </button>
-              <button className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 md:p-3 rounded-lg text-xs md:text-sm font-medium transition-all flex items-center justify-center space-x-2">
+              <button
+                onClick={() => setShowHistory(true)}
+                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 md:p-3 rounded-lg text-xs md:text-sm font-medium transition-all flex items-center justify-center space-x-2"
+              >
                 <History className="h-3 w-3 md:h-4 md:w-4" />
                 <span>查看历史</span>
               </button>
-              <button className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 md:p-3 rounded-lg text-xs md:text-sm font-medium transition-all flex items-center justify-center space-x-2">
+              <button
+                onClick={handleBatchDownload}
+                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 md:p-3 rounded-lg text-xs md:text-sm font-medium transition-all flex items-center justify-center space-x-2"
+              >
                 <Download className="h-3 w-3 md:h-4 md:w-4" />
                 <span>批量下载</span>
               </button>
@@ -442,6 +476,98 @@ const HomeView: React.FC<HomeViewProps> = ({
           </div>
         </main>
       </div>
+
+      {/* 历史记录弹窗 */}
+      {showHistory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg w-full max-w-4xl h-4/5 flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold">历史记录</h2>
+              <button
+                onClick={() => setShowHistory(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              {accessToken && (
+                <HistoryList
+                  accessToken={accessToken}
+                  onTaskSelect={setSelectedTask}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 图片预览弹窗 */}
+      {selectedTask && (
+        <ImagePreview
+          task={selectedTask}
+          onClose={() => setSelectedTask(null)}
+          accessToken={accessToken || ''}
+        />
+      )}
+
+      {/* 批量下载弹窗 */}
+      {showBatchDownload && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg w-full max-w-4xl h-4/5 flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold">批量下载</h2>
+              <button
+                onClick={() => setShowBatchDownload(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden p-4">
+              {accessToken ? (
+                <div className="flex flex-col items-center justify-center h-full">
+                  <div className="text-center mb-6">
+                    <Download className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">批量下载功能</h3>
+                    <p className="text-gray-600 max-w-md">
+                      选择您要下载的历史记录图片，支持一次性下载多张图片。您可以按日期、类型或状态筛选记录。
+                    </p>
+                  </div>
+                  <div className="w-full max-w-2xl">
+                    <HistoryList
+                      accessToken={accessToken}
+                      onTaskSelect={setSelectedTask}
+                      showBatchSelection={true}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full">
+                  <div className="text-center">
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 max-w-md">
+                      <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold text-yellow-800 mb-2">需要登录</h3>
+                      <p className="text-yellow-700 mb-4">
+                        请先登录后再使用批量下载功能
+                      </p>
+                      <button
+                        onClick={() => {
+                          setShowBatchDownload(false);
+                          onOpenLoginModal();
+                        }}
+                        className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                      >
+                        去登录
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -311,6 +311,7 @@ export default function Home() {
           authError={authError}
           accountSummary={accountSummary}
           onOpenLoginModal={() => setShowLoginModal(true)}
+          accessToken={accessToken || undefined}
         />
       )}
 
