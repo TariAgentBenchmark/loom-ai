@@ -78,31 +78,31 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   return (
     <div className="h-screen bg-gray-50 flex flex-col">
       <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
-        <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center space-x-4">
+        <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4">
+          <div className="flex items-center space-x-2 md:space-x-4">
             <button
               onClick={onBack}
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition"
+              className="flex items-center space-x-1 md:space-x-2 text-gray-600 hover:text-gray-900 transition"
             >
               <span>←</span>
-              <span>返回</span>
+              <span className="hidden sm:inline">返回</span>
             </button>
-            <div className="flex items-center space-x-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-md overflow-hidden">
+            <div className="flex items-center space-x-2 md:space-x-3">
+              <div className="flex h-6 w-6 md:h-8 md:w-8 items-center justify-center rounded-lg bg-white shadow-md overflow-hidden">
                 <img
                   src={info.icon}
                   alt={info.title}
-                  className="h-6 w-6 object-contain"
+                  className="h-4 w-4 md:h-6 md:w-6 object-contain"
                 />
               </div>
-              <h1 className="text-xl font-bold text-gray-900">{info.title}</h1>
+              <h1 className="text-base md:text-xl font-bold text-gray-900">{info.title}</h1>
             </div>
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 md:space-x-4">
             <button
               onClick={onOpenPricingModal}
-              className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-sm"
+              className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all shadow-sm"
             >
               套餐充值
             </button>
@@ -110,32 +110,32 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
-        <div className="w-80 bg-white border-r border-gray-200 p-6 overflow-y-auto">
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">上传图片</h3>
+      <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
+        <div className="w-full md:w-80 bg-white border-r border-gray-200 p-4 md:p-6 overflow-y-auto order-2 md:order-1">
+          <div className="mb-4 md:mb-6">
+            <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-3 md:mb-4">上传图片</h3>
             <div
-              className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-400 transition cursor-pointer min-h-[200px] flex items-center justify-center"
+              className="border-2 border-dashed border-gray-300 rounded-lg md:rounded-xl p-4 md:p-8 text-center hover:border-blue-400 transition cursor-pointer min-h-[150px] md:min-h-[200px] flex items-center justify-center"
               onDragOver={onDragOver}
               onDrop={onDrop}
               onClick={() => fileInputRef.current?.click()}
             >
               {imagePreview ? (
-                <div className="space-y-4">
+                <div className="space-y-2 md:space-y-4">
                   <img
                     src={resolveFileUrl(imagePreview)}
                     alt="Preview"
-                    className="mx-auto max-h-32 rounded-lg border border-gray-200"
+                    className="mx-auto max-h-24 md:max-h-32 rounded-lg border border-gray-200"
                   />
-                  <p className="text-sm text-gray-500">拖拽图片或点击上传</p>
+                  <p className="text-xs md:text-sm text-gray-500">拖拽图片或点击上传</p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 text-gray-400">
+                <div className="space-y-2 md:space-y-4">
+                  <div className="mx-auto flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg md:rounded-xl bg-gray-100 text-gray-400">
                     ⬆
                   </div>
                   <div>
-                    <p className="text-base font-medium text-gray-700">拖拽图片或点击上传</p>
+                    <p className="text-sm md:text-base font-medium text-gray-700">拖拽图片或点击上传</p>
                   </div>
                 </div>
               )}
@@ -149,15 +149,15 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
             />
           </div>
 
-          <div className="mb-6">
+          <div className="mb-4 md:mb-6">
             <button
               onClick={onProcessImage}
               disabled={isActionDisabled}
-              className="w-full bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-medium py-4 px-6 rounded-xl text-lg shadow-lg transition-all transform hover:scale-105 disabled:hover:scale-100"
+              className="w-full bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-medium py-3 px-4 md:py-4 md:px-6 rounded-lg md:rounded-xl text-base md:text-lg shadow-lg transition-all transform hover:scale-105 disabled:hover:scale-100"
             >
               {isProcessing ? (
                 <div className="flex items-center justify-center space-x-2">
-                  <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
+                  <div className="animate-spin h-4 w-4 md:h-5 md:w-5 border-2 border-white border-t-transparent rounded-full" />
                   <span>处理中...</span>
                 </div>
               ) : (
@@ -167,10 +167,10 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
           </div>
 
           {method === 'prompt_edit' && (
-            <div className="mb-6 space-y-4">
+            <div className="mb-4 md:mb-6 space-y-3 md:space-y-4">
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-base font-semibold text-gray-900">输入指令</h4>
+                  <h4 className="text-sm md:text-base font-semibold text-gray-900">输入指令</h4>
                   <div className="relative">
                     <select
                       className="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-600 focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
@@ -198,23 +198,23 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                   value={promptInstruction ?? ''}
                   onChange={(event) => onPromptInstructionChange?.(event.target.value)}
                   placeholder="例如：把图中裙子的颜色改成白色"
-                  className="w-full min-h-[110px] rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 resize-none"
+                  className="w-full min-h-[90px] md:min-h-[110px] rounded-lg md:rounded-xl border border-gray-200 px-3 py-2 md:px-4 md:py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 resize-none"
                 />
                 <p className="text-xs text-gray-500 mt-2">一句话描述想要修改的细节，AI会自动处理。</p>
               </div>
             </div>
           )}
 
-          <div className="mb-6">
-            <h4 className="text-base font-semibold text-gray-900 mb-3">使用提示</h4>
-            <p className="text-sm text-gray-600 mb-4">{info.description}</p>
+          <div className="mb-4 md:mb-6">
+            <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2 md:mb-3">使用提示</h4>
+            <p className="text-xs md:text-sm text-gray-600 mb-3 md:mb-4">{info.description}</p>
           </div>
 
           <div>
-            <h4 className="text-base font-semibold text-gray-900 mb-3">操作要求示例</h4>
-            <div className="space-y-2">
+            <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2 md:mb-3">操作要求示例</h4>
+            <div className="space-y-1 md:space-y-2">
               {info.examples.map((example, index) => (
-                <div key={index} className="text-sm text-gray-600">
+                <div key={index} className="text-xs md:text-sm text-gray-600">
                   <span className="text-red-400">{index + 1}.</span> {example}
                 </div>
               ))}
@@ -222,15 +222,15 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
           </div>
         </div>
 
-        <div className="flex-1 p-8">
-          <div className="flex flex-col items-center justify-center h-full space-y-4">
+        <div className="flex-1 p-4 md:p-8 order-1 md:order-2">
+          <div className="flex flex-col items-center justify-center h-full space-y-3 md:space-y-4">
             {errorMessage && (
-              <div className="w-full max-w-lg rounded-xl border border-red-200 bg-red-50 px-6 py-4 text-sm text-red-600">
+              <div className="w-full max-w-md md:max-w-lg rounded-lg md:rounded-xl border border-red-200 bg-red-50 px-4 py-3 md:px-6 md:py-4 text-xs md:text-sm text-red-600">
                 {errorMessage}
               </div>
             )}
             {successMessage && !errorMessage && (
-              <div className="w-full max-w-lg rounded-xl border border-green-200 bg-green-50 px-6 py-4 text-sm text-green-600">
+              <div className="w-full max-w-md md:max-w-lg rounded-lg md:rounded-xl border border-green-200 bg-green-50 px-4 py-3 md:px-6 md:py-4 text-xs md:text-sm text-green-600">
                 {successMessage}
               </div>
             )}
@@ -239,10 +239,10 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                 <img
                   src={resolveFileUrl(processedImage)}
                   alt="Processed"
-                  className="max-w-full max-h-[80vh] w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-lg mb-6"
+                  className="max-w-full max-h-[60vh] md:max-h-[80vh] w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-lg mb-4 md:mb-6"
                 />
                 <a
-                  className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-xl font-medium transition shadow-lg"
+                  className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 text-white px-6 py-2 md:px-8 md:py-3 rounded-lg md:rounded-xl font-medium transition shadow-lg"
                   href={resolveFileUrl(processedImage)}
                   download
                   target="_blank"
@@ -253,35 +253,35 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
               </div>
             ) : (
               <div className="text-center">
-                <div className="w-32 h-32 mx-auto mb-6 rounded-full bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600 flex items-center justify-center relative overflow-hidden">
-                  <div className="relative w-24 h-24">
+                <div className="w-24 h-24 md:w-32 md:h-32 mx-auto mb-4 md:mb-6 rounded-full bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600 flex items-center justify-center relative overflow-hidden">
+                  <div className="relative w-20 h-20 md:w-24 md:h-24">
                     <div className="absolute inset-0 bg-blue-500 rounded-full"></div>
-                    <div className="absolute top-2 left-3 w-4 h-3 bg-green-400 rounded-full"></div>
-                    <div className="absolute top-4 right-2 w-3 h-2 bg-green-400 rounded-full"></div>
-                    <div className="absolute bottom-3 left-2 w-5 h-4 bg-green-400 rounded-full"></div>
-                    <div className="absolute top-1 left-8 w-8 h-2 bg-white rounded-full opacity-70"></div>
-                    <div className="absolute bottom-6 right-1 w-6 h-2 bg-white rounded-full opacity-50"></div>
-                    <div className="absolute -top-4 left-4 w-2 h-4 bg-red-400 transform rotate-12"></div>
-                    <div className="absolute -top-2 right-3 w-3 h-6 bg-yellow-400 transform -rotate-12"></div>
-                    <div className="absolute -bottom-2 left-6 w-2 h-4 bg-purple-400 transform rotate-45"></div>
+                    <div className="absolute top-2 left-3 w-3 h-2 md:w-4 md:h-3 bg-green-400 rounded-full"></div>
+                    <div className="absolute top-4 right-2 w-2 h-1 md:w-3 md:h-2 bg-green-400 rounded-full"></div>
+                    <div className="absolute bottom-3 left-2 w-4 h-3 md:w-5 md:h-4 bg-green-400 rounded-full"></div>
+                    <div className="absolute top-1 left-8 w-6 h-1 md:w-8 md:h-2 bg-white rounded-full opacity-70"></div>
+                    <div className="absolute bottom-6 right-1 w-4 h-1 md:w-6 md:h-2 bg-white rounded-full opacity-50"></div>
+                    <div className="absolute -top-4 left-4 w-2 h-3 md:w-2 md:h-4 bg-red-400 transform rotate-12"></div>
+                    <div className="absolute -top-2 right-3 w-2 h-4 md:w-3 md:h-6 bg-yellow-400 transform -rotate-12"></div>
+                    <div className="absolute -bottom-2 left-6 w-2 h-3 md:w-2 md:h-4 bg-purple-400 transform rotate-45"></div>
                   </div>
                 </div>
-                <p className="text-gray-400 text-lg">什么都没有呢，赶快开始吧吧</p>
+                <p className="text-gray-400 text-sm md:text-lg">什么都没有呢，赶快开始吧吧</p>
               </div>
             )}
           </div>
         </div>
 
-        <div className="w-80 bg-white border-l border-gray-200 p-6 overflow-y-auto">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <History className="h-5 w-5 mr-2 text-gray-600" />
+        <div className="w-full md:w-80 bg-white border-l border-gray-200 p-4 md:p-6 overflow-y-auto order-3">
+          <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-3 md:mb-4 flex items-center">
+            <History className="h-4 w-4 md:h-5 md:w-5 mr-2 text-gray-600" />
             历史记录
           </h3>
           {accessToken ? (
             <HistoryList accessToken={accessToken} onTaskSelect={handleTaskSelect} />
           ) : (
-            <div className="text-center text-gray-400 py-8">
-              <p className="text-sm">请登录后查看历史记录</p>
+            <div className="text-center text-gray-400 py-6 md:py-8">
+              <p className="text-xs md:text-sm">请登录后查看历史记录</p>
             </div>
           )}
         </div>

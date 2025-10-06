@@ -40,13 +40,13 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, isSubmitting, errorMess
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl">
-        <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">登录账号</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
+      <div className="w-full max-w-md rounded-xl sm:rounded-2xl bg-white shadow-2xl">
+        <div className="border-b border-gray-200 px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900">登录账号</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+            className="text-gray-400 hover:text-gray-600 text-xl sm:text-2xl leading-none"
             aria-label="关闭登录窗口"
             disabled={isSubmitting}
           >
@@ -54,7 +54,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, isSubmitting, errorMess
           </button>
         </div>
 
-        <form className="px-6 py-6 space-y-4" onSubmit={handleSubmit}>
+        <form className="px-4 py-4 sm:px-6 sm:py-6 space-y-3 sm:space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700" htmlFor="login-email">
               邮箱
@@ -99,7 +99,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, isSubmitting, errorMess
           </label>
 
           {(localError || errorMessage) && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-600">
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 sm:px-4 text-xs text-red-600">
               {errorMessage ?? localError}
             </div>
           )}
