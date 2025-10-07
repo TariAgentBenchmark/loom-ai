@@ -23,8 +23,14 @@ async def seamless_pattern_conversion(
 ):
     """AI四方连续转换"""
     try:
+        # 记录上传文件大小
+        file_size = 0
         # 读取图片数据
         image_bytes = await image.read()
+        file_size = len(image_bytes)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Uploaded file size: {file_size / 1024 / 1024:.2f} MB, filename: {image.filename}")
         
         # 创建处理任务
         task = await processing_service.create_task(
@@ -60,7 +66,13 @@ async def prompt_edit_image(
 ):
     """AI用嘴改图"""
     try:
+        # 记录上传文件大小
+        file_size = 0
         image_bytes = await image.read()
+        file_size = len(image_bytes)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Uploaded file size: {file_size / 1024 / 1024:.2f} MB, filename: {image.filename}")
 
         instruction_value = instruction.strip()
         if not instruction_value:
@@ -101,7 +113,13 @@ async def vectorize_image(
 ):
     """AI矢量化(转SVG)"""
     try:
+        # 记录上传文件大小
+        file_size = 0
         image_bytes = await image.read()
+        file_size = len(image_bytes)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Uploaded file size: {file_size / 1024 / 1024:.2f} MB, filename: {image.filename}")
         
         task = await processing_service.create_task(
             db=db,
@@ -133,7 +151,13 @@ async def extract_pattern(
 ):
     """AI提取花型"""
     try:
+        # 记录上传文件大小
+        file_size = 0
         image_bytes = await image.read()
+        file_size = len(image_bytes)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Uploaded file size: {file_size / 1024 / 1024:.2f} MB, filename: {image.filename}")
         
         task = await processing_service.create_task(
             db=db,
@@ -166,7 +190,13 @@ async def remove_watermark(
 ):
     """AI智能去水印"""
     try:
+        # 记录上传文件大小
+        file_size = 0
         image_bytes = await image.read()
+        file_size = len(image_bytes)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Uploaded file size: {file_size / 1024 / 1024:.2f} MB, filename: {image.filename}")
         
         task = await processing_service.create_task(
             db=db,
@@ -199,7 +229,13 @@ async def denoise_image(
 ):
     """AI布纹去噪"""
     try:
+        # 记录上传文件大小
+        file_size = 0
         image_bytes = await image.read()
+        file_size = len(image_bytes)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Uploaded file size: {file_size / 1024 / 1024:.2f} MB, filename: {image.filename}")
         
         task = await processing_service.create_task(
             db=db,
@@ -235,7 +271,13 @@ async def enhance_embroidery(
 ):
     """AI毛线刺绣增强"""
     try:
+        # 记录上传文件大小
+        file_size = 0
         image_bytes = await image.read()
+        file_size = len(image_bytes)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Uploaded file size: {file_size / 1024 / 1024:.2f} MB, filename: {image.filename}")
         
         # 构建选项
         options = {
@@ -279,7 +321,13 @@ async def upscale_image(
 ):
     """AI无损放大"""
     try:
+        # 记录上传文件大小
+        file_size = 0
         image_bytes = await image.read()
+        file_size = len(image_bytes)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Uploaded file size: {file_size / 1024 / 1024:.2f} MB, filename: {image.filename}")
         
         # 构建选项
         options = {
@@ -499,8 +547,14 @@ async def estimate_credits(
 ):
     """预估算力消耗"""
     try:
+        # 记录上传文件大小
+        file_size = 0
         # 读取图片并获取信息
         image_bytes = await image.read()
+        file_size = len(image_bytes)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Estimate: Uploaded file size: {file_size / 1024 / 1024:.2f} MB, filename: {image.filename}")
         from app.services.file_service import FileService
         file_service = FileService()
         image_info = await file_service.get_image_info(image_bytes)

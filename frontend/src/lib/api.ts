@@ -49,6 +49,11 @@ const ensureSuccess = async (response: Response) => {
     return response;
   }
 
+  // Handle 413 Content Too Large error with a user-friendly message
+  if (response.status === 413) {
+    return Promise.reject(new Error("图片文件过大，请上传小于50MB的图片"));
+  }
+
   const fallbackMessage = `请求失败：${response.status}`;
   const parsed = await jsonResponse<ApiErrorResponse>(response).catch(() => null);
   const message =
