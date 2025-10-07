@@ -224,6 +224,17 @@ class FileService:
     async def get_image_info(self, image_bytes: bytes) -> Dict[str, Any]:
         """获取图片信息"""
         try:
+            # 检查是否是SVG文件
+            if image_bytes.startswith(b'<?xml') or image_bytes.startswith(b'<svg'):
+                logger.info("Detected SVG file, using default dimensions")
+                return {
+                    "width": 500,  # 默认值
+                    "height": 500,  # 默认值
+                    "format": "SVG",
+                    "mode": "RGB",
+                    "size": len(image_bytes)
+                }
+            
             image = Image.open(BytesIO(image_bytes))
             
             return {
@@ -241,6 +252,11 @@ class FileService:
     async def create_thumbnail(self, image_bytes: bytes, size: tuple = (200, 200)) -> bytes:
         """创建缩略图"""
         try:
+            # 检查是否是SVG文件
+            if image_bytes.startswith(b'<?xml') or image_bytes.startswith(b'<svg'):
+                logger.info("SVG files cannot be processed with PIL, returning original bytes")
+                return image_bytes
+            
             image = Image.open(BytesIO(image_bytes))
             image.thumbnail(size, Image.Resampling.LANCZOS)
             

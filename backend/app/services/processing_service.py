@@ -198,28 +198,37 @@ class ProcessingService:
                 if task.type == TaskType.VECTORIZE.value:
                     # 矢量化任务返回SVG格式
                     if result_url.startswith("/files/results/"):
-                        # 本地文件，直接读取
+                        # 本地文件，直接使用，不需要重新保存
+                        final_result_url = result_url
+                        # 从URL中提取文件名
+                        result_filename = result_url.split("/")[-1]
+                        # 读取文件内容以获取文件大小
                         result_bytes = await self.file_service.read_file(result_url)
-                        result_filename = f"result_{task.task_id}.svg"
                     else:
                         # 远程URL，下载文件
                         result_bytes = await self.file_service.download_from_url(result_url)
                         result_filename = f"result_{task.task_id}.svg"
+                        # 保存结果文件
+                        final_result_url = await self.file_service.save_upload_file(
+                            result_bytes, result_filename, "results"
+                        )
                 else:
                     # 其他任务返回PNG格式
                     if result_url.startswith("/files/results/"):
-                        # 本地文件，直接读取
+                        # 本地文件，直接使用，不需要重新保存
+                        final_result_url = result_url
+                        # 从URL中提取文件名
+                        result_filename = result_url.split("/")[-1]
+                        # 读取文件内容以获取文件大小
                         result_bytes = await self.file_service.read_file(result_url)
-                        result_filename = f"result_{task.task_id}.png"
                     else:
                         # 远程URL，下载文件
                         result_bytes = await self.file_service.download_from_url(result_url)
                         result_filename = f"result_{task.task_id}.png"
-                
-                # 保存结果文件
-                final_result_url = await self.file_service.save_upload_file(
-                    result_bytes, result_filename, "results"
-                )
+                        # 保存结果文件
+                        final_result_url = await self.file_service.save_upload_file(
+                            result_bytes, result_filename, "results"
+                        )
                 
                 # 标记任务完成
                 task.mark_as_completed(
