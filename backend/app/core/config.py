@@ -42,6 +42,13 @@ class Settings(BaseSettings):
     jimeng_api_key: str = ""
     jimeng_api_secret: str = ""
     jimeng_base_url: str = "https://visual.volcengineapi.com"
+    
+    # Liblib AI API配置
+    liblib_api_url: str = "https://openapi.liblibai.cloud"
+    liblib_template_uuid: str = "4df2efa0f18d46dc9758803e478eb51c"
+    liblib_workflow_uuid: str = "18d5858e862d474abe93c72b2fb1b8cc"
+    liblib_access_key: str = ""
+    liblib_secret_key: str = ""
 
     # 阿里云OSS配置
     oss_access_key_id: str = ""

@@ -42,6 +42,11 @@ services:
       - JIMENG_API_KEY=${JIMENG_API_KEY:-}
       - JIMENG_API_SECRET=${JIMENG_API_SECRET:-}
       - JIMENG_BASE_URL=${JIMENG_BASE_URL:-https://visual.volcengineapi.com}
+      - LIBLIB_API_URL=${LIBLIB_API_URL:-https://openapi.liblibai.cloud}
+      - LIBLIB_TEMPLATE_UUID=${LIBLIB_TEMPLATE_UUID:-4df2efa0f18d46dc9758803e478eb51c}
+      - LIBLIB_WORKFLOW_UUID=${LIBLIB_WORKFLOW_UUID:-18d5858e862d474abe93c72b2fb1b8cc}
+      - LIBLIB_ACCESS_KEY=${LIBLIB_ACCESS_KEY:-}
+      - LIBLIB_SECRET_KEY=${LIBLIB_SECRET_KEY:-}
       - OSS_ACCESS_KEY_ID=${OSS_ACCESS_KEY_ID:-}
       - OSS_ACCESS_KEY_SECRET=${OSS_ACCESS_KEY_SECRET:-}
       - OSS_ENDPOINT=${OSS_ENDPOINT:-https://oss-cn-hangzhou.aliyuncs.com}

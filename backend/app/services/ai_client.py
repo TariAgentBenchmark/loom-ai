@@ -6,6 +6,8 @@ import hmac
 import json
 import logging
 import os
+import time
+import uuid
 from io import BytesIO
 from random import uniform
 from typing import Any, Dict, List, Optional
@@ -17,6 +19,189 @@ from PIL import Image
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+
+class LiblibUpscaleAPI:
+    """Liblib AI无损放大API客户端"""
+    
+    def __init__(self, access_key: str, secret_key: str, base_url: str = None):
+        self.access_key = access_key
+        self.secret_key = secret_key
+        self.base_url = base_url or settings.liblib_api_url
+    
+    def _generate_signature(self, url_path: str, timestamp: str, nonce: str) -> str:
+        """生成签名"""
+        # 构造原文
+        original_text = f"{url_path}&{timestamp}&{nonce}"
+        
+        # 使用hmacsha1加密
+        signature = hmac.new(
+            self.secret_key.encode('utf-8'),
+            original_text.encode('utf-8'),
+            hashlib.sha1
+        ).digest()
+        
+        # 生成URL安全的base64编码
+        signature_b64 = base64.urlsafe_b64encode(signature).decode('utf-8').rstrip('=')
+        return signature_b64
+    
+    def _get_common_params(self, url_path: str) -> Dict[str, str]:
+        """获取通用参数"""
+        timestamp = str(int(time.time() * 1000))
+        nonce = str(uuid.uuid4())
+        signature = self._generate_signature(url_path, timestamp, nonce)
+        
+        return {
+            "AccessKey": self.access_key,
+            "Signature": signature,
+            "Timestamp": timestamp,
+            "SignatureNonce": nonce
+        }
+    
+    async def generate_image(self, image_url: str, megapixels: float = 8.0) -> Dict:
+        """
+        生成高清放大图片
+        
+        Args:
+            image_url: 输入图片的URL
+            megapixels: 像素数量，范围0.01-16，默认8
+            
+        Returns:
+            生成任务的响应数据
+        """
+        url_path = "/api/generate/comfyui/app"
+        full_url = f"{self.base_url}{url_path}"
+        
+        # 构造请求参数
+        payload = {
+            "templateUuid": settings.liblib_template_uuid,
+            "generateParams": {
+                "34": {
+                    "class_type": "ImageScaleToTotalPixels",
+                    "inputs": {
+                        "megapixels": megapixels
+                    }
+                },
+                "233": {
+                    "class_type": "LoadImage",
+                    "inputs": {
+                        "image": image_url
+                    }
+                },
+                "workflowUuid": settings.liblib_workflow_uuid
+            }
+        }
+        
+        # 获取签名参数
+        params = self._get_common_params(url_path)
+        
+        # 发送请求
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            response = await client.post(full_url, params=params, json=payload)
+            response.raise_for_status()
+            return response.json()
+    
+    async def get_generate_status(self, generate_uuid: str) -> Dict:
+        """
+        查询生图任务状态
+        
+        Args:
+            generate_uuid: 生成任务的UUID
+            
+        Returns:
+            任务状态数据
+        """
+        url_path = "/api/generate/comfy/status"
+        full_url = f"{self.base_url}{url_path}"
+        
+        # 构造请求体
+        payload = {
+            "generateUuid": generate_uuid
+        }
+        
+        # 获取签名参数
+        params = self._get_common_params(url_path)
+        
+        # 发送请求
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            response = await client.post(full_url, params=params, json=payload)
+            response.raise_for_status()
+            return response.json()
+    
+    async def wait_for_completion(self, generate_uuid: str, poll_interval: int = 5, timeout: int = 300) -> Dict:
+        """
+        等待任务完成
+        
+        Args:
+            generate_uuid: 生成任务的UUID
+            poll_interval: 轮询间隔（秒）
+            timeout: 超时时间（秒）
+            
+        Returns:
+            最终的任务状态数据
+        """
+        start_time = time.time()
+        
+        while True:
+            # 检查超时
+            if time.time() - start_time > timeout:
+                raise TimeoutError("任务执行超时")
+            
+            # 查询状态
+            status_data = await self.get_generate_status(generate_uuid)
+            
+            # 检查状态码
+            if status_data.get("code") != 0:
+                raise Exception(f"API错误: {status_data.get('msg', '未知错误')}")
+            
+            data = status_data.get("data", {})
+            generate_status = data.get("generateStatus")
+            
+            # 任务完成状态
+            if generate_status in [5, 6]:  # 5:成功, 6:失败
+                return status_data
+            
+            # 显示进度
+            percent = data.get("percentCompleted", 0)
+            logger.info(f"任务进度: {percent * 100:.1f}%")
+            
+            # 等待下一次轮询
+            await asyncio.sleep(poll_interval)
+    
+    async def generate_and_wait(self, image_url: str, megapixels: float = 8.0) -> List[str]:
+        """
+        生成图片并等待完成，返回图片URL列表
+        
+        Args:
+            image_url: 输入图片的URL
+            megapixels: 像素数量
+            
+        Returns:
+            生成的图片URL列表
+        """
+        # 1. 提交生成任务
+        generate_response = await self.generate_image(image_url, megapixels)
+        
+        if generate_response.get("code") != 0:
+            raise Exception(f"提交任务失败: {generate_response.get('msg', '未知错误')}")
+        
+        generate_uuid = generate_response["data"]["generateUuid"]
+        logger.info(f"任务已提交，UUID: {generate_uuid}")
+        
+        # 2. 等待任务完成
+        final_status = await self.wait_for_completion(generate_uuid)
+        
+        # 3. 提取图片URL
+        data = final_status.get("data", {})
+        images = data.get("images", [])
+        
+        # 只返回审核通过的图片
+        approved_images = [
+            img["imageUrl"] for img in images
+            if img.get("auditStatus") == 3  # 3:审核通过
+        ]
+        
+        return approved_images
 
 
 class AIClient:
@@ -53,6 +238,13 @@ class AIClient:
         self.jimeng_base_url = settings.jimeng_base_url
         self.jimeng_region = "cn-north-1"
         self.jimeng_service = "cv"
+        
+        # Liblib API配置
+        self.liblib_client = LiblibUpscaleAPI(
+            access_key=settings.liblib_access_key,
+            secret_key=settings.liblib_secret_key,
+            base_url=settings.liblib_api_url
+        )
     
     async def _make_request(self, method: str, endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """发送API请求"""
@@ -625,14 +817,12 @@ class AIClient:
         custom_height: Optional[int] = None,
         options: Optional[Dict[str, Any]] = None,
     ) -> str:
-        """无损放大图片（使用美图AI超清V2）
+        """无损放大图片（使用Liblib AI API）
         
         注意：image_url必须是公开可访问的URL，不能是本地路径
         如果传入的是本地路径，需要先上传到OSS
         """
         try:
-            from app.services.sign_meitu import Signer
-            
             # 检查是否是本地路径，如果是则需要上传到OSS
             if image_url.startswith("/files/"):
                 logger.warning(f"Image URL is a local path: {image_url}, attempting to upload to OSS")
@@ -665,161 +855,58 @@ class AIClient:
                 image_url = await oss_service.upload_image_for_jimeng(image_bytes, temp_filename)
                 logger.info(f"Uploaded image to OSS: {image_url}")
             
-            # 根据scale_factor确定参数
-            # AI超清V2: 2倍为高清(效果优先)，4倍为超清(分辨率优先)
-            if scale_factor not in [2, 4]:
-                logger.warning(f"Invalid scale_factor {scale_factor}, defaulting to 2")
-                scale_factor = 2
+            # 根据scale_factor确定megapixels参数
+            # Liblib API使用megapixels参数来控制放大倍数
+            # 默认8.0百万像素，可以根据需要调整
+            megapixels = 8.0
             
-            # 构建params参数
-            params = {
-                "parameter": {
-                    "sr_num": scale_factor
-                }
-            }
+            # 如果提供了自定义选项，使用自定义的megapixels值
+            if options and "megapixels" in options:
+                megapixels = options["megapixels"]
+            else:
+                # 根据scale_factor调整megapixels
+                if scale_factor == 2:
+                    megapixels = 4.0  # 2倍放大对应4百万像素
+                elif scale_factor == 4:
+                    megapixels = 16.0  # 4倍放大对应16百万像素
+                # 其他情况保持默认8.0百万像素
             
-            # 当sr_num为2时，需要设置area_size为1920
-            if scale_factor == 2:
-                params["parameter"]["area_size"] = 1920
-            # 当sr_num为4时，默认area_size为2560，无需传值
+            # 确保megapixels在有效范围内(0.01-16)
+            megapixels = max(0.01, min(16.0, megapixels))
             
-            # 构建请求数据
-            request_data = {
-                "params": json.dumps(params),
-                "init_images": [
-                    {
-                        "url": image_url,
-                        "profile": {
-                            "media_profiles": {
-                                "media_data_type": "url"
-                            }
-                        }
-                    }
-                ],
-                "task": "/v1/Ultra_High_Definition_V2/478332",
-                "task_type": "formula",
-                "sync_timeout": 30,
-                "rsp_media_type": "url"  # 返回URL格式
-            }
+            logger.info(f"Sending Liblib AI upscale request with megapixels: {megapixels}")
             
-            # 如果提供了同步超时时间，使用自定义值
-            if options and "sync_timeout" in options:
-                request_data["sync_timeout"] = options["sync_timeout"]
+            # 使用Liblib API进行图片放大
+            result_images = await self.liblib_client.generate_and_wait(
+                image_url=image_url,
+                megapixels=megapixels
+            )
             
-            # 准备请求
-            url = "https://openapi.meitu.com/api/v1/sdk/sync/push"
-            method = "POST"
-            headers = {
-                "Content-Type": "application/json",
-                "Host": "openapi.meitu.com",
-                "X-Sdk-Content-Sha256": "UNSIGNED-PAYLOAD"  # 不对body进行签名
-            }
+            if not result_images:
+                raise Exception("Liblib AI放大失败：未返回结果图片")
             
-            body = json.dumps(request_data, separators=(',', ':'))
+            # 下载并保存第一张结果图片
+            result_url = result_images[0]
+            logger.info(f"Liblib AI upscale completed successfully: {result_url}")
             
-            # 使用签名SDK进行签名，获取签名后的headers
-            signer = Signer(self.meitu_api_key, self.meitu_api_secret)
-            # 调用sign方法会修改headers，添加Authorization和X-Sdk-Date
-            # 注意：sign方法会直接修改传入的headers字典
-            _ = signer.sign(url, method, headers, body)
+            # 下载图片
+            result_bytes = await self._download_image_from_url(result_url)
             
-            logger.info(f"Sending AI超清V2 request with scale factor: {scale_factor}")
+            # 保存结果文件
+            result_filename = f"upscaled_{uuid.uuid4().hex[:8]}.png"
+            result_file_path = f"{settings.upload_path}/results/{result_filename}"
             
-            # 使用httpx发送请求
-            async with httpx.AsyncClient(timeout=300.0) as client:
-                response = await client.request(
-                    method=method,
-                    url=url,
-                    headers=headers,
-                    content=body
-                )
-                response.raise_for_status()
-                result = response.json()
+            os.makedirs(os.path.dirname(result_file_path), exist_ok=True)
+            with open(result_file_path, "wb") as f:
+                f.write(result_bytes)
             
-            logger.info(f"AI超清V2 response: {result}")
-            
-            # 检查响应
-            if result.get("code") != 0:
-                error_msg = result.get("message", "未知错误")
-                logger.error(f"AI超清V2 API error: {result.get('code')} - {error_msg}")
-                raise Exception(f"AI超清V2处理失败: {error_msg}")
-            
-            # 检查任务状态
-            if "data" in result:
-                task_data = result["data"]
-                status = task_data.get("status", -1)
-                
-                if status == 10:  # 任务成功
-                    if "result" in task_data and "urls" in task_data["result"]:
-                        urls = task_data["result"]["urls"]
-                        if urls and len(urls) > 0:
-                            logger.info(f"AI超清V2 completed successfully: {urls[0]}")
-                            return urls[0]
-                
-                elif status == 9:  # 需要异步查询结果
-                    if "result" in task_data and "id" in task_data["result"]:
-                        task_id = task_data["result"]["id"]
-                        logger.info(f"Task {task_id} requires status polling")
-                        
-                        # 轮询任务状态
-                        max_attempts = 30  # 最多轮询30次
-                        for attempt in range(max_attempts):
-                            await asyncio.sleep(2)  # 等待2秒
-                            
-                            # 查询任务状态 - 使用相同的推送接口，但传入task_id
-                            status_query_data = {
-                                "id": task_id
-                            }
-                            status_body = json.dumps(status_query_data, separators=(',', ':'))
-                            
-                            status_headers = {
-                                "Content-Type": "application/json",
-                                "Host": "openapi.meitu.com",
-                                "X-Sdk-Content-Sha256": "UNSIGNED-PAYLOAD"
-                            }
-                            
-                            # 对状态查询请求进行签名 - 使用同一个URL
-                            query_url = "https://openapi.meitu.com/api/v1/sdk/sync/push"
-                            signer.sign(query_url, "POST", status_headers, status_body)
-                            
-                            async with httpx.AsyncClient(timeout=60.0) as client:
-                                status_response = await client.request(
-                                    method="POST",
-                                    url=query_url,
-                                    headers=status_headers,
-                                    content=status_body
-                                )
-                                status_response.raise_for_status()
-                                status_result = status_response.json()
-                            
-                            if "data" in status_result:
-                                current_data = status_result["data"]
-                                current_status = current_data.get("status", -1)
-                                
-                                if current_status == 10:  # 任务成功
-                                    if "result" in current_data and "urls" in current_data["result"]:
-                                        urls = current_data["result"]["urls"]
-                                        if urls and len(urls) > 0:
-                                            logger.info(f"AI超清V2 async task completed: {urls[0]}")
-                                            return urls[0]
-                                
-                                elif current_status == 2:  # 任务失败
-                                    error_msg = current_data.get("msg", "任务执行失败")
-                                    raise Exception(f"AI超清V2任务失败: {error_msg}")
-                                
-                                logger.info(f"Task {task_id} status: {current_status}, progress: {current_data.get('progress', 0)}")
-                        
-                        raise Exception(f"AI超清V2任务超时: {task_id}")
-                
-                elif status == 2:  # 任务失败
-                    error_msg = task_data.get("msg", "任务执行失败")
-                    raise Exception(f"AI超清V2任务失败: {error_msg}")
-            
-            raise Exception("无法从AI超清V2 API响应中提取结果")
+            # 返回文件URL格式
+            logger.info(f"Result saved to: {result_file_path}")
+            return f"/files/results/{result_filename}"
             
         except Exception as e:
-            logger.error(f"AI超清V2 upscale failed: {str(e)}")
-            raise Exception(f"AI超清放大失败: {str(e)}")
+            logger.error(f"Liblib AI upscale failed: {str(e)}")
+            raise Exception(f"AI无损放大失败: {str(e)}")
 
     async def enhance_embroidery(
         self,
