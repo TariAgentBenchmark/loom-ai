@@ -498,6 +498,29 @@ export const getHistoryTasks = (
 export const getTaskDetail = (taskId: string, accessToken: string) =>
   getJson<TaskDetail>(`/history/tasks/${taskId}`, accessToken);
 
+export const downloadTaskFile = async (
+  taskId: string,
+  accessToken: string,
+  fileType: "original" | "result" = "result"
+): Promise<DownloadResult> => {
+  const response = await fetch(
+    `${API_BASE_URL}/history/tasks/${taskId}/download?file_type=${fileType}`,
+    {
+      method: "GET",
+      headers: withAuthHeader(undefined, accessToken),
+    },
+  );
+
+  const ensured = await ensureSuccess(response);
+  const blob = await ensured.blob();
+
+  const contentDisposition = ensured.headers.get("content-disposition") ?? "";
+  const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+  const filename = filenameMatch?.[1] ?? `${taskId}.${fileType === "original" ? "jpg" : "png"}`;
+
+  return { blob, filename };
+};
+
 // Admin API types and functions
 export interface AdminUser {
   userId: string;

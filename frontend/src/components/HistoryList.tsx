@@ -14,8 +14,9 @@ import {
   Check,
   Square,
   Archive,
+  X,
 } from 'lucide-react';
-import { HistoryTask, getHistoryTasks, getTaskDetail } from '../lib/api';
+import { HistoryTask, getHistoryTasks, getTaskDetail, downloadTaskFile } from '../lib/api';
 import { resolveFileUrl } from '../lib/api';
 
 interface HistoryListProps {
@@ -35,6 +36,8 @@ const HistoryList: React.FC<HistoryListProps> = ({ accessToken, onTaskSelect, sh
   const [hasMore, setHasMore] = useState(true);
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
+  const [showDownloadOptions, setShowDownloadOptions] = useState(false);
+  const [selectedTaskForDownload, setSelectedTaskForDownload] = useState<HistoryTask | null>(null);
 
   const typeOptions = [
     { value: 'all', label: '全部类型' },
@@ -135,6 +138,19 @@ const HistoryList: React.FC<HistoryListProps> = ({ accessToken, onTaskSelect, sh
   const handleDownload = async (task: HistoryTask) => {
     if (!task.resultImage) return;
 
+    // 如果任务已完成，显示下载选项
+    if (task.status === 'completed') {
+      setSelectedTaskForDownload(task);
+      setShowDownloadOptions(true);
+    } else {
+      // 如果任务未完成，直接下载结果图片（如果存在）
+      downloadResultImage(task);
+    }
+  };
+
+  const downloadResultImage = async (task: HistoryTask) => {
+    if (!task.resultImage) return;
+
     try {
       const response = await fetch(resolveFileUrl(task.resultImage.url));
       const blob = await response.blob();
@@ -148,6 +164,38 @@ const HistoryList: React.FC<HistoryListProps> = ({ accessToken, onTaskSelect, sh
       document.body.removeChild(a);
     } catch (err) {
       console.error('下载失败:', err);
+    }
+  };
+
+  const downloadOriginalImage = async (task: HistoryTask) => {
+    try {
+      const { blob, filename } = await downloadTaskFile(task.taskId, accessToken, 'original');
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('下载原图失败:', err);
+    }
+  };
+
+  const downloadProcessedImage = async (task: HistoryTask) => {
+    try {
+      const { blob, filename } = await downloadTaskFile(task.taskId, accessToken, 'result');
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('下载处理后的图片失败:', err);
     }
   };
 
@@ -414,6 +462,70 @@ const HistoryList: React.FC<HistoryListProps> = ({ accessToken, onTaskSelect, sh
           </button>
         )}
       </div>
+
+      {/* 下载选项弹窗 */}
+      {showDownloadOptions && selectedTaskForDownload && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-gray-900">选择下载内容</h3>
+              <button
+                onClick={() => setShowDownloadOptions(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  downloadOriginalImage(selectedTaskForDownload);
+                  setShowDownloadOptions(false);
+                }}
+                className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Download className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-gray-900">下载原图</p>
+                    <p className="text-xs text-gray-500">下载未经处理的原始图片</p>
+                  </div>
+                </div>
+              </button>
+              
+              <button
+                onClick={() => {
+                  downloadProcessedImage(selectedTaskForDownload);
+                  setShowDownloadOptions(false);
+                }}
+                className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                    <Download className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-gray-900">下载处理后的图</p>
+                    <p className="text-xs text-gray-500">下载经过AI处理的图片</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+            
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => setShowDownloadOptions(false)}
+                className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900 transition"
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

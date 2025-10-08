@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import Optional
+import os
 
 from app.core.database import get_db
 from app.models.user import User
@@ -155,6 +157,67 @@ async def get_task_detail(
                 "completedAt": task.completed_at
             },
             message="获取任务详情成功"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/tasks/{task_id}/download")
+async def download_task_file(
+    task_id: str,
+    file_type: str = "result",  # "result" for processed image, "original" for original image
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """下载任务文件（原图或处理后的图）"""
+    try:
+        task = db.query(Task).filter(
+            Task.task_id == task_id,
+            Task.user_id == current_user.id
+        ).first()
+        
+        if not task:
+            raise HTTPException(status_code=404, detail="任务不存在")
+        
+        if task.status != "completed":
+            raise HTTPException(status_code=400, detail="任务尚未完成")
+        
+        # 根据file_type决定下载哪个文件
+        if file_type == "original":
+            if not task.original_image_url:
+                raise HTTPException(status_code=404, detail="原图文件不存在")
+            
+            file_url = task.original_image_url
+            filename = task.original_filename
+        elif file_type == "result":
+            if not task.result_image_url:
+                raise HTTPException(status_code=404, detail="结果文件不存在")
+            
+            file_url = task.result_image_url
+            filename = task.result_filename
+        else:
+            raise HTTPException(status_code=400, detail="无效的文件类型")
+        
+        # 增加下载次数
+        task.increment_download_count()
+        db.commit()
+        
+        # 返回文件下载响应
+        from app.services.file_service import FileService
+        
+        file_service = FileService()
+        file_path = file_service.get_file_path(file_url)
+        
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="文件不存在")
+        
+        return FileResponse(
+            path=file_path,
+            filename=filename,
+            media_type="application/octet-stream"
         )
         
     except HTTPException:
