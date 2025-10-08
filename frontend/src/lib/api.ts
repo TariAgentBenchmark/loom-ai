@@ -345,6 +345,7 @@ export interface ProcessingRequestPayload {
   accessToken: string;
   instruction?: string;
   model?: "new" | "original";
+  patternType?: string;
 }
 
 export const createProcessingTask = ({
@@ -353,6 +354,7 @@ export const createProcessingTask = ({
   accessToken,
   instruction,
   model,
+  patternType,
 }: ProcessingRequestPayload) => {
   const formData = new FormData();
   formData.append("image", image);
@@ -360,6 +362,10 @@ export const createProcessingTask = ({
   if (method === "prompt_edit") {
     formData.append("instruction", instruction ?? "");
     formData.append("model", model ?? "new");
+  }
+
+  if (method === "extract_pattern") {
+    formData.append("pattern_type", patternType ?? "general");
   }
 
   const path = processingPathMap[method];

@@ -146,6 +146,7 @@ async def vectorize_image(
 @router.post("/extract-pattern")
 async def extract_pattern(
     image: UploadFile = File(...),
+    pattern_type: str = Form("general"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -157,7 +158,7 @@ async def extract_pattern(
         file_size = len(image_bytes)
         import logging
         logger = logging.getLogger(__name__)
-        logger.info(f"Uploaded file size: {file_size / 1024 / 1024:.2f} MB, filename: {image.filename}")
+        logger.info(f"Uploaded file size: {file_size / 1024 / 1024:.2f} MB, filename: {image.filename}, pattern_type: {pattern_type}")
         
         task = await processing_service.create_task(
             db=db,
@@ -165,6 +166,7 @@ async def extract_pattern(
             task_type="extract_pattern",
             image_bytes=image_bytes,
             original_filename=image.filename,
+            options={"pattern_type": pattern_type}
         )
         
         return SuccessResponse(

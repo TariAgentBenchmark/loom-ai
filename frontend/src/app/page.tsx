@@ -67,6 +67,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<PricingTab>('包月会员');
   const [currentPage, setCurrentPage] = useState<PageState>('home');
   const [promptInstruction, setPromptInstruction] = useState<string>('');
+  const [patternType, setPatternType] = useState<string>('general');
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -286,6 +287,10 @@ export default function Home() {
       payload.instruction = trimmedInstruction;
     }
 
+    if (currentPage === 'extract_pattern') {
+      payload.patternType = patternType;
+    }
+
     createProcessingTask(payload)
       .then((response) => {
         const task = response.data;
@@ -333,6 +338,7 @@ export default function Home() {
             clearPolling();
             setCurrentPage('home');
             setPromptInstruction('');
+            setPatternType('general');
           }}
           onOpenPricingModal={() => setShowPricingModal(true)}
           onProcessImage={handleProcessImage}
@@ -345,6 +351,8 @@ export default function Home() {
           accessToken={accessToken || undefined}
           promptInstruction={promptInstruction}
           onPromptInstructionChange={setPromptInstruction}
+          patternType={patternType}
+          onPatternTypeChange={setPatternType}
         />
       ) : (
         <HomeView
@@ -363,6 +371,9 @@ export default function Home() {
             clearPolling();
             if (method === 'prompt_edit') {
               setPromptInstruction('');
+            }
+            if (method === 'extract_pattern') {
+              setPatternType('general');
             }
           }}
           onOpenPricingModal={() => setShowPricingModal(true)}

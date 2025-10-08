@@ -25,6 +25,8 @@ interface ProcessingPageProps {
   accessToken?: string;
   promptInstruction?: string;
   onPromptInstructionChange?: (value: string) => void;
+  patternType?: string;
+  onPatternTypeChange?: (value: string) => void;
 }
 
 const ProcessingPage: React.FC<ProcessingPageProps> = ({
@@ -45,6 +47,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   accessToken,
   promptInstruction,
   onPromptInstructionChange,
+  patternType,
+  onPatternTypeChange,
 }) => {
   const info = getProcessingMethodInfo(method);
   const [selectedTask, setSelectedTask] = useState<HistoryTask | null>(null);
@@ -165,6 +169,24 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
               )}
             </button>
           </div>
+
+          {method === 'extract_pattern' && (
+            <div className="mb-4 md:mb-6">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm md:text-base font-semibold text-gray-900">花型类型</h4>
+              </div>
+              <select
+                value={patternType || 'general'}
+                onChange={(event) => onPatternTypeChange?.(event.target.value)}
+                className="w-full rounded-lg md:rounded-xl border border-gray-200 px-3 py-2 md:px-4 md:py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+              >
+                <option value="general">通用</option>
+                <option value="positioning">定位花</option>
+                <option value="cartoon">卡通/腰果线条</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-2">选择不同的花型类型，AI会使用相应的处理方式。</p>
+            </div>
+          )}
 
           {method === 'prompt_edit' && (
             <div className="mb-4 md:mb-6 space-y-3 md:space-y-4">
