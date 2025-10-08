@@ -1,4 +1,5 @@
 import { ProcessingMethod } from "./processing";
+import { getStoredRefreshToken, updateAuthTokens } from "./tokenManager";
 
 const DEFAULT_API_BASE_URL = typeof window !== "undefined" 
   ? `${window.location.origin}/api`
@@ -122,18 +123,56 @@ const withAuthHeader = (headers: HeadersInit | undefined, accessToken: string | 
   return next;
 };
 
+async function performAuthenticatedRequest(
+  makeRequest: (token?: string) => Promise<Response>,
+  accessToken?: string,
+) {
+  const response = await makeRequest(accessToken);
+
+  if (response.status !== 401 || !accessToken) {
+    return response;
+  }
+
+  const refreshTokenValue = getStoredRefreshToken();
+  if (!refreshTokenValue) {
+    return response;
+  }
+
+  try {
+    const refreshResponse = await refreshToken(refreshTokenValue);
+    const newAccessToken = refreshResponse.data.accessToken;
+
+    if (!newAccessToken) {
+      return response;
+    }
+
+    updateAuthTokens({
+      accessToken: newAccessToken,
+      refreshToken: refreshTokenValue,
+    });
+
+    return makeRequest(newAccessToken);
+  } catch {
+    return response;
+  }
+}
+
 const postJson = async <TData, TBody = unknown>(
   path: string,
   body: TBody,
   accessToken?: string,
   init?: RequestInit,
 ) => {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: "POST",
-    headers: withAuthHeader({ "Content-Type": "application/json" }, accessToken),
-    body: JSON.stringify(body),
-    ...init,
-  });
+  const response = await performAuthenticatedRequest(
+    (token) =>
+      fetch(`${API_BASE_URL}${path}`, {
+        method: "POST",
+        headers: withAuthHeader({ "Content-Type": "application/json" }, token),
+        body: JSON.stringify(body),
+        ...init,
+      }),
+    accessToken,
+  );
 
   const ensured = await ensureSuccess(response);
   return jsonResponse<ApiSuccessResponse<TData>>(ensured);
@@ -144,21 +183,29 @@ const postFormData = async <TData>(
   formData: FormData,
   accessToken: string,
 ) => {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: "POST",
-    headers: withAuthHeader(undefined, accessToken),
-    body: formData,
-  });
+  const response = await performAuthenticatedRequest(
+    (token) =>
+      fetch(`${API_BASE_URL}${path}`, {
+        method: "POST",
+        headers: withAuthHeader(undefined, token),
+        body: formData,
+      }),
+    accessToken,
+  );
 
   const ensured = await ensureSuccess(response);
   return jsonResponse<ApiSuccessResponse<TData>>(ensured);
 };
 
 const getJson = async <TData>(path: string, accessToken: string) => {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: "GET",
-    headers: withAuthHeader(undefined, accessToken),
-  });
+  const response = await performAuthenticatedRequest(
+    (token) =>
+      fetch(`${API_BASE_URL}${path}`, {
+        method: "GET",
+        headers: withAuthHeader(undefined, token),
+      }),
+    accessToken,
+  );
 
   const ensured = await ensureSuccess(response);
   return jsonResponse<ApiSuccessResponse<TData>>(ensured);
@@ -280,13 +327,17 @@ export const login = (payload: LoginPayload) =>
     },
   );
 
-export const refreshToken = (refreshTokenValue: string) =>
-  fetch(`${API_BASE_URL}/auth/refresh`, {
+export async function refreshToken(
+  refreshTokenValue: string,
+): Promise<ApiSuccessResponse<RefreshTokenResult>> {
+  const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
     method: "POST",
     headers: withAuthHeader(undefined, refreshTokenValue),
-  })
-    .then(ensureSuccess)
-    .then((response) => jsonResponse<ApiSuccessResponse<RefreshTokenResult>>(response));
+  });
+
+  const ensured = await ensureSuccess(response);
+  return jsonResponse<ApiSuccessResponse<RefreshTokenResult>>(ensured);
+}
 
 export interface ProcessingRequestPayload {
   method: ProcessingMethod;

@@ -35,6 +35,12 @@ import {
   ProcessingRequestPayload,
   ProcessingStatusData,
 } from '../lib/api';
+import {
+  clearAuthTokens,
+  registerTokenUpdateHandler,
+  setInitialAuthTokens,
+  unregisterTokenUpdateHandler,
+} from '../lib/tokenManager';
 
 type PageState = 'home' | ProcessingMethod;
 
@@ -64,15 +70,56 @@ export default function Home() {
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const rememberMeRef = useRef(false);
 
   const isLoggedIn = isAuthenticated(authState);
   const accessToken = isLoggedIn ? authState.accessToken : null;
 
   useEffect(() => {
+    registerTokenUpdateHandler((tokens) => {
+      setAuthState((prev) => {
+        if (prev.status !== 'authenticated') {
+          return prev;
+        }
+
+        const updatedState = {
+          ...prev,
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+        };
+
+        persistSession({
+          user: prev.user,
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+          rememberMe: rememberMeRef.current,
+        });
+
+        return updatedState;
+      });
+    });
+
+    return () => {
+      unregisterTokenUpdateHandler();
+    };
+  }, [rememberMeRef]);
+
+  useEffect(() => {
     const restored = restoreSession();
     if (!restored) {
+      clearAuthTokens();
+      rememberMeRef.current = false;
       return;
     }
+
+    rememberMeRef.current = restored.rememberMe;
+    setInitialAuthTokens(
+      {
+        accessToken: restored.accessToken,
+        refreshToken: restored.refreshToken,
+      },
+      { rememberMe: restored.rememberMe },
+    );
 
     const authenticated = createAuthenticatedState(restored.user, {
       accessToken: restored.accessToken,
@@ -89,6 +136,9 @@ export default function Home() {
       .catch(() => {
         clearPersistedSession();
         setAuthState(createLoggedOutState());
+        setAccountProfile(undefined);
+        clearAuthTokens();
+        rememberMeRef.current = false;
       });
   }, []);
 
@@ -106,6 +156,14 @@ export default function Home() {
 
       try {
         const loginResult = await authenticate(credentials);
+        rememberMeRef.current = credentials.rememberMe;
+        setInitialAuthTokens(
+          {
+            accessToken: loginResult.accessToken,
+            refreshToken: loginResult.refreshToken,
+          },
+          { rememberMe: credentials.rememberMe },
+        );
         setAuthState(createAuthenticatedState(loginResult.user, loginResult));
         persistSession({
           user: loginResult.user,
@@ -124,6 +182,8 @@ export default function Home() {
         setAuthState(createLoggedOutState());
         setAccountProfile(undefined);
         setAuthError((error as Error)?.message ?? '登录失败，请检查配置后重试');
+        clearAuthTokens();
+        rememberMeRef.current = false;
         throw error;
       }
     },
@@ -313,6 +373,8 @@ export default function Home() {
             setAccountProfile(undefined);
             setAuthError('');
             setShowLoginModal(true);
+            clearAuthTokens();
+            rememberMeRef.current = false;
           }}
           onLogin={() => setShowLoginModal(true)}
           isLoggedIn={isLoggedIn}
