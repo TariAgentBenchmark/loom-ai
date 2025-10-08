@@ -44,6 +44,51 @@ const jsonResponse = async <T>(response: Response): Promise<T> => {
   return payload;
 };
 
+const parseErrorBody = async (
+  response: Response,
+): Promise<{ primary?: string; secondary?: string }> => {
+  const contentType = response.headers.get("content-type") ?? "";
+
+  if (contentType.includes("application/json")) {
+    try {
+      const payload = (await response.clone().json()) as ApiErrorResponse & {
+        detail?: string;
+        error?: ApiErrorResponse["error"] & { detail?: string };
+      };
+
+      const candidates = [
+        payload.error?.message,
+        payload.message,
+        payload.error?.code,
+        payload.detail,
+        payload.error?.detail,
+      ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+
+      if (candidates.length > 0) {
+        return {
+          primary: candidates[0],
+          secondary: candidates.find((candidate) => candidate !== candidates[0]),
+        };
+      }
+    } catch {
+      // Fallback to text parsing below
+    }
+  }
+
+  try {
+    const rawText = await response.clone().text();
+    const cleaned = rawText.replace(/\s+/g, " ").trim();
+    if (cleaned) {
+      const truncated = cleaned.length > 300 ? `${cleaned.slice(0, 300)}…` : cleaned;
+      return { secondary: truncated };
+    }
+  } catch {
+    // Ignore parsing failures; fallback message will be used.
+  }
+
+  return {};
+};
+
 const ensureSuccess = async (response: Response) => {
   if (response.ok) {
     return response;
@@ -54,11 +99,17 @@ const ensureSuccess = async (response: Response) => {
     return Promise.reject(new Error("图片文件过大，请上传小于50MB的图片"));
   }
 
-  const fallbackMessage = `请求失败：${response.status}`;
-  const parsed = await jsonResponse<ApiErrorResponse>(response).catch(() => null);
-  const message =
-    parsed?.error?.message ?? parsed?.message ?? fallbackMessage;
-  return Promise.reject(new Error(message));
+  const statusText = response.statusText ? ` ${response.statusText}` : "";
+  const fallbackMessage = `请求失败：${response.status}${statusText}`;
+  const parsed = await parseErrorBody(response);
+
+  const messageParts = [
+    parsed.primary,
+    parsed.secondary,
+    fallbackMessage,
+  ].filter((value, index, list): value is string => Boolean(value) && list.indexOf(value) === index);
+
+  return Promise.reject(new Error(messageParts.join(" - ")));
 };
 
 const withAuthHeader = (headers: HeadersInit | undefined, accessToken: string | undefined) => {
