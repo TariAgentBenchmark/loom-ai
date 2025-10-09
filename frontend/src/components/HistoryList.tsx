@@ -152,16 +152,42 @@ const HistoryList: React.FC<HistoryListProps> = ({ accessToken, onTaskSelect, sh
     if (!task.resultImage) return;
 
     try {
-      const response = await fetch(resolveFileUrl(task.resultImage.url));
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = task.resultImage.filename;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      // 检查是否有多张图片
+      const urls = task.resultImage.url.split(',').map(u => u.trim());
+      const filenames = task.resultImage.filename.split(',').map(f => f.trim());
+      
+      if (urls.length > 1) {
+        // 多张图片，逐个下载
+        for (let i = 0; i < urls.length; i++) {
+          const response = await fetch(resolveFileUrl(urls[i]));
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filenames[i] || `result_${i + 1}.png`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+          
+          // 延迟避免浏览器阻止多个下载
+          if (i < urls.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
+      } else {
+        // 单张图片
+        const response = await fetch(resolveFileUrl(task.resultImage.url));
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = task.resultImage.filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }
     } catch (err) {
       console.error('下载失败:', err);
     }
@@ -210,22 +236,28 @@ const HistoryList: React.FC<HistoryListProps> = ({ accessToken, onTaskSelect, sh
     }
 
     try {
-      // 创建一个临时目录来存储所有下载的文件
       for (const task of selectedTasksData) {
         if (task.resultImage) {
-          const response = await fetch(resolveFileUrl(task.resultImage.url));
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = task.resultImage.filename;
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
+          // 检查是否有多张图片
+          const urls = task.resultImage.url.split(',').map(u => u.trim());
+          const filenames = task.resultImage.filename.split(',').map(f => f.trim());
           
-          // 添加延迟以避免浏览器阻止多个下载
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // 下载所有图片
+          for (let i = 0; i < urls.length; i++) {
+            const response = await fetch(resolveFileUrl(urls[i]));
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filenames[i] || `${task.taskId}_result_${i + 1}.png`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            // 添加延迟以避免浏览器阻止多个下载
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
         }
       }
     } catch (err) {
@@ -419,10 +451,15 @@ const HistoryList: React.FC<HistoryListProps> = ({ accessToken, onTaskSelect, sh
                       <div className="flex items-center space-x-2">
                         <Eye className="h-3 w-3 text-gray-400" />
                         <span className="text-xs text-gray-500">
-                          {task.resultImage.dimensions 
-                            ? `${task.resultImage.dimensions.width}×${task.resultImage.dimensions.height}`
-                            : '已处理'
-                          }
+                          {(() => {
+                            const imageCount = task.resultImage.url.split(',').length;
+                            if (imageCount > 1) {
+                              return `${imageCount}张图片`;
+                            }
+                            return task.resultImage.dimensions 
+                              ? `${task.resultImage.dimensions.width}×${task.resultImage.dimensions.height}`
+                              : '已处理';
+                          })()}
                         </span>
                       </div>
                       <button

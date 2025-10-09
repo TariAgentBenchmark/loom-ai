@@ -182,7 +182,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
               >
                 <option value="general">通用</option>
                 <option value="positioning">定位花</option>
-                <option value="cartoon">卡通/腰果线条</option>
+                <option value="fine">精细效果</option>
               </select>
               <p className="text-xs text-gray-500 mt-2">选择不同的花型类型，AI会使用相应的处理方式。</p>
             </div>
@@ -258,20 +258,71 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
             )}
             {processedImage ? (
               <div className="text-center w-full h-full flex flex-col items-center justify-center">
-                <img
-                  src={resolveFileUrl(processedImage)}
-                  alt="Processed"
-                  className="max-w-full max-h-[60vh] md:max-h-[80vh] w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-lg mb-4 md:mb-6"
-                />
-                <a
-                  className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 text-white px-6 py-2 md:px-8 md:py-3 rounded-lg md:rounded-xl font-medium transition shadow-lg"
-                  href={resolveFileUrl(processedImage)}
-                  download
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  下载结果
-                </a>
+                {(() => {
+                  const imageUrls = processedImage.split(',');
+                  if (imageUrls.length > 1) {
+                    // 多张图片，使用网格布局
+                    return (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 md:mb-6 w-full max-w-4xl">
+                          {imageUrls.map((url, index) => (
+                            <div key={index} className="flex flex-col items-center">
+                              <img
+                                src={resolveFileUrl(url.trim())}
+                                alt={`Processed ${index + 1}`}
+                                className="max-w-full max-h-[40vh] w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-lg mb-2"
+                              />
+                              <a
+                                className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg"
+                                href={resolveFileUrl(url.trim())}
+                                download
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                下载图片 {index + 1}
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                        <button
+                          onClick={() => {
+                            imageUrls.forEach((url, index) => {
+                              const link = document.createElement('a');
+                              link.href = resolveFileUrl(url.trim());
+                              link.download = `result_${index + 1}.png`;
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                            });
+                          }}
+                          className="inline-flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 md:px-8 md:py-3 rounded-lg md:rounded-xl font-medium transition shadow-lg"
+                        >
+                          批量下载全部
+                        </button>
+                      </>
+                    );
+                  } else {
+                    // 单张图片
+                    return (
+                      <>
+                        <img
+                          src={resolveFileUrl(processedImage)}
+                          alt="Processed"
+                          className="max-w-full max-h-[60vh] md:max-h-[80vh] w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-lg mb-4 md:mb-6"
+                        />
+                        <a
+                          className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 text-white px-6 py-2 md:px-8 md:py-3 rounded-lg md:rounded-xl font-medium transition shadow-lg"
+                          href={resolveFileUrl(processedImage)}
+                          download
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          下载结果
+                        </a>
+                      </>
+                    );
+                  }
+                })()}
               </div>
             ) : (
               <div className="text-center">

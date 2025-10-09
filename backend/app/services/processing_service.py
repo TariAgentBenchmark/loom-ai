@@ -193,48 +193,65 @@ class ProcessingService:
                 # 计算处理时间
                 processing_time = int((datetime.utcnow() - start_time).total_seconds())
                 
-                # 获取结果文件信息
-                # 根据任务类型确定文件格式
-                if task.type == TaskType.VECTORIZE.value:
-                    # 矢量化任务返回SVG格式
-                    if result_url.startswith("/files/results/"):
-                        # 本地文件，直接使用，不需要重新保存
-                        final_result_url = result_url
-                        # 从URL中提取文件名
-                        result_filename = result_url.split("/")[-1]
-                        # 读取文件内容以获取文件大小
-                        result_bytes = await self.file_service.read_file(result_url)
+                # 检查是否是多张图片（精细效果类型）
+                result_urls = result_url.split(",") if "," in result_url else [result_url]
+                
+                # 处理所有结果图片
+                final_result_urls = []
+                result_filenames = []
+                total_size = 0
+                
+                for idx, single_result_url in enumerate(result_urls):
+                    # 获取结果文件信息
+                    # 根据任务类型确定文件格式
+                    if task.type == TaskType.VECTORIZE.value:
+                        # 矢量化任务返回SVG格式
+                        if single_result_url.startswith("/files/results/"):
+                            # 本地文件，直接使用，不需要重新保存
+                            final_url = single_result_url
+                            # 从URL中提取文件名
+                            filename = single_result_url.split("/")[-1]
+                            # 读取文件内容以获取文件大小
+                            result_bytes = await self.file_service.read_file(single_result_url)
+                        else:
+                            # 远程URL，下载文件
+                            result_bytes = await self.file_service.download_from_url(single_result_url)
+                            filename = f"result_{task.task_id}_{idx}.svg"
+                            # 保存结果文件
+                            final_url = await self.file_service.save_upload_file(
+                                result_bytes, filename, "results"
+                            )
                     else:
-                        # 远程URL，下载文件
-                        result_bytes = await self.file_service.download_from_url(result_url)
-                        result_filename = f"result_{task.task_id}.svg"
-                        # 保存结果文件
-                        final_result_url = await self.file_service.save_upload_file(
-                            result_bytes, result_filename, "results"
-                        )
-                else:
-                    # 其他任务返回PNG格式
-                    if result_url.startswith("/files/results/"):
-                        # 本地文件，直接使用，不需要重新保存
-                        final_result_url = result_url
-                        # 从URL中提取文件名
-                        result_filename = result_url.split("/")[-1]
-                        # 读取文件内容以获取文件大小
-                        result_bytes = await self.file_service.read_file(result_url)
-                    else:
-                        # 远程URL，下载文件
-                        result_bytes = await self.file_service.download_from_url(result_url)
-                        result_filename = f"result_{task.task_id}.png"
-                        # 保存结果文件
-                        final_result_url = await self.file_service.save_upload_file(
-                            result_bytes, result_filename, "results"
-                        )
+                        # 其他任务返回PNG格式
+                        if single_result_url.startswith("/files/results/"):
+                            # 本地文件，直接使用，不需要重新保存
+                            final_url = single_result_url
+                            # 从URL中提取文件名
+                            filename = single_result_url.split("/")[-1]
+                            # 读取文件内容以获取文件大小
+                            result_bytes = await self.file_service.read_file(single_result_url)
+                        else:
+                            # 远程URL，下载文件
+                            result_bytes = await self.file_service.download_from_url(single_result_url)
+                            filename = f"result_{task.task_id}_{idx}.png"
+                            # 保存结果文件
+                            final_url = await self.file_service.save_upload_file(
+                                result_bytes, filename, "results"
+                            )
+                    
+                    final_result_urls.append(final_url)
+                    result_filenames.append(filename)
+                    total_size += len(result_bytes)
+                
+                # 合并结果URL和文件名
+                final_result_url = ",".join(final_result_urls)
+                result_filename = ",".join(result_filenames)
                 
                 # 标记任务完成
                 task.mark_as_completed(
                     result_url=final_result_url,
                     result_filename=result_filename,
-                    result_size=len(result_bytes),
+                    result_size=total_size,
                     processing_time=processing_time
                 )
                 

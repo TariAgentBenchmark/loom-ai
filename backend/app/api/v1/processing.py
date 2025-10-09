@@ -449,20 +449,47 @@ async def download_result(
         task.increment_download_count()
         db.commit()
         
-        # 返回文件下载响应
+        # 检查是否有多个文件（逗号分隔）
+        file_urls = task.result_image_url.split(',')
+        filenames = task.result_filename.split(',')
+        
         from app.services.file_service import FileService
-        
         file_service = FileService()
-        file_path = file_service.get_file_path(task.result_image_url)
         
-        if not os.path.exists(file_path):
-            raise HTTPException(status_code=404, detail="文件不存在")
-        
-        return FileResponse(
-            path=file_path,
-            filename=task.result_filename,
-            media_type="application/octet-stream"
-        )
+        if len(file_urls) > 1:
+            # 多个文件，返回ZIP压缩包
+            import zipfile
+            import tempfile
+            
+            with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_file:
+                with zipfile.ZipFile(temp_file.name, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                    for i, (url, fname) in enumerate(zip(file_urls, filenames)):
+                        url = url.strip()
+                        fname = fname.strip()
+                        file_path = file_service.get_file_path(url)
+                        
+                        if os.path.exists(file_path):
+                            # 添加文件到ZIP，使用原始文件名
+                            zip_file.write(file_path, fname)
+                
+                zip_filename = f"{task_id}_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+                return FileResponse(
+                    path=temp_file.name,
+                    filename=zip_filename,
+                    media_type="application/zip"
+                )
+        else:
+            # 单个文件
+            file_path = file_service.get_file_path(task.result_image_url)
+            
+            if not os.path.exists(file_path):
+                raise HTTPException(status_code=404, detail="文件不存在")
+            
+            return FileResponse(
+                path=file_path,
+                filename=task.result_filename,
+                media_type="application/octet-stream"
+            )
         
     except HTTPException:
         raise

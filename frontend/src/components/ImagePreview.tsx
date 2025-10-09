@@ -15,8 +15,14 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
   const [scale, setScale] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [showOriginal, setShowOriginal] = useState(true);
+  const [currentResultIndex, setCurrentResultIndex] = useState(0);
 
   if (!task) return null;
+
+  // 检查是否有多张结果图片
+  const resultUrls = task.resultImage?.url.split(',').map(u => u.trim()) || [];
+  const resultFilenames = task.resultImage?.filename.split(',').map(f => f.trim()) || [];
+  const hasMultipleResults = resultUrls.length > 1;
 
   const handleDownload = async (imageUrl: string, filename: string) => {
     try {
@@ -32,6 +38,18 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
       document.body.removeChild(a);
     } catch (err) {
       console.error('下载失败:', err);
+    }
+  };
+
+  const handleDownloadAll = async () => {
+    if (!hasMultipleResults) return;
+    
+    for (let i = 0; i < resultUrls.length; i++) {
+      await handleDownload(resultUrls[i], resultFilenames[i] || `result_${i + 1}.png`);
+      // 延迟避免浏览器阻止多个下载
+      if (i < resultUrls.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
     }
   };
 
@@ -52,7 +70,19 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
     setRotation(0);
   };
 
-  const currentImage = showOriginal ? task.originalImage : task.resultImage;
+  // 获取当前显示的图片信息
+  const getCurrentResultImage = () => {
+    if (!task.resultImage || resultUrls.length === 0) return null;
+    
+    return {
+      url: resultUrls[currentResultIndex] || resultUrls[0],
+      filename: resultFilenames[currentResultIndex] || resultFilenames[0] || 'result.png',
+      size: task.resultImage.size,
+      dimensions: task.resultImage.dimensions
+    };
+  };
+
+  const currentImage = showOriginal ? task.originalImage : getCurrentResultImage();
   const hasResultImage = !!task.resultImage;
 
   return (
@@ -89,6 +119,31 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
           </div>
 
           <div className="flex items-center space-x-1 md:space-x-2">
+            {/* 多图片切换按钮 */}
+            {hasMultipleResults && !showOriginal && (
+              <div className="flex items-center space-x-1 border-r border-gray-600 pr-2 mr-2">
+                <button
+                  onClick={() => setCurrentResultIndex(prev => Math.max(0, prev - 1))}
+                  disabled={currentResultIndex === 0}
+                  className="p-1.5 md:p-2 text-white hover:bg-white hover:bg-opacity-20 rounded transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="上一张"
+                >
+                  ←
+                </button>
+                <span className="text-white text-xs md:text-sm px-2">
+                  {currentResultIndex + 1}/{resultUrls.length}
+                </span>
+                <button
+                  onClick={() => setCurrentResultIndex(prev => Math.min(resultUrls.length - 1, prev + 1))}
+                  disabled={currentResultIndex === resultUrls.length - 1}
+                  className="p-1.5 md:p-2 text-white hover:bg-white hover:bg-opacity-20 rounded transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="下一张"
+                >
+                  →
+                </button>
+              </div>
+            )}
+            
             <button
               onClick={handleZoomOut}
               className="p-1.5 md:p-2 text-white hover:bg-white hover:bg-opacity-20 rounded transition"
@@ -120,13 +175,35 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
             >
               重置
             </button>
-            <button
-              onClick={() => currentImage && handleDownload(currentImage.url, currentImage.filename)}
-              className="p-1.5 md:p-2 text-white hover:bg-white hover:bg-opacity-20 rounded transition"
-              title="下载"
-            >
-              <Download className="h-4 w-4 md:h-5 md:w-5" />
-            </button>
+            
+            {/* 下载按钮 */}
+            {hasMultipleResults && !showOriginal ? (
+              <div className="flex items-center space-x-1">
+                <button
+                  onClick={() => currentImage && handleDownload(currentImage.url, currentImage.filename)}
+                  className="p-1.5 md:p-2 text-white hover:bg-white hover:bg-opacity-20 rounded transition"
+                  title="下载当前图片"
+                >
+                  <Download className="h-4 w-4 md:h-5 md:w-5" />
+                </button>
+                <button
+                  onClick={handleDownloadAll}
+                  className="px-2 py-1.5 md:px-3 md:py-2 text-white hover:bg-white hover:bg-opacity-20 rounded transition text-xs md:text-sm"
+                  title="下载全部"
+                >
+                  全部
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => currentImage && handleDownload(currentImage.url, currentImage.filename)}
+                className="p-1.5 md:p-2 text-white hover:bg-white hover:bg-opacity-20 rounded transition"
+                title="下载"
+              >
+                <Download className="h-4 w-4 md:h-5 md:w-5" />
+              </button>
+            )}
+            
             <button
               onClick={onClose}
               className="p-1.5 md:p-2 text-white hover:bg-white hover:bg-opacity-20 rounded transition"
