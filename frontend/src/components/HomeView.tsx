@@ -129,7 +129,7 @@ const HomeView: React.FC<HomeViewProps> = ({
               {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
             <div className="flex items-center space-x-2 md:space-x-3">
-              <img src="/logo.png" alt="Logo" className="h-11 md:h-14" style={{ margin: '0' }} />
+              <img src="/optimized/logo.webp" alt="Logo" className="h-11 md:h-14" style={{ margin: '0' }} />
               <span className="text-4xl md:text-5xl font-bold text-gray-900 leading-none">A</span>
               <span className="text-4xl md:text-5xl font-bold text-gray-900 leading-none">I</span>
             </div>
@@ -515,7 +515,7 @@ const HomeView: React.FC<HomeViewProps> = ({
             >
               <div className="text-center mb-4 md:mb-6">
                 <div className="flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-xl md:rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 shadow-lg mx-auto mb-3 md:mb-4 group-hover:shadow-xl transition-all">
-                  <img src="/AI用嘴改图.png" alt="用嘴改图" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
+                  <img src="/optimized/AI用嘴改图.webp" alt="用嘴改图" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
                 </div>
                 <h4 className="text-lg md:text-xl font-bold text-gray-900 mb-2 md:mb-3">AI用嘴改图</h4>
                 <p className="text-sm text-gray-600 leading-relaxed">
@@ -533,7 +533,7 @@ const HomeView: React.FC<HomeViewProps> = ({
             >
               <div className="text-center mb-4 md:mb-6">
                 <div className="flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-xl md:rounded-2xl bg-gradient-to-br from-purple-50 to-pink-50 shadow-lg mx-auto mb-3 md:mb-4 group-hover:shadow-xl transition-all">
-                  <img src="/AI矢量化转SVG.png" alt="矢量化" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
+                  <img src="/optimized/AI矢量化转SVG.webp" alt="矢量化" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
                 </div>
                 <h4 className="text-lg md:text-xl font-bold text-gray-900 mb-2 md:mb-3">AI矢量化(转SVG)</h4>
                 <p className="text-sm text-gray-600 leading-relaxed">
@@ -551,7 +551,7 @@ const HomeView: React.FC<HomeViewProps> = ({
             >
               <div className="text-center mb-4 md:mb-6">
                 <div className="flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-xl md:rounded-2xl bg-gradient-to-br from-rose-50 to-pink-50 shadow-lg mx-auto mb-3 md:mb-4 group-hover:shadow-xl transition-all">
-                  <img src="/AI提取花型.png" alt="提取花型" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
+                  <img src="/optimized/AI提取花型.webp" alt="提取花型" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
                 </div>
                 <h4 className="text-lg md:text-xl font-bold text-gray-900 mb-2 md:mb-3">AI提取花型</h4>
                 <p className="text-sm text-gray-600 leading-relaxed">
@@ -569,7 +569,7 @@ const HomeView: React.FC<HomeViewProps> = ({
             >
               <div className="text-center mb-4 md:mb-6">
                 <div className="flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-xl md:rounded-2xl bg-gradient-to-br from-cyan-50 to-blue-50 shadow-lg mx-auto mb-3 md:mb-4 group-hover:shadow-xl transition-all">
-                  <img src="/AI智能去水印.png" alt="智能去水印" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
+                  <img src="/optimized/AI智能去水印.webp" alt="智能去水印" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
                 </div>
                 <h4 className="text-lg md:text-xl font-bold text-gray-900 mb-2 md:mb-3">AI智能去水印</h4>
                 <p className="text-sm text-gray-600 leading-relaxed">
@@ -587,7 +587,7 @@ const HomeView: React.FC<HomeViewProps> = ({
             >
               <div className="text-center mb-4 md:mb-6">
                 <div className="flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-xl md:rounded-2xl bg-gradient-to-br from-amber-50 to-yellow-50 shadow-lg mx-auto mb-3 md:mb-4 group-hover:shadow-xl transition-all">
-                  <img src="/AI布纹去噪.png" alt="布纹去噪" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
+                  <img src="/optimized/AI布纹去噪.webp" alt="布纹去噪" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
                 </div>
                 <h4 className="text-lg md:text-xl font-bold text-gray-900 mb-2 md:mb-3">AI布纹去噪</h4>
                 <p className="text-sm text-gray-600 leading-relaxed">
@@ -605,7 +605,7 @@ const HomeView: React.FC<HomeViewProps> = ({
             >
               <div className="text-center mb-4 md:mb-6">
                 <div className="flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-xl md:rounded-2xl bg-gradient-to-br from-red-50 to-pink-50 shadow-lg mx-auto mb-3 md:mb-4 group-hover:shadow-xl transition-all">
-                  <img src="/AI毛线刺绣增强.png" alt="AI毛线刺绣增强" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
+                  <img src="/optimized/AI毛线刺绣增强.webp" alt="AI毛线刺绣增强" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
                 </div>
                 <h4 className="text-lg md:text-xl font-bold text-gray-900 mb-2 md:mb-3">AI毛线刺绣增强</h4>
                 <p className="text-sm text-gray-600 leading-relaxed">
@@ -623,7 +623,7 @@ const HomeView: React.FC<HomeViewProps> = ({
             >
               <div className="text-center mb-4 md:mb-6">
                 <div className="flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-xl md:rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg mx-auto mb-3 md:mb-4 group-hover:shadow-xl transition-all">
-                  <img src="/进一步处理.png" alt="无损放大" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
+                  <img src="/optimized/进一步处理.webp" alt="无损放大" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
                 </div>
                 <h4 className="text-lg md:text-xl font-bold text-gray-900 mb-2 md:mb-3">AI无损放大</h4>
                 <p className="text-sm text-gray-600 leading-relaxed">
