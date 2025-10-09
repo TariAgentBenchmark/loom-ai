@@ -121,17 +121,18 @@ const HomeView: React.FC<HomeViewProps> = ({
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
         <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4">
-          <div className="flex items-center space-x-2 md:space-x-3">
+          <div className="flex items-center space-x-3 md:space-x-4">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="md:hidden text-gray-500 hover:text-gray-700"
             >
               {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
-            <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-xl overflow-hidden">
-              <img src="/logo.png" alt="Logo" className="h-full w-full object-cover" />
+            <div className="flex items-center space-x-2 md:space-x-3">
+              <img src="/logo.png" alt="Logo" className="h-11 md:h-14" style={{ margin: '0' }} />
+              <span className="text-4xl md:text-5xl font-bold text-gray-900 leading-none">A</span>
+              <span className="text-4xl md:text-5xl font-bold text-gray-900 leading-none">I</span>
             </div>
-            <span className="text-lg md:text-xl font-bold text-gray-900">应用中心</span>
           </div>
 
           <div className="flex items-center space-x-2 md:space-x-4">
