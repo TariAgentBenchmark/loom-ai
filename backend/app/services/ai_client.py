@@ -1172,7 +1172,7 @@ class AIClient:
 
     def _process_gemini_response(self, content: Dict[str, Any]) -> str:
         """处理Gemini响应内容"""
-        logger.info(content)
+        logger.debug(content)
         try:
             parts: List[Dict[str, Any]] = content.get("parts", []) if isinstance(content, dict) else []
 
@@ -1193,19 +1193,21 @@ class AIClient:
                             logger.info("Found image URL in Gemini text response: %s", image_url)
                             return image_url
 
-                # 处理内联数据
-                if "inline_data" in part:
-                    inline = part["inline_data"]
-                    if not isinstance(inline, dict):
+                # 处理内联数据 - 支持两种格式: inline_data 和 inlineData
+                inline_data = part.get("inline_data") or part.get("inlineData")
+                if inline_data:
+                    if not isinstance(inline_data, dict):
                         continue
-                    data = inline.get("data")
+                    # 支持两种格式: data 和 base64 编码的数据
+                    data = inline_data.get("data")
                     if not data:
                         continue
+                    logger.info("Found inline image data in Gemini response")
                     return self._save_base64_image(data)
 
                 # 处理文件URI
-                if "file_uri" in part:
-                    file_uri = part["file_uri"]
+                if "file_uri" in part or "fileUri" in part:
+                    file_uri = part.get("file_uri") or part.get("fileUri")
                     if isinstance(file_uri, str):
                         logger.info("Gemini response contains file uri: %s", file_uri)
                         return file_uri
