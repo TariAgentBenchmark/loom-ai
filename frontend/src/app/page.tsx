@@ -13,6 +13,7 @@ import HomeView from '../components/HomeView';
 import PricingModal from '../components/PricingModal';
 import ProcessingPage from '../components/ProcessingPage';
 import LoginModal from '../components/LoginModal';
+import RegisterModal from '../components/RegisterModal';
 import { ProcessingMethod } from '../lib/processing';
 import { PricingTab } from '../lib/pricing';
 import {
@@ -34,6 +35,9 @@ import {
   getProcessingStatus,
   ProcessingRequestPayload,
   ProcessingStatusData,
+  register,
+  RegisterPayload,
+  RegisterResult,
 } from '../lib/api';
 import {
   clearAuthTokens,
@@ -57,7 +61,9 @@ export default function Home() {
   const [accountProfile, setAccountProfile] = useState<UserProfile | undefined>(undefined);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [authError, setAuthError] = useState<string>('');
+  const [registerError, setRegisterError] = useState<string>('');
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string>('');
@@ -183,6 +189,73 @@ export default function Home() {
         setAuthState(createLoggedOutState());
         setAccountProfile(undefined);
         setAuthError((error as Error)?.message ?? '登录失败，请检查配置后重试');
+        clearAuthTokens();
+        rememberMeRef.current = false;
+        throw error;
+      }
+    },
+    [],
+  );
+
+  const registerAndLoad = useCallback(
+    async (credentials: RegisterPayload) => {
+      console.log('page.tsx: registerAndLoad called with', { email: credentials.email, password: '***' });
+      setRegisterError('');
+      setAuthState(createAuthenticatingState());
+
+      try {
+        console.log('page.tsx: Calling register API');
+        const registerResult = await register(credentials);
+        console.log('page.tsx: Register API response', registerResult);
+        
+        // After successful registration, automatically log in
+        console.log('page.tsx: Calling authenticate API');
+        const loginResult = await authenticate({
+          email: credentials.email,
+          password: credentials.password,
+          rememberMe: true
+        });
+        console.log('page.tsx: Authenticate API response', loginResult);
+        
+        rememberMeRef.current = true;
+        setInitialAuthTokens(
+          {
+            accessToken: loginResult.accessToken,
+            refreshToken: loginResult.refreshToken,
+          },
+          { rememberMe: true },
+        );
+        setAuthState(createAuthenticatedState(loginResult.user, loginResult));
+        persistSession({
+          user: loginResult.user,
+          accessToken: loginResult.accessToken,
+          refreshToken: loginResult.refreshToken,
+          rememberMe: true,
+        });
+
+        const profileResponse: ApiSuccessResponse<UserProfile> = await fetchUserProfile(
+          loginResult.accessToken,
+        );
+        setAccountProfile(profileResponse.data);
+        setShowRegisterModal(false);
+        console.log('page.tsx: Registration flow completed successfully');
+      } catch (error) {
+        console.error('page.tsx: Registration flow failed', error);
+        setAuthState(createLoggedOutState());
+        setAccountProfile(undefined);
+        
+        // Handle specific registration errors
+        const errorMessage = (error as Error)?.message;
+        if (errorMessage?.includes("该邮箱已被注册")) {
+          setRegisterError(errorMessage);
+        } else if (errorMessage?.includes("密码长度至少8位")) {
+          setRegisterError("密码长度至少需要8位字符");
+        } else if (errorMessage?.includes("密码确认不一致")) {
+          setRegisterError("两次输入的密码不一致");
+        } else {
+          setRegisterError('注册失败，请检查输入信息后重试');
+        }
+        
         clearAuthTokens();
         rememberMeRef.current = false;
         throw error;
@@ -383,11 +456,21 @@ export default function Home() {
             setAuthState(createLoggedOutState());
             setAccountProfile(undefined);
             setAuthError('');
+            setRegisterError('');
             setShowLoginModal(true);
+            setShowRegisterModal(false);
             clearAuthTokens();
             rememberMeRef.current = false;
           }}
-          onLogin={() => setShowLoginModal(true)}
+          onLogin={() => {
+            setShowLoginModal(true);
+            setShowRegisterModal(false);
+          }}
+          onRegister={() => {
+            console.log('page.tsx: onRegister called');
+            setShowRegisterModal(true);
+            setShowLoginModal(false);
+          }}
           isLoggedIn={isLoggedIn}
           isAuthenticating={authState.status === 'authenticating'}
           authError={authError}
@@ -410,6 +493,30 @@ export default function Home() {
         }}
         onSubmit={async (payload) => {
           await authenticateAndLoad(payload);
+        }}
+        onSwitchToRegister={() => {
+          setShowLoginModal(false);
+          setShowRegisterModal(true);
+          setAuthError('');
+        }}
+      />
+
+      <RegisterModal
+        isOpen={showRegisterModal}
+        isSubmitting={authState.status === 'authenticating'}
+        errorMessage={registerError}
+        onClose={() => {
+          if (authState.status !== 'authenticating') {
+            setShowRegisterModal(false);
+          }
+        }}
+        onSubmit={async (payload) => {
+          await registerAndLoad(payload);
+        }}
+        onSwitchToLogin={() => {
+          setShowRegisterModal(false);
+          setShowLoginModal(true);
+          setRegisterError('');
         }}
       />
     </>

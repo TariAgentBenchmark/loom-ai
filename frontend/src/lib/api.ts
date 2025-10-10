@@ -110,7 +110,13 @@ const ensureSuccess = async (response: Response) => {
     fallbackMessage,
   ].filter((value, index, list): value is string => Boolean(value) && list.indexOf(value) === index);
 
-  return Promise.reject(new Error(messageParts.join(" - ")));
+  // Improve error message for common cases
+  let errorMessage = messageParts.join(" - ");
+  if (response.status === 409 && errorMessage.includes("邮箱已存在")) {
+    errorMessage = "该邮箱已被注册，请直接登录或使用其他邮箱";
+  }
+
+  return Promise.reject(new Error(errorMessage));
 };
 
 const withAuthHeader = (headers: HeadersInit | undefined, accessToken: string | undefined) => {
@@ -163,17 +169,23 @@ const postJson = async <TData, TBody = unknown>(
   accessToken?: string,
   init?: RequestInit,
 ) => {
+  console.log('postJson: Making request to', `${API_BASE_URL}${path}`, 'with body', body);
   const response = await performAuthenticatedRequest(
-    (token) =>
-      fetch(`${API_BASE_URL}${path}`, {
+    (token) => {
+      const url = `${API_BASE_URL}${path}`;
+      const options = {
         method: "POST",
         headers: withAuthHeader({ "Content-Type": "application/json" }, token),
         body: JSON.stringify(body),
         ...init,
-      }),
+      };
+      console.log('postJson: Fetch options', { url, headers: options.headers, method: options.method });
+      return fetch(url, options);
+    },
     accessToken,
   );
 
+  console.log('postJson: Response status', response.status, response.statusText);
   const ensured = await ensureSuccess(response);
   return jsonResponse<ApiSuccessResponse<TData>>(ensured);
 };
@@ -244,12 +256,28 @@ export interface LoginPayload {
   rememberMe?: boolean;
 }
 
+export interface RegisterPayload {
+  email: string;
+  password: string;
+  confirmPassword: string;
+  nickname?: string;
+  phone?: string;
+}
+
 export interface LoginResult {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
   tokenType: string;
   user: AuthenticatedUser;
+}
+
+export interface RegisterResult {
+  userId: string;
+  email: string;
+  nickname?: string;
+  credits: number;
+  createdAt: string;
 }
 
 export interface RefreshTokenResult {
@@ -326,6 +354,20 @@ export const login = (payload: LoginPayload) =>
       remember_me: Boolean(payload.rememberMe),
     },
   );
+
+export const register = (payload: RegisterPayload) => {
+  console.log('api.ts: register function called with', { email: payload.email, passwordLength: payload.password.length });
+  return postJson<RegisterResult, { email: string; password: string; confirm_password: string; nickname?: string; phone?: string }>(
+    "/auth/register",
+    {
+      email: payload.email,
+      password: payload.password,
+      confirm_password: payload.confirmPassword,
+      nickname: payload.nickname,
+      phone: payload.phone,
+    },
+  );
+};
 
 export async function refreshToken(
   refreshTokenValue: string,

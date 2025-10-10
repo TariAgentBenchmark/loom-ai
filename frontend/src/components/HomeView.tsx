@@ -32,6 +32,7 @@ interface HomeViewProps {
   onOpenPricingModal: () => void;
   onLogout?: () => void;
   onLogin: () => void;
+  onRegister?: () => void;
   isLoggedIn: boolean;
   isAuthenticating: boolean;
   authError?: string;
@@ -63,6 +64,7 @@ const HomeView: React.FC<HomeViewProps> = ({
   onOpenPricingModal,
   onLogout,
   onLogin,
+  onRegister,
   isLoggedIn,
   isAuthenticating,
   authError,
@@ -311,6 +313,18 @@ const HomeView: React.FC<HomeViewProps> = ({
                 >
                   {isAuthenticating ? '登录中…' : '登录'}
                 </button>
+                {onRegister && (
+                  <button
+                    onClick={() => {
+                      console.log('HomeView: Register button clicked');
+                      onRegister();
+                    }}
+                    disabled={isAuthenticating}
+                    className="flex items-center justify-center rounded-lg bg-blue-500 hover:bg-blue-600 px-3 py-1.5 md:px-4 md:py-2 text-xs md:text-sm font-medium text-white transition disabled:bg-gray-400"
+                  >
+                    {isAuthenticating ? '注册中…' : '注册'}
+                  </button>
+                )}
                 {authError && (
                   <div className="hidden md:flex items-center space-x-1 text-xs text-red-500">
                     <AlertTriangle className="h-4 w-4" />

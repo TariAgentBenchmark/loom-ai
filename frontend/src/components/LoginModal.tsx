@@ -8,9 +8,10 @@ interface LoginModalProps {
   errorMessage?: string;
   onClose: () => void;
   onSubmit: (payload: { email: string; password: string; rememberMe: boolean }) => Promise<void>;
+  onSwitchToRegister?: () => void;
 }
 
-const LoginModal: React.FC<LoginModalProps> = ({ isOpen, isSubmitting, errorMessage, onClose, onSubmit }) => {
+const LoginModal: React.FC<LoginModalProps> = ({ isOpen, isSubmitting, errorMessage, onClose, onSubmit, onSwitchToRegister }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
@@ -111,6 +112,18 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, isSubmitting, errorMess
           >
             {isSubmitting ? '登录中…' : '登录'}
           </button>
+
+          <div className="text-center text-sm text-gray-600">
+            还没有账号？
+            <button
+              type="button"
+              onClick={onSwitchToRegister}
+              className="ml-1 text-blue-600 hover:text-blue-700 font-medium"
+              disabled={isSubmitting}
+            >
+              立即注册
+            </button>
+          </div>
         </form>
       </div>
     </div>
