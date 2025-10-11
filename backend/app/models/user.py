@@ -31,6 +31,14 @@ class User(Base):
     phone = Column(String(20), unique=True, index=True, nullable=False)  # Made required and unique
     avatar_url = Column(String(500), nullable=True)
     
+    # 手机验证相关字段
+    phone_verification_code = Column(String(10), nullable=True)  # 6位验证码
+    phone_verification_expires = Column(DateTime, nullable=True)  # 验证码过期时间
+    is_phone_verified = Column(Boolean, default=False)  # 手机是否已验证
+    phone_verified_at = Column(DateTime, nullable=True)  # 手机验证时间
+    last_sms_sent = Column(DateTime, nullable=True)  # 上次发送短信时间
+    sms_attempts_today = Column(Integer, default=0)  # 今日发送次数
+    
     # 账户信息
     credits = Column(Integer, default=0)  # 算力余额
     total_processed = Column(Integer, default=0)  # 总处理次数

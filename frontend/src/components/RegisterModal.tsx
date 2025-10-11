@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import PhoneVerification from './PhoneVerification';
+import { sendVerificationCode } from '../lib/api';
 
 interface RegisterModalProps {
   isOpen: boolean;
@@ -25,6 +27,9 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
   const [nickname, setNickname] = useState('');
   const [email, setEmail] = useState('');
   const [localError, setLocalError] = useState('');
+  const [showPhoneVerification, setShowPhoneVerification] = useState(false);
+  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
+  const [registerData, setRegisterData] = useState<any>(null);
 
   if (!isOpen) {
     return null;
@@ -64,6 +69,12 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
     const phoneRegex = /^1[3-9]\d{9}$/; // Chinese mobile number format
     if (!phoneRegex.test(phone)) {
       setLocalError('请输入有效的手机号');
+      return false;
+    }
+
+    // Check if phone is verified
+    if (!isPhoneVerified) {
+      setLocalError('请先验证手机号');
       return false;
     }
 
@@ -118,9 +129,43 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
       setConfirmPassword('');
       setNickname('');
       setEmail('');
+      setIsPhoneVerified(false);
     } catch (error) {
       console.error('RegisterModal: onSubmit failed', error);
       // 交由上层 errorMessage 展示，必要时可添加本地兜底
+    }
+  };
+
+  // 处理手机验证成功
+  const handlePhoneVerified = () => {
+    setShowPhoneVerification(false);
+    setIsPhoneVerified(true);
+  };
+
+  // 处理手机验证取消
+  const handlePhoneVerificationCancel = () => {
+    setShowPhoneVerification(false);
+  };
+
+  // 发送验证码
+  const handleSendVerificationCode = async () => {
+    if (!phone) {
+      setLocalError('请先输入手机号');
+      return;
+    }
+
+    // Basic phone validation
+    const phoneRegex = /^1[3-9]\d{9}$/; // Chinese mobile number format
+    if (!phoneRegex.test(phone)) {
+      setLocalError('请输入有效的手机号');
+      return;
+    }
+
+    try {
+      await sendVerificationCode({ phone });
+      setShowPhoneVerification(true);
+    } catch (error) {
+      setLocalError(error instanceof Error ? error.message : '发送验证码失败');
     }
   };
 
@@ -144,16 +189,38 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
             <label className="block text-sm font-medium text-gray-700" htmlFor="register-phone">
               手机号 <span className="text-red-500">*</span>
             </label>
-            <input
-              id="register-phone"
-              type="tel"
-              value={phone}
-              onChange={(event) => setPhone(event.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              placeholder="请输入手机号"
-              disabled={isSubmitting}
-              required
-            />
+            <div className="flex space-x-2">
+              <input
+                id="register-phone"
+                type="tel"
+                value={phone}
+                onChange={(event) => {
+                  setPhone(event.target.value);
+                  setIsPhoneVerified(false); // 重置验证状态
+                  if (localError) setLocalError('');
+                }}
+                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                placeholder="请输入手机号"
+                disabled={isSubmitting}
+                required
+              />
+              <button
+                type="button"
+                onClick={handleSendVerificationCode}
+                disabled={!phone || isPhoneVerified}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                {isPhoneVerified ? '已验证' : '获取验证码'}
+              </button>
+            </div>
+            {isPhoneVerified && (
+              <p className="text-xs text-green-600 flex items-center">
+                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                手机号已验证
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -275,6 +342,14 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
           </div>
         </form>
       </div>
+      
+      {showPhoneVerification && (
+        <PhoneVerification
+          phone={phone}
+          onVerified={handlePhoneVerified}
+          onCancel={handlePhoneVerificationCancel}
+        />
+      )}
     </div>
   );
 };

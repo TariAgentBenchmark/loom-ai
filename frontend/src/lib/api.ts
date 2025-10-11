@@ -1,8 +1,8 @@
 import { ProcessingMethod } from "./processing";
 import { getStoredRefreshToken, updateAuthTokens } from "./tokenManager";
 
-const DEFAULT_API_BASE_URL = typeof window !== "undefined" 
-  ? `${window.location.origin}/api`
+const DEFAULT_API_BASE_URL = typeof window !== "undefined"
+  ? `${window.location.origin}/api/v1`
   : "http://localhost:8000/v1";
 
 const resolveApiBaseUrl = () => {
@@ -11,9 +11,9 @@ const resolveApiBaseUrl = () => {
     return envUrl.replace(/\/$/, "");
   }
   
-  // 在浏览器环境中，使用当前域名 + /api
+  // 在浏览器环境中，使用当前域名 + /api/v1
   if (typeof window !== "undefined") {
-    return `${window.location.origin}/api`;
+    return `${window.location.origin}/api/v1`;
   }
   
   // 在服务端渲染时，使用 localhost（仅用于 SSR）
@@ -262,6 +262,20 @@ export interface RegisterPayload {
   confirmPassword: string;
   nickname?: string;
   email?: string;  // Now optional
+}
+
+export interface SendVerificationCodePayload {
+  phone: string;
+}
+
+export interface VerifyPhoneCodePayload {
+  phone: string;
+  code: string;
+}
+
+export interface SendVerificationCodeResult {
+  message: string;
+  expires_in: number;
 }
 
 export interface LoginResult {
@@ -913,3 +927,15 @@ export const adminProcessRefund = (
 
 export const adminGetDashboardStats = (accessToken: string) =>
   getJson<AdminDashboardStats>("/admin/dashboard/stats", accessToken);
+
+export const sendVerificationCode = (payload: SendVerificationCodePayload) =>
+  postJson<SendVerificationCodeResult, { phone: string }>(
+    "/auth/send-verification-code",
+    payload,
+  );
+
+export const verifyPhoneCode = (payload: VerifyPhoneCodePayload) =>
+  postJson<null, { phone: string; code: string }>(
+    "/auth/verify-phone-code",
+    payload,
+  );

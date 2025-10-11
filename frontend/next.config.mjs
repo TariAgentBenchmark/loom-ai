@@ -6,8 +6,12 @@ const nextConfig = {
     if (process.env.NODE_ENV === 'development') {
       return [
         {
-          source: '/api/:path*',
+          source: '/api/v1/:path*',
           destination: 'http://localhost:8000/v1/:path*',
+        },
+        {
+          source: '/api/:path*',
+          destination: 'http://localhost:8000/:path*',
         },
         {
           source: '/files/:path*',

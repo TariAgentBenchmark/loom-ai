@@ -80,6 +80,15 @@ class Settings(BaseSettings):
     smtp_password: Optional[str] = None
     from_email: str = "noreply@loom-ai.com"
 
+    # 短信服务配置
+    sms_access_key: str = ""
+    sms_access_key_secret: str = ""
+    sms_sign_name: str = "LoomAI"
+    sms_template_code: str = "SMS_123456789"
+    sms_region: str = "cn-hangzhou"
+    sms_mock_enabled: bool = False
+    environment: str = "development"  # development or production
+
     # 日志配置
     log_level: str = "INFO"
     log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
