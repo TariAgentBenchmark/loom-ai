@@ -7,7 +7,7 @@ interface RegisterModalProps {
   isSubmitting: boolean;
   errorMessage?: string;
   onClose: () => void;
-  onSubmit: (payload: { email: string; password: string; confirmPassword: string; nickname?: string; phone?: string }) => Promise<void>;
+  onSubmit: (payload: { phone: string; password: string; confirmPassword: string; nickname?: string; email?: string }) => Promise<void>;
   onSwitchToLogin: () => void;
 }
 
@@ -19,11 +19,11 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
   onSubmit,
   onSwitchToLogin
 }) => {
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [nickname, setNickname] = useState('');
-  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [localError, setLocalError] = useState('');
 
   if (!isOpen) {
@@ -55,16 +55,25 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
   };
 
   const validateForm = () => {
-    if (!email || !password || !confirmPassword) {
-      setLocalError('请填写所有必填字段（邮箱、密码、确认密码）');
+    if (!phone || !password || !confirmPassword) {
+      setLocalError('请填写所有必填字段（手机号、密码、确认密码）');
       return false;
     }
 
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setLocalError('请输入有效的邮箱地址');
+    // Basic phone validation
+    const phoneRegex = /^1[3-9]\d{9}$/; // Chinese mobile number format
+    if (!phoneRegex.test(phone)) {
+      setLocalError('请输入有效的手机号');
       return false;
+    }
+
+    // If email is provided, validate it
+    if (email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        setLocalError('请输入有效的邮箱地址');
+        return false;
+      }
     }
 
     const passwordValidation = validatePassword(password);
@@ -83,7 +92,7 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    console.log('RegisterModal: Form submitted', { email, password: '***', confirmPassword: '***', nickname, phone });
+    console.log('RegisterModal: Form submitted', { phone, password: '***', confirmPassword: '***', nickname, email });
 
     // Clear any previous error
     setLocalError('');
@@ -97,18 +106,18 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
 
     try {
       await onSubmit({
-        email,
+        phone,
         password,
         confirmPassword,
         nickname: nickname || undefined,
-        phone: phone || undefined
+        email: email || undefined
       });
       console.log('RegisterModal: onSubmit completed successfully');
-      setEmail('');
+      setPhone('');
       setPassword('');
       setConfirmPassword('');
       setNickname('');
-      setPhone('');
+      setEmail('');
     } catch (error) {
       console.error('RegisterModal: onSubmit failed', error);
       // 交由上层 errorMessage 展示，必要时可添加本地兜底
@@ -132,16 +141,16 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
 
         <form className="px-4 py-4 sm:px-6 sm:py-6 space-y-3 sm:space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700" htmlFor="register-email">
-              邮箱 <span className="text-red-500">*</span>
+            <label className="block text-sm font-medium text-gray-700" htmlFor="register-phone">
+              手机号 <span className="text-red-500">*</span>
             </label>
             <input
-              id="register-email"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              id="register-phone"
+              type="tel"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              placeholder="name@example.com"
+              placeholder="请输入手机号"
               disabled={isSubmitting}
               required
             />
@@ -221,14 +230,14 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700" htmlFor="register-phone">
-              手机号
+            <label className="block text-sm font-medium text-gray-700" htmlFor="register-email">
+              邮箱
             </label>
             <input
-              id="register-phone"
-              type="tel"
-              value={phone}
-              onChange={(event) => setPhone(event.target.value)}
+              id="register-email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               placeholder="选填"
               disabled={isSubmitting}

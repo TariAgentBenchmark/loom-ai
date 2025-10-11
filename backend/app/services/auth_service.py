@@ -72,25 +72,31 @@ class AuthService:
     async def register_user(
         self,
         db: Session,
-        email: str,
+        phone: str,
         password: str,
         nickname: Optional[str] = None,
-        phone: Optional[str] = None
+        email: Optional[str] = None
     ) -> User:
         """注册新用户"""
         
-        # 检查邮箱是否已存在
-        existing_user = db.query(User).filter(User.email == email).first()
+        # 检查手机号是否已存在
+        existing_user = db.query(User).filter(User.phone == phone).first()
         if existing_user:
-            raise Exception("邮箱已存在")
+            raise Exception("手机号已存在")
+        
+        # 如果提供了邮箱，检查邮箱是否已存在
+        if email:
+            existing_email_user = db.query(User).filter(User.email == email).first()
+            if existing_email_user:
+                raise Exception("邮箱已存在")
         
         # 创建新用户
         user = User(
             user_id=f"user_{uuid.uuid4().hex[:12]}",
-            email=email,
+            email=email,  # 现在是可选的
             hashed_password=self.get_password_hash(password),
-            nickname=nickname or email.split("@")[0],
-            phone=phone,
+            nickname=nickname or phone,  # 如果没有昵称，使用手机号
+            phone=phone,  # 现在是必需的
             credits=200,  # 新用户赠送200算力
             membership_type=MembershipType.FREE,
             status=UserStatus.ACTIVE
@@ -113,9 +119,14 @@ class AuthService:
         
         return user
 
-    async def authenticate_user(self, db: Session, email: str, password: str) -> Optional[User]:
-        """认证用户"""
-        user = db.query(User).filter(User.email == email).first()
+    async def authenticate_user(self, db: Session, identifier: str, password: str) -> Optional[User]:
+        """认证用户 - 支持邮箱或手机号"""
+        # 先尝试用手机号查找
+        user = db.query(User).filter(User.phone == identifier).first()
+        
+        # 如果没找到，尝试用邮箱查找
+        if not user:
+            user = db.query(User).filter(User.email == identifier).first()
         
         if not user:
             return None
@@ -132,9 +143,14 @@ class AuthService:
         
         return user
 
-    async def authenticate_admin(self, db: Session, email: str, password: str) -> Optional[User]:
-        """认证管理员用户"""
-        user = db.query(User).filter(User.email == email).first()
+    async def authenticate_admin(self, db: Session, identifier: str, password: str) -> Optional[User]:
+        """认证管理员用户 - 支持邮箱或手机号"""
+        # 先尝试用手机号查找
+        user = db.query(User).filter(User.phone == identifier).first()
+        
+        # 如果没找到，尝试用邮箱查找
+        if not user:
+            user = db.query(User).filter(User.email == identifier).first()
         
         if not user:
             return None
@@ -171,9 +187,15 @@ class AuthService:
         """生成密码重置令牌"""
         return secrets.token_urlsafe(32)
 
-    async def request_password_reset(self, db: Session, email: str) -> Optional[str]:
-        """请求密码重置"""
-        user = db.query(User).filter(User.email == email).first()
+    async def request_password_reset(self, db: Session, identifier: str) -> Optional[str]:
+        """请求密码重置 - 支持邮箱或手机号"""
+        # 先尝试用手机号查找
+        user = db.query(User).filter(User.phone == identifier).first()
+        
+        # 如果没找到，尝试用邮箱查找
+        if not user:
+            user = db.query(User).filter(User.email == identifier).first()
+        
         if not user:
             return None
         
@@ -229,10 +251,10 @@ class AuthService:
     def create_login_tokens(self, user: User) -> Dict[str, Any]:
         """创建登录令牌"""
         access_token = self.create_access_token(
-            data={"sub": user.user_id, "email": user.email, "is_admin": user.is_admin}
+            data={"sub": user.user_id, "phone": user.phone, "email": user.email, "is_admin": user.is_admin}
         )
         refresh_token = self.create_refresh_token(
-            data={"sub": user.user_id, "email": user.email, "is_admin": user.is_admin}
+            data={"sub": user.user_id, "phone": user.phone, "email": user.email, "is_admin": user.is_admin}
         )
         
         return {
@@ -249,10 +271,10 @@ class AuthService:
             raise Exception("非管理员账户无法创建管理员令牌")
             
         access_token = self.create_access_token(
-            data={"sub": user.user_id, "email": user.email, "is_admin": True, "admin_session": True}
+            data={"sub": user.user_id, "phone": user.phone, "email": user.email, "is_admin": True, "admin_session": True}
         )
         refresh_token = self.create_refresh_token(
-            data={"sub": user.user_id, "email": user.email, "is_admin": True, "admin_session": True}
+            data={"sub": user.user_id, "phone": user.phone, "email": user.email, "is_admin": True, "admin_session": True}
         )
         
         return {

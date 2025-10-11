@@ -16,21 +16,21 @@ security = HTTPBearer()
 
 
 class UserRegister(BaseModel):
-    email: EmailStr
+    phone: str  # Now required
     password: str
     confirm_password: str
     nickname: Optional[str] = None
-    phone: Optional[str] = None
+    email: Optional[EmailStr] = None  # Now optional
 
 
 class UserLogin(BaseModel):
-    email: EmailStr
+    identifier: str  # Can be either email or phone
     password: str
     remember_me: bool = False
 
 
 class AdminLogin(BaseModel):
-    email: EmailStr
+    identifier: str  # Can be either email or phone
     password: str
 
 
@@ -47,7 +47,7 @@ class PasswordChange(BaseModel):
 
 
 class ForgotPassword(BaseModel):
-    email: EmailStr
+    identifier: str  # Can be either email or phone
 
 
 @router.post("/register")
@@ -67,15 +67,16 @@ async def register(
         # 注册用户
         user = await auth_service.register_user(
             db=db,
-            email=user_data.email,
+            phone=user_data.phone,
             password=user_data.password,
             nickname=user_data.nickname,
-            phone=user_data.phone
+            email=user_data.email
         )
         
         return SuccessResponse(
             data={
                 "userId": user.user_id,
+                "phone": user.phone,
                 "email": user.email,
                 "nickname": user.nickname,
                 "credits": user.credits,
@@ -85,7 +86,7 @@ async def register(
         )
         
     except Exception as e:
-        if "邮箱已存在" in str(e):
+        if "手机号已存在" in str(e) or "邮箱已存在" in str(e):
             raise HTTPException(status_code=409, detail=str(e))
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -99,12 +100,12 @@ async def login(
     try:
         user = await auth_service.authenticate_user(
             db=db,
-            email=user_data.email,
+            identifier=user_data.identifier,
             password=user_data.password
         )
         
         if not user:
-            raise HTTPException(status_code=401, detail="邮箱或密码错误")
+            raise HTTPException(status_code=401, detail="邮箱/手机号或密码错误")
         
         # 创建令牌
         tokens = auth_service.create_login_tokens(user)
@@ -117,6 +118,7 @@ async def login(
                 "tokenType": tokens["token_type"],
                 "user": {
                     "userId": user.user_id,
+                    "phone": user.phone,
                     "email": user.email,
                     "nickname": user.nickname,
                     "credits": user.credits,
@@ -141,12 +143,12 @@ async def admin_login(
     try:
         user = await auth_service.authenticate_admin(
             db=db,
-            email=admin_data.email,
+            identifier=admin_data.identifier,
             password=admin_data.password
         )
         
         if not user:
-            raise HTTPException(status_code=401, detail="邮箱或密码错误")
+            raise HTTPException(status_code=401, detail="邮箱/手机号或密码错误")
         
         # 创建管理员令牌
         tokens = auth_service.create_admin_login_tokens(user)
@@ -161,6 +163,7 @@ async def admin_login(
                 "adminSession": tokens["admin_session"],
                 "user": {
                     "userId": user.user_id,
+                    "phone": user.phone,
                     "email": user.email,
                     "nickname": user.nickname,
                     "credits": user.credits,
@@ -199,7 +202,7 @@ async def refresh_token(
         
         # 创建新的访问令牌
         access_token = auth_service.create_access_token(
-            data={"sub": user.user_id, "email": user.email}
+            data={"sub": user.user_id, "phone": user.phone}
         )
         
         return SuccessResponse(
@@ -239,14 +242,14 @@ async def forgot_password(
     try:
         reset_token = await auth_service.request_password_reset(
             db=db,
-            email=request_data.email
+            identifier=request_data.identifier
         )
         
         if not reset_token:
-            # 为了安全，即使邮箱不存在也返回成功
+            # 为了安全，即使邮箱/手机号不存在也返回成功
             return SuccessResponse(
-                data={"message": "如果邮箱存在，重置邮件已发送"},
-                message="密码重置邮件已发送"
+                data={"message": "如果邮箱/手机号存在，重置链接已发送"},
+                message="密码重置链接已发送"
             )
         
         # TODO: 发送重置邮件
@@ -342,6 +345,7 @@ async def verify_token(
             "valid": True,
             "user": {
                 "userId": current_user.user_id,
+                "phone": current_user.phone,
                 "email": current_user.email,
                 "nickname": current_user.nickname
             }

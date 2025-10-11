@@ -10,7 +10,7 @@ interface AdminLoginModalProps {
 
 export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({ isOpen, onClose }) => {
   const { login } = useAdminAuth();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -23,7 +23,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({ isOpen, onClos
     setIsLoading(true);
 
     try {
-      await login(email, password);
+      await login(identifier, password);
       handleClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "登录失败，请重试");
@@ -35,7 +35,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({ isOpen, onClos
   const handleClose = () => {
     if (!isLoading) {
       setError("");
-      setEmail("");
+      setIdentifier("");
       setPassword("");
       if (!hasClosedRef.current) {
         hasClosedRef.current = true;
@@ -83,18 +83,19 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({ isOpen, onClos
           )}
 
           <div className="mb-4">
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              邮箱
+            <label htmlFor="identifier" className="block text-sm font-medium text-gray-700 mb-2">
+              邮箱/手机号
             </label>
             <input
-              id="email"
-              type="email"
-              value={email}
+              id="identifier"
+              type="text"
+              value={identifier}
               onChange={(e) => {
                 if (error) setError("");
-                setEmail(e.target.value);
+                setIdentifier(e.target.value);
               }}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="请输入邮箱或手机号"
               required
               disabled={isLoading}
             />

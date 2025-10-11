@@ -18,7 +18,7 @@ import {
 
 interface AdminAuthContextValue {
   state: AdminAuthState;
-  login: (email: string, password: string) => Promise<void>;
+  login: (identifier: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -43,10 +43,10 @@ export const AdminAuthProvider = ({ children }: AdminAuthProviderProps) => {
     }
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (identifier: string, password: string) => {
     setState(createAdminAuthenticatingState());
     try {
-      const result = await authenticateAdmin(email, password);
+      const result = await authenticateAdmin(identifier, password);
       const authState = createAdminAuthenticatedState(result.user, {
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,

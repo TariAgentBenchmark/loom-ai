@@ -251,17 +251,17 @@ export interface ApiErrorResponse {
 }
 
 export interface LoginPayload {
-  email: string;
+  identifier: string;  // Can be either email or phone
   password: string;
   rememberMe?: boolean;
 }
 
 export interface RegisterPayload {
-  email: string;
+  phone: string;  // Now required
   password: string;
   confirmPassword: string;
   nickname?: string;
-  phone?: string;
+  email?: string;  // Now optional
 }
 
 export interface LoginResult {
@@ -288,7 +288,8 @@ export interface RefreshTokenResult {
 
 export interface AuthenticatedUser {
   userId: string;
-  email: string;
+  phone: string;  // Added phone field
+  email?: string;  // Made email optional
   nickname?: string;
   credits?: number;
   avatar?: string;
@@ -296,9 +297,9 @@ export interface AuthenticatedUser {
 
 export interface UserProfile {
   userId: string;
-  email: string;
+  phone: string;  // Made phone required
+  email?: string;  // Made email optional
   nickname?: string;
-  phone?: string;
   avatar?: string;
   credits?: number;
   membershipType?: string;
@@ -346,25 +347,25 @@ export interface DownloadResult {
 }
 
 export const login = (payload: LoginPayload) =>
-  postJson<LoginResult, { email: string; password: string; remember_me: boolean }>(
+  postJson<LoginResult, { identifier: string; password: string; remember_me: boolean }>(
     "/auth/login",
     {
-      email: payload.email,
+      identifier: payload.identifier,
       password: payload.password,
       remember_me: Boolean(payload.rememberMe),
     },
   );
 
 export const register = (payload: RegisterPayload) => {
-  console.log('api.ts: register function called with', { email: payload.email, passwordLength: payload.password.length });
-  return postJson<RegisterResult, { email: string; password: string; confirm_password: string; nickname?: string; phone?: string }>(
+  console.log('api.ts: register function called with', { phone: payload.phone, passwordLength: payload.password.length });
+  return postJson<RegisterResult, { phone: string; password: string; confirm_password: string; nickname?: string; email?: string }>(
     "/auth/register",
     {
-      email: payload.email,
+      phone: payload.phone,
       password: payload.password,
       confirm_password: payload.confirmPassword,
       nickname: payload.nickname,
-      phone: payload.phone,
+      email: payload.email,
     },
   );
 };
@@ -728,10 +729,10 @@ export interface AdminDashboardStats {
 }
 
 // Admin API functions
-export const adminLogin = (email: string, password: string) =>
-  postJson<LoginResult, { email: string; password: string }>(
+export const adminLogin = (identifier: string, password: string) =>
+  postJson<LoginResult, { identifier: string; password: string }>(
     "/auth/admin/login",
-    { email, password }
+    { identifier, password }
   );
 
 export const adminGetUsers = (

@@ -36,8 +36,8 @@ export const createAdminAuthenticatedState = (
   refreshToken: tokens.refreshToken,
 });
 
-export const authenticateAdmin = async (email: string, password: string) => {
-  const { data } = await adminLogin(email, password);
+export const authenticateAdmin = async (identifier: string, password: string) => {
+  const { data } = await adminLogin(identifier, password);
   return data;
 };
 

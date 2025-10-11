@@ -49,7 +49,7 @@ import {
 type PageState = 'home' | ProcessingMethod;
 
 const AUTH_DEMO_CREDENTIALS = {
-  email: 'demo@loom-ai.com',
+  identifier: '13800138000', // Demo phone number
   password: 'password123',
   rememberMe: true,
 };
@@ -157,7 +157,7 @@ export default function Home() {
   }, []);
 
   const authenticateAndLoad = useCallback(
-    async (credentials: { email: string; password: string; rememberMe: boolean }) => {
+    async (credentials: { identifier: string; password: string; rememberMe: boolean }) => {
       setAuthError('');
       setAuthState(createAuthenticatingState());
 
@@ -199,7 +199,7 @@ export default function Home() {
 
   const registerAndLoad = useCallback(
     async (credentials: RegisterPayload) => {
-      console.log('page.tsx: registerAndLoad called with', { email: credentials.email, password: '***' });
+      console.log('page.tsx: registerAndLoad called with', { phone: credentials.phone, password: '***' });
       setRegisterError('');
       setAuthState(createAuthenticatingState());
 
@@ -211,7 +211,7 @@ export default function Home() {
         // After successful registration, automatically log in
         console.log('page.tsx: Calling authenticate API');
         const loginResult = await authenticate({
-          email: credentials.email,
+          identifier: credentials.phone, // Use phone for login after registration
           password: credentials.password,
           rememberMe: true
         });
@@ -246,7 +246,7 @@ export default function Home() {
         
         // Handle specific registration errors
         const errorMessage = (error as Error)?.message;
-        if (errorMessage?.includes("该邮箱已被注册")) {
+        if (errorMessage?.includes("该手机号已被注册") || errorMessage?.includes("该邮箱已被注册")) {
           setRegisterError(errorMessage);
         } else if (errorMessage?.includes("密码长度至少8位")) {
           setRegisterError("密码长度至少需要8位字符");

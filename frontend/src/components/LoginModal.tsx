@@ -7,12 +7,12 @@ interface LoginModalProps {
   isSubmitting: boolean;
   errorMessage?: string;
   onClose: () => void;
-  onSubmit: (payload: { email: string; password: string; rememberMe: boolean }) => Promise<void>;
+  onSubmit: (payload: { identifier: string; password: string; rememberMe: boolean }) => Promise<void>;
   onSwitchToRegister?: () => void;
 }
 
 const LoginModal: React.FC<LoginModalProps> = ({ isOpen, isSubmitting, errorMessage, onClose, onSubmit, onSwitchToRegister }) => {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [localError, setLocalError] = useState('');
@@ -24,16 +24,16 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, isSubmitting, errorMess
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!email || !password) {
-      setLocalError('请输入邮箱和密码');
+    if (!identifier || !password) {
+      setLocalError('请输入邮箱/手机号和密码');
       return;
     }
 
     setLocalError('');
 
     try {
-      await onSubmit({ email, password, rememberMe });
-      setEmail('');
+      await onSubmit({ identifier, password, rememberMe });
+      setIdentifier('');
       setPassword('');
     } catch (error) {
       // 交由上层 errorMessage 展示，必要时可添加本地兜底
@@ -57,16 +57,16 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, isSubmitting, errorMess
 
         <form className="px-4 py-4 sm:px-6 sm:py-6 space-y-3 sm:space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700" htmlFor="login-email">
-              邮箱
+            <label className="block text-sm font-medium text-gray-700" htmlFor="login-identifier">
+              邮箱/手机号
             </label>
             <input
-              id="login-email"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              id="login-identifier"
+              type="text"
+              value={identifier}
+              onChange={(event) => setIdentifier(event.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              placeholder="name@example.com"
+              placeholder="请输入邮箱或手机号"
               disabled={isSubmitting}
               required
             />

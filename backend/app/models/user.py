@@ -25,10 +25,10 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(String(50), unique=True, index=True, nullable=False)  # 用户唯一标识
-    email = Column(String(255), unique=True, index=True, nullable=False)
+    email = Column(String(255), unique=True, index=True, nullable=True)  # Made optional
     hashed_password = Column(String(255), nullable=False)
     nickname = Column(String(100), nullable=True)
-    phone = Column(String(20), nullable=True)
+    phone = Column(String(20), unique=True, index=True, nullable=False)  # Made required and unique
     avatar_url = Column(String(500), nullable=True)
     
     # 账户信息
