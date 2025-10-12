@@ -1308,6 +1308,21 @@ class AIClient:
                     logger.info("Found inline image data in Gemini response")
                     return self._save_base64_image(data)
 
+                # 处理fileData结构 - Gemini图片通常以文件形式返回
+                file_data = part.get("fileData") or part.get("file_data")
+                if isinstance(file_data, dict):
+                    file_uri = file_data.get("fileUri") or file_data.get("file_uri")
+                    if isinstance(file_uri, str) and file_uri:
+                        logger.info("Gemini response contains file data uri: %s", file_uri)
+                        return file_uri
+                    # 某些情况下文件数据可能内联返回
+                    inline_data = file_data.get("inlineData") or file_data.get("inline_data")
+                    if isinstance(inline_data, dict):
+                        data = inline_data.get("data")
+                        if data:
+                            logger.info("Gemini response contains file data inline image")
+                            return self._save_base64_image(data)
+
                 # 处理文件URI
                 if "file_uri" in part or "fileUri" in part:
                     file_uri = part.get("file_uri") or part.get("fileUri")
@@ -1315,11 +1330,11 @@ class AIClient:
                         logger.info("Gemini response contains file uri: %s", file_uri)
                         return file_uri
 
-            raise Exception("Gemini响应缺少可用的图片数据")
+            raise Exception("AI响应缺少可用的图片数据")
 
         except Exception as exc:
             logger.error(f"Gemini response parsing failed: {str(exc)}")
-            raise Exception(f"Gemini响应解析失败: {str(exc)}")
+            raise Exception(f"AI响应解析失败: {str(exc)}")
 
     def _save_base64_image(self, base64_data: str) -> str:
         """保存base64图片并返回URL"""
