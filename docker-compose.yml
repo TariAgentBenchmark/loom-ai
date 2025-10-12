@@ -56,6 +56,13 @@ services:
       - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
       - DEBUG=${DEBUG:-true}
       - UPLOAD_PATH=./uploads
+      - ALIBABA_CLOUD_ACCESS_KEY_ID=${ALIBABA_CLOUD_ACCESS_KEY_ID:-}
+      - ALIBABA_CLOUD_ACCESS_KEY_SECRET=${ALIBABA_CLOUD_ACCESS_KEY_SECRET:-}
+      - SMS_SIGN_NAME=${SMS_SIGN_NAME:-}
+      - SMS_TEMPLATE_CODE=${SMS_TEMPLATE_CODE:-}
+      - SMS_REGION=${SMS_REGION:-cn-hangzhou}
+      - SMS_CODE_VALID_MINUTES=${SMS_CODE_VALID_MINUTES:-5}
+      - SMS_MOCK_ENABLED=${SMS_MOCK_ENABLED:-false}
     volumes:
       - ./backend/uploads:/app/uploads
       - ./backend/data:/app/data

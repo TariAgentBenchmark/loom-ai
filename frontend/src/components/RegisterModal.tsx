@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import PhoneVerification from './PhoneVerification';
-import { sendVerificationCode } from '../lib/api';
 
 interface RegisterModalProps {
   isOpen: boolean;
@@ -30,6 +29,9 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
   const [showPhoneVerification, setShowPhoneVerification] = useState(false);
   const [isPhoneVerified, setIsPhoneVerified] = useState(false);
   const [registerData, setRegisterData] = useState<any>(null);
+  const [lastVerificationSentAt, setLastVerificationSentAt] = useState<number | null>(null);
+  const [verificationCooldownSeconds, setVerificationCooldownSeconds] = useState(60);
+  const [initialVerificationCountdown, setInitialVerificationCountdown] = useState(0);
 
   if (!isOpen) {
     return null;
@@ -140,6 +142,7 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
   const handlePhoneVerified = () => {
     setShowPhoneVerification(false);
     setIsPhoneVerified(true);
+    setVerificationCooldown(0);
   };
 
   // 处理手机验证取消
@@ -161,12 +164,16 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
       return;
     }
 
-    try {
-      await sendVerificationCode({ phone });
-      setShowPhoneVerification(true);
-    } catch (error) {
-      setLocalError(error instanceof Error ? error.message : '发送验证码失败');
+    const now = Date.now();
+    let remaining = 0;
+    if (lastVerificationSentAt !== null) {
+      const elapsed = Math.floor((now - lastVerificationSentAt) / 1000);
+      remaining = Math.max(0, verificationCooldownSeconds - elapsed);
     }
+
+    setInitialVerificationCountdown(remaining);
+    setLocalError('');
+    setShowPhoneVerification(true);
   };
 
   return (
@@ -207,7 +214,7 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
               <button
                 type="button"
                 onClick={handleSendVerificationCode}
-                disabled={!phone || isPhoneVerified}
+                disabled={!phone || isPhoneVerified || showPhoneVerification}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 {isPhoneVerified ? '已验证' : '获取验证码'}
@@ -343,13 +350,18 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
         </form>
       </div>
       
-      {showPhoneVerification && (
-        <PhoneVerification
-          phone={phone}
-          onVerified={handlePhoneVerified}
-          onCancel={handlePhoneVerificationCancel}
-        />
-      )}
+        {showPhoneVerification && (
+          <PhoneVerification
+            phone={phone}
+            onVerified={handlePhoneVerified}
+            onCancel={handlePhoneVerificationCancel}
+            initialCountdown={initialVerificationCountdown}
+            onCodeSent={(expiresInSeconds) => {
+              setLastVerificationSentAt(Date.now());
+              setVerificationCooldownSeconds(expiresInSeconds || 60);
+            }}
+          />
+        )}
     </div>
   );
 };

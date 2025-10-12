@@ -1,5 +1,6 @@
 from typing import Optional
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -81,12 +82,22 @@ class Settings(BaseSettings):
     from_email: str = "noreply@loom-ai.com"
 
     # 短信服务配置
-    sms_access_key: str = ""
-    sms_access_key_secret: str = ""
+    sms_access_key: str = Field(
+        default="",
+        validation_alias=AliasChoices("SMS_ACCESS_KEY", "ALIBABA_CLOUD_ACCESS_KEY_ID"),
+    )
+    sms_access_key_secret: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "SMS_ACCESS_KEY_SECRET",
+            "ALIBABA_CLOUD_ACCESS_KEY_SECRET",
+        ),
+    )
     sms_sign_name: str = "LoomAI"
     sms_template_code: str = "SMS_123456789"
     sms_region: str = "cn-hangzhou"
     sms_mock_enabled: bool = False
+    sms_code_valid_minutes: int = 5
     environment: str = "development"  # development or production
 
     # 日志配置

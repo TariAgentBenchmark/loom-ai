@@ -6,8 +6,6 @@
 import sys
 import os
 import logging
-import json
-from datetime import datetime
 
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -58,14 +56,14 @@ def test_sms_configuration():
     issues = []
     
     if not settings.sms_access_key:
-        issues.append("❌ SMS_ACCESS_KEY 未配置")
+        issues.append("❌ ALIBABA_CLOUD_ACCESS_KEY_ID 未配置")
     else:
-        print(f"✅ SMS_ACCESS_KEY: {settings.sms_access_key[:10]}...")
+        print(f"✅ ALIBABA_CLOUD_ACCESS_KEY_ID: {settings.sms_access_key[:10]}...")
     
     if not settings.sms_access_key_secret:
-        issues.append("❌ SMS_ACCESS_KEY_SECRET 未配置")
+        issues.append("❌ ALIBABA_CLOUD_ACCESS_KEY_SECRET 未配置")
     else:
-        print(f"✅ SMS_ACCESS_KEY_SECRET: {settings.sms_access_key_secret[:10]}...")
+        print(f"✅ ALIBABA_CLOUD_ACCESS_KEY_SECRET: {settings.sms_access_key_secret[:10]}...")
     
     if not settings.sms_sign_name:
         issues.append("❌ SMS_SIGN_NAME 未配置")
@@ -78,6 +76,7 @@ def test_sms_configuration():
         print(f"✅ SMS_TEMPLATE_CODE: {settings.sms_template_code}")
     
     print(f"✅ SMS_REGION: {settings.sms_region}")
+    print(f"✅ SMS_CODE_VALID_MINUTES: {settings.sms_code_valid_minutes}")
     print(f"✅ SMS_MOCK_ENABLED: {settings.sms_mock_enabled}")
     
     if issues:
@@ -113,33 +112,25 @@ def test_send_sms_detailed(phone: str):
         print(f"\n测试验证码: {test_code}")
         
         # 构建请求参数（用于调试显示）
-        import uuid
-        from datetime import timezone
-        
-        template_params = {"code": test_code}
-        payload = {
-            "AccessKeyId": settings.sms_access_key[:10] + "...",  # 隐藏完整key
-            "Action": "SendSms",
-            "Format": "JSON",
-            "PhoneNumbers": phone,
-            "RegionId": settings.sms_region,
+        template_params = {
+            "code": test_code,
+            "min": settings.sms_code_valid_minutes,
+        }
+        request_preview = {
+            "PhoneNumber": phone,
             "SignName": settings.sms_sign_name,
-            "SignatureMethod": "HMAC-SHA1",
-            "SignatureNonce": str(uuid.uuid4()),
-            "SignatureVersion": "1.0",
             "TemplateCode": settings.sms_template_code,
-            "TemplateParam": json.dumps(template_params, ensure_ascii=False),
-            "Timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "Version": "2017-05-25",
+            "TemplateParam": template_params,
+            "DuplicatePolicyMinutes": settings.sms_code_valid_minutes,
         }
         
-        print("\n请求参数:")
-        for key, value in payload.items():
+        print("\n请求参数预览:")
+        for key, value in request_preview.items():
             print(f"  {key}: {value}")
         
         # 调用阿里云SMS API
         print("\n发送短信...")
-        success = client.send_sms(phone, {"code": test_code})
+        success = client.send_sms(phone, template_params)
         
         if success:
             print(f"\n✅ 短信发送成功！")
@@ -199,7 +190,7 @@ def test_api_endpoint_flow(phone: str):
             print(f"✅ 短信发送成功！")
             print(f"\n验证码: {code}")
             print(f"手机号: {phone}")
-            print(f"有效期: 5分钟")
+            print(f"有效期: {settings.sms_code_valid_minutes}分钟")
             return True
         else:
             print(f"❌ 短信发送失败！")
@@ -255,4 +246,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

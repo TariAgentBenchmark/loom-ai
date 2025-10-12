@@ -7,18 +7,24 @@ interface PhoneVerificationProps {
   phone: string;
   onVerified: () => void;
   onCancel: () => void;
+  autoSendOnMount?: boolean;
+  initialCountdown?: number;
+  onCodeSent?: (expiresInSeconds: number) => void;
 }
 
-const PhoneVerification: React.FC<PhoneVerificationProps> = ({ 
-  phone, 
-  onVerified, 
-  onCancel 
+const PhoneVerification: React.FC<PhoneVerificationProps> = ({
+  phone,
+  onVerified,
+  onCancel,
+  autoSendOnMount = true,
+  initialCountdown = 0,
+  onCodeSent,
 }) => {
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState('');
-  const [countdown, setCountdown] = useState(0);
+  const [countdown, setCountdown] = useState(initialCountdown);
   
   // 验证码输入框引用
   const inputRefs = [
@@ -40,12 +46,13 @@ const PhoneVerification: React.FC<PhoneVerificationProps> = ({
   
   // 初始化时自动发送验证码
   useEffect(() => {
-    handleSendCode();
-    // 聚焦到第一个输入框
+    if (autoSendOnMount) {
+      handleSendCode();
+    }
     if (inputRefs[0].current) {
       inputRefs[0].current.focus();
     }
-  }, []);
+  }, [autoSendOnMount]);
   
   // 发送验证码
   const handleSendCode = async () => {
@@ -55,8 +62,13 @@ const PhoneVerification: React.FC<PhoneVerificationProps> = ({
     setError('');
     
     try {
-      await sendVerificationCode({ phone });
-      setCountdown(60); // 60秒倒计时
+      const response = await sendVerificationCode({ phone });
+      const expiresInSeconds = Math.max(
+        0,
+        Math.floor(response.data?.expires_in ?? 60),
+      );
+      setCountdown(expiresInSeconds);
+      onCodeSent?.(expiresInSeconds);
     } catch (err) {
       setError(err instanceof Error ? err.message : '发送验证码失败');
     } finally {

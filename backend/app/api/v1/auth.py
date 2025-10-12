@@ -374,24 +374,19 @@ async def send_verification_code(
         
         # 查找用户
         user = db.query(User).filter(User.phone == request_data.phone).first()
-        
-        # 如果用户不存在，为了安全也返回成功（避免手机号泄露）
-        if not user:
-            return SuccessResponse(
-                data={"message": "如果手机号存在，验证码已发送", "expires_in": 300},
-                message="验证码发送成功"
-            )
-        
-        # 初始化短信服务
+        if user:
+            raise HTTPException(status_code=409, detail="手机号已注册")
+
         sms_service = SMSService()
-        
+        verification = sms_service.get_or_create_phone_verification(db, request_data.phone)
+
         # 检查发送频率限制
-        can_send, message = sms_service.can_send_sms(user)
+        can_send, message = sms_service.can_send_sms(verification)
         if not can_send:
             raise HTTPException(status_code=429, detail=message)
         
         # 创建验证码记录
-        code = sms_service.create_verification_record(user, db)
+        code = sms_service.create_verification_record(verification, db)
         
         # 发送短信
         success = sms_service.send_verification_sms(request_data.phone, code)
@@ -400,7 +395,7 @@ async def send_verification_code(
             raise HTTPException(status_code=500, detail="短信发送失败")
         
         return SuccessResponse(
-            data={"message": "验证码已发送", "expires_in": 300},
+            data={"message": "验证码已发送", "expires_in": sms_service.code_valid_minutes * 60},
             message="验证码发送成功"
         )
         
@@ -421,15 +416,21 @@ async def verify_phone_code(
         
         # 查找用户
         user = db.query(User).filter(User.phone == request_data.phone).first()
-        
-        if not user:
-            raise HTTPException(status_code=404, detail="用户不存在")
-        
-        # 初始化短信服务
         sms_service = SMSService()
-        
-        # 验证验证码
-        if not sms_service.verify_code(user, request_data.code, db):
+
+        if user:
+            if not sms_service.verify_code(user, request_data.code, db):
+                raise HTTPException(status_code=400, detail="验证码错误或已过期")
+            return SuccessResponse(
+                data=None,
+                message="手机验证成功"
+            )
+
+        verification = sms_service.get_phone_verification(db, request_data.phone)
+        if not verification:
+            raise HTTPException(status_code=404, detail="请先获取验证码")
+
+        if not sms_service.verify_code(verification, request_data.code, db):
             raise HTTPException(status_code=400, detail="验证码错误或已过期")
         
         return SuccessResponse(
