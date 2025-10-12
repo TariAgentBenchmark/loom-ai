@@ -25,7 +25,7 @@ RUN uv sync --frozen
 
 # 复制项目文件
 COPY . ./
-RUN cp env.example .env
+RUN if [ -f env.example ]; then cp env.example .env; else cp .env.example .env; fi
 
 # 创建必要目录
 RUN mkdir -p uploads/originals uploads/results uploads/temp data

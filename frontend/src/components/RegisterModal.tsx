@@ -142,7 +142,8 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
   const handlePhoneVerified = () => {
     setShowPhoneVerification(false);
     setIsPhoneVerified(true);
-    setVerificationCooldown(0);
+    setLastVerificationSentAt(null);
+    setInitialVerificationCountdown(0);
   };
 
   // 处理手机验证取消
