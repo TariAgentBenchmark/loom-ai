@@ -197,6 +197,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                 className="w-full rounded-lg md:rounded-xl border border-gray-200 px-3 py-2 md:px-4 md:py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
               >
                 <option value="general">通用</option>
+                <option value="creative_plus">创造力+N</option>
                 <option value="positioning">定位花</option>
                 <option value="fine">精细效果</option>
               </select>

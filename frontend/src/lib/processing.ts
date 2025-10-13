@@ -77,7 +77,7 @@ export const processingMethodInfo: Record<ProcessingMethod, ProcessingMethodInfo
   noise_removal: {
     title: 'AI布纹去噪',
     description: '使用AI快速的去除图片中的噪点、布纹。还可用于对模糊矢量花的高清重绘。',
-    icon: '/optimized/AI布纹去噪.webp',
+    icon: '/optimized/进一步处理.webp',
     examples: [
       '上传有噪点或布纹的图片',
       '请提供分辨率尽量高、压缩少的原图',
@@ -89,7 +89,7 @@ export const processingMethodInfo: Record<ProcessingMethod, ProcessingMethodInfo
   upscale: {
     title: 'AI无损放大',
     description: '使用AI技术对图片进行无损放大，最高支持8K分辨率，保持图片清晰度和细节。',
-    icon: '/optimized/进一步处理.webp',
+    icon: '/optimized/AI布纹去噪.webp',
     examples: [
       '上传需要放大的图片',
       '选择放大倍数或自定义尺寸',

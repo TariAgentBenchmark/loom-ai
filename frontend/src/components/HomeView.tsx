@@ -601,7 +601,7 @@ const HomeView: React.FC<HomeViewProps> = ({
             >
               <div className="text-center mb-4 md:mb-6">
                 <div className="flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-xl md:rounded-2xl bg-gradient-to-br from-amber-50 to-yellow-50 shadow-lg mx-auto mb-3 md:mb-4 group-hover:shadow-xl transition-all">
-                  <img src="/optimized/AI布纹去噪.webp" alt="布纹去噪" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
+                  <img src="/optimized/进一步处理.webp" alt="布纹去噪" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
                 </div>
                 <h4 className="text-lg md:text-xl font-bold text-gray-900 mb-2 md:mb-3">AI布纹去噪</h4>
                 <p className="text-sm text-gray-600 leading-relaxed">
@@ -637,7 +637,7 @@ const HomeView: React.FC<HomeViewProps> = ({
             >
               <div className="text-center mb-4 md:mb-6">
                 <div className="flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-xl md:rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg mx-auto mb-3 md:mb-4 group-hover:shadow-xl transition-all">
-                  <img src="/optimized/进一步处理.webp" alt="无损放大" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
+                  <img src="/optimized/AI布纹去噪.webp" alt="无损放大" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
                 </div>
                 <h4 className="text-lg md:text-xl font-bold text-gray-900 mb-2 md:mb-3">AI无损放大</h4>
                 <p className="text-sm text-gray-600 leading-relaxed">

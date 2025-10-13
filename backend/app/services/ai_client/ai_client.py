@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 import uuid
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.config import settings
 from app.services.ai_client.dewatermark_client import DewatermarkClient
@@ -73,8 +73,61 @@ class AIClient:
         image_bytes: bytes,
         options: Optional[Dict[str, Any]] = None,
     ) -> str:
-        """AI提取花型"""
-        return await self.image_utils.extract_pattern(image_bytes, options)
+        """AI提取花型，并按需进行高清增强"""
+        options = options or {}
+        pattern_type = (options.get("pattern_type") or "general").strip().lower()
+
+        raw_result = await self.image_utils.extract_pattern(image_bytes, options)
+        if not raw_result:
+            raise Exception("AI提取花型失败：未获得结果")
+
+        # 精细模式直接返回原结果，多张图已在上游处理
+        if pattern_type == "fine":
+            return raw_result
+
+        result_urls = [url.strip() for url in raw_result.split(",") if url.strip()]
+        if not result_urls:
+            raise Exception("AI提取花型失败：结果URL无效")
+
+        enhanced_urls: List[str] = []
+        for url in result_urls:
+            try:
+                if pattern_type == "creative_plus":
+                    # 创造力+N：调用 Liblib 高清模型
+                    enhanced = await self.upscale_image(
+                        url,
+                        scale_factor=4,
+                        options={"engine": "creative_plus"},
+                    )
+                else:
+                    # 通用 / 定位花：调用美图高清模型
+                    meitu_options = {
+                        "engine": "meitu_v2",
+                        "sr_num": 4,
+                        "task": options.get("task", "/v1/Ultra_High_Definition_V2/478332"),
+                        "task_type": options.get("task_type", "formula"),
+                        "sync_timeout": options.get("sync_timeout", 30),
+                        "rsp_media_type": options.get("rsp_media_type", "url"),
+                    }
+                    enhanced = await self.upscale_image(
+                        url,
+                        scale_factor=4,
+                        options=meitu_options,
+                    )
+
+                enhanced_urls.extend(
+                    [item.strip() for item in enhanced.split(",") if item.strip()]
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Pattern enhancement failed for %s with pattern_type=%s: %s. Falling back to raw result.",
+                    url,
+                    pattern_type,
+                    str(exc),
+                )
+                enhanced_urls.append(url)
+
+        return ",".join(enhanced_urls)
 
     async def denoise_image(
         self,
