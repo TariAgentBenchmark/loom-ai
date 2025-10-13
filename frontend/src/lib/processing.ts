@@ -53,12 +53,12 @@ export const processingMethodInfo: Record<ProcessingMethod, ProcessingMethodInfo
   },
   extract_pattern: {
     title: 'AI提取花型',
-    description: '需预处理图片，支持用嘴改图。提取图案中的花型元素，适合设计应用。',
+    description: '自动提取花型并进行高清增强，适合设计应用。',
     icon: '/optimized/AI提取花型.webp',
     examples: [
       '上传包含花型的图片',
       '确保花型主体清晰、光线均匀',
-      '系统自动提取核心花型元素',
+      '系统自动提取核心花型元素并生成高清增强图案',
       'AI智能提取花型元素',
     ],
   },

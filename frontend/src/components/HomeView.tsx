@@ -569,7 +569,7 @@ const HomeView: React.FC<HomeViewProps> = ({
                 </div>
                 <h4 className="text-lg md:text-xl font-bold text-gray-900 mb-2 md:mb-3">AI提取花型</h4>
                 <p className="text-sm text-gray-600 leading-relaxed">
-                  需预处理图片，支持用嘴改图。提取图案中的花型元素，适合设计应用。
+                  自动提取图案并赋予高清增强效果，帮助您快速获取可用的花型素材。
                 </p>
               </div>
               <div className="bg-gradient-to-r from-rose-500 to-pink-500 text-white py-2 px-4 md:py-3 md:px-6 rounded-lg md:rounded-xl text-center font-medium hover:from-rose-600 hover:to-pink-600 transition-all">

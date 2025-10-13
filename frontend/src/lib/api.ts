@@ -104,6 +104,18 @@ const ensureSuccess = async (response: Response) => {
   const fallbackMessage = `请求失败：${response.status}${statusText}`;
   const parsed = await parseErrorBody(response);
 
+  const creditErrorMessages = [parsed.primary, parsed.secondary].filter(
+    (value): value is string =>
+      typeof value === "string" &&
+      (value.includes("算力不足") || value.includes("算力余额不足")),
+  );
+
+  if (response.status === 403 && creditErrorMessages.length > 0) {
+    return Promise.reject(
+      new Error(creditErrorMessages[0] ?? "算力不足，请充值后再试"),
+    );
+  }
+
   const messageParts = [
     parsed.primary,
     parsed.secondary,
