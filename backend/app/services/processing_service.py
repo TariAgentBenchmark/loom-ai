@@ -152,22 +152,23 @@ class ProcessingService:
             
             # 根据任务类型调用相应的AI处理方法
             start_time = datetime.utcnow()
-            
+            task_options = task.options or {}
+
             try:
                 if task.type == TaskType.SEAMLESS.value:
-                    result_url = await ai_client.seamless_pattern_conversion(image_bytes, task.options)
+                    result_url = await ai_client.seamless_pattern_conversion(image_bytes, task_options)
                 elif task.type == TaskType.PROMPT_EDIT.value:
-                    result_url = await ai_client.prompt_edit_image(image_bytes, task.options)
+                    result_url = await ai_client.prompt_edit_image(image_bytes, task_options)
                 elif task.type == TaskType.VECTORIZE.value:
-                    result_url = await ai_client.vectorize_image(image_bytes, task.options)
+                    result_url = await ai_client.vectorize_image(image_bytes, task_options)
                 elif task.type == TaskType.EXTRACT_PATTERN.value:
-                    result_url = await ai_client.extract_pattern(image_bytes, task.options)
+                    result_url = await ai_client.extract_pattern(image_bytes, task_options)
                 elif task.type == TaskType.REMOVE_WATERMARK.value:
-                    result_url = await ai_client.remove_watermark(image_bytes, task.options)
+                    result_url = await ai_client.remove_watermark(image_bytes, task_options)
                 elif task.type == TaskType.DENOISE.value:
-                    result_url = await ai_client.denoise_image(image_bytes, task.options)
+                    result_url = await ai_client.denoise_image(image_bytes, task_options)
                 elif task.type == TaskType.EMBROIDERY.value:
-                    result_url = await ai_client.enhance_embroidery(image_bytes, task.options)
+                    result_url = await ai_client.enhance_embroidery(image_bytes, task_options)
                 elif task.type == TaskType.UPSCALE.value:
                     # For upscale, we need to first save the image and get its URL
                     temp_filename = f"temp_upscale_{task.task_id}.jpg"
@@ -178,10 +179,11 @@ class ProcessingService:
                     # image_url 现在已经是正确的格式了，直接使用
                     result_url = await ai_client.upscale_image(
                         image_url,
-                        task.options.get("scale_factor", 2),
-                        task.options.get("custom_width"),
-                        task.options.get("custom_height"),
-                        task.options
+                        task_options.get("scale_factor", 2),
+                        task_options.get("custom_width"),
+                        task_options.get("custom_height"),
+                        task_options,
+                        image_bytes=image_bytes
                     )
                 else:
                     raise Exception(f"不支持的任务类型: {task.type}")

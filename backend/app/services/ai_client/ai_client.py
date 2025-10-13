@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from app.core.config import settings
 from app.services.ai_client.dewatermark_client import DewatermarkClient
@@ -110,96 +110,132 @@ class AIClient:
         custom_width: Optional[int] = None,
         custom_height: Optional[int] = None,
         options: Optional[Dict[str, Any]] = None,
+        image_bytes: Optional[bytes] = None,
     ) -> str:
-        """无损放大图片（使用Liblib AI API）
-        
-        注意：image_url必须是公开可访问的URL，不能是本地路径
-        如果传入的是本地路径，需要先上传到OSS
-        """
-        try:
-            # 检查是否是本地路径，如果是则需要上传到OSS
-            if image_url.startswith("/files/"):
-                logger.warning(f"Image URL is a local path: {image_url}, attempting to upload to OSS")
-                
-                # 导入OSS服务
-                from app.services.oss_service import oss_service
-                
-                if not oss_service.is_configured():
-                    raise Exception(
-                        "图片URL必须是公开可访问的URL。"
-                        "本地路径需要OSS配置才能使用。"
-                        "请配置OSS或提供公开可访问的图片URL。"
-                    )
-                
-                # 读取本地文件并上传到OSS
-                # image_url 格式: /files/originals/temp_upscale_xxx.jpg
-                # 需要转换为: ./uploads/originals/temp_upscale_xxx.jpg
-                relative_path = image_url.replace('/files/', '')  # originals/temp_upscale_xxx.jpg
+        """无损放大图片，支持多种引擎"""
+        options = options or {}
+        engine = (options.get("engine") or "creative_plus").strip().lower()
+
+        # 准备可供第三方访问的图片URL
+        public_url, _ = await self._prepare_image_for_external_api(
+            image_url=image_url,
+            image_bytes=image_bytes,
+            purpose="upscale",
+        )
+
+        if engine == "meitu_v2":
+            return await self._upscale_with_meitu_v2(
+                public_url,
+                scale_factor=scale_factor,
+                options=options,
+            )
+
+        # 默认使用Liblib引擎（创造力+N）
+        return await self._upscale_with_liblib(
+            public_url,
+            scale_factor=scale_factor,
+            custom_width=custom_width,
+            custom_height=custom_height,
+            options=options,
+        )
+
+    async def _prepare_image_for_external_api(
+        self,
+        image_url: str,
+        image_bytes: Optional[bytes],
+        purpose: str = "general",
+    ) -> Tuple[str, Optional[bytes]]:
+        """确保图片可以被第三方API访问，必要时上传至OSS"""
+        if image_url.startswith("/files/"):
+            logger.warning("Image URL is a local path: %s", image_url)
+
+            from app.services.oss_service import oss_service
+
+            if not image_bytes:
+                relative_path = image_url.replace("/files/", "")
                 local_path = os.path.join(settings.upload_path, relative_path)
-                
                 if not os.path.exists(local_path):
                     raise Exception(f"本地文件不存在: {local_path}")
-                
-                with open(local_path, "rb") as f:
-                    image_bytes = f.read()
-                
-                # 上传到OSS
-                temp_filename = f"temp_upscale_{uuid.uuid4().hex[:8]}.jpg"
-                image_url = await oss_service.upload_image_for_jimeng(image_bytes, temp_filename)
-                logger.info(f"Uploaded image to OSS: {image_url}")
-            
+                with open(local_path, "rb") as file_obj:
+                    image_bytes = file_obj.read()
+
+            if not oss_service.is_configured():
+                raise Exception(
+                    "图片URL必须是公开可访问的URL。本地路径需要配置OSS才能使用。"
+                )
+
+            temp_filename = f"{purpose}_{uuid.uuid4().hex[:8]}.jpg"
+            public_url = await oss_service.upload_image_for_jimeng(image_bytes, temp_filename)
+            logger.info("Uploaded image to OSS for %s: %s", purpose, public_url)
+            return public_url, image_bytes
+
+        return image_url, image_bytes
+
+    async def _upscale_with_liblib(
+        self,
+        image_url: str,
+        scale_factor: int,
+        custom_width: Optional[int],
+        custom_height: Optional[int],
+        options: Dict[str, Any],
+    ) -> str:
+        try:
             # 根据scale_factor确定megapixels参数
-            # Liblib API使用megapixels参数来控制放大倍数
-            # 默认8.0百万像素，可以根据需要调整
             megapixels = 8.0
-            
-            # 如果提供了自定义选项，使用自定义的megapixels值
-            if options and "megapixels" in options:
+
+            if "megapixels" in options:
                 megapixels = options["megapixels"]
             else:
-                # 根据scale_factor调整megapixels
                 if scale_factor == 2:
-                    megapixels = 4.0  # 2倍放大对应4百万像素
+                    megapixels = 4.0
                 elif scale_factor == 4:
-                    megapixels = 16.0  # 4倍放大对应16百万像素
-                # 其他情况保持默认8.0百万像素
-            
-            # 确保megapixels在有效范围内(0.01-16)
-            megapixels = max(0.01, min(16.0, megapixels))
-            
-            logger.info(f"Sending Liblib AI upscale request with megapixels: {megapixels}")
-            
-            # 使用Liblib API进行图片放大
+                    megapixels = 16.0
+
+            megapixels = max(0.01, min(16.0, float(megapixels)))
+            logger.info("Sending Liblib AI upscale request with megapixels: %s", megapixels)
+
             result_images = await self.liblib_client.generate_and_wait(
                 image_url=image_url,
-                megapixels=megapixels
+                megapixels=megapixels,
             )
-            
+
             if not result_images:
                 raise Exception("Liblib AI放大失败：未返回结果图片")
-            
-            # 下载并保存第一张结果图片
+
             result_url = result_images[0]
-            logger.info(f"Liblib AI upscale completed successfully: {result_url}")
-            
-            # 下载图片
+            logger.info("Liblib AI upscale completed successfully: %s", result_url)
+
             result_bytes = await self.gemini_client._download_image_from_url(result_url)
-            
-            # 保存结果文件
+
             result_filename = f"upscaled_{uuid.uuid4().hex[:8]}.png"
             result_file_path = f"{settings.upload_path}/results/{result_filename}"
-            
+
             os.makedirs(os.path.dirname(result_file_path), exist_ok=True)
-            with open(result_file_path, "wb") as f:
-                f.write(result_bytes)
-            
-            # 返回文件URL格式
-            logger.info(f"Result saved to: {result_file_path}")
+            with open(result_file_path, "wb") as file_obj:
+                file_obj.write(result_bytes)
+
+            logger.info("Result saved to: %s", result_file_path)
             return f"/files/results/{result_filename}"
-            
-        except Exception as e:
-            logger.error(f"Liblib AI upscale failed: {str(e)}")
-            raise Exception(f"AI无损放大失败: {str(e)}")
+
+        except Exception as exc:
+            logger.error("Liblib AI upscale failed: %s", str(exc))
+            raise Exception(f"AI无损放大失败: {str(exc)}")
+
+    async def _upscale_with_meitu_v2(
+        self,
+        image_url: str,
+        scale_factor: int,
+        options: Dict[str, Any],
+    ) -> str:
+        try:
+            return await self.meitu_client.upscale_v2(
+                image_url=image_url,
+                scale_factor=scale_factor,
+                options=options,
+            )
+        except Exception as exc:
+            logger.error("Meitu AI 超清V2失败: %s", str(exc))
+            raise Exception(f"美图AI超清失败: {str(exc)}")
 
     # 毛线刺绣增强相关方法
     async def enhance_embroidery(

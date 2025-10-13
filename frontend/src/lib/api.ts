@@ -431,6 +431,7 @@ export interface ProcessingRequestPayload {
   instruction?: string;
   model?: "new" | "original";
   patternType?: string;
+  upscaleEngine?: 'creative_plus' | 'meitu_v2';
 }
 
 export const createProcessingTask = ({
@@ -440,6 +441,7 @@ export const createProcessingTask = ({
   instruction,
   model,
   patternType,
+  upscaleEngine,
 }: ProcessingRequestPayload) => {
   const formData = new FormData();
   formData.append("image", image);
@@ -451,6 +453,10 @@ export const createProcessingTask = ({
 
   if (method === "extract_pattern") {
     formData.append("pattern_type", patternType ?? "general");
+  }
+
+  if (method === "upscale" && upscaleEngine) {
+    formData.append("engine", upscaleEngine);
   }
 
   const path = processingPathMap[method];

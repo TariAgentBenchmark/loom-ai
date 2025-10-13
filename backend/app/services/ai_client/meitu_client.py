@@ -1,11 +1,14 @@
 import asyncio
+import json
 import logging
 from random import uniform
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+from urllib.parse import urlparse
 
 import httpx
 
 from app.core.config import settings
+from app.services.sign_meitu import Signer
 
 logger = logging.getLogger(__name__)
 
@@ -83,3 +86,102 @@ class MeituClient:
 
         # 理论上不会到达这里，保留兜底处理
         raise Exception("美图API连接失败: 未知错误")
+
+    async def upscale_v2(
+        self,
+        image_url: str,
+        scale_factor: int = 2,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """调用美图AI超清V2接口进行图片放大"""
+
+        if not self.meitu_api_key or not self.meitu_api_secret:
+            raise Exception("未配置美图AI密钥，请在后台配置后重试")
+
+        if not image_url or not image_url.startswith("http"):
+            raise Exception("美图AI超清V2需要可公开访问的图片URL，请检查存储配置")
+
+        options = options or {}
+
+        sr_num = options.get("sr_num")
+        if not isinstance(sr_num, int):
+            sr_num = 4 if scale_factor and scale_factor >= 4 else 2
+
+        area_size = options.get("area_size")
+        if sr_num == 2:
+            area_size = int(area_size) if area_size else 1920
+        elif area_size:
+            area_size = int(area_size)
+
+        params_payload = {"parameter": {"sr_num": sr_num}}
+        if area_size:
+            params_payload["parameter"]["area_size"] = area_size
+
+        request_body = {
+            "params": json.dumps(params_payload, separators=(",", ":")),
+            "init_images": [
+                {
+                    "url": image_url,
+                    "profile": {
+                        "media_profiles": {
+                            "media_data_type": "url"
+                        }
+                    }
+                }
+            ],
+            "task": options.get("task", "/v1/Ultra_High_Definition_V2/478332"),
+            "task_type": options.get("task_type", "formula"),
+            "sync_timeout": int(options.get("sync_timeout", 30)),
+            "rsp_media_type": options.get("rsp_media_type", "url"),
+        }
+
+        endpoint = "/api/v1/sdk/sync/push"
+        base_url = self.meitu_base_url.rstrip("/")
+        url = f"{base_url}{endpoint}"
+        body_str = json.dumps(request_body, separators=(",", ":"))
+
+        parsed_base = urlparse(self.meitu_base_url)
+        host_header = parsed_base.netloc or "openapi.meitu.com"
+
+        headers = {
+            "Content-Type": "application/json",
+            "Host": host_header,
+            "X-Sdk-Content-Sha256": "UNSIGNED-PAYLOAD",
+        }
+
+        signer = Signer(self.meitu_api_key, self.meitu_api_secret)
+        signer.sign(url, "POST", headers, body_str)
+
+        timeout = httpx.Timeout(connect=10.0, read=180.0, write=180.0, pool=30.0)
+
+        try:
+            async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+                response = await client.post(url, headers=headers, content=body_str)
+                response.raise_for_status()
+                result = response.json()
+        except httpx.HTTPStatusError as exc:
+            logger.error("Meitu AI超清V2请求失败: %s - %s", exc.response.status_code, exc.response.text)
+            raise Exception(f"美图AI超清V2请求失败: {exc.response.status_code}")
+        except httpx.RequestError as exc:
+            logger.error("Meitu AI超清V2网络错误: %s", str(exc))
+            raise Exception(f"美图AI超清V2网络错误: {str(exc)}")
+
+        if result.get("code") != 0:
+            raise Exception(result.get("message") or f"美图AI超清V2返回错误码: {result.get('code')}")
+
+        data = result.get("data") or {}
+        status = data.get("status")
+
+        if status == 10:
+            urls = data.get("result", {}).get("urls") or []
+            if not urls:
+                raise Exception("美图AI超清V2未返回结果图片")
+            return ",".join(urls)
+
+        if status == 9:
+            raise Exception("美图AI超清V2处理超时，请稍后重试")
+
+        if status == 2:
+            raise Exception(data.get("msg") or "美图AI超清V2处理失败")
+
+        raise Exception(f"美图AI超清V2处理未完成，状态码: {status}")

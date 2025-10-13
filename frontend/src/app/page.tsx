@@ -74,6 +74,7 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState<PageState>('home');
   const [promptInstruction, setPromptInstruction] = useState<string>('');
   const [patternType, setPatternType] = useState<string>('general');
+  const [upscaleEngine, setUpscaleEngine] = useState<'creative_plus' | 'meitu_v2'>('meitu_v2');
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -364,6 +365,10 @@ export default function Home() {
       payload.patternType = patternType;
     }
 
+    if (currentPage === 'upscale') {
+      payload.upscaleEngine = upscaleEngine;
+    }
+
     createProcessingTask(payload)
       .then((response) => {
         const task = response.data;
@@ -412,6 +417,7 @@ export default function Home() {
             setCurrentPage('home');
             setPromptInstruction('');
             setPatternType('general');
+            setUpscaleEngine('meitu_v2');
           }}
           onOpenPricingModal={() => setShowPricingModal(true)}
           onProcessImage={handleProcessImage}
@@ -426,6 +432,8 @@ export default function Home() {
           onPromptInstructionChange={setPromptInstruction}
           patternType={patternType}
           onPatternTypeChange={setPatternType}
+          upscaleEngine={upscaleEngine}
+          onUpscaleEngineChange={setUpscaleEngine}
         />
       ) : (
         <HomeView

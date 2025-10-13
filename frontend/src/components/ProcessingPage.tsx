@@ -27,6 +27,8 @@ interface ProcessingPageProps {
   onPromptInstructionChange?: (value: string) => void;
   patternType?: string;
   onPatternTypeChange?: (value: string) => void;
+  upscaleEngine?: 'creative_plus' | 'meitu_v2';
+  onUpscaleEngineChange?: (value: 'creative_plus' | 'meitu_v2') => void;
 }
 
 const ProcessingPage: React.FC<ProcessingPageProps> = ({
@@ -49,12 +51,26 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   onPromptInstructionChange,
   patternType,
   onPatternTypeChange,
+  upscaleEngine,
+  onUpscaleEngineChange,
 }) => {
   const info = getProcessingMethodInfo(method);
   const [selectedTask, setSelectedTask] = useState<HistoryTask | null>(null);
   const [showImagePreview, setShowImagePreview] = useState(false);
   const isPromptReady = method !== 'prompt_edit' || Boolean(promptInstruction?.trim());
   const isActionDisabled = !hasUploadedImage || isProcessing || !isPromptReady;
+  const upscaleOptions: { value: 'creative_plus' | 'meitu_v2'; label: string; description: string }[] = [
+    {
+      value: 'meitu_v2',
+      label: '通用',
+      description: '超清V2模式，追求稳定还原与高保真，适合对原图还原度要求高的场景。',
+    },
+    {
+      value: 'creative_plus',
+      label: '创造力+N',
+      description: '创造力增强模式，放大同时保留更多细节与质感，适合创意设计稿。',
+    },
+  ];
 
   const handlePromptTemplateSelect = (template: string) => {
     if (onPromptInstructionChange) {
@@ -185,6 +201,36 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                 <option value="fine">精细效果</option>
               </select>
               <p className="text-xs text-gray-500 mt-2">选择不同的花型类型，AI会使用相应的处理方式。</p>
+            </div>
+          )}
+
+          {method === 'upscale' && (
+            <div className="mb-4 md:mb-6">
+              <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2">高清算法</h4>
+              <div className="space-y-2">
+                {upscaleOptions.map((option) => {
+                  const isActive = (upscaleEngine || 'meitu_v2') === option.value;
+                  return (
+                    <button
+                      type="button"
+                      key={option.value}
+                      onClick={() => onUpscaleEngineChange?.(option.value)}
+                      className={`w-full text-left border rounded-lg md:rounded-xl px-3 py-2 md:px-4 md:py-3 transition-all ${
+                        isActive
+                          ? 'border-blue-500 bg-blue-50 shadow-sm'
+                          : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/60'
+                      }`}
+                    >
+                      <p className={`text-sm md:text-base font-semibold ${isActive ? 'text-blue-600' : 'text-gray-800'}`}>
+                        {option.label}
+                      </p>
+                      <p className="text-xs md:text-sm text-gray-500 mt-1 leading-snug">
+                        {option.description}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 
