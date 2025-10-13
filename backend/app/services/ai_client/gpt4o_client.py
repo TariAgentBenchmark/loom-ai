@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from io import BytesIO
 from random import uniform
