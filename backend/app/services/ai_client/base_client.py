@@ -15,6 +15,41 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
+def _summarize_payload(payload: Any, max_length: int = 500) -> str:
+    """Return a compact representation that avoids dumping huge blobs in logs."""
+    try:
+        if isinstance(payload, dict):
+            parts = []
+            for key, value in payload.items():
+                parts.append(f"{key}={_summarize_value(value)}")
+            text = ", ".join(parts)
+        elif isinstance(payload, list):
+            text = f"list(len={len(payload)}, sample={[_summarize_value(item) for item in payload[:3]]})"
+        else:
+            text = _summarize_value(payload)
+    except Exception as exc:
+        text = f"<unserializable payload: {exc}>"
+
+    if len(text) > max_length:
+        return f"{text[:max_length]}...<truncated>"
+    return text
+
+
+def _summarize_value(value: Any) -> str:
+    if isinstance(value, dict):
+        return f"dict(keys={list(value.keys())[:5]})"
+    if isinstance(value, list):
+        return f"list(len={len(value)})"
+    if isinstance(value, bytes):
+        return f"bytes(len={len(value)})"
+    if isinstance(value, str):
+        preview = value[:80]
+        if len(value) > 80:
+            preview = f"{preview}...<truncated>"
+        return f"str(len={len(value)}, preview={preview!r})"
+    return repr(value)
+
+
 class BaseAIClient:
     """基础AI客户端，提供通用功能"""
     
@@ -61,7 +96,14 @@ class BaseAIClient:
                     await asyncio.sleep(wait_seconds)
                     continue
 
-                logger.error(f"AI API request failed: {status} - {body}")
+                logger.error(
+                    "AI API request failed permanently: method=%s url=%s status=%s body=%s payload=%s",
+                    method,
+                    url,
+                    status,
+                    _summarize_payload(body),
+                    _summarize_payload(data),
+                )
                 raise Exception(f"AI服务请求失败: {status}")
 
             except httpx.RequestError as exc:
@@ -77,7 +119,13 @@ class BaseAIClient:
                     await asyncio.sleep(wait_seconds)
                     continue
 
-                logger.error(f"AI API request error: {str(exc)}")
+                logger.error(
+                    "AI API request error without retry: method=%s url=%s error=%s payload=%s",
+                    method,
+                    url,
+                    str(exc),
+                    _summarize_payload(data),
+                )
                 raise Exception(f"AI服务连接失败: {str(exc)}")
 
         # 理论上不会到达这里，保留兜底处理
@@ -142,7 +190,11 @@ class BaseAIClient:
             raise Exception("无法从AI响应中提取图片")
             
         except Exception as e:
-            logger.error(f"Failed to extract image URL: {str(e)}")
+            logger.error(
+                "Failed to extract image URL from response: error=%s response=%s",
+                str(e),
+                _summarize_payload(api_response),
+            )
             raise Exception(f"处理AI响应失败: {str(e)}")
 
     def _extract_image_urls(self, api_response: Dict[str, Any]) -> List[str]:
@@ -165,7 +217,11 @@ class BaseAIClient:
             raise Exception("无法从AI响应中提取图片")
             
         except Exception as e:
-            logger.error(f"Failed to extract image URLs: {str(e)}")
+            logger.error(
+                "Failed to extract image URLs from response: error=%s response=%s",
+                str(e),
+                _summarize_payload(api_response),
+            )
             raise Exception(f"处理AI响应失败: {str(e)}")
 
     def _process_gemini_response(self, content: Dict[str, Any]) -> str:
@@ -228,7 +284,11 @@ class BaseAIClient:
             raise Exception("AI响应缺少可用的图片数据")
 
         except Exception as exc:
-            logger.error(f"Gemini response parsing failed: {str(exc)}")
+            logger.error(
+                "Gemini response parsing failed: error=%s content=%s",
+                str(exc),
+                _summarize_payload(content),
+            )
             raise Exception(f"AI响应解析失败: {str(exc)}")
 
     def _save_base64_image(self, base64_data: str) -> str:
