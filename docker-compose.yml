@@ -78,7 +78,7 @@ services:
     # 优先使用远程镜像，如果环境变量 USE_LOCAL_BUILD=true 则使用本地构建
     image: ${REGISTRY:-crpi-lxfoqbwevmx9mc1q.cn-chengdu.personal.cr.aliyuncs.com}/${NAMESPACE:-tari_tech}/${FRONTEND_IMAGE:-loomai}:${IMAGE_TAG:-latest}
     environment:
-      - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-https://tuyun.website/api}
+      - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-https://tuyun.website/api/v1}
     # 不再直接暴露端口，通过nginx代理
     depends_on:
       backend:

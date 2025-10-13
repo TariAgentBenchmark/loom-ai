@@ -24,19 +24,24 @@ class MeituClient:
     async def _make_meitu_request(self, endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """发送美图API请求"""
         url = f"{self.meitu_base_url}{endpoint}"
-        url_with_params = f"{url}?api_key={self.meitu_api_key}&api_secret={self.meitu_api_secret}"
         
         max_retries = 3
         backoff_base = 1.5
 
         for attempt in range(1, max_retries + 1):
             try:
-                async with httpx.AsyncClient(timeout=300.0) as client:
+                # 设定分阶段超时，避免连接长期挂起；并允许跟随重定向
+                timeout = httpx.Timeout(connect=10.0, read=180.0, write=180.0, pool=30.0)
+                async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
                     response = await client.request(
                         method="POST",
-                        url=url_with_params,
+                        url=url,
                         headers=self.meitu_headers,
-                        json=data
+                        json=data,
+                        params={
+                            "api_key": self.meitu_api_key,
+                            "api_secret": self.meitu_api_secret,
+                        },
                     )
                     response.raise_for_status()
                     return response.json()

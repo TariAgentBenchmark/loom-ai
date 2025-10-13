@@ -108,8 +108,11 @@ class Settings(BaseSettings):
     allowed_origins: list = [
         "http://localhost:3000",
         "http://localhost:3001",
+        "http://localhost:8080",
         "https://loom-ai.com",
         "https://www.loom-ai.com",
+        "https://tuyun.website",
+        "https://www.tuyun.website",
     ]
 
     model_config = SettingsConfigDict(

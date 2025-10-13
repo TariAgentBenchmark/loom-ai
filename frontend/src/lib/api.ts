@@ -170,24 +170,31 @@ const postJson = async <TData, TBody = unknown>(
   init?: RequestInit,
 ) => {
   console.log('postJson: Making request to', `${API_BASE_URL}${path}`, 'with body', body);
-  const response = await performAuthenticatedRequest(
-    (token) => {
-      const url = `${API_BASE_URL}${path}`;
-      const options = {
-        method: "POST",
-        headers: withAuthHeader({ "Content-Type": "application/json" }, token),
-        body: JSON.stringify(body),
-        ...init,
-      };
-      console.log('postJson: Fetch options', { url, headers: options.headers, method: options.method });
-      return fetch(url, options);
-    },
-    accessToken,
-  );
+  try {
+    const response = await performAuthenticatedRequest(
+      (token) => {
+        const url = `${API_BASE_URL}${path}`;
+        const options = {
+          method: "POST",
+          headers: withAuthHeader({ "Content-Type": "application/json" }, token),
+          body: JSON.stringify(body),
+          ...init,
+        };
+        console.log('postJson: Fetch options', { url, headers: options.headers, method: options.method });
+        return fetch(url, options);
+      },
+      accessToken,
+    );
 
-  console.log('postJson: Response status', response.status, response.statusText);
-  const ensured = await ensureSuccess(response);
-  return jsonResponse<ApiSuccessResponse<TData>>(ensured);
+    console.log('postJson: Response status', response.status, response.statusText);
+    const ensured = await ensureSuccess(response);
+    return jsonResponse<ApiSuccessResponse<TData>>(ensured);
+  } catch (err) {
+    const message = (err instanceof Error && err.message === 'Failed to fetch')
+      ? '网络连接异常或被浏览器拦截，请稍后重试'
+      : (err as Error)?.message ?? '请求失败';
+    throw new Error(message);
+  }
 };
 
 const postFormData = async <TData>(
@@ -195,32 +202,46 @@ const postFormData = async <TData>(
   formData: FormData,
   accessToken: string,
 ) => {
-  const response = await performAuthenticatedRequest(
-    (token) =>
-      fetch(`${API_BASE_URL}${path}`, {
-        method: "POST",
-        headers: withAuthHeader(undefined, token),
-        body: formData,
-      }),
-    accessToken,
-  );
+  try {
+    const response = await performAuthenticatedRequest(
+      (token) =>
+        fetch(`${API_BASE_URL}${path}`, {
+          method: "POST",
+          headers: withAuthHeader(undefined, token),
+          body: formData,
+        }),
+      accessToken,
+    );
 
-  const ensured = await ensureSuccess(response);
-  return jsonResponse<ApiSuccessResponse<TData>>(ensured);
+    const ensured = await ensureSuccess(response);
+    return jsonResponse<ApiSuccessResponse<TData>>(ensured);
+  } catch (err) {
+    const message = (err instanceof Error && err.message === 'Failed to fetch')
+      ? '网络连接异常或被浏览器拦截，请稍后重试'
+      : (err as Error)?.message ?? '请求失败';
+    throw new Error(message);
+  }
 };
 
 const getJson = async <TData>(path: string, accessToken: string) => {
-  const response = await performAuthenticatedRequest(
-    (token) =>
-      fetch(`${API_BASE_URL}${path}`, {
-        method: "GET",
-        headers: withAuthHeader(undefined, token),
-      }),
-    accessToken,
-  );
+  try {
+    const response = await performAuthenticatedRequest(
+      (token) =>
+        fetch(`${API_BASE_URL}${path}`, {
+          method: "GET",
+          headers: withAuthHeader(undefined, token),
+        }),
+      accessToken,
+    );
 
-  const ensured = await ensureSuccess(response);
-  return jsonResponse<ApiSuccessResponse<TData>>(ensured);
+    const ensured = await ensureSuccess(response);
+    return jsonResponse<ApiSuccessResponse<TData>>(ensured);
+  } catch (err) {
+    const message = (err instanceof Error && err.message === 'Failed to fetch')
+      ? '网络连接异常或被浏览器拦截，请稍后重试'
+      : (err as Error)?.message ?? '请求失败';
+    throw new Error(message);
+  }
 };
 
 const processingPathMap: Record<ProcessingMethod, string> = {
@@ -387,13 +408,20 @@ export const register = (payload: RegisterPayload) => {
 export async function refreshToken(
   refreshTokenValue: string,
 ): Promise<ApiSuccessResponse<RefreshTokenResult>> {
-  const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
-    method: "POST",
-    headers: withAuthHeader(undefined, refreshTokenValue),
-  });
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: "POST",
+      headers: withAuthHeader(undefined, refreshTokenValue),
+    });
 
-  const ensured = await ensureSuccess(response);
-  return jsonResponse<ApiSuccessResponse<RefreshTokenResult>>(ensured);
+    const ensured = await ensureSuccess(response);
+    return jsonResponse<ApiSuccessResponse<RefreshTokenResult>>(ensured);
+  } catch (err) {
+    const message = (err instanceof Error && err.message === 'Failed to fetch')
+      ? '网络异常，无法刷新会话，请重新登录'
+      : (err as Error)?.message ?? '刷新令牌失败';
+    throw new Error(message);
+  }
 }
 
 export interface ProcessingRequestPayload {
