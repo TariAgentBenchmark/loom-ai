@@ -385,8 +385,8 @@ const HistoryList: React.FC<HistoryListProps> = ({ accessToken, onTaskSelect, sh
       {/* 任务列表 */}
       <div className="flex-1 overflow-y-auto space-y-3">
         {tasks.length === 0 && !loading ? (
-          <div className="text-center text-gray-400 py-8">
-            <p className="text-sm">暂无历史记录</p>
+          <div className="text-center text-gray-500 py-8 text-sm">
+            什么都没有哦。快去出图吧。
           </div>
         ) : (
           tasks.map((task) => (

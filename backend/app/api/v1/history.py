@@ -82,6 +82,8 @@ async def get_history_tasks(
             Task.status == "failed"
         ).count()
         
+        processing_times = [task.processing_time for task in tasks if task.processing_time]
+
         return SuccessResponse(
             data={
                 "tasks": formatted_tasks,
@@ -90,7 +92,7 @@ async def get_history_tasks(
                     "completedTasks": completed_tasks,
                     "failedTasks": failed_tasks,
                     "totalCreditsUsed": sum(task.credits_used for task in tasks if task.credits_used),
-                    "avgProcessingTime": sum(task.processing_time for task in tasks if task.processing_time) // len([t for t in tasks if t.processing_time]) if tasks else 0
+                    "avgProcessingTime": int(sum(processing_times) / len(processing_times)) if processing_times else 0
                 },
                 "pagination": {
                     "page": page,
