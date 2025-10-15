@@ -120,9 +120,42 @@ class FileService:
                 logger.error(f"OSS上传失败，回退到本地存储: {str(e)}")
                 # 如果OSS上传失败，继续使用本地存储
         
+        original_format = (file_info.get("format") or "").upper()
+
+        # 当目标扩展名是png且原始格式不同，尝试转换为PNG
+        target_ext = filename.lower().split('.')[-1] if '.' in filename else 'png'
+        if target_ext == "png" and original_format and original_format != "PNG":
+            try:
+                image = Image.open(BytesIO(file_bytes))
+                if image.mode == "LA":
+                    image = image.convert("RGBA")
+                elif image.mode not in ("RGB", "RGBA"):
+                    image = image.convert("RGB")
+
+                buffer = BytesIO()
+                image.save(buffer, format="PNG")
+                file_bytes = buffer.getvalue()
+                original_format = "PNG"
+                logger.debug("Normalized image to PNG before saving (original format: %s)", file_info.get("format"))
+            except Exception as exc:
+                logger.warning("Failed to normalize image to PNG: %s", exc)
+
         # 本地存储
         # 生成唯一文件名
-        file_ext = filename.lower().split('.')[-1] if '.' in filename else 'png'
+        file_ext = target_ext
+        if original_format:
+            format_ext_map = {
+                "JPEG": "jpg",
+                "JPG": "jpg",
+                "PNG": "png",
+                "WEBP": "webp",
+                "BMP": "bmp",
+                "GIF": "gif",
+            }
+            expected_ext = format_ext_map.get(original_format)
+            if expected_ext and file_ext != expected_ext:
+                file_ext = expected_ext
+
         unique_filename = f"{uuid.uuid4().hex[:16]}.{file_ext}"
         
         # 构建文件路径

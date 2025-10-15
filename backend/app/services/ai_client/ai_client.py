@@ -5,6 +5,7 @@ import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.config import settings
+from app.services.ai_client.base_client import BaseAIClient
 from app.services.ai_client.dewatermark_client import DewatermarkClient
 from app.services.ai_client.gemini_client import GeminiClient
 from app.services.ai_client.gpt4o_client import GPT4oClient
@@ -29,6 +30,7 @@ class AIClient:
         self.dewatermark_client = DewatermarkClient()
         self.meitu_client = MeituClient()
         self.image_utils = ImageProcessingUtils()
+        self.base_client_utils = BaseAIClient()
         
         # Liblib API配置
         self.liblib_client = LiblibUpscaleAPI(
@@ -259,16 +261,9 @@ class AIClient:
             logger.info("Liblib AI upscale completed successfully: %s", result_url)
 
             result_bytes = await self.gemini_client._download_image_from_url(result_url)
-
-            result_filename = f"upscaled_{uuid.uuid4().hex[:8]}.png"
-            result_file_path = f"{settings.upload_path}/results/{result_filename}"
-
-            os.makedirs(os.path.dirname(result_file_path), exist_ok=True)
-            with open(result_file_path, "wb") as file_obj:
-                file_obj.write(result_bytes)
-
-            logger.info("Result saved to: %s", result_file_path)
-            return f"/files/results/{result_filename}"
+            saved_url = self.base_client_utils._save_image_bytes(result_bytes, prefix="upscaled")
+            logger.info("Result saved to: %s", saved_url)
+            return saved_url
 
         except Exception as exc:
             logger.error("Liblib AI upscale failed: %s", str(exc))
@@ -419,18 +414,9 @@ class AIClient:
                             result_url = image_urls[0]
                             logger.info(f"Downloading result from: {result_url}")
                             result_bytes = await self.gemini_client._download_image_from_url(result_url)
-                            
-                            # 保存结果文件
-                            result_filename = f"embroidery_{uuid.uuid4().hex[:8]}.png"
-                            result_file_path = f"{settings.upload_path}/results/{result_filename}"
-                            
-                            os.makedirs(os.path.dirname(result_file_path), exist_ok=True)
-                            with open(result_file_path, "wb") as f:
-                                f.write(result_bytes)
-                            
-                            # 返回文件URL格式
-                            logger.info(f"Result saved to: {result_file_path}")
-                            return f"/files/results/{result_filename}"
+                            saved_url = self.base_client_utils._save_image_bytes(result_bytes, prefix="embroidery")
+                            logger.info("Result saved to: %s", saved_url)
+                            return saved_url
                         elif binary_data:
                             # 处理base64编码的图片数据
                             logger.info("Processing base64 encoded image data")
@@ -450,19 +436,9 @@ class AIClient:
                                     raise Exception(f"二进制数据格式错误: {type(binary_data)}")
                                 
                                 result_bytes = base64.b64decode(binary_data)
-                                
-                                # 保存结果文件
-                                result_filename = f"embroidery_{uuid.uuid4().hex[:8]}.png"
-                                result_file_path = f"{settings.upload_path}/results/{result_filename}"
-                                
-                                # 确保目录存在
-                                os.makedirs(os.path.dirname(result_file_path), exist_ok=True)
-                                with open(result_file_path, "wb") as f:
-                                    f.write(result_bytes)
-                                
-                                # 返回文件URL格式
-                                logger.info(f"Result saved to: {result_file_path}")
-                                return f"/files/results/{result_filename}"
+                                saved_url = self.base_client_utils._save_image_bytes(result_bytes, prefix="embroidery")
+                                logger.info("Result saved to: %s", saved_url)
+                                return saved_url
                             except Exception as e:
                                 logger.error(f"Failed to process base64 image data: {str(e)}")
                                 raise Exception(f"处理base64图片数据失败: {str(e)}")

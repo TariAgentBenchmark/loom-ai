@@ -294,23 +294,33 @@ class BaseAIClient:
     def _save_base64_image(self, base64_data: str) -> str:
         """保存base64图片并返回URL"""
         try:
-            # 解码base64数据
-            image_data = base64.b64decode(base64_data)
-            
-            # 生成文件名
-            filename = f"ai_result_{uuid.uuid4().hex[:8]}.png"
-            file_path = f"{settings.upload_path}/results/{filename}"
-            
-            # 确保目录存在
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
-            
-            # 保存文件
-            with open(file_path, "wb") as f:
-                f.write(image_data)
-            
-            # 返回访问URL
-            return f"/files/results/{filename}"
-            
+            if base64_data.startswith("data:"):
+                base64_data = base64_data.split(",", 1)[-1]
+
+            image_bytes = base64.b64decode(base64_data)
+            return self._save_image_bytes(image_bytes, prefix="ai_result")
+
         except Exception as e:
             logger.error(f"Failed to save base64 image: {str(e)}")
             raise Exception(f"保存图片失败: {str(e)}")
+
+    def _save_image_bytes(self, image_bytes: bytes, prefix: str = "ai_result") -> str:
+        """保存图片字节为PNG并返回URL"""
+        try:
+            image = Image.open(BytesIO(image_bytes))
+
+            if image.mode not in ("RGB", "RGBA", "LA"):
+                image = image.convert("RGB")
+            elif image.mode == "LA":
+                image = image.convert("RGBA")
+
+            filename = f"{prefix}_{uuid.uuid4().hex[:8]}.png"
+            file_path = f"{settings.upload_path}/results/{filename}"
+
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            image.save(file_path, format="PNG")
+
+            return f"/files/results/{filename}"
+        except Exception as exc:
+            logger.error("Failed to persist image bytes: %s", str(exc))
+            raise Exception(f"保存图片失败: {str(exc)}")
