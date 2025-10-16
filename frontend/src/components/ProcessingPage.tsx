@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { History } from 'lucide-react';
+import { History, Eye } from 'lucide-react';
 import { ProcessingMethod, getProcessingMethodInfo } from '../lib/processing';
 import { resolveFileUrl, HistoryTask } from '../lib/api';
 import HistoryList from './HistoryList';
 import ImagePreview from './ImagePreview';
+import ProcessedImagePreview from './ProcessedImagePreview';
 
 interface ProcessingPageProps {
   method: ProcessingMethod;
@@ -57,6 +58,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   const info = getProcessingMethodInfo(method);
   const [selectedTask, setSelectedTask] = useState<HistoryTask | null>(null);
   const [showImagePreview, setShowImagePreview] = useState(false);
+  const [processedImagePreview, setProcessedImagePreview] = useState<{url: string, filename: string} | null>(null);
   const isPromptReady = method !== 'prompt_edit' || Boolean(promptInstruction?.trim());
   const isActionDisabled = !hasUploadedImage || isProcessing || !isPromptReady;
   const upscaleOptions: { value: 'meitu_v2'; label: string; description: string }[] = [
@@ -88,6 +90,15 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   const handleClosePreview = () => {
     setShowImagePreview(false);
     setSelectedTask(null);
+  };
+
+  const handleProcessedImagePreview = (url: string, index?: number) => {
+    const filename = index !== undefined ? `result_${index + 1}.png` : 'result.png';
+    setProcessedImagePreview({ url, filename });
+  };
+
+  const handleCloseProcessedImagePreview = () => {
+    setProcessedImagePreview(null);
   };
 
   return (
@@ -308,11 +319,21 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 md:mb-6 w-full max-w-4xl">
                           {imageUrls.map((url, index) => (
                             <div key={index} className="flex flex-col items-center">
-                              <img
-                                src={resolveFileUrl(url.trim())}
-                                alt={`Processed ${index + 1}`}
-                                className="max-w-full max-h-[40vh] w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-lg mb-2"
-                              />
+                              <div className="relative group">
+                                <img
+                                  src={resolveFileUrl(url.trim())}
+                                  alt={`Processed ${index + 1}`}
+                                  className="max-w-full max-h-[40vh] w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-lg mb-2 cursor-pointer hover:shadow-xl transition-shadow"
+                                  onClick={() => handleProcessedImagePreview(url.trim(), index)}
+                                />
+                                <button
+                                  onClick={() => handleProcessedImagePreview(url.trim(), index)}
+                                  className="absolute top-2 right-2 p-2 bg-black bg-opacity-50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-opacity-70"
+                                  title="放大查看"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </button>
+                              </div>
                               <a
                                 className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg"
                                 href={resolveFileUrl(url.trim())}
@@ -346,11 +367,21 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                     // 单张图片
                     return (
                       <>
-                        <img
-                          src={resolveFileUrl(processedImage)}
-                          alt="Processed"
-                          className="max-w-full max-h-[60vh] md:max-h-[80vh] w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-lg mb-4 md:mb-6"
-                        />
+                        <div className="relative group mb-4 md:mb-6">
+                          <img
+                            src={resolveFileUrl(processedImage)}
+                            alt="Processed"
+                            className="max-w-full max-h-[60vh] md:max-h-[80vh] w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+                            onClick={() => handleProcessedImagePreview(processedImage)}
+                          />
+                          <button
+                            onClick={() => handleProcessedImagePreview(processedImage)}
+                            className="absolute top-2 right-2 p-2 bg-black bg-opacity-50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-opacity-70"
+                            title="放大查看"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                        </div>
                         <a
                           className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 text-white px-6 py-2 md:px-8 md:py-3 rounded-lg md:rounded-xl font-medium transition shadow-lg"
                           href={resolveFileUrl(processedImage)}
@@ -407,6 +438,14 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
           task={selectedTask}
           onClose={handleClosePreview}
           accessToken={accessToken || ''}
+        />
+      )}
+
+      {/* 处理结果图片预览弹窗 */}
+      {processedImagePreview && (
+        <ProcessedImagePreview
+          image={processedImagePreview}
+          onClose={handleCloseProcessedImagePreview}
         />
       )}
     </div>

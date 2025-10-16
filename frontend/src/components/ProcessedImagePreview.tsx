@@ -1,0 +1,139 @@
+'use client';
+
+import React, { useState } from 'react';
+import { X, Download, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
+import { resolveFileUrl } from '../lib/api';
+
+interface ProcessedImagePreviewProps {
+  image: {
+    url: string;
+    filename: string;
+  } | null;
+  onClose: () => void;
+}
+
+const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({ image, onClose }) => {
+  const [scale, setScale] = useState(1);
+  const [rotation, setRotation] = useState(0);
+
+  if (!image) return null;
+
+  const handleDownload = async () => {
+    try {
+      const response = await fetch(resolveFileUrl(image.url));
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = image.filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('下载失败:', err);
+    }
+  };
+
+  const handleZoomIn = () => {
+    setScale(prev => Math.min(prev + 0.25, 3));
+  };
+
+  const handleZoomOut = () => {
+    setScale(prev => Math.max(prev - 0.25, 0.5));
+  };
+
+  const handleRotate = () => {
+    setRotation(prev => (prev + 90) % 360);
+  };
+
+  const handleReset = () => {
+    setScale(1);
+    setRotation(0);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">
+      <div className="relative w-full h-full flex flex-col">
+        {/* 顶部工具栏 */}
+        <div className="flex items-center justify-between p-3 md:p-4 bg-black bg-opacity-50">
+          <div className="flex items-center space-x-2 md:space-x-4">
+            <h3 className="text-white text-sm md:font-medium truncate max-w-[200px] md:max-w-none">
+              {image.filename}
+            </h3>
+          </div>
+
+          <div className="flex items-center space-x-1 md:space-x-2">
+            <button
+              onClick={handleZoomOut}
+              className="p-1.5 md:p-2 text-white hover:bg-white hover:bg-opacity-20 rounded transition"
+              title="缩小"
+            >
+              <ZoomOut className="h-4 w-4 md:h-5 md:w-5" />
+            </button>
+            <span className="text-white text-xs md:text-sm min-w-[2.5rem] md:min-w-[3rem] text-center">
+              {Math.round(scale * 100)}%
+            </span>
+            <button
+              onClick={handleZoomIn}
+              className="p-1.5 md:p-2 text-white hover:bg-white hover:bg-opacity-20 rounded transition"
+              title="放大"
+            >
+              <ZoomIn className="h-4 w-4 md:h-5 md:w-5" />
+            </button>
+            <button
+              onClick={handleRotate}
+              className="p-1.5 md:p-2 text-white hover:bg-white hover:bg-opacity-20 rounded transition"
+              title="旋转"
+            >
+              <RotateCw className="h-4 w-4 md:h-5 md:w-5" />
+            </button>
+            <button
+              onClick={handleReset}
+              className="p-1.5 md:p-2 text-white hover:bg-white hover:bg-opacity-20 rounded transition text-xs md:text-sm"
+              title="重置"
+            >
+              重置
+            </button>
+
+            <button
+              onClick={handleDownload}
+              className="p-1.5 md:p-2 text-white hover:bg-white hover:bg-opacity-20 rounded transition"
+              title="下载"
+            >
+              <Download className="h-4 w-4 md:h-5 md:w-5" />
+            </button>
+
+            <button
+              onClick={onClose}
+              className="p-1.5 md:p-2 text-white hover:bg-white hover:bg-opacity-20 rounded transition"
+              title="关闭"
+            >
+              <X className="h-4 w-4 md:h-5 md:w-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* 图片显示区域 */}
+        <div className="flex-1 flex items-center justify-center overflow-hidden p-2 md:p-0">
+          <div
+            className="relative"
+            style={{
+              transform: `scale(${scale}) rotate(${rotation}deg)`,
+              transition: 'transform 0.2s ease-in-out',
+            }}
+          >
+            <img
+              src={resolveFileUrl(image.url)}
+              alt={image.filename}
+              className="max-w-full max-h-full object-contain"
+              draggable={false}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ProcessedImagePreview;
