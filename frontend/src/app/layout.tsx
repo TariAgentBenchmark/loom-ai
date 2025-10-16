@@ -10,8 +10,11 @@ type RootLayoutProps = {
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "tuyun",
+  title: "图云",
   description: "Frontend for the LoomAI platform",
+  icons: {
+    icon: "/favicon.png",
+  },
 };
 
 export const viewport: Viewport = {
