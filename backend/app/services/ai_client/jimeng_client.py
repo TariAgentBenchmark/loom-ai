@@ -4,7 +4,6 @@ import hashlib
 import hmac
 import json
 import logging
-import uuid
 from random import uniform
 from typing import Any, Dict
 from urllib.parse import urlparse
