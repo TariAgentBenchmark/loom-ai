@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { X, Download, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
 import { HistoryTask } from '../lib/api';
 import { resolveFileUrl } from '../lib/api';
@@ -16,6 +16,45 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
   const [rotation, setRotation] = useState(0);
   const [showOriginal, setShowOriginal] = useState(true);
   const [currentResultIndex, setCurrentResultIndex] = useState(0);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const imageContainerRef = useRef<HTMLDivElement>(null);
+
+  // 处理触控板双指缩放
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+
+    // 检查是否是触控板（通过 ctrlKey 检测双指手势）
+    if (e.ctrlKey || e.metaKey) {
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      setScale(prev => Math.min(Math.max(prev + delta, 0.5), 3));
+    }
+  }, []);
+
+  // 处理鼠标拖动
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    // 允许在任何缩放级别下拖动
+    setIsDragging(true);
+    setDragStart({
+      x: e.clientX - position.x,
+      y: e.clientY - position.y
+    });
+  }, [position]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (isDragging) {
+      e.preventDefault();
+      setPosition({
+        x: e.clientX - dragStart.x,
+        y: e.clientY - dragStart.y
+      });
+    }
+  }, [isDragging, dragStart]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
 
   if (!task) return null;
 
@@ -68,6 +107,7 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
   const handleReset = () => {
     setScale(1);
     setRotation(0);
+    setPosition({ x: 0, y: 0 });
   };
 
   // 获取当前显示的图片信息
@@ -215,13 +255,23 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
         </div>
 
         {/* 图片显示区域 */}
-        <div className="flex-1 flex items-center justify-center overflow-hidden p-2 md:p-0">
+        <div
+          className="flex-1 flex items-center justify-center overflow-hidden p-2 md:p-0"
+          onWheel={handleWheel}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          ref={imageContainerRef}
+          style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+        >
           {currentImage && (
             <div
               className="relative"
               style={{
-                transform: `scale(${scale}) rotate(${rotation}deg)`,
-                transition: 'transform 0.2s ease-in-out',
+                transform: `translate(${position.x}px, ${position.y}px) scale(${scale}) rotate(${rotation}deg)`,
+                transition: isDragging ? 'none' : 'transform 0.2s ease-in-out',
+                transformOrigin: 'center',
               }}
             >
               <img
@@ -229,6 +279,7 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
                 alt={currentImage.filename}
                 className="max-w-full max-h-full object-contain"
                 draggable={false}
+                onDragStart={(e) => e.preventDefault()}
               />
               
               {/* 图片信息 */}
