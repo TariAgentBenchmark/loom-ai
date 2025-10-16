@@ -20,13 +20,17 @@ const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({ image, on
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const imageContainerRef = useRef<HTMLDivElement>(null);
 
-  // 处理触控板双指缩放
+  // 处理触控板双指缩放和鼠标滚轮缩放
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
 
-    // 检查是否是触控板（通过 ctrlKey 检测双指手势）
+    // 触控板双指手势（Ctrl/Cmd + 滚轮）- 精细缩放
     if (e.ctrlKey || e.metaKey) {
       const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      setScale(prev => Math.min(Math.max(prev + delta, 0.5), 3));
+    } else {
+      // 鼠标滚轮缩放 - 标准缩放
+      const delta = e.deltaY > 0 ? -0.25 : 0.25;
       setScale(prev => Math.min(Math.max(prev + delta, 0.5), 3));
     }
   }, []);
