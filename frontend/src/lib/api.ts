@@ -443,7 +443,7 @@ export interface ProcessingRequestPayload {
   instruction?: string;
   model?: "new" | "original";
   patternType?: string;
-  upscaleEngine?: 'creative_plus' | 'meitu_v2';
+  upscaleEngine?: 'meitu_v2';
 }
 
 export const createProcessingTask = ({

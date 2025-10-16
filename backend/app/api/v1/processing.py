@@ -318,7 +318,7 @@ async def upscale_image(
     scale_factor: int = Form(2),
     custom_width: Optional[int] = Form(None),
     custom_height: Optional[int] = Form(None),
-    engine: str = Form("creative_plus"),
+    engine: str = Form("meitu_v2"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -333,9 +333,9 @@ async def upscale_image(
         logger.info(f"Uploaded file size: {file_size / 1024 / 1024:.2f} MB, filename: {image.filename}")
         
         # 构建选项
-        engine_value = (engine or "creative_plus").strip().lower()
-        if engine_value not in {"creative_plus", "meitu_v2"}:
-            engine_value = "creative_plus"
+        engine_value = (engine or "meitu_v2").strip().lower()
+        if engine_value not in {"meitu_v2"}:
+            engine_value = "meitu_v2"
         options = {
             "scale_factor": scale_factor,
             "engine": engine_value,

@@ -94,28 +94,20 @@ class AIClient:
         enhanced_urls: List[str] = []
         for url in result_urls:
             try:
-                if pattern_type == "creative_plus":
-                    # 创造力+N：调用 Liblib 高清模型
-                    enhanced = await self.upscale_image(
-                        url,
-                        scale_factor=4,
-                        options={"engine": "creative_plus"},
-                    )
-                else:
-                    # 通用 / 定位花：调用美图高清模型
-                    meitu_options = {
-                        "engine": "meitu_v2",
-                        "sr_num": 4,
-                        "task": options.get("task", "/v1/Ultra_High_Definition_V2/478332"),
-                        "task_type": options.get("task_type", "formula"),
-                        "sync_timeout": options.get("sync_timeout", 30),
-                        "rsp_media_type": options.get("rsp_media_type", "url"),
-                    }
-                    enhanced = await self.upscale_image(
-                        url,
-                        scale_factor=4,
-                        options=meitu_options,
-                    )
+                # 通用 / 定位花：调用美图高清模型
+                meitu_options = {
+                    "engine": "meitu_v2",
+                    "sr_num": 4,
+                    "task": options.get("task", "/v1/Ultra_High_Definition_V2/478332"),
+                    "task_type": options.get("task_type", "formula"),
+                    "sync_timeout": options.get("sync_timeout", 30),
+                    "rsp_media_type": options.get("rsp_media_type", "url"),
+                }
+                enhanced = await self.upscale_image(
+                    url,
+                    scale_factor=4,
+                    options=meitu_options,
+                )
 
                 enhanced_urls.extend(
                     [item.strip() for item in enhanced.split(",") if item.strip()]
@@ -169,7 +161,7 @@ class AIClient:
     ) -> str:
         """无损放大图片，支持多种引擎"""
         options = options or {}
-        engine = (options.get("engine") or "creative_plus").strip().lower()
+        engine = (options.get("engine") or "meitu_v2").strip().lower()
 
         # 准备可供第三方访问的图片URL
         public_url, _ = await self._prepare_image_for_external_api(

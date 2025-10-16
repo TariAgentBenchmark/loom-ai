@@ -95,9 +95,7 @@ class ImageProcessingUtils:
         else:
             # 通用类型（默认）
             prompt = (
-                "将图案设计的风格和内容元索还原为填充整个画面的平面印刷图像，"
-                "准确识别并完整还原图案、纹理、颜色,等设计元素，干净底色，去掉布纹，"
-                "缺失的花型要补齐出去，扩大花位，细节要细致还原保证细节一致。1:1"
+                "Extract printed patterns from images. Accurately identify and fully restore patterns, textures, colors, and other design elements. Ensure smooth patterns without wrinkles or shadows, and complete any missing patterns. Use vibrant colors and avoid clothing shapes. Remove fabric grain and noise to create 4K high-definition images suitable for printing."
             )
 
         # 精细效果类型使用GPT-4o模型，生成2张图片

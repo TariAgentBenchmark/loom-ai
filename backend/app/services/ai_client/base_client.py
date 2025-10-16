@@ -187,13 +187,18 @@ class BaseAIClient:
             if "image" in api_response:
                 return self._save_base64_image(api_response["image"])
                 
+            logger.error(
+                "无法从AI响应中提取图片 - 完整响应内容: %s",
+                api_response
+            )
             raise Exception("无法从AI响应中提取图片")
             
         except Exception as e:
             logger.error(
-                "Failed to extract image URL from response: error=%s response=%s",
+                "Failed to extract image URL from response: error=%s response=%s full_response=%s",
                 str(e),
                 _summarize_payload(api_response),
+                api_response
             )
             raise Exception(f"处理AI响应失败: {str(e)}")
 
@@ -214,13 +219,18 @@ class BaseAIClient:
             if "image" in api_response:
                 return [self._save_base64_image(api_response["image"])]
                 
+            logger.error(
+                "无法从AI响应中提取图片 - 完整响应内容: %s",
+                api_response
+            )
             raise Exception("无法从AI响应中提取图片")
             
         except Exception as e:
             logger.error(
-                "Failed to extract image URLs from response: error=%s response=%s",
+                "Failed to extract image URLs from response: error=%s response=%s full_response=%s",
                 str(e),
                 _summarize_payload(api_response),
+                api_response
             )
             raise Exception(f"处理AI响应失败: {str(e)}")
 
@@ -281,13 +291,18 @@ class BaseAIClient:
                         logger.info("Gemini response contains file uri: %s", file_uri)
                         return file_uri
 
+            logger.error(
+                "AI响应缺少可用的图片数据 - 完整响应内容: %s",
+                content
+            )
             raise Exception("AI响应缺少可用的图片数据")
 
         except Exception as exc:
             logger.error(
-                "Gemini response parsing failed: error=%s content=%s",
+                "Gemini response parsing failed: error=%s content=%s full_response=%s",
                 str(exc),
                 _summarize_payload(content),
+                content
             )
             raise Exception(f"AI响应解析失败: {str(exc)}")
 

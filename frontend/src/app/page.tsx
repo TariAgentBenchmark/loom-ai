@@ -74,7 +74,7 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState<PageState>('home');
   const [promptInstruction, setPromptInstruction] = useState<string>('');
   const [patternType, setPatternType] = useState<string>('general');
-  const [upscaleEngine, setUpscaleEngine] = useState<'creative_plus' | 'meitu_v2'>('meitu_v2');
+  const [upscaleEngine, setUpscaleEngine] = useState<'meitu_v2'>('meitu_v2');
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);

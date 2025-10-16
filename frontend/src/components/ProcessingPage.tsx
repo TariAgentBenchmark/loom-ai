@@ -27,8 +27,8 @@ interface ProcessingPageProps {
   onPromptInstructionChange?: (value: string) => void;
   patternType?: string;
   onPatternTypeChange?: (value: string) => void;
-  upscaleEngine?: 'creative_plus' | 'meitu_v2';
-  onUpscaleEngineChange?: (value: 'creative_plus' | 'meitu_v2') => void;
+  upscaleEngine?: 'meitu_v2';
+  onUpscaleEngineChange?: (value: 'meitu_v2') => void;
 }
 
 const ProcessingPage: React.FC<ProcessingPageProps> = ({
@@ -59,16 +59,11 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   const [showImagePreview, setShowImagePreview] = useState(false);
   const isPromptReady = method !== 'prompt_edit' || Boolean(promptInstruction?.trim());
   const isActionDisabled = !hasUploadedImage || isProcessing || !isPromptReady;
-  const upscaleOptions: { value: 'creative_plus' | 'meitu_v2'; label: string; description: string }[] = [
+  const upscaleOptions: { value: 'meitu_v2'; label: string; description: string }[] = [
     {
       value: 'meitu_v2',
       label: '通用',
       description: '超清V2模式，追求稳定还原与高保真，适合对原图还原度要求高的场景。',
-    },
-    {
-      value: 'creative_plus',
-      label: '创造力+N',
-      description: '创造力增强模式，放大同时保留更多细节与质感，适合创意设计稿。',
     },
   ];
 
@@ -197,7 +192,6 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                 className="w-full rounded-lg md:rounded-xl border border-gray-200 px-3 py-2 md:px-4 md:py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
               >
                 <option value="general">通用</option>
-                <option value="creative_plus">创造力+N</option>
                 <option value="positioning">定位花</option>
                 <option value="fine">精细效果</option>
               </select>
