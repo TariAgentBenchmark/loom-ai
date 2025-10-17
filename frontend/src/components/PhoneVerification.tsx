@@ -30,23 +30,7 @@ const PhoneVerification: React.FC<PhoneVerificationProps> = ({
   
   // 验证码输入框引用
   const inputRefs = useRef<Array<HTMLInputElement | null>>(Array(CODE_LENGTH).fill(null));
-  
-  // 倒计时逻辑
-  useEffect(() => {
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [countdown]);
-  
-  // 初始化时自动发送验证码
-  useEffect(() => {
-    if (autoSendOnMount) {
-      void handleSendCode();
-    }
-    inputRefs.current[0]?.focus();
-  }, [autoSendOnMount, handleSendCode]);
-  
+
   // 发送验证码
   const handleSendCode = useCallback(async () => {
     if (countdown > 0) return;
@@ -138,22 +122,28 @@ const PhoneVerification: React.FC<PhoneVerificationProps> = ({
 
   const maskedPhone = useMemo(() => formatPhone(phone), [formatPhone, phone]);
 
+  // 倒计时逻辑
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdown]);
+
+  // 初始化时重置状态
   useEffect(() => {
     setCode(Array(CODE_LENGTH).fill(''));
     setCountdown(initialCountdown);
     setError('');
   }, [initialCountdown]);
 
+  // 初始化时自动发送验证码并聚焦
   useEffect(() => {
-    if (!autoSendOnMount) {
-      return;
+    if (autoSendOnMount) {
+      void handleSendCode();
     }
-    void handleSendCode();
-  }, [autoSendOnMount, handleSendCode]);
-
-  useEffect(() => {
     inputRefs.current[0]?.focus();
-  }, []);
+  }, [autoSendOnMount, handleSendCode]);
   
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
@@ -180,7 +170,7 @@ const PhoneVerification: React.FC<PhoneVerificationProps> = ({
             {code.map((digit, index) => (
               <input
                 key={index}
-                ref={(el) => (inputRefs.current[index] = el)}
+                ref={(el) => { inputRefs.current[index] = el; }}
                 type="text"
                 inputMode="numeric"
                 maxLength={1}

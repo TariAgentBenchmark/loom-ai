@@ -68,6 +68,8 @@ const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({ image, on
   }, []);
 
   const handleDownload = useCallback(async () => {
+    if (!image) return;
+
     try {
       const response = await fetch(resolveFileUrl(image.url));
       const blob = await response.blob();
@@ -82,7 +84,7 @@ const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({ image, on
     } catch (err) {
       console.error('下载失败:', err);
     }
-  }, [image?.url, image?.filename]);
+  }, [image]);
 
   const handleZoomIn = useCallback(() => {
     setScale(prev => {
