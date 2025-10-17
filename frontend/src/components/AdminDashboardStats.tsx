@@ -145,31 +145,7 @@ const AdminDashboardStats: React.FC = () => {
       </div>
 
       {/* Additional Stats */}
-      <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">用户分布</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500">免费用户</span>
-                <span className="text-sm font-medium">{formatNumber(stats.users.membershipBreakdown.free)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500">基础用户</span>
-                <span className="text-sm font-medium">{formatNumber(stats.users.membershipBreakdown.basic)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500">高级用户</span>
-                <span className="text-sm font-medium">{formatNumber(stats.users.membershipBreakdown.premium)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500">企业用户</span>
-                <span className="text-sm font-medium">{formatNumber(stats.users.membershipBreakdown.enterprise)}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
+      <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-2">
         <div className="bg-white overflow-hidden shadow rounded-lg">
           <div className="p-5">
             <h3 className="text-lg font-medium text-gray-900 mb-4">算力统计</h3>
@@ -181,22 +157,6 @@ const AdminDashboardStats: React.FC = () => {
               <div className="flex justify-between">
                 <span className="text-sm text-gray-500">今日交易</span>
                 <span className="text-sm font-medium">{formatNumber(stats.credits.transactionsToday)}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">退款统计</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500">待处理退款</span>
-                <span className="text-sm font-medium">{formatNumber(stats.subscriptions.pendingRefunds)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500">退款总额</span>
-                <span className="text-sm font-medium">{formatCurrency(stats.subscriptions.totalRefundAmount)}</span>
               </div>
             </div>
           </div>
@@ -224,15 +184,11 @@ const AdminDashboardStats: React.FC = () => {
                           className={`h-8 w-8 rounded-full flex items-center justify-center ring-8 ring-white ${
                             activity.type === "order"
                               ? "bg-green-500"
-                              : activity.type === "refund"
-                              ? "bg-yellow-500"
                               : "bg-gray-400"
                           }`}
                         >
                           {activity.type === "order" ? (
                             <ShoppingBag className="h-4 w-4 text-white" />
-                          ) : activity.type === "refund" ? (
-                            <CreditCard className="h-4 w-4 text-white" />
                           ) : (
                             <Activity className="h-4 w-4 text-white" />
                           )}
@@ -268,10 +224,6 @@ const AdminDashboardStats: React.FC = () => {
                               ? "待支付"
                               : activity.status === "processing"
                               ? "处理中"
-                              : activity.status === "approved"
-                              ? "已批准"
-                              : activity.status === "rejected"
-                              ? "已拒绝"
                               : activity.status}
                           </div>
                         </div>

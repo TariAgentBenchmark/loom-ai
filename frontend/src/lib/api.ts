@@ -715,35 +715,6 @@ export interface AdminOrdersResponse {
 
 export interface AdminOrderDetail extends AdminOrder {}
 
-export interface AdminRefund {
-  refundId: string;
-  orderId: string;
-  userId: string;
-  userEmail: string;
-  amount: number;
-  reason: string;
-  status: string;
-  createdAt: string;
-  processedAt: string | null;
-  completedAt: string | null;
-  processedBy: string | null;
-  adminNotes: string | null;
-}
-
-export interface AdminRefundsResponse {
-  refunds: AdminRefund[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-  summary: {
-    pendingRefunds: number;
-    approvedRefunds: number;
-    totalRefundAmount: number;
-  };
-}
 
 export interface AdminDashboardStats {
   users: {
@@ -772,10 +743,6 @@ export interface AdminDashboardStats {
     total: number;
     today: number;
     averageOrderValue: number;
-  };
-  subscriptions: {
-    pendingRefunds: number;
-    totalRefundAmount: number;
   };
   recentActivity: Array<{
     type: string;
@@ -837,18 +804,6 @@ export const adminUpdateUserStatus = (
     accessToken
   );
 
-export const adminUpdateUserSubscription = (
-  userId: string,
-  membershipType: string,
-  duration: number,
-  reason: string,
-  accessToken: string
-) =>
-  postJson<any, { membershipType: string; duration: number; reason: string }>(
-    `/admin/users/${userId}/subscription`,
-    { membershipType, duration, reason },
-    accessToken
-  );
 
 export const adminGetUserTransactions = (
   userId: string,
@@ -932,44 +887,6 @@ export const adminUpdateOrderStatus = (
     accessToken
   );
 
-export const adminGetRefunds = (
-  accessToken: string,
-  options?: {
-    page?: number;
-    page_size?: number;
-    status_filter?: string;
-    user_filter?: string;
-    start_date?: string;
-    end_date?: string;
-  }
-) => {
-  const params = new URLSearchParams();
-  if (options?.page) params.append('page', options.page.toString());
-  if (options?.page_size) params.append('page_size', options.page_size.toString());
-  if (options?.status_filter) params.append('status_filter', options.status_filter);
-  if (options?.user_filter) params.append('user_filter', options.user_filter);
-  if (options?.start_date) params.append('start_date', options.start_date);
-  if (options?.end_date) params.append('end_date', options.end_date);
-  
-  const query = params.toString();
-  const path = `/admin/refunds${query ? `?${query}` : ''}`;
-  
-  return getJson<AdminRefundsResponse>(path, accessToken);
-};
-
-export const adminProcessRefund = (
-  refundId: string,
-  action: string,
-  reason: string,
-  adminNotes: string,
-  externalRefundId: string | null,
-  accessToken: string
-) =>
-  postJson<any, { action: string; reason: string; adminNotes: string; externalRefundId: string | null }>(
-    `/admin/refunds/${refundId}/action`,
-    { action, reason, adminNotes, externalRefundId },
-    accessToken
-  );
 
 export const adminGetDashboardStats = (accessToken: string) =>
   getJson<AdminDashboardStats>("/admin/dashboard/stats", accessToken);

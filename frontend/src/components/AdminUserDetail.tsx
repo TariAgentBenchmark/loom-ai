@@ -5,7 +5,6 @@ import { useParams, useRouter } from "next/navigation";
 import {
   adminGetUserDetail,
   adminUpdateUserStatus,
-  adminUpdateUserSubscription,
   adminGetUserTransactions,
   adminAdjustUserCredits,
   type AdminUserDetail,
@@ -49,14 +48,6 @@ const AdminUserDetail: React.FC = () => {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [newStatus, setNewStatus] = useState("");
   
-  // Subscription update state
-  const [isUpdatingSubscription, setIsUpdatingSubscription] = useState(false);
-  const [subscriptionData, setSubscriptionData] = useState({
-    membershipType: "",
-    duration: 30,
-    reason: "",
-  });
-  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   
   // Credit adjustment state
   const [isAdjustingCredits, setIsAdjustingCredits] = useState(false);
@@ -117,27 +108,6 @@ const AdminUserDetail: React.FC = () => {
     }
   };
 
-  const handleUpdateSubscription = async () => {
-    if (!accessToken || !userId || !subscriptionData.membershipType || !subscriptionData.reason) return;
-
-    try {
-      setIsUpdatingSubscription(true);
-      await adminUpdateUserSubscription(
-        userId,
-        subscriptionData.membershipType,
-        subscriptionData.duration,
-        subscriptionData.reason,
-        accessToken
-      );
-      await fetchUserDetail();
-      setShowSubscriptionModal(false);
-      setSubscriptionData({ membershipType: "", duration: 30, reason: "" });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "更新用户订阅失败");
-    } finally {
-      setIsUpdatingSubscription(false);
-    }
-  };
 
   const handleAdjustCredits = async () => {
     if (!accessToken || !userId || !creditAdjustment.reason) return;
@@ -177,21 +147,6 @@ const AdminUserDetail: React.FC = () => {
     );
   };
 
-  const getMembershipBadge = (membership: string) => {
-    const membershipConfig = {
-      free: { bg: "bg-gray-100", text: "text-gray-800", label: "免费" },
-      basic: { bg: "bg-blue-100", text: "text-blue-800", label: "基础" },
-      premium: { bg: "bg-purple-100", text: "text-purple-800", label: "高级" },
-      enterprise: { bg: "bg-yellow-100", text: "text-yellow-800", label: "企业" },
-    };
-
-    const config = membershipConfig[membership as keyof typeof membershipConfig] || membershipConfig.free;
-    return (
-      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${config.bg} ${config.text}`}>
-        {config.label}
-      </span>
-    );
-  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString("zh-CN");
@@ -242,7 +197,6 @@ const AdminUserDetail: React.FC = () => {
                 <p className="text-sm text-gray-500">{user.email || "未设置邮箱"}</p>
                 <div className="mt-2 flex items-center space-x-2">
                   {getStatusBadge(user.status)}
-                  {getMembershipBadge(user.membershipType)}
                   {user.isAdmin && (
                     <div className="flex items-center">
                       <Crown className="h-3 w-3 text-yellow-500 mr-1" />
@@ -424,27 +378,6 @@ const AdminUserDetail: React.FC = () => {
       {activeTab === "actions" && (
         <div className="space-y-6">
           <div className="bg-white shadow rounded-lg p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">订阅管理</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  当前订阅
-                </label>
-                <div className="flex items-center space-x-2">
-                  {getMembershipBadge(user.membershipType)}
-                </div>
-              </div>
-              <button
-                onClick={() => setShowSubscriptionModal(true)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-              >
-                <Edit className="h-4 w-4 mr-2" />
-                修改订阅
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-white shadow rounded-lg p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">算力调整</h3>
             <div className="space-y-4">
               <div>
@@ -538,86 +471,6 @@ const AdminUserDetail: React.FC = () => {
         </div>
       )}
 
-      {/* Subscription Update Modal */}
-      {showSubscriptionModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                更新用户订阅
-              </h3>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  订阅类型
-                </label>
-                <select
-                  value={subscriptionData.membershipType}
-                  onChange={(e) =>
-                    setSubscriptionData({ ...subscriptionData, membershipType: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">请选择</option>
-                  <option value="free">免费</option>
-                  <option value="basic">基础</option>
-                  <option value="premium">高级</option>
-                  <option value="enterprise">企业</option>
-                </select>
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  时长（天）
-                </label>
-                <input
-                  type="number"
-                  value={subscriptionData.duration}
-                  onChange={(e) =>
-                    setSubscriptionData({ ...subscriptionData, duration: parseInt(e.target.value) || 0 })
-                  }
-                  min="1"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  原因
-                </label>
-                <textarea
-                  value={subscriptionData.reason}
-                  onChange={(e) =>
-                    setSubscriptionData({ ...subscriptionData, reason: e.target.value })
-                  }
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="请输入订阅变更原因"
-                />
-              </div>
-              <div className="flex justify-end space-x-2">
-                <button
-                  onClick={() => {
-                    setShowSubscriptionModal(false);
-                    setSubscriptionData({ membershipType: "", duration: 30, reason: "" });
-                  }}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                >
-                  取消
-                </button>
-                <button
-                  onClick={handleUpdateSubscription}
-                  disabled={
-                    isUpdatingSubscription ||
-                    !subscriptionData.membershipType ||
-                    !subscriptionData.reason
-                  }
-                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {isUpdatingSubscription ? "更新中..." : "确认"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Credit Adjustment Modal */}
       {showCreditModal && (

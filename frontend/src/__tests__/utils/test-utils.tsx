@@ -25,7 +25,6 @@ export const createMockUsersList = (count: number = 5) => {
     email: `user${i + 1}@test.com`,
     nickname: `Test User ${i + 1}`,
     credits: Math.floor(Math.random() * 1000),
-    membershipType: ['free', 'basic', 'premium', 'enterprise'][Math.floor(Math.random() * 4)],
     status: 'active',
     isAdmin: false,
     createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
@@ -45,7 +44,7 @@ export const createMockOrdersList = (count: number = 5) => {
     discountAmount: Math.floor(Math.random() * 1000),
     finalAmount: Math.floor(Math.random() * 10000) + 1000,
     paymentMethod: ['stripe', 'paypal'][Math.floor(Math.random() * 2)],
-    status: ['pending', 'paid', 'refunded', 'expired'][Math.floor(Math.random() * 4)],
+    status: ['pending', 'paid', 'failed', 'cancelled'][Math.floor(Math.random() * 4)],
     createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
     paidAt: Math.random() > 0.5 ? new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString() : null,
     expiresAt: new Date(Date.now() + Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
@@ -54,22 +53,6 @@ export const createMockOrdersList = (count: number = 5) => {
   }))
 }
 
-export const createMockRefundsList = (count: number = 5) => {
-  return Array.from({ length: count }, (_, i) => ({
-    refundId: `refund_${String(i + 1).padStart(3, '0')}`,
-    orderId: `order_${String(i + 1).padStart(3, '0')}`,
-    userId: `user_${String(i + 1).padStart(3, '0')}`,
-    userEmail: `user${i + 1}@test.com`,
-    amount: Math.floor(Math.random() * 5000) + 500,
-    reason: `Test refund reason ${i + 1}`,
-    status: ['processing', 'approved', 'rejected', 'completed'][Math.floor(Math.random() * 4)],
-    createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-    processedAt: Math.random() > 0.5 ? new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString() : null,
-    completedAt: Math.random() > 0.7 ? new Date(Date.now() - Math.random() * 3 * 24 * 60 * 60 * 1000).toISOString() : null,
-    processedBy: Math.random() > 0.5 ? `admin_${String(Math.floor(Math.random() * 3) + 1).padStart(3, '0')}` : null,
-    adminNotes: Math.random() > 0.5 ? `Admin note ${i + 1}` : null,
-  }))
-}
 
 export const createMockDashboardStats = () => ({
   users: {
@@ -77,12 +60,6 @@ export const createMockDashboardStats = () => ({
     active: 1180,
     admin: 5,
     newToday: 12,
-    membershipBreakdown: {
-      free: 800,
-      basic: 300,
-      premium: 120,
-      enterprise: 30,
-    },
   },
   credits: {
     total: 250000,
@@ -99,10 +76,6 @@ export const createMockDashboardStats = () => ({
     today: 2500,
     averageOrderValue: 43.1,
   },
-  subscriptions: {
-    pendingRefunds: 8,
-    totalRefundAmount: 3200,
-  },
   recentActivity: [
     {
       type: 'order',
@@ -112,15 +85,6 @@ export const createMockDashboardStats = () => ({
       amount: 10.0,
       status: 'paid',
       timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    },
-    {
-      type: 'refund',
-      id: 'refund_001',
-      user: 'user2@test.com',
-      description: 'Applied for refund',
-      amount: 25.0,
-      status: 'processing',
-      timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
     },
   ],
 })
@@ -177,11 +141,9 @@ export const createMockPaginatedResponse = <T,>(
 export const mockAdminLogin = jest.fn()
 export const mockAdminGetUsers = jest.fn()
 export const mockAdminGetOrders = jest.fn()
-export const mockAdminGetRefunds = jest.fn()
 export const mockAdminGetDashboardStats = jest.fn()
 export const mockAdminUpdateUserStatus = jest.fn()
 export const mockAdminAdjustUserCredits = jest.fn()
-export const mockAdminProcessRefund = jest.fn()
 
 // Helper functions for testing
 export const waitForLoadingToFinish = () => new Promise(resolve => setTimeout(resolve, 0))

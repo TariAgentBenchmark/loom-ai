@@ -84,7 +84,6 @@ const AdminOrderDetail: React.FC = () => {
       paid: { bg: "bg-green-100", text: "text-green-800", label: "已支付", icon: CheckCircle },
       failed: { bg: "bg-red-100", text: "text-red-800", label: "支付失败", icon: XCircle },
       cancelled: { bg: "bg-gray-100", text: "text-gray-800", label: "已取消", icon: XCircle },
-      refunded: { bg: "bg-blue-100", text: "text-blue-800", label: "已退款", icon: AlertCircle },
     };
 
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
@@ -311,7 +310,6 @@ const AdminOrderDetail: React.FC = () => {
                   <option value="paid">已支付</option>
                   <option value="failed">支付失败</option>
                   <option value="cancelled">已取消</option>
-                  <option value="refunded">已退款</option>
                 </select>
               </div>
               <div className="mb-4">

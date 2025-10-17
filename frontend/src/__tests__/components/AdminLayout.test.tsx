@@ -56,9 +56,7 @@ describe('AdminLayout', () => {
     expect(screen.getByText('LoomAI 管理后台')).toBeInTheDocument()
     expect(screen.getByText('仪表板')).toBeInTheDocument()
     expect(screen.getByText('用户管理')).toBeInTheDocument()
-    expect(screen.getByText('订阅管理')).toBeInTheDocument()
     expect(screen.getByText('订单管理')).toBeInTheDocument()
-    expect(screen.getByText('退款管理')).toBeInTheDocument()
     expect(screen.getByText('统计分析')).toBeInTheDocument()
     expect(screen.getByText('Test Content')).toBeInTheDocument()
   })
@@ -291,18 +289,6 @@ describe('AdminLayout', () => {
     expect(ordersLink.closest('button')).toHaveClass('bg-blue-100', 'text-blue-900')
   })
 
-  it('should highlight refund detail routes correctly', () => {
-    jest.mocked(require('next/navigation').usePathname).mockReturnValue('/admin/refunds/refund-123')
-    
-    renderWithProviders(
-      <AdminLayout>
-        <div>Test Content</div>
-      </AdminLayout>
-    )
-
-    const refundsLink = screen.getByText('退款管理')
-    expect(refundsLink.closest('button')).toHaveClass('bg-blue-100', 'text-blue-900')
-  })
 
   it('should not highlight non-matching routes', () => {
     jest.mocked(require('next/navigation').usePathname).mockReturnValue('/admin/dashboard')

@@ -22,7 +22,6 @@ import {
 
 interface FilterOptions {
   status_filter: string;
-  membership_filter: string;
   email_filter: string;
   sort_by: string;
   sort_order: string;
@@ -42,7 +41,6 @@ const AdminUserManagement: React.FC = () => {
   });
   const [filters, setFilters] = useState<FilterOptions>({
     status_filter: "",
-    membership_filter: "",
     email_filter: "",
     sort_by: "created_at",
     sort_order: "desc",
@@ -83,7 +81,6 @@ const AdminUserManagement: React.FC = () => {
   const clearFilters = () => {
     setFilters({
       status_filter: "",
-      membership_filter: "",
       email_filter: "",
       sort_by: "created_at",
       sort_order: "desc",
@@ -116,21 +113,6 @@ const AdminUserManagement: React.FC = () => {
     );
   };
 
-  const getMembershipBadge = (membership: string) => {
-    const membershipConfig = {
-      free: { bg: "bg-gray-100", text: "text-gray-800", label: "免费" },
-      basic: { bg: "bg-blue-100", text: "text-blue-800", label: "基础" },
-      premium: { bg: "bg-purple-100", text: "text-purple-800", label: "高级" },
-      enterprise: { bg: "bg-yellow-100", text: "text-yellow-800", label: "企业" },
-    };
-
-    const config = membershipConfig[membership as keyof typeof membershipConfig] || membershipConfig.free;
-    return (
-      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${config.bg} ${config.text}`}>
-        {config.label}
-      </span>
-    );
-  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString("zh-CN");
@@ -170,7 +152,7 @@ const AdminUserManagement: React.FC = () => {
 
           {showFilters && (
             <div className="border-t pt-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     邮箱搜索
@@ -196,22 +178,6 @@ const AdminUserManagement: React.FC = () => {
                     <option value="active">活跃</option>
                     <option value="suspended">已暂停</option>
                     <option value="inactive">未激活</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    会员类型
-                  </label>
-                  <select
-                    value={filters.membership_filter}
-                    onChange={(e) => handleFilterChange("membership_filter", e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">全部</option>
-                    <option value="free">免费</option>
-                    <option value="basic">基础</option>
-                    <option value="premium">高级</option>
-                    <option value="enterprise">企业</option>
                   </select>
                 </div>
                 <div>
@@ -275,9 +241,6 @@ const AdminUserManagement: React.FC = () => {
                   状态
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  会员类型
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   算力余额
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -319,9 +282,6 @@ const AdminUserManagement: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {getStatusBadge(user.status)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {getMembershipBadge(user.membershipType)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {user.credits.toLocaleString()}

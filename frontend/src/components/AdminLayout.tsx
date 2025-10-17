@@ -47,22 +47,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       current: pathname === "/admin/users" || pathname.startsWith("/admin/users/"),
     },
     {
-      name: "订阅管理",
-      href: "/admin/subscriptions",
-      icon: CreditCard,
-      current: pathname === "/admin/subscriptions",
-    },
-    {
       name: "订单管理",
       href: "/admin/orders",
       icon: ShoppingBag,
       current: pathname === "/admin/orders" || pathname.startsWith("/admin/orders/"),
-    },
-    {
-      name: "退款管理",
-      href: "/admin/refunds",
-      icon: RefreshCw,
-      current: pathname === "/admin/refunds" || pathname.startsWith("/admin/refunds/"),
     },
     {
       name: "统计分析",
@@ -86,7 +74,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         
         <div className={`relative flex w-64 flex-1 flex-col bg-white transform transition-transform ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
           <div className="flex items-center justify-between px-4 py-6 border-b">
-            <h1 className="text-xl font-semibold text-gray-900">LoomAI 管理后台</h1>
+            <h1 className="text-xl font-semibold text-gray-900">图云管理后台</h1>
             <button
               type="button"
               className="text-gray-400 hover:text-gray-600"
@@ -150,7 +138,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       <div className="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col">
         <div className="flex flex-col flex-grow bg-white border-r border-gray-200 overflow-y-auto">
           <div className="flex items-center px-4 py-6 border-b">
-            <h1 className="text-xl font-semibold text-gray-900">LoomAI 管理后台</h1>
+            <h1 className="text-xl font-semibold text-gray-900">图云管理后台</h1>
           </div>
           
           <nav className="flex-1 space-y-1 px-2 py-4">
