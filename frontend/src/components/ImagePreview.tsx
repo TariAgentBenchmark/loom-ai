@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { X, Download, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
 import { HistoryTask } from '../lib/api';
 import { resolveFileUrl } from '../lib/api';
@@ -13,6 +13,7 @@ interface ImagePreviewProps {
 
 const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken }) => {
   const [scale, setScale] = useState(1);
+  const [initialScale, setInitialScale] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [showOriginal, setShowOriginal] = useState(true);
   const [currentResultIndex, setCurrentResultIndex] = useState(0);
@@ -20,6 +21,7 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const imageContainerRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
 
   // 处理触控板双指缩放和鼠标滚轮缩放
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -28,13 +30,19 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
     // 触控板双指手势（Ctrl/Cmd + 滚轮）- 精细缩放
     if (e.ctrlKey || e.metaKey) {
       const delta = e.deltaY > 0 ? -0.1 : 0.1;
-      setScale(prev => Math.min(Math.max(prev + delta, 0.5), 3));
+      setScale(prev => {
+        const minScale = Math.min(initialScale, 0.5);
+        return Math.min(Math.max(prev + delta, minScale), 3);
+      });
     } else {
       // 鼠标滚轮缩放 - 标准缩放
       const delta = e.deltaY > 0 ? -0.25 : 0.25;
-      setScale(prev => Math.min(Math.max(prev + delta, 0.5), 3));
+      setScale(prev => {
+        const minScale = Math.min(initialScale, 0.5);
+        return Math.min(Math.max(prev + delta, minScale), 3);
+      });
     }
-  }, []);
+  }, [initialScale]);
 
   // 处理鼠标拖动
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -96,23 +104,47 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
     }
   };
 
-  const handleZoomIn = () => {
-    setScale(prev => Math.min(prev + 0.25, 3));
-  };
+  const handleZoomIn = useCallback(() => {
+    setScale(prev => {
+      const minScale = Math.min(initialScale, 0.5);
+      return Math.min(Math.max(prev + 0.25, minScale), 3);
+    });
+  }, [initialScale]);
 
-  const handleZoomOut = () => {
-    setScale(prev => Math.max(prev - 0.25, 0.5));
-  };
+  const handleZoomOut = useCallback(() => {
+    setScale(prev => {
+      const minScale = Math.min(initialScale, 0.5);
+      return Math.min(Math.max(prev - 0.25, minScale), 3);
+    });
+  }, [initialScale]);
 
   const handleRotate = () => {
     setRotation(prev => (prev + 90) % 360);
   };
 
-  const handleReset = () => {
-    setScale(1);
+  const handleReset = useCallback(() => {
+    setScale(initialScale);
     setRotation(0);
     setPosition({ x: 0, y: 0 });
-  };
+  }, [initialScale]);
+
+  const handleImageLoad = useCallback(() => {
+    const container = imageContainerRef.current;
+    const img = imageRef.current;
+    if (!container || !img || !img.naturalWidth || !img.naturalHeight) {
+      return;
+    }
+
+    const widthScale = container.clientWidth / img.naturalWidth;
+    const heightScale = container.clientHeight / img.naturalHeight;
+    const nextScale = Math.min(widthScale, heightScale, 1);
+    const safeScale = nextScale > 0 && Number.isFinite(nextScale) ? nextScale : 1;
+
+    setInitialScale(safeScale);
+    setScale(safeScale);
+    setPosition({ x: 0, y: 0 });
+    setRotation(0);
+  }, []);
 
   // 获取当前显示的图片信息
   const getCurrentResultImage = () => {
@@ -128,6 +160,27 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
 
   const currentImage = showOriginal ? task.originalImage : getCurrentResultImage();
   const hasResultImage = !!task.resultImage;
+  const currentImageUrl = currentImage?.url;
+
+  useEffect(() => {
+    if (!currentImageUrl) {
+      setInitialScale(1);
+      setScale(1);
+      setPosition({ x: 0, y: 0 });
+      setRotation(0);
+      return;
+    }
+
+    setPosition({ x: 0, y: 0 });
+    setRotation(0);
+
+    if (!imageRef.current?.complete) {
+      setScale(initialScale);
+      return;
+    }
+
+    handleImageLoad();
+  }, [currentImageUrl, handleImageLoad, initialScale]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">
@@ -279,11 +332,13 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
               }}
             >
               <img
+                ref={imageRef}
                 src={resolveFileUrl(currentImage.url)}
                 alt={currentImage.filename}
                 className="max-w-full max-h-full object-contain"
                 draggable={false}
                 onDragStart={(e) => e.preventDefault()}
+                onLoad={handleImageLoad}
               />
               
               {/* 图片信息 */}
