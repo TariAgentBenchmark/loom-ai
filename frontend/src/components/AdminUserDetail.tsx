@@ -231,7 +231,7 @@ const AdminUserDetail: React.FC = () => {
               <div className="flex-shrink-0 h-16 w-16">
                 <div className="h-16 w-16 rounded-full bg-gray-300 flex items-center justify-center">
                   <span className="text-xl font-medium text-gray-600">
-                    {user.nickname?.charAt(0) || user.email.charAt(0)}
+                    {user.nickname?.charAt(0) || user.email?.charAt(0) || "U"}
                   </span>
                 </div>
               </div>
@@ -239,7 +239,7 @@ const AdminUserDetail: React.FC = () => {
                 <h1 className="text-2xl font-bold text-gray-900">
                   {user.nickname || "未设置昵称"}
                 </h1>
-                <p className="text-sm text-gray-500">{user.email}</p>
+                <p className="text-sm text-gray-500">{user.email || "未设置邮箱"}</p>
                 <div className="mt-2 flex items-center space-x-2">
                   {getStatusBadge(user.status)}
                   {getMembershipBadge(user.membershipType)}

@@ -627,14 +627,14 @@ export const downloadTaskFile = async (
 // Admin API types and functions
 export interface AdminUser {
   userId: string;
-  email: string;
-  nickname: string;
+  email: string | null;
+  nickname: string | null;
   credits: number;
   membershipType: string;
   status: string;
   isAdmin: boolean;
   createdAt: string;
-  lastLoginAt: string;
+  lastLoginAt: string | null;
 }
 
 export interface AdminUsersResponse {

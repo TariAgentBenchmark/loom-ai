@@ -18,7 +18,7 @@ router = APIRouter()
 
 class AdminUserResponse(BaseModel):
     userId: str
-    email: str
+    email: Optional[str]
     nickname: Optional[str]
     credits: int
     membershipType: str
