@@ -67,9 +67,7 @@ const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({ image, on
     setIsDragging(false);
   }, []);
 
-  if (!image) return null;
-
-  const handleDownload = async () => {
+  const handleDownload = useCallback(async () => {
     try {
       const response = await fetch(resolveFileUrl(image.url));
       const blob = await response.blob();
@@ -84,7 +82,7 @@ const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({ image, on
     } catch (err) {
       console.error('下载失败:', err);
     }
-  };
+  }, [image?.url, image?.filename]);
 
   const handleZoomIn = useCallback(() => {
     setScale(prev => {
@@ -146,7 +144,9 @@ const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({ image, on
     }
 
     handleImageLoad();
-  }, [image, handleImageLoad, initialScale]);
+  }, [handleImageLoad, image, initialScale]);
+
+  if (!image) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">

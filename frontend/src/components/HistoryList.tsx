@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Download,
   Heart,
@@ -57,7 +57,7 @@ const HistoryList: React.FC<HistoryListProps> = ({ accessToken, onTaskSelect, sh
     { value: 'queued', label: '排队中' },
   ];
 
-  const fetchTasks = async (pageNum = 1, reset = false) => {
+  const fetchTasks = useCallback(async (pageNum = 1, reset = false) => {
     try {
       setLoading(true);
       const response = await getHistoryTasks(accessToken, {
@@ -80,12 +80,12 @@ const HistoryList: React.FC<HistoryListProps> = ({ accessToken, onTaskSelect, sh
     } finally {
       setLoading(false);
     }
-  };
+  }, [accessToken, selectedStatus, selectedType]);
 
   useEffect(() => {
     setPage(1);
     fetchTasks(1, true);
-  }, [selectedType, selectedStatus, accessToken]);
+  }, [fetchTasks]);
 
   const loadMore = () => {
     if (!loading && hasMore) {

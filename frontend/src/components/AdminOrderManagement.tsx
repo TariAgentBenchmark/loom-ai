@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   adminGetOrders,
@@ -58,7 +58,7 @@ const AdminOrderManagement: React.FC = () => {
     conversionRate: 0,
   });
 
-  const fetchOrders = async (page = 1) => {
+  const fetchOrders = useCallback(async (page = 1) => {
     if (!accessToken) return;
 
     try {
@@ -76,21 +76,21 @@ const AdminOrderManagement: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [accessToken, filters, pagination.limit]);
 
   useEffect(() => {
     fetchOrders();
-  }, [accessToken]);
+  }, [fetchOrders]);
 
   const handleFilterChange = (key: keyof FilterOptions, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
-  const applyFilters = () => {
+  const applyFilters = useCallback(() => {
     fetchOrders(1);
-  };
+  }, [fetchOrders]);
 
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     setFilters({
       status_filter: "",
       user_filter: "",
@@ -99,17 +99,17 @@ const AdminOrderManagement: React.FC = () => {
       end_date: "",
     });
     fetchOrders(1);
-  };
+  }, [fetchOrders]);
 
-  const handlePageChange = (newPage: number) => {
+  const handlePageChange = useCallback((newPage: number) => {
     if (newPage >= 1 && newPage <= pagination.totalPages) {
       fetchOrders(newPage);
     }
-  };
+  }, [fetchOrders, pagination.totalPages]);
 
-  const handleViewOrder = (orderId: string) => {
+  const handleViewOrder = useCallback((orderId: string) => {
     router.push(`/admin/orders/${orderId}`);
-  };
+  }, [router]);
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {

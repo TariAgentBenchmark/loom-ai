@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   adminGetOrderDetail,
@@ -42,7 +42,7 @@ const AdminOrderDetail: React.FC = () => {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [newStatus, setNewStatus] = useState("");
 
-  const fetchOrderDetail = async () => {
+  const fetchOrderDetail = useCallback(async () => {
     if (!accessToken || !orderId) return;
 
     try {
@@ -54,11 +54,11 @@ const AdminOrderDetail: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [accessToken, orderId]);
 
   useEffect(() => {
     fetchOrderDetail();
-  }, [accessToken, orderId]);
+  }, [fetchOrderDetail]);
 
   const handleUpdateStatus = async () => {
     if (!accessToken || !orderId || !newStatus || !statusReason) return;

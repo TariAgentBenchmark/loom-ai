@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { X, Download, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
 import { HistoryTask } from '../lib/api';
 import { resolveFileUrl } from '../lib/api';
@@ -68,14 +68,23 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
     setIsDragging(false);
   }, []);
 
-  if (!task) return null;
+  const resultUrls = useMemo(() => {
+    if (!task?.resultImage?.url) {
+      return [];
+    }
+    return task.resultImage.url.split(',').map(u => u.trim());
+  }, [task]);
 
-  // 检查是否有多张结果图片
-  const resultUrls = task.resultImage?.url.split(',').map(u => u.trim()) || [];
-  const resultFilenames = task.resultImage?.filename.split(',').map(f => f.trim()) || [];
+  const resultFilenames = useMemo(() => {
+    if (!task?.resultImage?.filename) {
+      return [];
+    }
+    return task.resultImage.filename.split(',').map(f => f.trim());
+  }, [task]);
+
   const hasMultipleResults = resultUrls.length > 1;
 
-  const handleDownload = async (imageUrl: string, filename: string) => {
+  const handleDownload = useCallback(async (imageUrl: string, filename: string) => {
     try {
       const response = await fetch(resolveFileUrl(imageUrl));
       const blob = await response.blob();
@@ -90,19 +99,18 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
     } catch (err) {
       console.error('下载失败:', err);
     }
-  };
+  }, []);
 
-  const handleDownloadAll = async () => {
+  const handleDownloadAll = useCallback(async () => {
     if (!hasMultipleResults) return;
-    
+
     for (let i = 0; i < resultUrls.length; i++) {
       await handleDownload(resultUrls[i], resultFilenames[i] || `result_${i + 1}.png`);
-      // 延迟避免浏览器阻止多个下载
       if (i < resultUrls.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
-  };
+  }, [handleDownload, hasMultipleResults, resultFilenames, resultUrls]);
 
   const handleZoomIn = useCallback(() => {
     setScale(prev => {
@@ -147,19 +155,23 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
   }, []);
 
   // 获取当前显示的图片信息
-  const getCurrentResultImage = () => {
-    if (!task.resultImage || resultUrls.length === 0) return null;
-    
+  const getCurrentResultImage = useCallback(() => {
+    if (!task?.resultImage || resultUrls.length === 0) return null;
+
     return {
       url: resultUrls[currentResultIndex] || resultUrls[0],
       filename: resultFilenames[currentResultIndex] || resultFilenames[0] || 'result.png',
       size: task.resultImage.size,
       dimensions: task.resultImage.dimensions
     };
-  };
+  }, [currentResultIndex, resultFilenames, resultUrls, task]);
 
-  const currentImage = showOriginal ? task.originalImage : getCurrentResultImage();
-  const hasResultImage = !!task.resultImage;
+  const currentImage = useMemo(() => {
+    if (!task) return null;
+    return showOriginal ? task.originalImage : getCurrentResultImage();
+  }, [getCurrentResultImage, showOriginal, task]);
+
+  const hasResultImage = !!task?.resultImage;
   const currentImageUrl = currentImage?.url;
 
   useEffect(() => {
@@ -181,6 +193,8 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
 
     handleImageLoad();
   }, [currentImageUrl, handleImageLoad, initialScale]);
+
+  if (!task) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">

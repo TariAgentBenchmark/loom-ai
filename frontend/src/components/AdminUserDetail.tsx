@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   adminGetUserDetail,
@@ -58,7 +58,7 @@ const AdminUserDetail: React.FC = () => {
   });
   const [showCreditModal, setShowCreditModal] = useState(false);
 
-  const fetchUserDetail = async () => {
+  const fetchUserDetail = useCallback(async () => {
     if (!accessToken || !userId) return;
 
     try {
@@ -70,9 +70,9 @@ const AdminUserDetail: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [accessToken, userId]);
 
-  const fetchUserTransactions = async () => {
+  const fetchUserTransactions = useCallback(async () => {
     if (!accessToken || !userId) return;
 
     try {
@@ -84,14 +84,14 @@ const AdminUserDetail: React.FC = () => {
     } catch (err) {
       console.error("获取用户交易记录失败:", err);
     }
-  };
+  }, [accessToken, userId]);
 
   useEffect(() => {
     fetchUserDetail();
     fetchUserTransactions();
-  }, [accessToken, userId]);
+  }, [fetchUserDetail, fetchUserTransactions]);
 
-  const handleUpdateStatus = async () => {
+  const handleUpdateStatus = useCallback(async () => {
     if (!accessToken || !userId || !newStatus || !statusReason) return;
 
     try {
@@ -106,10 +106,10 @@ const AdminUserDetail: React.FC = () => {
     } finally {
       setIsUpdatingStatus(false);
     }
-  };
+  }, [accessToken, fetchUserDetail, newStatus, statusReason, userId]);
 
 
-  const handleAdjustCredits = async () => {
+  const handleAdjustCredits = useCallback(async () => {
     if (!accessToken || !userId || !creditAdjustment.reason) return;
 
     try {
@@ -130,7 +130,7 @@ const AdminUserDetail: React.FC = () => {
     } finally {
       setIsAdjustingCredits(false);
     }
-  };
+  }, [accessToken, creditAdjustment, fetchUserDetail, fetchUserTransactions, userId]);
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {

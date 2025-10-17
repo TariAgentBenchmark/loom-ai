@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { sendVerificationCode, verifyPhoneCode } from '../lib/api';
 
 interface PhoneVerificationProps {
@@ -12,6 +12,8 @@ interface PhoneVerificationProps {
   onCodeSent?: (expiresInSeconds: number) => void;
 }
 
+const CODE_LENGTH = 6;
+
 const PhoneVerification: React.FC<PhoneVerificationProps> = ({
   phone,
   onVerified,
@@ -20,21 +22,14 @@ const PhoneVerification: React.FC<PhoneVerificationProps> = ({
   initialCountdown = 0,
   onCodeSent,
 }) => {
-  const [code, setCode] = useState(['', '', '', '', '', '']);
+  const [code, setCode] = useState(Array<string>(CODE_LENGTH).fill(''));
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState('');
   const [countdown, setCountdown] = useState(initialCountdown);
   
   // 验证码输入框引用
-  const inputRefs = [
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-  ];
+  const inputRefs = useRef<Array<HTMLInputElement | null>>(Array(CODE_LENGTH).fill(null));
   
   // 倒计时逻辑
   useEffect(() => {
@@ -47,15 +42,13 @@ const PhoneVerification: React.FC<PhoneVerificationProps> = ({
   // 初始化时自动发送验证码
   useEffect(() => {
     if (autoSendOnMount) {
-      handleSendCode();
+      void handleSendCode();
     }
-    if (inputRefs[0].current) {
-      inputRefs[0].current.focus();
-    }
-  }, [autoSendOnMount]);
+    inputRefs.current[0]?.focus();
+  }, [autoSendOnMount, handleSendCode]);
   
   // 发送验证码
-  const handleSendCode = async () => {
+  const handleSendCode = useCallback(async () => {
     if (countdown > 0) return;
     
     setIsSending(true);
@@ -74,10 +67,10 @@ const PhoneVerification: React.FC<PhoneVerificationProps> = ({
     } finally {
       setIsSending(false);
     }
-  };
+  }, [countdown, onCodeSent, phone]);
   
   // 验证验证码
-  const handleVerify = async () => {
+  const handleVerify = useCallback(async () => {
     const codeString = code.join('');
     if (codeString.length !== 6) {
       setError('请输入完整的验证码');
@@ -95,10 +88,10 @@ const PhoneVerification: React.FC<PhoneVerificationProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [code, onVerified, phone]);
   
   // 处理输入变化
-  const handleInputChange = (index: number, value: string) => {
+  const handleInputChange = useCallback((index: number, value: string) => {
     // 只允许数字
     if (value && !/^\d$/.test(value)) return;
     
@@ -107,41 +100,60 @@ const PhoneVerification: React.FC<PhoneVerificationProps> = ({
     setCode(newCode);
     
     // 自动跳转到下一个输入框
-    if (value && index < 5) {
-      inputRefs[index + 1].current?.focus();
+    if (value && index < CODE_LENGTH - 1) {
+      inputRefs.current[index + 1]?.focus();
     }
-  };
+  }, [code]);
   
   // 处理键盘事件
-  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
+  const handleKeyDown = useCallback((index: number, e: React.KeyboardEvent) => {
     // 退格键处理
     if (e.key === 'Backspace' && !code[index] && index > 0) {
-      inputRefs[index - 1].current?.focus();
+      inputRefs.current[index - 1]?.focus();
     }
     
     // Enter键提交验证
-    if (e.key === 'Enter' && code.join('').length === 6) {
-      handleVerify();
+    if (e.key === 'Enter' && code.join('').length === CODE_LENGTH) {
+      void handleVerify();
     }
-  };
+  }, [code, handleVerify]);
   
   // 粘贴处理
-  const handlePaste = (e: React.ClipboardEvent) => {
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
     e.preventDefault();
     const pastedData = e.clipboardData.getData('text');
-    if (/^\d{6}$/.test(pastedData)) {
+    if (new RegExp(`^\\d{${CODE_LENGTH}}$`).test(pastedData)) {
       setCode(pastedData.split(''));
-      inputRefs[5].current?.focus();
+      inputRefs.current[CODE_LENGTH - 1]?.focus();
     }
-  };
+  }, []);
   
   // 格式化手机号显示
-  const formatPhone = (phone: string) => {
-    if (phone.length === 11) {
-      return `${phone.slice(0, 3)}****${phone.slice(7)}`;
+  const formatPhone = useCallback((phoneNumber: string) => {
+    if (phoneNumber.length === 11) {
+      return `${phoneNumber.slice(0, 3)}****${phoneNumber.slice(7)}`;
     }
-    return phone;
-  };
+    return phoneNumber;
+  }, []);
+
+  const maskedPhone = useMemo(() => formatPhone(phone), [formatPhone, phone]);
+
+  useEffect(() => {
+    setCode(Array(CODE_LENGTH).fill(''));
+    setCountdown(initialCountdown);
+    setError('');
+  }, [initialCountdown]);
+
+  useEffect(() => {
+    if (!autoSendOnMount) {
+      return;
+    }
+    void handleSendCode();
+  }, [autoSendOnMount, handleSendCode]);
+
+  useEffect(() => {
+    inputRefs.current[0]?.focus();
+  }, []);
   
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
@@ -159,7 +171,7 @@ const PhoneVerification: React.FC<PhoneVerificationProps> = ({
         
         <div className="mb-6">
           <p className="text-sm text-gray-600">
-            验证码已发送至 <span className="font-medium">{formatPhone(phone)}</span>
+            验证码已发送至 <span className="font-medium">{maskedPhone}</span>
           </p>
         </div>
         
@@ -168,7 +180,7 @@ const PhoneVerification: React.FC<PhoneVerificationProps> = ({
             {code.map((digit, index) => (
               <input
                 key={index}
-                ref={inputRefs[index]}
+                ref={(el) => (inputRefs.current[index] = el)}
                 type="text"
                 inputMode="numeric"
                 maxLength={1}
@@ -211,7 +223,7 @@ const PhoneVerification: React.FC<PhoneVerificationProps> = ({
         
         <button
           onClick={handleVerify}
-          disabled={isLoading || code.join('').length !== 6}
+          disabled={isLoading || code.join('').length !== CODE_LENGTH}
           className="w-full rounded-lg bg-blue-600 px-4 py-2 text-white font-medium hover:bg-blue-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed"
         >
           {isLoading ? '验证中...' : '验证'}
