@@ -220,7 +220,7 @@ const AdminDashboardStats: React.FC = () => {
       ];
     }
 
-    const { users, orders, subscriptions } = snapshot;
+    const { users, orders } = snapshot;
 
     return [
       {
@@ -246,9 +246,8 @@ const AdminDashboardStats: React.FC = () => {
       },
       {
         title: "退订/退款",
-        value: formatNumber(subscriptions.pendingRefunds),
-        percent:
-          orders.total === 0 ? 0 : (subscriptions.pendingRefunds / orders.total) * 100,
+        value: "0",
+        percent: 0,
         accent: "#38BDF8",
         icon: RefreshCcw,
       },
@@ -353,10 +352,7 @@ const AdminDashboardStats: React.FC = () => {
   const pendingRate = stats.orders.total === 0 ? 0 : (stats.orders.pending / stats.orders.total) * 100;
   const creditTurnoverRate =
     stats.credits.total === 0 ? 0 : (stats.credits.transactionsToday / stats.credits.total) * 100;
-  const refundRatio =
-    stats.revenue.total === 0
-      ? 0
-      : Math.min(100, (stats.subscriptions.totalRefundAmount / stats.revenue.total) * 100);
+  const refundRatio = 0;
 
   return (
     <div className="space-y-8">
@@ -486,7 +482,7 @@ const AdminDashboardStats: React.FC = () => {
                     />
                   </div>
                   <div className="mt-1 text-xs text-slate-400">
-                    累计退款 {formatCurrencyFromCents(stats.subscriptions.totalRefundAmount)}
+                    累计退款 ￥0
                   </div>
                 </div>
               </div>
@@ -517,7 +513,7 @@ const AdminDashboardStats: React.FC = () => {
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-500">退款金额</span>
               <span className="font-semibold text-rose-500">
-                {formatCurrencyFromCents(stats.subscriptions.totalRefundAmount)}
+                ￥0
               </span>
             </div>
           </div>
