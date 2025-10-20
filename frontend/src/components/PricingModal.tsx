@@ -80,7 +80,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ activeTab, onChangeTab, onC
                 </div>
                 <div className="flex items-center">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span className="text-gray-700">毛线刺绣增强</span>
+                  <span className="text-gray-700">刺绣增强</span>
                 </div>
               </div>
             </div>
@@ -129,7 +129,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ activeTab, onChangeTab, onC
                 </div>
                 <div className="flex items-center">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span className="text-gray-700">毛线刺绣增强</span>
+                  <span className="text-gray-700">刺绣增强</span>
                 </div>
               </div>
             </div>
@@ -178,7 +178,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ activeTab, onChangeTab, onC
                 </div>
                 <div className="flex items-center">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span className="text-gray-700">毛线刺绣增强</span>
+                  <span className="text-gray-700">刺绣增强</span>
                 </div>
               </div>
             </div>
@@ -239,7 +239,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ activeTab, onChangeTab, onC
                 </div>
                 <div className="flex items-center">
                   <span className="text-green-500 mr-2">✓</span>
-                  <span className="text-gray-700">毛线刺绣增强</span>
+                  <span className="text-gray-700">刺绣增强</span>
                 </div>
               </div>
             </div>
