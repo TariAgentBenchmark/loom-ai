@@ -23,8 +23,8 @@ class ImageProcessingUtils:
         options: Optional[Dict[str, Any]] = None,
     ) -> str:
         """AI四方连续转换"""
-        prompt = """将图案处理为四方连续的循环图案，适合大面积印花使用，图案可无缝拼接。"""
-        
+        prompt = """基于这张图片，生成一个新的四方连续循环图案，适合大面积印花使用，图案可无缝拼接。请生成高质量的图片。"""
+
         result = await self.gemini_client.process_image(image_bytes, prompt, "image/png")
         return self.gemini_client._extract_image_url(result)
 
@@ -56,7 +56,7 @@ class ImageProcessingUtils:
 
         prompt = (
             f"{prefix}\n"
-            "请仔细阅读用户的中文指令，根据指令对上传的图片进行精准修改。"
+            "请仔细阅读用户的中文指令，根据指令对上传的图片进行精准修改并生成新的图片。"
             "确保修改区域自然融入，避免出现明显的编辑痕迹或违背常识的结果。\n"
             f"用户指令：{instruction}"
         )
@@ -89,13 +89,13 @@ class ImageProcessingUtils:
         elif pattern_type == "fine":
             # 精细效果类型
             prompt = (
-                "从提供的图片中严格提取图案，将图案设计的风格和内容元索还原为填充整个画面的平面印刷图像，"
-                "准确识别并完整还原图案、纹理、颜色,等设计元素。1:1"
+                "从提供的图片中严格提取图案，生成新的平面印刷图像，将图案设计的风格和内容元索还原为填充整个画面的平面印刷图像，"
+                "准确识别并完整还原图案、纹理、颜色,等设计元素。请生成高质量的图片。1:1"
             )
         else:
             # 通用类型（默认）
             prompt = (
-                "Extract printed patterns from images. Accurately identify and fully restore patterns, textures, colors, and other design elements. Ensure smooth patterns without wrinkles or shadows, and complete any missing patterns. Use vibrant colors and avoid clothing shapes. Remove fabric grain and noise to create 4K high-definition images suitable for printing."
+                "Generate new images by extracting printed patterns from the provided image. Accurately identify and fully restore patterns, textures, colors, and other design elements. Ensure smooth patterns without wrinkles or shadows, and complete any missing patterns. Use vibrant colors and avoid clothing shapes. Remove fabric grain and noise to create 4K high-definition images suitable for printing."
             )
 
         # 精细效果类型使用GPT-4o模型，生成2张图片
@@ -114,7 +114,7 @@ class ImageProcessingUtils:
         options: Optional[Dict[str, Any]] = None,
     ) -> str:
         """AI布纹去噪"""
-        prompt = "Remove the fabric texture from this image, make the surface smooth while preserving the original color tone and overall appearance as much as possible."
-        
+        prompt = "Generate a new image by removing the fabric texture from this image, make the surface smooth while preserving the original color tone and overall appearance as much as possible."
+
         result = await self.gemini_client.process_image(image_bytes, prompt, "image/png")
         return self.gemini_client._extract_image_url(result)

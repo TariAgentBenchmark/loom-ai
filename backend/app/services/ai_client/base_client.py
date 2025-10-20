@@ -173,26 +173,37 @@ class BaseAIClient:
             # GPT-4o响应格式
             if "data" in api_response and isinstance(api_response["data"], list):
                 return api_response["data"][0]["url"]
-            
+
             # Gemini响应格式 (需要根据实际响应调整)
             if "candidates" in api_response:
-                # 这里需要根据Gemini的实际响应格式调整
-                # 假设响应中包含生成的图片URL或base64数据
                 candidate = api_response["candidates"][0]
+
+                # 检查是否是IMAGE_RECITATION错误
+                if candidate.get("finishReason") == "IMAGE_RECITATION":
+                    logger.error(
+                        "Gemini API returned IMAGE_RECITATION error - model interpreted request as image description instead of generation. "
+                        "This usually happens when the prompt is ambiguous. "
+                        "Please make sure your prompt explicitly asks to generate a new image."
+                    )
+                    raise Exception(
+                        "AI模型将请求误解为图片描述而非生成。"
+                        "请确保提示词明确要求生成新图片，例如使用'生成图片'、'创建图片'等明确指令。"
+                    )
+
                 if "content" in candidate:
                     # 处理Gemini的响应格式
                     return self._process_gemini_response(candidate["content"])
-            
+
             # 如果是base64格式，需要保存为文件并返回URL
             if "image" in api_response:
                 return self._save_base64_image(api_response["image"])
-                
+
             logger.error(
                 "无法从AI响应中提取图片 - 完整响应内容: %s",
                 api_response
             )
             raise Exception("无法从AI响应中提取图片")
-            
+
         except Exception as e:
             logger.error(
                 "Failed to extract image URL from response: error=%s response=%s full_response=%s",
@@ -208,23 +219,36 @@ class BaseAIClient:
             # GPT-4o响应格式 - 返回多张图片
             if "data" in api_response and isinstance(api_response["data"], list):
                 return [item["url"] for item in api_response["data"]]
-            
+
             # Gemini响应格式 - 目前只支持单张
             if "candidates" in api_response:
                 candidate = api_response["candidates"][0]
+
+                # 检查是否是IMAGE_RECITATION错误
+                if candidate.get("finishReason") == "IMAGE_RECITATION":
+                    logger.error(
+                        "Gemini API returned IMAGE_RECITATION error - model interpreted request as image description instead of generation. "
+                        "This usually happens when the prompt is ambiguous. "
+                        "Please make sure your prompt explicitly asks to generate a new image."
+                    )
+                    raise Exception(
+                        "AI模型将请求误解为图片描述而非生成。"
+                        "请确保提示词明确要求生成新图片，例如使用'生成图片'、'创建图片'等明确指令。"
+                    )
+
                 if "content" in candidate:
                     return [self._process_gemini_response(candidate["content"])]
-            
+
             # 如果是base64格式
             if "image" in api_response:
                 return [self._save_base64_image(api_response["image"])]
-                
+
             logger.error(
                 "无法从AI响应中提取图片 - 完整响应内容: %s",
                 api_response
             )
             raise Exception("无法从AI响应中提取图片")
-            
+
         except Exception as e:
             logger.error(
                 "Failed to extract image URLs from response: error=%s response=%s full_response=%s",
