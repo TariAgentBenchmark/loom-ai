@@ -46,7 +46,7 @@ const HistoryList: React.FC<HistoryListProps> = ({ accessToken, onTaskSelect, sh
     { value: 'extract_pattern', label: 'AI提取花型' },
     { value: 'remove_watermark', label: 'AI智能去水印' },
     { value: 'denoise', label: 'AI布纹去噪' },
-    { value: 'embroidery', label: 'AI毛线刺绣增强' },
+    { value: 'embroidery', label: 'AI刺绣' },
   ];
 
   const statusOptions = [

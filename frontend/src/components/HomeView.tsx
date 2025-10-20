@@ -133,7 +133,6 @@ const HomeView: React.FC<HomeViewProps> = ({
             <div className="flex items-center space-x-2 md:space-x-3">
               <img src="/optimized/logo.webp" alt="Logo" className="h-11 md:h-14" style={{ margin: '0' }} />
               <span className="text-4xl md:text-5xl font-bold text-gray-900 leading-none">A</span>
-              <span className="text-4xl md:text-5xl font-bold text-gray-900 leading-none">I</span>
             </div>
           </div>
 

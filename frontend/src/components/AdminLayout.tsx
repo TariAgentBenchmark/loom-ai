@@ -200,7 +200,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
               >
                 <Menu className="h-6 w-6" />
               </button>
-              <h1 className="text-lg font-medium text-gray-900">LoomAI 管理后台</h1>
+              <h1 className="text-lg font-medium text-gray-900">图云 管理后台</h1>
               <div className="w-6"></div>
             </div>
           </div>

@@ -11,7 +11,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "图云",
-  description: "Frontend for the LoomAI platform",
+  description: "Frontend for the 图云 platform",
   icons: {
     icon: "/favicon.png",
   },
