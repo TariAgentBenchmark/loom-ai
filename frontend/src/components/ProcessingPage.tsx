@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { History, Eye } from 'lucide-react';
-import { ProcessingMethod, getProcessingMethodInfo } from '../lib/processing';
+import { ProcessingMethod, getProcessingMethodInfo, isAIModelMethod } from '../lib/processing';
 import { resolveFileUrl, HistoryTask } from '../lib/api';
 import HistoryList from './HistoryList';
 import ImagePreview from './ImagePreview';
@@ -30,6 +30,8 @@ interface ProcessingPageProps {
   onPatternTypeChange?: (value: string) => void;
   upscaleEngine?: 'meitu_v2';
   onUpscaleEngineChange?: (value: 'meitu_v2') => void;
+  aspectRatio?: string;
+  onAspectRatioChange?: (value: string) => void;
 }
 
 const ProcessingPage: React.FC<ProcessingPageProps> = ({
@@ -54,6 +56,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   onPatternTypeChange,
   upscaleEngine,
   onUpscaleEngineChange,
+  aspectRatio,
+  onAspectRatioChange,
 }) => {
   const info = getProcessingMethodInfo(method);
   const [selectedTask, setSelectedTask] = useState<HistoryTask | null>(null);
@@ -236,6 +240,36 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                     </button>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* 分辨率选择 - 仅在使用AI模型的方法中显示 */}
+          {isAIModelMethod(method) && (
+            <div className="mb-4 md:mb-6">
+              <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2">分辨率设置</h4>
+
+              {/* 预设比例选择 */}
+              <div>
+                <label className="text-xs text-gray-600 mb-1 block">选择比例</label>
+                <select
+                  value={aspectRatio || ''}
+                  onChange={(event) => onAspectRatioChange?.(event.target.value)}
+                  className="w-full rounded-lg md:rounded-xl border border-gray-200 px-3 py-2 md:px-4 md:py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+                >
+                  <option value="">自动（保持原图比例）</option>
+                  <option value="21:9">21:9 超宽屏</option>
+                  <option value="16:9">16:9 宽屏</option>
+                  <option value="4:3">4:3 标准</option>
+                  <option value="3:2">3:2 经典</option>
+                  <option value="1:1">1:1 正方形</option>
+                  <option value="9:16">9:16 竖屏</option>
+                  <option value="3:4">3:4 竖屏</option>
+                  <option value="2:3">2:3 竖屏</option>
+                  <option value="5:4">5:4 特殊</option>
+                  <option value="4:5">4:5 特殊</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-2">选择预设比例，AI将按选定比例生成图片</p>
               </div>
             </div>
           )}

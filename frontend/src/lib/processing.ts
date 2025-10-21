@@ -102,3 +102,16 @@ export const processingMethodInfo: Record<ProcessingMethod, ProcessingMethodInfo
 
 export const getProcessingMethodInfo = (method: ProcessingMethod) =>
   processingMethodInfo[method];
+
+// 定义哪些处理方法使用AI模型（支持分辨率设置）
+export const AI_MODEL_METHODS: ProcessingMethod[] = [
+  'prompt_edit',      // AI用嘴改图 - 使用Gemini
+  'embroidery',       // AI刺绣 - 使用Gemini
+  'extract_pattern',  // AI提取花型 - 使用Gemini/GPT-4o
+  'noise_removal',    // AI布纹去噪 - 使用Gemini
+];
+
+// 检查方法是否使用AI模型
+export const isAIModelMethod = (method: ProcessingMethod): boolean => {
+  return AI_MODEL_METHODS.includes(method);
+};

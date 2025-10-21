@@ -75,6 +75,7 @@ export default function Home() {
   const [promptInstruction, setPromptInstruction] = useState<string>('');
   const [patternType, setPatternType] = useState<string>('general');
   const [upscaleEngine, setUpscaleEngine] = useState<'meitu_v2'>('meitu_v2');
+  const [aspectRatio, setAspectRatio] = useState<string>('');
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -369,6 +370,11 @@ export default function Home() {
       payload.upscaleEngine = upscaleEngine;
     }
 
+    // 添加分辨率参数
+    if (aspectRatio) {
+      payload.aspectRatio = aspectRatio;
+    }
+
     createProcessingTask(payload)
       .then((response) => {
         const task = response.data;
@@ -418,6 +424,7 @@ export default function Home() {
             setPromptInstruction('');
             setPatternType('general');
             setUpscaleEngine('meitu_v2');
+            setAspectRatio('');
           }}
           onOpenPricingModal={() => setShowPricingModal(true)}
           onProcessImage={handleProcessImage}
@@ -434,6 +441,8 @@ export default function Home() {
           onPatternTypeChange={setPatternType}
           upscaleEngine={upscaleEngine}
           onUpscaleEngineChange={setUpscaleEngine}
+          aspectRatio={aspectRatio}
+          onAspectRatioChange={setAspectRatio}
         />
       ) : (
         <HomeView

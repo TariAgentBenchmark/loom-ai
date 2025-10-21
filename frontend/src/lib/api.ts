@@ -444,6 +444,7 @@ export interface ProcessingRequestPayload {
   model?: "new" | "original";
   patternType?: string;
   upscaleEngine?: 'meitu_v2';
+  aspectRatio?: string;
 }
 
 export const createProcessingTask = ({
@@ -454,6 +455,7 @@ export const createProcessingTask = ({
   model,
   patternType,
   upscaleEngine,
+  aspectRatio,
 }: ProcessingRequestPayload) => {
   const formData = new FormData();
   formData.append("image", image);
@@ -469,6 +471,11 @@ export const createProcessingTask = ({
 
   if (method === "upscale" && upscaleEngine) {
     formData.append("engine", upscaleEngine);
+  }
+
+  // 添加分辨率参数
+  if (aspectRatio) {
+    formData.append("aspect_ratio", aspectRatio);
   }
 
   const path = processingPathMap[method];
