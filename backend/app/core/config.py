@@ -24,8 +24,13 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
 
     # 第三方API配置
+    # tuzi配置已弃用，请使用apiyi配置
     tuzi_api_key: str = ""
     tuzi_base_url: str = "https://api.tu-zi.com"
+
+    # Apyi API配置 (主要配置)
+    apiyi_api_key: str = ""
+    apiyi_base_url: str = "https://api.apiyi.com"
     
     # 美图API配置
     meitu_api_key: str = ""

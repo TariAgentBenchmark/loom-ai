@@ -8,6 +8,8 @@ from app.core.config import settings
 from app.services.ai_client.base_client import BaseAIClient
 from app.services.ai_client.dewatermark_client import DewatermarkClient
 from app.services.ai_client.gemini_client import GeminiClient
+from app.services.ai_client.apyi_gemini_client import ApyiGeminiClient
+from app.services.ai_client.apyi_openai_client import ApyiOpenAIClient
 from app.services.ai_client.gpt4o_client import GPT4oClient
 from app.services.ai_client.image_utils import ImageProcessingUtils
 from app.services.ai_client.jimeng_client import JimengClient
@@ -25,6 +27,8 @@ class AIClient:
         # 初始化各个服务客户端
         self.gpt4o_client = GPT4oClient()
         self.gemini_client = GeminiClient()
+        self.apyi_gemini_client = ApyiGeminiClient()
+        self.apyi_openai_client = ApyiOpenAIClient()
         self.jimeng_client = JimengClient()
         self.vectorizer_client = VectorizerClient()
         self.dewatermark_client = DewatermarkClient()
@@ -52,6 +56,169 @@ class AIClient:
     async def process_image_gemini(self, image_bytes: bytes, prompt: str, mime_type: str = "image/jpeg") -> Dict[str, Any]:
         """使用Gemini-2.5-flash-image处理图片"""
         return await self.gemini_client.process_image(image_bytes, prompt, mime_type)
+
+    async def process_image_apyi_gemini(
+        self,
+        image_bytes: bytes,
+        prompt: str,
+        mime_type: str = "image/jpeg",
+        aspect_ratio: Optional[str] = None,
+        width: Optional[int] = None,
+        height: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        使用Apyi平台的Gemini-2.5-flash-image处理图片，支持自定义分辨率和宽高比
+
+        Args:
+            image_bytes: 图片字节数据
+            prompt: 编辑指令文本
+            mime_type: 图片MIME类型
+            aspect_ratio: 宽高比 (如 "16:9", "1:1" 等)
+            width: 自定义宽度 (像素)
+            height: 自定义高度 (像素)
+
+        Returns:
+            API响应数据
+        """
+        return await self.apyi_gemini_client.process_image(
+            image_bytes, prompt, mime_type, aspect_ratio, width, height
+        )
+
+    # Apyi OpenAI相关方法
+    async def create_image_edit_apyi(
+        self,
+        image_bytes: bytes,
+        mask_bytes: bytes,
+        prompt: str,
+        n: int = 1,
+        size: str = "1024x1024",
+        response_format: str = "url"
+    ) -> Dict[str, Any]:
+        """
+        使用Apyi平台的OpenAI兼容API编辑图像
+
+        Args:
+            image_bytes: 原始图像字节数据
+            mask_bytes: 遮罩图像字节数据
+            prompt: 编辑指令文本
+            n: 生成的图像数量，默认为1，最大为10
+            size: 输出图像尺寸，支持 256x256、512x512、1024x1024
+            response_format: 返回格式，url（默认）或 b64_json
+
+        Returns:
+            API响应数据
+        """
+        return await self.apyi_openai_client.create_image_edit(
+            image_bytes, mask_bytes, prompt, n, size, response_format
+        )
+
+    async def generate_image_apyi(
+        self,
+        prompt: str,
+        n: int = 1,
+        size: str = "1024x1024",
+        response_format: str = "url"
+    ) -> Dict[str, Any]:
+        """
+        使用Apyi平台的OpenAI兼容API生成图像
+
+        Args:
+            prompt: 生成指令文本
+            n: 生成的图像数量，默认为1，最大为10
+            size: 输出图像尺寸，支持 256x256、512x512、1024x1024
+            response_format: 返回格式，url（默认）或 b64_json
+
+        Returns:
+            API响应数据
+        """
+        return await self.apyi_openai_client.generate_image(
+            prompt, n, size, response_format
+        )
+
+    async def chat_completion_apyi(
+        self,
+        messages: list,
+        model: str = "gpt-4o",
+        max_tokens: Optional[int] = None,
+        temperature: float = 0.7,
+        stream: bool = False
+    ) -> Dict[str, Any]:
+        """
+        使用Apyi平台的GPT-4o进行对话补全
+
+        Args:
+            messages: 对话消息列表
+            model: 模型名称，默认为 gpt-4o
+            max_tokens: 最大token数
+            temperature: 温度参数
+            stream: 是否使用流式响应
+
+        Returns:
+            API响应数据
+        """
+        return await self.apyi_openai_client.chat_completion(
+            messages, model, max_tokens, temperature, stream
+        )
+
+    # 遮罩创建工具方法
+    def create_mask_for_rectangle_apyi(
+        self,
+        image_bytes: bytes,
+        bbox: tuple,
+        mask_format: str = "PNG"
+    ) -> bytes:
+        """
+        为矩形区域创建遮罩
+
+        Args:
+            image_bytes: 原始图像字节数据
+            bbox: 矩形区域 (x1, y1, x2, y2)
+            mask_format: 遮罩格式，默认PNG
+
+        Returns:
+            遮罩图像字节数据
+        """
+        return ApyiOpenAIClient.create_mask_for_rectangle(image_bytes, bbox, mask_format)
+
+    def create_mask_for_circle_apyi(
+        self,
+        image_bytes: bytes,
+        center: tuple,
+        radius: int,
+        mask_format: str = "PNG"
+    ) -> bytes:
+        """
+        为圆形区域创建遮罩
+
+        Args:
+            image_bytes: 原始图像字节数据
+            center: 圆心坐标 (x, y)
+            radius: 半径
+            mask_format: 遮罩格式，默认PNG
+
+        Returns:
+            遮罩图像字节数据
+        """
+        return ApyiOpenAIClient.create_mask_for_circle(image_bytes, center, radius, mask_format)
+
+    def create_mask_for_object_removal_apyi(
+        self,
+        image_bytes: bytes,
+        bbox: tuple,
+        mask_format: str = "PNG"
+    ) -> bytes:
+        """
+        为对象移除创建遮罩
+
+        Args:
+            image_bytes: 原始图像字节数据
+            bbox: 对象边界框 (x1, y1, x2, y2)
+            mask_format: 遮罩格式，默认PNG
+
+        Returns:
+            遮罩图像字节数据
+        """
+        return ApyiOpenAIClient.create_mask_for_object_removal(image_bytes, bbox, mask_format)
 
     # 图片处理工具方法
     async def seamless_pattern_conversion(

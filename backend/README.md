@@ -63,7 +63,7 @@ uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```bash
 # 必须配置
 SECRET_KEY=your-secret-key-here
-TUZI_API_KEY=your-tuzi-api-key-here
+APIYI_API_KEY=your-apiyi-api-key-here
 
 # 可选配置
 DATABASE_URL=sqlite:///./loom_ai.db
@@ -72,8 +72,9 @@ REDIS_URL=redis://localhost:6379/0
 
 ### API密钥获取
 
-- **兔子API**: 在 https://api.tu-zi.com 获取API密钥
+- **Apyi API**: 在 https://api.apiyi.com 获取API密钥
 - 支持GPT-4o图像生成和Gemini-2.5-flash-image处理
+- 支持OpenAI兼容的图像编辑和对话功能
 
 ## 🎯 核心功能
 

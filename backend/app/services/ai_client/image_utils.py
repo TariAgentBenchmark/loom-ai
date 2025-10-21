@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 from app.core.config import settings
 from app.services.ai_client.gemini_client import GeminiClient
 from app.services.ai_client.gpt4o_client import GPT4oClient
+from app.services.ai_client.apyi_gemini_client import ApyiGeminiClient
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,7 @@ class ImageProcessingUtils:
     def __init__(self):
         self.gemini_client = GeminiClient()
         self.gpt4o_client = GPT4oClient()
+        self.apyi_gemini_client = ApyiGeminiClient()
     
     async def seamless_pattern_conversion(
         self,
@@ -25,8 +27,8 @@ class ImageProcessingUtils:
         """AI四方连续转换"""
         prompt = """基于这张图片，生成一个新的四方连续循环图案，适合大面积印花使用，图案可无缝拼接。请生成高质量的图片。"""
 
-        result = await self.gemini_client.process_image(image_bytes, prompt, "image/png")
-        return self.gemini_client._extract_image_url(result)
+        result = await self.apyi_gemini_client.process_image(image_bytes, prompt, "image/png")
+        return self.apyi_gemini_client._extract_image_url(result)
 
     async def prompt_edit_image(
         self,
@@ -61,8 +63,20 @@ class ImageProcessingUtils:
             f"用户指令：{instruction}"
         )
 
-        result = await self.gemini_client.process_image(image_bytes, prompt, "image/png")
-        return self.gemini_client._extract_image_url(result)
+        # 提取分辨率参数
+        aspect_ratio = options.get("aspect_ratio")
+        width = options.get("width")
+        height = options.get("height")
+
+        result = await self.apyi_gemini_client.process_image(
+            image_bytes,
+            prompt,
+            "image/png",
+            aspect_ratio=aspect_ratio,
+            width=width,
+            height=height
+        )
+        return self.apyi_gemini_client._extract_image_url(result)
 
     async def extract_pattern(
         self,
@@ -105,8 +119,8 @@ class ImageProcessingUtils:
             # 返回逗号分隔的URL字符串
             return ",".join(image_urls)
         else:
-            result = await self.gemini_client.process_image(image_bytes, prompt, "image/png")
-            return self.gemini_client._extract_image_url(result)
+            result = await self.apyi_gemini_client.process_image(image_bytes, prompt, "image/png")
+            return self.apyi_gemini_client._extract_image_url(result)
 
     async def denoise_image(
         self,
@@ -116,5 +130,5 @@ class ImageProcessingUtils:
         """AI布纹去噪"""
         prompt = "Generate a new image by removing the fabric texture from this image, make the surface smooth while preserving the original color tone and overall appearance as much as possible."
 
-        result = await self.gemini_client.process_image(image_bytes, prompt, "image/png")
-        return self.gemini_client._extract_image_url(result)
+        result = await self.apyi_gemini_client.process_image(image_bytes, prompt, "image/png")
+        return self.apyi_gemini_client._extract_image_url(result)

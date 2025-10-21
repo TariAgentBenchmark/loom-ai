@@ -31,6 +31,7 @@ services:
     environment:
       - DATABASE_URL=sqlite:///./data/loom_ai.db
       - REDIS_URL=redis://redis:6379/0
+      - APIYI_API_KEY=${APIYI_API_KEY:-}
       - TUZI_API_KEY=${TUZI_API_KEY:-}
       - TUZI_BASE_URL=${TUZI_BASE_URL:-https://api.tu-zi.com}
       - MEITU_API_KEY=${MEITU_API_KEY:-}

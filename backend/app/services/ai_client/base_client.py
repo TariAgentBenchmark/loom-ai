@@ -54,8 +54,8 @@ class BaseAIClient:
     """基础AI客户端，提供通用功能"""
     
     def __init__(self):
-        self.base_url = settings.tuzi_base_url
-        self.api_key = settings.tuzi_api_key
+        self.base_url = settings.apiyi_base_url
+        self.api_key = settings.apiyi_api_key
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"

@@ -19,7 +19,7 @@ cp env.example .env
 编辑 `.env` 文件，至少配置以下变量：
 ```bash
 SECRET_KEY=your-super-secret-key-here
-TUZI_API_KEY=your-tuzi-api-key-here
+APIYI_API_KEY=your-apiyi-api-key-here
 ```
 
 ### 3. 初始化和启动

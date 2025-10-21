@@ -61,6 +61,9 @@ async def prompt_edit_image(
     image: UploadFile = File(...),
     instruction: str = Form(...),
     model: str = Form("new"),
+    aspect_ratio: Optional[str] = Form(None),
+    width: Optional[int] = Form(None),
+    height: Optional[int] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -78,16 +81,27 @@ async def prompt_edit_image(
         if not instruction_value:
             raise ValueError("请填写修改指令")
 
+        # 构建选项
+        options = {
+            "instruction": instruction_value,
+            "model": (model or "new").strip().lower() or "new",
+        }
+
+        # 添加分辨率参数
+        if aspect_ratio:
+            options["aspect_ratio"] = aspect_ratio
+        if width:
+            options["width"] = width
+        if height:
+            options["height"] = height
+
         task = await processing_service.create_task(
             db=db,
             user=current_user,
             task_type="prompt_edit",
             image_bytes=image_bytes,
             original_filename=image.filename,
-            options={
-                "instruction": instruction_value,
-                "model": (model or "new").strip().lower() or "new",
-            }
+            options=options
         )
 
         return SuccessResponse(
@@ -147,6 +161,9 @@ async def vectorize_image(
 async def extract_pattern(
     image: UploadFile = File(...),
     pattern_type: str = Form("general"),
+    aspect_ratio: Optional[str] = Form(None),
+    width: Optional[int] = Form(None),
+    height: Optional[int] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -160,13 +177,24 @@ async def extract_pattern(
         logger = logging.getLogger(__name__)
         logger.info(f"Uploaded file size: {file_size / 1024 / 1024:.2f} MB, filename: {image.filename}, pattern_type: {pattern_type}")
         
+        # 构建选项
+        options = {"pattern_type": pattern_type}
+
+        # 添加分辨率参数
+        if aspect_ratio:
+            options["aspect_ratio"] = aspect_ratio
+        if width:
+            options["width"] = width
+        if height:
+            options["height"] = height
+
         task = await processing_service.create_task(
             db=db,
             user=current_user,
             task_type="extract_pattern",
             image_bytes=image_bytes,
             original_filename=image.filename,
-            options={"pattern_type": pattern_type}
+            options=options
         )
         
         return SuccessResponse(
@@ -226,6 +254,9 @@ async def remove_watermark(
 @router.post("/denoise")
 async def denoise_image(
     image: UploadFile = File(...),
+    aspect_ratio: Optional[str] = Form(None),
+    width: Optional[int] = Form(None),
+    height: Optional[int] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -239,12 +270,24 @@ async def denoise_image(
         logger = logging.getLogger(__name__)
         logger.info(f"Uploaded file size: {file_size / 1024 / 1024:.2f} MB, filename: {image.filename}")
         
+        # 构建选项
+        options = {}
+
+        # 添加分辨率参数
+        if aspect_ratio:
+            options["aspect_ratio"] = aspect_ratio
+        if width:
+            options["width"] = width
+        if height:
+            options["height"] = height
+
         task = await processing_service.create_task(
             db=db,
             user=current_user,
             task_type="denoise",
             image_bytes=image_bytes,
             original_filename=image.filename,
+            options=options
         )
         
         return SuccessResponse(
@@ -268,6 +311,9 @@ async def enhance_embroidery(
     scale: float = Form(0.7),
     size: int = Form(2048*2048),
     force_single: bool = Form(True),
+    aspect_ratio: Optional[str] = Form(None),
+    width: Optional[int] = Form(None),
+    height: Optional[int] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -287,6 +333,14 @@ async def enhance_embroidery(
             "size": size,
             "force_single": force_single
         }
+
+        # 添加分辨率参数
+        if aspect_ratio:
+            options["aspect_ratio"] = aspect_ratio
+        if width:
+            options["width"] = width
+        if height:
+            options["height"] = height
         
         task = await processing_service.create_task(
             db=db,
