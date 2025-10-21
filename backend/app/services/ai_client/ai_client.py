@@ -512,6 +512,39 @@ class AIClient:
                 if "width" in options and "height" in options:
                     data["width"] = options["width"]
                     data["height"] = options["height"]
+                elif "aspect_ratio" in options:
+                    # 根据预设比例设置宽高
+                    aspect_ratio = options["aspect_ratio"]
+                    if aspect_ratio == "21:9":
+                        data["width"] = 2048
+                        data["height"] = 877
+                    elif aspect_ratio == "16:9":
+                        data["width"] = 1920
+                        data["height"] = 1080
+                    elif aspect_ratio == "4:3":
+                        data["width"] = 1600
+                        data["height"] = 1200
+                    elif aspect_ratio == "3:2":
+                        data["width"] = 1800
+                        data["height"] = 1200
+                    elif aspect_ratio == "1:1":
+                        data["width"] = 2048
+                        data["height"] = 2048
+                    elif aspect_ratio == "9:16":
+                        data["width"] = 1080
+                        data["height"] = 1920
+                    elif aspect_ratio == "3:4":
+                        data["width"] = 1200
+                        data["height"] = 1600
+                    elif aspect_ratio == "2:3":
+                        data["width"] = 1200
+                        data["height"] = 1800
+                    elif aspect_ratio == "5:4":
+                        data["width"] = 1600
+                        data["height"] = 1280
+                    elif aspect_ratio == "4:5":
+                        data["width"] = 1280
+                        data["height"] = 1600
                 if "force_single" in options:
                     data["force_single"] = options["force_single"]
             

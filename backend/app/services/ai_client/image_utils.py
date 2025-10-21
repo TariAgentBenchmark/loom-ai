@@ -109,8 +109,13 @@ class ImageProcessingUtils:
         else:
             # 通用类型（默认）
             prompt = (
-                "Generate new images by extracting printed patterns from the provided image. Accurately identify and fully restore patterns, textures, colors, and other design elements. Ensure smooth patterns without wrinkles or shadows, and complete any missing patterns. Use vibrant colors and avoid clothing shapes. Remove fabric grain and noise to create 4K high-definition images suitable for printing."
+                "从提供的图片中严格提取图案并生成高质量的图片，准确识别并完整还原图案、纹理、等设计元素，确保没有任何遗漏或扭曲。去除褶皱。亮丽的颜色别丢掉了。还原为填充整个画面的平面印刷图像。花位不要铺太大了。"
             )
+
+        # 提取分辨率参数
+        aspect_ratio = options.get("aspect_ratio")
+        width = options.get("width")
+        height = options.get("height")
 
         # 精细效果类型使用GPT-4o模型，生成2张图片
         if pattern_type == "fine":
@@ -119,7 +124,14 @@ class ImageProcessingUtils:
             # 返回逗号分隔的URL字符串
             return ",".join(image_urls)
         else:
-            result = await self.apyi_gemini_client.process_image(image_bytes, prompt, "image/png")
+            result = await self.apyi_gemini_client.process_image(
+                image_bytes,
+                prompt,
+                "image/png",
+                aspect_ratio=aspect_ratio,
+                width=width,
+                height=height
+            )
             return self.apyi_gemini_client._extract_image_url(result)
 
     async def denoise_image(
@@ -128,7 +140,20 @@ class ImageProcessingUtils:
         options: Optional[Dict[str, Any]] = None,
     ) -> str:
         """AI布纹去噪"""
+        options = options or {}
         prompt = "Generate a new image by removing the fabric texture from this image, make the surface smooth while preserving the original color tone and overall appearance as much as possible."
 
-        result = await self.apyi_gemini_client.process_image(image_bytes, prompt, "image/png")
+        # 提取分辨率参数
+        aspect_ratio = options.get("aspect_ratio")
+        width = options.get("width")
+        height = options.get("height")
+
+        result = await self.apyi_gemini_client.process_image(
+            image_bytes,
+            prompt,
+            "image/png",
+            aspect_ratio=aspect_ratio,
+            width=width,
+            height=height
+        )
         return self.apyi_gemini_client._extract_image_url(result)
