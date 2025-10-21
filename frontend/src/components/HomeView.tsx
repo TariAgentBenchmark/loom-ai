@@ -522,10 +522,10 @@ const HomeView: React.FC<HomeViewProps> = ({
         <main className="flex-1 p-4 md:p-8 order-1 md:order-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
             <div
-              className="relative bg-white rounded-xl md:rounded-2xl border border-gray-200 p-4 md:p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
+              className="relative flex flex-col h-full bg-white rounded-xl md:rounded-2xl border border-gray-200 p-4 md:p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
               onClick={() => onSelectMethod('prompt_edit')}
             >
-              <div className="text-center mb-4 md:mb-6">
+              <div className="text-center mb-4 md:mb-6 flex-1">
                 <div className="flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-xl md:rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 shadow-lg mx-auto mb-3 md:mb-4 group-hover:shadow-xl transition-all">
                   <img src="/optimized/AI用嘴改图.webp" alt="用嘴改图" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
                 </div>
@@ -534,16 +534,16 @@ const HomeView: React.FC<HomeViewProps> = ({
                   上传图片并输入一句中文指令，AI即可帮你快速完成改图，适合服装电商等使用场景。
                 </p>
               </div>
-              <div className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-2 px-4 md:py-3 md:px-6 rounded-lg md:rounded-xl text-center font-medium hover:from-blue-600 hover:to-indigo-600 transition-all">
+              <div className="mt-auto bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-2 px-4 md:py-3 md:px-6 rounded-lg md:rounded-xl text-center font-medium hover:from-blue-600 hover:to-indigo-600 transition-all">
                 立即使用
               </div>
             </div>
 
             <div
-              className="relative bg-white rounded-xl md:rounded-2xl border border-gray-200 p-4 md:p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
+              className="relative flex flex-col h-full bg-white rounded-xl md:rounded-2xl border border-gray-200 p-4 md:p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
               onClick={() => onSelectMethod('style')}
             >
-              <div className="text-center mb-4 md:mb-6">
+              <div className="text-center mb-4 md:mb-6 flex-1">
                 <div className="flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-xl md:rounded-2xl bg-gradient-to-br from-purple-50 to-pink-50 shadow-lg mx-auto mb-3 md:mb-4 group-hover:shadow-xl transition-all">
                   <img src="/optimized/AI矢量化转SVG.webp" alt="矢量化" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
                 </div>
@@ -552,16 +552,16 @@ const HomeView: React.FC<HomeViewProps> = ({
                   使用AI一键将图片变成矢量图，线条清晰，图片还原。助力您的产品设计。
                 </p>
               </div>
-              <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white py-2 px-4 md:py-3 md:px-6 rounded-lg md:rounded-xl text-center font-medium hover:from-purple-600 hover:to-pink-600 transition-all">
+              <div className="mt-auto bg-gradient-to-r from-purple-500 to-pink-500 text-white py-2 px-4 md:py-3 md:px-6 rounded-lg md:rounded-xl text-center font-medium hover:from-purple-600 hover:to-pink-600 transition-all">
                 立即使用
               </div>
             </div>
 
             <div
-              className="relative bg-white rounded-xl md:rounded-2xl border border-gray-200 p-4 md:p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
+              className="relative flex flex-col h-full bg-white rounded-xl md:rounded-2xl border border-gray-200 p-4 md:p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
               onClick={() => onSelectMethod('extract_pattern')}
             >
-              <div className="text-center mb-4 md:mb-6">
+              <div className="text-center mb-4 md:mb-6 flex-1">
                 <div className="flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-xl md:rounded-2xl bg-gradient-to-br from-rose-50 to-pink-50 shadow-lg mx-auto mb-3 md:mb-4 group-hover:shadow-xl transition-all">
                   <img src="/optimized/AI提取花型.webp" alt="提取花型" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
                 </div>
@@ -570,16 +570,16 @@ const HomeView: React.FC<HomeViewProps> = ({
                   自动提取图案并赋予高清增强效果，帮助您快速获取可用的花型素材。
                 </p>
               </div>
-              <div className="bg-gradient-to-r from-rose-500 to-pink-500 text-white py-2 px-4 md:py-3 md:px-6 rounded-lg md:rounded-xl text-center font-medium hover:from-rose-600 hover:to-pink-600 transition-all">
+              <div className="mt-auto bg-gradient-to-r from-rose-500 to-pink-500 text-white py-2 px-4 md:py-3 md:px-6 rounded-lg md:rounded-xl text-center font-medium hover:from-rose-600 hover:to-pink-600 transition-all">
                 立即使用
               </div>
             </div>
 
             <div
-              className="relative bg-white rounded-xl md:rounded-2xl border border-gray-200 p-4 md:p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
+              className="relative flex flex-col h-full bg-white rounded-xl md:rounded-2xl border border-gray-200 p-4 md:p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
               onClick={() => onSelectMethod('watermark_removal')}
             >
-              <div className="text-center mb-4 md:mb-6">
+              <div className="text-center mb-4 md:mb-6 flex-1">
                 <div className="flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-xl md:rounded-2xl bg-gradient-to-br from-cyan-50 to-blue-50 shadow-lg mx-auto mb-3 md:mb-4 group-hover:shadow-xl transition-all">
                   <img src="/optimized/AI智能去水印.webp" alt="智能去水印" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
                 </div>
@@ -588,16 +588,16 @@ const HomeView: React.FC<HomeViewProps> = ({
                   一键去水印。不管是顽固的文字水印、半透明logo水印，都能快捷去除。
                 </p>
               </div>
-              <div className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white py-2 px-4 md:py-3 md:px-6 rounded-lg md:rounded-xl text-center font-medium hover:from-cyan-600 hover:to-blue-600 transition-all">
+              <div className="mt-auto bg-gradient-to-r from-cyan-500 to-blue-500 text-white py-2 px-4 md:py-3 md:px-6 rounded-lg md:rounded-xl text-center font-medium hover:from-cyan-600 hover:to-blue-600 transition-all">
                 立即使用
               </div>
             </div>
 
             <div
-              className="relative bg-white rounded-xl md:rounded-2xl border border-gray-200 p-4 md:p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
+              className="relative flex flex-col h-full bg-white rounded-xl md:rounded-2xl border border-gray-200 p-4 md:p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
               onClick={() => onSelectMethod('noise_removal')}
             >
-              <div className="text-center mb-4 md:mb-6">
+              <div className="text-center mb-4 md:mb-6 flex-1">
                 <div className="flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-xl md:rounded-2xl bg-gradient-to-br from-amber-50 to-yellow-50 shadow-lg mx-auto mb-3 md:mb-4 group-hover:shadow-xl transition-all">
                   <img src="/optimized/进一步处理.webp" alt="布纹去噪" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
                 </div>
@@ -606,16 +606,16 @@ const HomeView: React.FC<HomeViewProps> = ({
                   使用AI快速的去除图片中的噪点、布纹。还可用于对模糊矢量花的高清重绘。
                 </p>
               </div>
-              <div className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white py-2 px-4 md:py-3 md:px-6 rounded-lg md:rounded-xl text-center font-medium hover:from-amber-600 hover:to-yellow-600 transition-all">
+              <div className="mt-auto bg-gradient-to-r from-amber-500 to-yellow-500 text-white py-2 px-4 md:py-3 md:px-6 rounded-lg md:rounded-xl text-center font-medium hover:from-amber-600 hover:to-yellow-600 transition-all">
                 立即使用
               </div>
             </div>
 
             <div
-              className="relative bg-white rounded-xl md:rounded-2xl border border-gray-200 p-4 md:p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
+              className="relative flex flex-col h-full bg-white rounded-xl md:rounded-2xl border border-gray-200 p-4 md:p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
               onClick={() => onSelectMethod('embroidery')}
             >
-              <div className="text-center mb-4 md:mb-6">
+              <div className="text-center mb-4 md:mb-6 flex-1">
                 <div className="flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-xl md:rounded-2xl bg-gradient-to-br from-red-50 to-pink-50 shadow-lg mx-auto mb-3 md:mb-4 group-hover:shadow-xl transition-all">
                   <img src="/optimized/AI毛线刺绣增强.webp" alt="AI刺绣" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
                 </div>
@@ -624,16 +624,16 @@ const HomeView: React.FC<HomeViewProps> = ({
                   使用AI技术进行刺绣增强，支持4K超高清输出，提供更真实的质感和精细的针脚效果。
                 </p>
               </div>
-              <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white py-2 px-4 md:py-3 md:px-6 rounded-lg md:rounded-xl text-center font-medium hover:from-red-600 hover:to-pink-600 transition-all">
+              <div className="mt-auto bg-gradient-to-r from-red-500 to-pink-500 text-white py-2 px-4 md:py-3 md:px-6 rounded-lg md:rounded-xl text-center font-medium hover:from-red-600 hover:to-pink-600 transition-all">
                 立即使用
               </div>
             </div>
 
             <div
-              className="relative bg-white rounded-xl md:rounded-2xl border border-gray-200 p-4 md:p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
+              className="relative flex flex-col h-full bg-white rounded-xl md:rounded-2xl border border-gray-200 p-4 md:p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
               onClick={() => onSelectMethod('upscale')}
             >
-              <div className="text-center mb-4 md:mb-6">
+              <div className="text-center mb-4 md:mb-6 flex-1">
                 <div className="flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-xl md:rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg mx-auto mb-3 md:mb-4 group-hover:shadow-xl transition-all">
                   <img src="/optimized/AI布纹去噪.webp" alt="无损放大" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
                 </div>
@@ -642,7 +642,7 @@ const HomeView: React.FC<HomeViewProps> = ({
                   使用AI技术对图片进行无损放大，最高支持8K分辨率，保持图片清晰度和细节，适合印刷和展示。
                 </p>
               </div>
-              <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white py-2 px-4 md:py-3 md:px-6 rounded-lg md:rounded-xl text-center font-medium hover:from-green-600 hover:to-emerald-600 transition-all">
+              <div className="mt-auto bg-gradient-to-r from-green-500 to-emerald-500 text-white py-2 px-4 md:py-3 md:px-6 rounded-lg md:rounded-xl text-center font-medium hover:from-green-600 hover:to-emerald-600 transition-all">
                 立即使用
               </div>
             </div>
