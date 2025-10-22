@@ -10,7 +10,7 @@ from datetime import datetime
 
 from app.core.config import settings
 from app.core.database import init_db, close_db, check_db_health
-from app.api.v1 import auth, user, processing, credits, payment, history, admin
+from app.api.v1 import auth, user, processing, credits, payment, history, admin, membership
 
 
 api_router = APIRouter()
@@ -21,6 +21,7 @@ api_router.include_router(credits.router, prefix="/credits", tags=["算力管理
 api_router.include_router(payment.router, prefix="/payment", tags=["支付"])
 api_router.include_router(history.router, prefix="/history", tags=["历史记录"])
 api_router.include_router(admin.router, prefix="/admin", tags=["管理员"])
+api_router.include_router(membership.router, prefix="/membership", tags=["会员管理"])
 
 
 # 配置日志

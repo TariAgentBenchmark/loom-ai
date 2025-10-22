@@ -1,3 +1,4 @@
-export type PricingTab = '优惠套餐' | '包月会员' | '季度会员' | '包年会员' | '算力充值';
+// 这个文件现在只需要保留类型定义，实际标签已经移除
+export type PricingTab = 'membership' | 'discount' | 'services';
 
-export const pricingTabs: PricingTab[] = ['优惠套餐', '包月会员', '季度会员', '包年会员', '算力充值'];
+// 新的套餐界面不再使用标签切换，而是统一展示

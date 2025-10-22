@@ -15,7 +15,6 @@ import ProcessingPage from '../components/ProcessingPage';
 import LoginModal from '../components/LoginModal';
 import RegisterModal from '../components/RegisterModal';
 import { ProcessingMethod } from '../lib/processing';
-import { PricingTab } from '../lib/pricing';
 import {
   authenticate,
   clearPersistedSession,
@@ -70,7 +69,6 @@ export default function Home() {
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [showPricingModal, setShowPricingModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<PricingTab>('包月会员');
   const [currentPage, setCurrentPage] = useState<PageState>('home');
   const [promptInstruction, setPromptInstruction] = useState<string>('');
   const [patternType, setPatternType] = useState<string>('general');
@@ -401,8 +399,6 @@ export default function Home() {
   const renderPricingModal = () =>
     showPricingModal ? (
       <PricingModal
-        activeTab={activeTab}
-        onChangeTab={setActiveTab}
         onClose={() => setShowPricingModal(false)}
       />
     ) : null;
