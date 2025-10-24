@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.services.ai_client.gemini_client import GeminiClient
 from app.services.ai_client.gpt4o_client import GPT4oClient
 from app.services.ai_client.apyi_gemini_client import ApyiGeminiClient
+from app.services.ai_client.apyi_openai_client import ApyiOpenAIClient
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,7 @@ class ImageProcessingUtils:
         self.gemini_client = GeminiClient()
         self.gpt4o_client = GPT4oClient()
         self.apyi_gemini_client = ApyiGeminiClient()
+        self.apyi_openai_client = ApyiOpenAIClient()
     
     async def seamless_pattern_conversion(
         self,
@@ -110,7 +112,7 @@ class ImageProcessingUtils:
             # 通用类型（默认）
             prompt = (
                 "从提供的图片中严格提取图案，准确识别并完整还原图案、纹理、位置等设计元素，确保没有任何遗漏或扭曲。去除褶皱。亮丽的颜色别丢掉了。还原为填充整个画面的平面印刷图像。花位不要铺太大了。"
-                "请根据要求提取图案，并生成高质量图片",
+                "请根据要求提取图案，并生成高质量图片"
             )
 
         # 提取分辨率参数
@@ -118,10 +120,10 @@ class ImageProcessingUtils:
         width = options.get("width")
         height = options.get("height")
 
-        # 精细效果类型使用GPT-4o模型，生成2张图片
+        # 精细效果类型使用Apyi OpenAI模型，生成2张图片
         if pattern_type == "fine":
-            result = await self.gpt4o_client.process_image(image_bytes, prompt, "image/png", n=2)
-            image_urls = self.gpt4o_client._extract_image_urls(result)
+            result = await self.apyi_openai_client.generate_image(prompt, n=2, size=f"{width}x{height}")
+            image_urls = self.apyi_openai_client._extract_image_urls(result)
             # 返回逗号分隔的URL字符串
             return ",".join(image_urls)
         else:
