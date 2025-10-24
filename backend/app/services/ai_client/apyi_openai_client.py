@@ -70,8 +70,9 @@ class ApyiOpenAIClient(BaseAIClient):
         self,
         prompt: str,
         n: int = 1,
-        size: str = "1024x1024",
-        response_format: str = "url"
+        size: Optional[str] = "1024x1024",
+        response_format: Optional[str] = None,
+        model: str = "gpt-image-1",
     ) -> Dict[str, Any]:
         """
         使用OpenAI兼容API生成图像
@@ -79,8 +80,9 @@ class ApyiOpenAIClient(BaseAIClient):
         Args:
             prompt: 生成指令文本
             n: 生成的图像数量，默认为1，最大为10
-            size: 输出图像尺寸，支持 256x256、512x512、1024x1024
-            response_format: 返回格式，url（默认）或 b64_json
+            size: 输出图像尺寸，支持 256x256、512x512、1024x1024，None 表示使用服务默认值
+            response_format: 返回格式，可选值如 url 或 b64_json，None 表示使用服务默认值
+            model: 使用的图像生成模型，默认 gpt-image-1
 
         Returns:
             API响应数据
@@ -90,12 +92,22 @@ class ApyiOpenAIClient(BaseAIClient):
         data = {
             "prompt": prompt,
             "n": n,
-            "size": size,
-            "response_format": response_format
+            "model": model,
         }
 
+        if size:
+            data["size"] = size
+        if response_format:
+            data["response_format"] = response_format
+
         logger.info(f"Generating image with Apyi OpenAI: {prompt[:100]}...")
-        logger.info(f"Parameters: n={n}, size={size}, response_format={response_format}")
+        logger.info(
+            "Parameters: n=%s, size=%s, model=%s, response_format=%s",
+            n,
+            size,
+            model,
+            response_format,
+        )
 
         return await self._make_request("POST", endpoint, data)
 

@@ -120,9 +120,39 @@ class ImageProcessingUtils:
         width = options.get("width")
         height = options.get("height")
 
+        def _coerce_positive_int(value: Any) -> Optional[int]:
+            try:
+                value_int = int(value)
+            except (TypeError, ValueError):
+                return None
+            return value_int if value_int > 0 else None
+
+        def _build_size() -> str:
+            """Return OpenAI size string when width/height valid."""
+            width_value = _coerce_positive_int(width)
+            height_value = _coerce_positive_int(height)
+
+            if width_value and height_value:
+                return f"{width_value}x{height_value}"
+
+            size_option = options.get("size")
+            if isinstance(size_option, str) and "x" in size_option:
+                return size_option
+
+            return "1024x1024"
+
         # 精细效果类型使用Apyi OpenAI模型，生成2张图片
         if pattern_type == "fine":
-            result = await self.apyi_openai_client.generate_image(prompt, n=2, size=f"{width}x{height}")
+            size = _build_size()
+            model_option = options.get("model")
+            model = model_option.strip() if isinstance(model_option, str) and model_option.strip() else "gpt-image-1"
+
+            result = await self.apyi_openai_client.generate_image(
+                prompt,
+                n=2,
+                size=size,
+                model=model,
+            )
             image_urls = self.apyi_openai_client._extract_image_urls(result)
             # 返回逗号分隔的URL字符串
             return ",".join(image_urls)

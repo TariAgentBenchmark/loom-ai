@@ -170,9 +170,19 @@ class BaseAIClient:
     def _extract_image_url(self, api_response: Dict[str, Any]) -> str:
         """从API响应中提取图片URL"""
         try:
-            # GPT-4o响应格式
+            # GPT-4o / OpenAI兼容响应格式
             if "data" in api_response and isinstance(api_response["data"], list):
-                return api_response["data"][0]["url"]
+                first_item = api_response["data"][0] if api_response["data"] else None
+                if isinstance(first_item, dict):
+                    url = first_item.get("url")
+                    if isinstance(url, str):
+                        return url
+
+                    # 处理base64格式的响应
+                    for key in ("b64_json", "b64_bytes", "base64", "image_base64"):
+                        base64_value = first_item.get(key)
+                        if isinstance(base64_value, str):
+                            return self._save_base64_image(base64_value)
 
             # Gemini响应格式 (需要根据实际响应调整)
             if "candidates" in api_response:
@@ -218,7 +228,22 @@ class BaseAIClient:
         try:
             # GPT-4o响应格式 - 返回多张图片
             if "data" in api_response and isinstance(api_response["data"], list):
-                return [item["url"] for item in api_response["data"]]
+                urls: List[str] = []
+                for item in api_response["data"]:
+                    if not isinstance(item, dict):
+                        continue
+                    url = item.get("url")
+                    if isinstance(url, str):
+                        urls.append(url)
+                        continue
+                    # 处理base64图像
+                    for key in ("b64_json", "b64_bytes", "base64", "image_base64"):
+                        base64_value = item.get(key)
+                        if isinstance(base64_value, str):
+                            urls.append(self._save_base64_image(base64_value))
+                            break
+                if urls:
+                    return urls
 
             # Gemini响应格式 - 目前只支持单张
             if "candidates" in api_response:
