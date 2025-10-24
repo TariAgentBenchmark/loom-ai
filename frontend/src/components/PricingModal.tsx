@@ -40,7 +40,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose }) => {
       const response = await fetch('/api/v1/membership/public/packages');
       console.log('API响应状态:', response.status, response.statusText);
       if (response.ok) {
-        const data = await response.json();
+        const data: Package[] = await response.json();
         console.log('获取到套餐数据:', data.length, '个套餐');
         console.log('会员套餐:', data.filter(pkg => pkg.category === 'membership').length);
         console.log('优惠套餐:', data.filter(pkg => pkg.category === 'discount').length);
