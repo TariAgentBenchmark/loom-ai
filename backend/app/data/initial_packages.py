@@ -21,8 +21,6 @@ MEMBERSHIP_PACKAGES = [
             "积分永不过期",
             "可退款（需扣除充值原金额的20%，赠送积分不参与退款）"
         ],
-        "popular": True,
-        "recommended": True,
         "sort_order": 1
     },
     {
@@ -40,7 +38,6 @@ MEMBERSHIP_PACKAGES = [
             "积分永不过期",
             "可退款（需扣除充值原金额的20%，赠送积分不参与退款）"
         ],
-        "popular": True,
         "sort_order": 2
     },
     {
@@ -58,6 +55,8 @@ MEMBERSHIP_PACKAGES = [
             "积分永不过期",
             "可退款（需扣除充值原金额的20%，赠送积分不参与退款）"
         ],
+        "popular": True,
+        "recommended": True,
         "sort_order": 3
     },
     {
