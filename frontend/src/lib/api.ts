@@ -393,6 +393,13 @@ export interface DownloadResult {
   filename: string;
 }
 
+export interface ServiceCostResponse {
+  service_key: string;
+  quantity: number;
+  total_cost: number;
+  unit_cost: number;
+}
+
 export const login = (payload: LoginPayload) =>
   postJson<LoginResult, { identifier: string; password: string; remember_me: boolean }>(
     "/auth/login",
@@ -506,6 +513,36 @@ export const downloadProcessingResult = async (
   const filename = filenameMatch?.[1] ?? `${taskId}.${format}`;
 
   return { blob, filename };
+};
+
+export const getServiceCost = async (
+  serviceKey: string,
+  accessToken: string,
+  quantity = 1,
+) => {
+  const params = new URLSearchParams({
+    service_key: serviceKey,
+    quantity: Math.max(1, quantity).toString(),
+  });
+
+  try {
+    const response = await performAuthenticatedRequest(
+      (token) =>
+        fetch(`${API_BASE_URL}/membership/service-cost?${params.toString()}`, {
+          method: "GET",
+          headers: withAuthHeader(undefined, token),
+        }),
+      accessToken,
+    );
+
+    const ensured = await ensureSuccess(response);
+    return jsonResponse<ServiceCostResponse>(ensured);
+  } catch (err) {
+    const message = (err instanceof Error && err.message === 'Failed to fetch')
+      ? '网络连接异常或被浏览器拦截，请稍后重试'
+      : (err as Error)?.message ?? '请求失败';
+    throw new Error(message);
+  }
 };
 
 export const getApiBaseUrl = () => API_BASE_URL;

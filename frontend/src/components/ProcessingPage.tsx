@@ -1,12 +1,31 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { History, Eye } from 'lucide-react';
 import { ProcessingMethod, getProcessingMethodInfo, isAIModelMethod } from '../lib/processing';
-import { resolveFileUrl, HistoryTask } from '../lib/api';
+import { resolveFileUrl, HistoryTask, getServiceCost } from '../lib/api';
 import HistoryList from './HistoryList';
 import ImagePreview from './ImagePreview';
 import ProcessedImagePreview from './ProcessedImagePreview';
+
+const SERVICE_PRICE_FALLBACKS: Record<ProcessingMethod, number> = {
+  prompt_edit: 0.5,
+  style: 2.5,
+  embroidery: 0.7,
+  extract_pattern: 1.5,
+  watermark_removal: 0.9,
+  noise_removal: 0.5,
+  upscale: 0.9,
+};
+
+const formatCredits = (value: number) => {
+  if (Number.isInteger(value)) {
+    return value.toString();
+  }
+
+  const formatted = value.toFixed(2).replace(/\.00$/, '');
+  return formatted.replace(/(\.\d*[1-9])0$/, '$1');
+};
 
 interface ProcessingPageProps {
   method: ProcessingMethod;
@@ -65,6 +84,9 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   const [processedImagePreview, setProcessedImagePreview] = useState<{url: string, filename: string} | null>(null);
   const isPromptReady = method !== 'prompt_edit' || Boolean(promptInstruction?.trim());
   const isActionDisabled = !hasUploadedImage || isProcessing || !isPromptReady;
+  const fallbackCredits = SERVICE_PRICE_FALLBACKS[method];
+  const [serviceCredits, setServiceCredits] = useState<number | null>(fallbackCredits ?? null);
+  const [isLoadingServiceCost, setIsLoadingServiceCost] = useState(false);
   const upscaleOptions: { value: 'meitu_v2'; label: string; description: string }[] = [
     {
       value: 'meitu_v2',
@@ -72,6 +94,40 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
       description: '超清V2模式，追求稳定还原与高保真，适合对原图还原度要求高的场景。',
     },
   ];
+
+  useEffect(() => {
+    let isMounted = true;
+    setServiceCredits(fallbackCredits ?? null);
+
+    if (!accessToken) {
+      setIsLoadingServiceCost(false);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    setIsLoadingServiceCost(true);
+    getServiceCost(method, accessToken)
+      .then((response) => {
+        if (!isMounted) return;
+        const resolved = response.unit_cost ?? response.total_cost ?? fallbackCredits ?? null;
+        setServiceCredits(resolved);
+      })
+      .catch((error) => {
+        if (!isMounted) return;
+        console.warn(`获取服务价格失败: ${method}`, error);
+        setServiceCredits((prev) => prev ?? fallbackCredits ?? null);
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoadingServiceCost(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [method, accessToken, fallbackCredits]);
 
   const handlePromptTemplateSelect = (template: string) => {
     if (onPromptInstructionChange) {
@@ -182,6 +238,15 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
           </div>
 
           <div className="mb-4 md:mb-6">
+            <div className="mb-3">
+              <div className="w-full rounded-lg md:rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-center text-xs md:text-sm text-blue-700">
+                {isLoadingServiceCost
+                  ? '价格加载中…'
+                  : serviceCredits !== null
+                    ? `${formatCredits(serviceCredits)} 积分/次（失败不扣积分）`
+                    : '价格暂不可用，请稍后重试'}
+              </div>
+            </div>
             <button
               onClick={onProcessImage}
               disabled={isActionDisabled}
