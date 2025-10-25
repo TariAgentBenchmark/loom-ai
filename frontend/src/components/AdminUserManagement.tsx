@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   adminGetUsers,
@@ -27,6 +27,13 @@ interface FilterOptions {
   sort_order: string;
 }
 
+const defaultFilters: FilterOptions = {
+  status_filter: "",
+  email_filter: "",
+  sort_by: "created_at",
+  sort_order: "desc",
+};
+
 const AdminUserManagement: React.FC = () => {
   const router = useRouter();
   const accessToken = useAdminAccessToken();
@@ -39,53 +46,49 @@ const AdminUserManagement: React.FC = () => {
     total: 0,
     totalPages: 0,
   });
-  const [filters, setFilters] = useState<FilterOptions>({
-    status_filter: "",
-    email_filter: "",
-    sort_by: "created_at",
-    sort_order: "desc",
-  });
+  const [filters, setFilters] = useState<FilterOptions>({ ...defaultFilters });
+  const [activeFilters, setActiveFilters] = useState<FilterOptions>({ ...defaultFilters });
   const [showFilters, setShowFilters] = useState(false);
 
-  const fetchUsers = async (page = 1) => {
-    if (!accessToken) return;
+  const fetchUsers = useCallback(
+    async (page = 1, overrides?: FilterOptions) => {
+      if (!accessToken) return;
 
-    try {
-      setLoading(true);
-      const response = await adminGetUsers(accessToken, {
-        page,
-        page_size: pagination.limit,
-        ...filters,
-      });
-      setUsers(response.data.users);
-      setPagination(response.data.pagination);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "获取用户列表失败");
-    } finally {
-      setLoading(false);
-    }
-  };
+      try {
+        setLoading(true);
+        const response = await adminGetUsers(accessToken, {
+          page,
+          page_size: pagination.limit,
+          ...(overrides ?? activeFilters),
+        });
+        setUsers(response.data.users);
+        setPagination(response.data.pagination);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "获取用户列表失败");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [accessToken, activeFilters, pagination.limit]
+  );
 
   useEffect(() => {
     fetchUsers();
-  }, [accessToken]);
+  }, [fetchUsers]);
 
   const handleFilterChange = (key: keyof FilterOptions, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
   const applyFilters = () => {
-    fetchUsers(1);
+    setActiveFilters(filters);
+    fetchUsers(1, filters);
   };
 
   const clearFilters = () => {
-    setFilters({
-      status_filter: "",
-      email_filter: "",
-      sort_by: "created_at",
-      sort_order: "desc",
-    });
-    fetchUsers(1);
+    setFilters({ ...defaultFilters });
+    setActiveFilters({ ...defaultFilters });
+    fetchUsers(1, { ...defaultFilters });
   };
 
   const handlePageChange = (newPage: number) => {
