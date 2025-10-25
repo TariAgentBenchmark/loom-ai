@@ -107,7 +107,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose, isLoggedIn = false
     ));
   };
 
-  const renderPackageGrid = (pkgList: Package[]) => {
+  const renderPackageGrid = (pkgList: PackageData[]) => {
     if (pkgList.length === 0) {
       return (
         <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center text-gray-500">
