@@ -400,6 +400,11 @@ export default function Home() {
     showPricingModal ? (
       <PricingModal
         onClose={() => setShowPricingModal(false)}
+        isLoggedIn={isLoggedIn}
+        onLogin={() => {
+          setShowPricingModal(false);
+          setShowLoginModal(true);
+        }}
       />
     ) : null;
 

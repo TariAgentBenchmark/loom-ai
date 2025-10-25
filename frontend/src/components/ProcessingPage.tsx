@@ -130,12 +130,14 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
           </div>
 
           <div className="flex items-center space-x-2 md:space-x-4">
-            <button
-              onClick={onOpenPricingModal}
-              className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all shadow-sm"
-            >
-              套餐充值
-            </button>
+            {accessToken && (
+              <button
+                onClick={onOpenPricingModal}
+                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all shadow-sm"
+              >
+                套餐充值
+              </button>
+            )}
           </div>
         </div>
       </header>

@@ -136,12 +136,14 @@ const HomeView: React.FC<HomeViewProps> = ({
           </div>
 
           <div className="flex items-center space-x-2 md:space-x-4">
-            <button
-              onClick={onOpenPricingModal}
-              className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all shadow-sm"
-            >
-              套餐充值
-            </button>
+            {isLoggedIn && (
+              <button
+                onClick={onOpenPricingModal}
+                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all shadow-sm"
+              >
+                套餐充值
+              </button>
+            )}
 
             {isLoggedIn ? (
               <>
@@ -266,16 +268,18 @@ const HomeView: React.FC<HomeViewProps> = ({
                           <Download className="h-4 w-4" />
                           <span>批量下载</span>
                         </button>
-                        <button
-                          onClick={() => {
-                            setShowUserMenu(false);
-                            onOpenPricingModal();
-                          }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                        >
-                          <Crown className="h-4 w-4" />
-                          <span>套餐充值</span>
-                        </button>
+                        {isLoggedIn && (
+                          <button
+                            onClick={() => {
+                              setShowUserMenu(false);
+                              onOpenPricingModal();
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                          >
+                            <Crown className="h-4 w-4" />
+                            <span>套餐充值</span>
+                          </button>
+                        )}
                         <hr className="my-2" />
                         {onLogout && (
                           <button
@@ -391,16 +395,18 @@ const HomeView: React.FC<HomeViewProps> = ({
                   快捷操作
                 </h3>
                 <div className="space-y-2">
-                  <button
-                    onClick={() => {
-                      onOpenPricingModal();
-                      setSidebarOpen(false);
-                    }}
-                    className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white p-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center space-x-2"
-                  >
-                    <Crown className="h-3 w-3" />
-                    <span>充值算力</span>
-                  </button>
+                  {isLoggedIn && (
+                    <button
+                      onClick={() => {
+                        onOpenPricingModal();
+                        setSidebarOpen(false);
+                      }}
+                      className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white p-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center space-x-2"
+                    >
+                      <Crown className="h-3 w-3" />
+                      <span>充值算力</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       setShowHistory(true);
@@ -477,13 +483,15 @@ const HomeView: React.FC<HomeViewProps> = ({
               快捷操作
             </h3>
             <div className="space-y-2">
-              <button
-                onClick={onOpenPricingModal}
-                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white p-2 md:p-3 rounded-lg text-xs md:text-sm font-medium transition-all flex items-center justify-center space-x-2"
-              >
-                <Crown className="h-3 w-3 md:h-4 md:w-4" />
-                <span>充值算力</span>
-              </button>
+              {isLoggedIn && (
+                <button
+                  onClick={onOpenPricingModal}
+                  className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white p-2 md:p-3 rounded-lg text-xs md:text-sm font-medium transition-all flex items-center justify-center space-x-2"
+                >
+                  <Crown className="h-3 w-3 md:h-4 md:w-4" />
+                  <span>充值算力</span>
+                </button>
+              )}
               <button
                 onClick={() => setShowHistory(true)}
                 className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 md:p-3 rounded-lg text-xs md:text-sm font-medium transition-all flex items-center justify-center space-x-2"

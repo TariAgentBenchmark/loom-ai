@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import PaymentModal from './PaymentModal';
 
 interface Package {
   id: number;
@@ -31,6 +32,9 @@ const MembershipPricingModal: React.FC<MembershipPricingModalProps> = ({ onClose
   const [activeTab, setActiveTab] = useState<'membership' | 'discount'>('membership');
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [currentOrder, setCurrentOrder] = useState<any>(null);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'wechat' | 'alipay'>('wechat');
 
   useEffect(() => {
     fetchPackages();
@@ -54,9 +58,43 @@ const MembershipPricingModal: React.FC<MembershipPricingModalProps> = ({ onClose
   const discountPackages = packages.filter(pkg => pkg.category === 'discount');
 
   const handlePurchase = async (packageId: string) => {
-    // 这里实现购买逻辑
-    console.log('购买套餐:', packageId);
-    // 实际实现中会调用支付API
+    try {
+      console.log('开始购买套餐:', packageId);
+
+      // 创建订单
+      const response = await fetch('/api/v1/payment/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          package_id: packageId,
+          payment_method: selectedPaymentMethod,
+          quantity: 1
+        }),
+      });
+
+      if (response.ok) {
+        const orderData = await response.json();
+        console.log('订单创建成功:', orderData);
+
+        setCurrentOrder(orderData.data);
+        setShowPaymentModal(true);
+      } else {
+        const errorData = await response.json();
+        alert(`创建订单失败: ${errorData.detail || '未知错误'}`);
+      }
+    } catch (error) {
+      console.error('购买失败:', error);
+      alert('购买失败，请稍后重试');
+    }
+  };
+
+  const handlePaymentSuccess = () => {
+    // 支付成功后的处理
+    console.log('支付成功，刷新用户信息');
+    // 这里可以刷新用户积分等信息
+    alert('支付成功！积分已到账');
   };
 
   if (loading) {
@@ -102,8 +140,37 @@ const MembershipPricingModal: React.FC<MembershipPricingModalProps> = ({ onClose
                   : 'text-gray-600 hover:text-blue-600 border-transparent hover:border-blue-600'
               }`}
             >
-              优惠套餐
+              积分套餐
             </button>
+          </div>
+
+          {/* 支付方式选择 */}
+          <div className="mt-4">
+            <div className="text-sm font-medium text-gray-700 mb-2">支付方式</div>
+            <div className="flex gap-4">
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="wechat"
+                  checked={selectedPaymentMethod === 'wechat'}
+                  onChange={(e) => setSelectedPaymentMethod(e.target.value as 'wechat' | 'alipay')}
+                  className="mr-2"
+                />
+                微信支付
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="alipay"
+                  checked={selectedPaymentMethod === 'alipay'}
+                  onChange={(e) => setSelectedPaymentMethod(e.target.value as 'wechat' | 'alipay')}
+                  className="mr-2"
+                />
+                支付宝
+              </label>
+            </div>
           </div>
         </div>
 
@@ -164,7 +231,7 @@ const MembershipPricingModal: React.FC<MembershipPricingModalProps> = ({ onClose
 
           {activeTab === 'discount' && (
             <div>
-              <h3 className="text-xl font-bold text-gray-900 mb-4">💰 优惠套餐</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-4">💰 积分套餐</h3>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {discountPackages.map((pkg) => (
                   <div
@@ -225,6 +292,15 @@ const MembershipPricingModal: React.FC<MembershipPricingModalProps> = ({ onClose
           </div>
         </div>
       </div>
+
+      {/* 支付弹窗 */}
+      {showPaymentModal && currentOrder && (
+        <PaymentModal
+          orderInfo={currentOrder}
+          onClose={() => setShowPaymentModal(false)}
+          onPaymentSuccess={handlePaymentSuccess}
+        />
+      )}
     </div>
   );
 };
