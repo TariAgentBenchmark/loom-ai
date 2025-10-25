@@ -1,27 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import PaymentModal from './PaymentModal';
-
-interface Package {
-  id: number;
-  package_id: string;
-  name: string;
-  category: string;
-  description: string;
-  price_yuan: number;
-  bonus_credits: number;
-  total_credits: number;
-  refund_policy: string;
-  refund_deduction_rate: number;
-  privileges: string[];
-  popular: boolean;
-  recommended: boolean;
-  sort_order: number;
-  credits_per_yuan: number;
-  is_refundable: boolean;
-  refund_amount_yuan: number;
-}
+import {
+  membershipPackages as membershipPackageData,
+  discountPackages as discountPackageData,
+  PackageData,
+} from '../data/packages';
 
 interface PricingModalProps {
   onClose: () => void;
@@ -29,63 +14,49 @@ interface PricingModalProps {
   onLogin?: () => void;
 }
 
+const TABS: Array<{ key: 'membership' | 'discount'; label: string }> = [
+  { key: 'membership', label: '会员套餐' },
+  { key: 'discount', label: '积分套餐' },
+];
+
+const PAYMENT_ICON_URLS: Record<'wechat' | 'alipay', string> = {
+  wechat: 'https://cdn.jsdelivr.net/npm/simple-icons@11.3.0/icons/wechat.svg',
+  alipay: 'https://cdn.jsdelivr.net/npm/simple-icons@11.3.0/icons/alipay.svg',
+};
+
+const PaymentIcon = ({ type }: { type: 'wechat' | 'alipay' }) => (
+  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-50">
+    <img
+      src={PAYMENT_ICON_URLS[type]}
+      alt={type === 'wechat' ? '微信' : '支付宝'}
+      className="h-6 w-6 object-contain"
+      loading="lazy"
+    />
+  </span>
+);
+
 const PricingModal: React.FC<PricingModalProps> = ({ onClose, isLoggedIn = false, onLogin }) => {
   const [activeTab, setActiveTab] = useState<'membership' | 'discount'>('membership');
-  const [packages, setPackages] = useState<Package[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [currentOrder, setCurrentOrder] = useState<any>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'wechat' | 'alipay'>('wechat');
+  const [showMethodSelector, setShowMethodSelector] = useState(false);
+  const [pendingPackage, setPendingPackage] = useState<PackageData | null>(null);
 
-  useEffect(() => {
-    fetchPackages();
-  }, []);
+  const membershipPackages = membershipPackageData;
+  const discountPackages = discountPackageData;
 
-  const fetchPackages = async () => {
+  const handlePurchase = async (packageId: string, paymentMethod: 'wechat' | 'alipay') => {
     try {
-      console.log('开始获取套餐数据...');
-      const response = await fetch('/api/v1/membership/public/packages');
-      console.log('API响应状态:', response.status, response.statusText);
-      if (response.ok) {
-        const data: Package[] = await response.json();
-        console.log('获取到套餐数据:', data.length, '个套餐');
-        console.log('会员套餐:', data.filter(pkg => pkg.category === 'membership').length);
-        console.log('优惠套餐:', data.filter(pkg => pkg.category === 'discount').length);
-        setPackages(data);
-      } else {
-        console.error('获取套餐失败:', response.status, response.statusText);
-      }
-    } catch (error) {
-      console.error('获取套餐失败:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const membershipPackages = packages.filter(pkg => pkg.category === 'membership');
-  const discountPackages = packages.filter(pkg => pkg.category === 'discount');
-
-  const handlePurchase = async (packageId: string) => {
-    try {
-      console.log('开始购买套餐:', packageId);
-
-      // 创建订单
       const response = await fetch('/api/v1/payment/orders', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          package_id: packageId,
-          payment_method: selectedPaymentMethod,
-          quantity: 1
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ package_id: packageId, payment_method: paymentMethod, quantity: 1 }),
       });
 
       if (response.ok) {
         const orderData = await response.json();
-        console.log('订单创建成功:', orderData);
-
+        setSelectedPaymentMethod(paymentMethod);
         setCurrentOrder(orderData.data);
         setShowPaymentModal(true);
       } else {
@@ -99,33 +70,116 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose, isLoggedIn = false
   };
 
   const handlePaymentSuccess = () => {
-    // 支付成功后的处理
-    console.log('支付成功，刷新用户信息');
-    // 这里可以刷新用户积分等信息
     alert('支付成功！积分已到账');
+  };
+
+  const requestPaymentMethod = (pkg: PackageData) => {
+    setPendingPackage(pkg);
+    setShowMethodSelector(true);
+  };
+
+  const handleSelectPaymentMethod = (method: 'wechat' | 'alipay') => {
+    if (!pendingPackage) return;
+    setShowMethodSelector(false);
+    handlePurchase(pendingPackage.package_id, method);
+  };
+
+  const formatPrice = (value: number) => {
+    if (value === 0) return '¥0';
+    return `¥${value.toLocaleString()}`;
+  };
+
+  const renderPrivileges = (privileges: string[]) => {
+    if (!privileges || privileges.length === 0) {
+      return (
+        <div className="flex items-center text-sm text-gray-600">
+          <span className="mr-2 text-green-500">✓</span>
+          <span>购买后立即生效，随时可用</span>
+        </div>
+      );
+    }
+
+    return privileges.map((privilege, index) => (
+      <div key={`${privilege}-${index}`} className="flex items-center text-sm text-gray-600">
+        <span className="mr-2 text-green-500">✓</span>
+        <span>{privilege}</span>
+      </div>
+    ));
+  };
+
+  const renderPackageGrid = (pkgList: Package[]) => {
+    if (pkgList.length === 0) {
+      return (
+        <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center text-gray-500">
+          暂无可购买的套餐
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+        {pkgList.map((pkg, index) => {
+          const isHighlighted = pkg.recommended || pkg.popular || index === 0;
+          return (
+            <div
+              key={pkg.id}
+              className={`relative flex h-full flex-col rounded-2xl border bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
+                isHighlighted ? 'border-blue-300 ring-1 ring-blue-200' : 'border-gray-200'
+              }`}
+            >
+              {(pkg.popular || pkg.recommended) && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-red-500 to-orange-500 px-4 py-1 text-xs font-semibold text-white shadow">
+                  推荐
+                </div>
+              )}
+
+              <div className="text-center flex flex-col flex-1">
+                <p className="text-sm text-gray-500">{pkg.category === 'membership' ? '会员长效权益' : '积分灵活使用'}</p>
+                <h4 className="mt-2 text-2xl font-bold text-gray-900">{pkg.name}</h4>
+                <div className="mt-4 flex flex-col items-center space-y-1">
+                  <span className="text-4xl font-extrabold text-gray-900">{formatPrice(pkg.price_yuan)}</span>
+                  <span className="text-sm text-gray-500">
+                    赠送 {pkg.bonus_credits.toLocaleString()} 积分 · 实得 {pkg.total_credits.toLocaleString()} 积分
+                  </span>
+                  <span className="text-sm font-medium text-green-600">每元 {pkg.credits_per_yuan.toFixed(2)} 积分</span>
+                </div>
+                <div className="mt-6 space-y-2 text-left w-full">{renderPrivileges(pkg.privileges)}</div>
+              </div>
+
+              <button
+                onClick={() => requestPaymentMethod(pkg)}
+                className="mt-6 w-full rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 py-3 text-base font-semibold text-white shadow hover:from-blue-600 hover:to-blue-700"
+              >
+                立即开通
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    );
   };
 
   if (!isLoggedIn) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-xl p-8 max-w-md w-full mx-4">
-          <div className="text-center">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">需要登录</h3>
-            <p className="text-gray-600 mb-6">请先登录后再查看套餐信息</p>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+        <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-xl">
+          <h3 className="text-xl font-bold text-gray-900">需要登录</h3>
+          <p className="mt-2 text-sm text-gray-600">请先登录后再查看套餐信息</p>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
             {onLogin && (
               <button
                 onClick={() => {
                   onClose();
                   onLogin();
                 }}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition"
+                className="rounded-lg bg-blue-600 px-6 py-2 text-white shadow hover:bg-blue-700"
               >
                 去登录
               </button>
             )}
             <button
               onClick={onClose}
-              className="ml-4 bg-gray-300 hover:bg-gray-400 text-gray-700 px-6 py-3 rounded-lg font-medium transition"
+              className="rounded-lg bg-gray-100 px-6 py-2 text-gray-700 shadow hover:bg-gray-200"
             >
               取消
             </button>
@@ -135,208 +189,111 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose, isLoggedIn = false
     );
   }
 
-  if (loading) {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-xl p-8">
-          <div className="text-center">加载中...</div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 md:p-4">
-      <div className="bg-white rounded-xl md:rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-4 md:px-8 py-4 md:py-6 rounded-t-xl md:rounded-t-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-3 py-6">
+      <div className="flex w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="border-b border-gray-100 px-6 py-5 md:px-10 md:py-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg md:text-2xl font-bold text-gray-900">会员套餐充值</h2>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-500">选择套餐</p>
+              <h2 className="mt-1 text-2xl font-bold text-gray-900">会员 / 积分套餐</h2>
+            </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 text-xl md:text-2xl font-light"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-lg text-gray-500 transition hover:bg-gray-200"
             >
               ×
             </button>
           </div>
 
-          <div className="flex gap-8 mt-6">
-            <button
-              onClick={() => setActiveTab('membership')}
-              className={`pb-2 border-b-2 transition ${
-                activeTab === 'membership'
-                  ? 'text-blue-600 border-blue-600 font-medium'
-                  : 'text-gray-600 hover:text-blue-600 border-transparent hover:border-blue-600'
-              }`}
-            >
-              会员套餐
-            </button>
-            <button
-              onClick={() => setActiveTab('discount')}
-              className={`pb-2 border-b-2 transition ${
-                activeTab === 'discount'
-                  ? 'text-blue-600 border-blue-600 font-medium'
-                  : 'text-gray-600 hover:text-blue-600 border-transparent hover:border-blue-600'
-              }`}
-            >
-              积分套餐
-            </button>
+          <div className="mt-6 flex flex-wrap gap-3">
+            {TABS.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`rounded-full px-5 py-2 text-sm font-medium transition ${
+                  activeTab === tab.key
+                    ? 'bg-blue-600 text-white shadow'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
 
-          {/* 支付方式选择 */}
-          <div className="mt-4">
-            <div className="text-sm font-medium text-gray-700 mb-2">支付方式</div>
-            <div className="flex gap-4">
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="wechat"
-                  checked={selectedPaymentMethod === 'wechat'}
-                  onChange={(e) => setSelectedPaymentMethod(e.target.value as 'wechat' | 'alipay')}
-                  className="mr-2"
-                />
-                微信支付
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="alipay"
-                  checked={selectedPaymentMethod === 'alipay'}
-                  onChange={(e) => setSelectedPaymentMethod(e.target.value as 'wechat' | 'alipay')}
-                  className="mr-2"
-                />
-                支付宝
-              </label>
-            </div>
-          </div>
+          {/* 支付方式放到下单弹窗内选择 */}
         </div>
 
-        <div className="px-4 md:px-8 py-4 md:py-8">
-
+        <div className="space-y-8 px-6 py-6 md:px-10 md:py-8">
           {activeTab === 'membership' && (
-            <div>
-              <h3 className="text-xl font-bold text-gray-900 mb-4">👑 会员套餐</h3>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {membershipPackages.map((pkg) => (
-                  <div
-                    key={pkg.id}
-                    className={`bg-white rounded-xl p-6 border-2 ${
-                      pkg.popular ? 'border-yellow-400 bg-yellow-50' : 'border-gray-200'
-                    } relative`}
-                  >
-                    {pkg.popular && (
-                      <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                        <span className="bg-yellow-500 text-white px-4 py-1 rounded-full text-sm font-medium">
-                          推荐
-                        </span>
-                      </div>
-                    )}
-
-                    <div className="text-center mb-6">
-                      <h4 className="text-xl font-bold text-gray-900 mb-2">{pkg.name}</h4>
-                      <div className="text-4xl font-bold text-gray-900 mb-2">
-                        ¥{pkg.price_yuan.toLocaleString()}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        赠送 {pkg.bonus_credits.toLocaleString()} 积分 | 实得 {pkg.total_credits.toLocaleString()} 积分
-                      </div>
-                      <div className="text-sm text-green-600 mt-1">
-                        每元获得 {pkg.credits_per_yuan.toFixed(2)} 积分
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => handlePurchase(pkg.package_id)}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium mb-4 transition"
-                    >
-                      立即购买
-                    </button>
-
-                    <div className="space-y-2 text-sm">
-                      {pkg.privileges.map((privilege, index) => (
-                        <div key={index} className="flex items-center">
-                          <span className="text-green-500 mr-2">✓</span>
-                          <span className="text-gray-700">{privilege}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <>
+              <h3 className="text-lg font-semibold text-gray-900">包月会员</h3>
+              {renderPackageGrid(membershipPackages)}
+            </>
           )}
 
           {activeTab === 'discount' && (
-            <div>
-              <h3 className="text-xl font-bold text-gray-900 mb-4">💰 积分套餐</h3>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {discountPackages.map((pkg) => (
-                  <div
-                    key={pkg.id}
-                    className={`bg-white rounded-xl p-6 border-2 ${
-                      pkg.popular ? 'border-yellow-400 bg-yellow-50' : 'border-gray-200'
-                    } relative`}
-                  >
-                    {pkg.popular && (
-                      <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                        <span className="bg-yellow-500 text-white px-4 py-1 rounded-full text-sm font-medium">
-                          推荐
-                        </span>
-                      </div>
-                    )}
-
-                    <div className="text-center mb-6">
-                      <h4 className="text-xl font-bold text-gray-900 mb-2">{pkg.name}</h4>
-                      <div className="text-4xl font-bold text-gray-900 mb-2">
-                        ¥{pkg.price_yuan.toLocaleString()}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        赠送 {pkg.bonus_credits.toLocaleString()} 积分 | 实得 {pkg.total_credits.toLocaleString()} 积分
-                      </div>
-                      <div className="text-sm text-green-600 mt-1">
-                        每元获得 {pkg.credits_per_yuan.toFixed(2)} 积分
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => handlePurchase(pkg.package_id)}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium mb-4 transition"
-                    >
-                      立即购买
-                    </button>
-
-                    <div className="space-y-2 text-sm">
-                      {pkg.privileges.map((privilege, index) => (
-                        <div key={index} className="flex items-center">
-                          <span className="text-green-500 mr-2">✓</span>
-                          <span className="text-gray-700">{privilege}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <>
+              <h3 className="text-lg font-semibold text-gray-900">积分套餐</h3>
+              {renderPackageGrid(discountPackages)}
+            </>
           )}
 
-          {/* 总结说明 */}
-          <div className="mt-8 p-4 bg-gray-50 rounded-lg">
-            <h4 className="text-lg font-semibold text-gray-900 mb-2">📌 总结说明</h4>
-            <ul className="text-sm text-gray-700 space-y-1">
-              <li>• 积分永不过期</li>
-            </ul>
+          <div className="rounded-2xl bg-gray-50 px-6 py-4 text-sm text-gray-600">
+            <p>• 积分永不过期，支付后立即到账，可用于所有 AI 功能。</p>
+            <p>• 交易会同步到账户中心，方便随时查看和开票。</p>
           </div>
         </div>
       </div>
 
-      {/* 支付弹窗 */}
       {showPaymentModal && currentOrder && (
         <PaymentModal
           orderInfo={currentOrder}
           onClose={() => setShowPaymentModal(false)}
           onPaymentSuccess={handlePaymentSuccess}
         />
+      )}
+
+      {showMethodSelector && pendingPackage && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-xl font-bold text-gray-900">选择支付方式</h3>
+            <p className="mt-2 text-sm text-gray-600">{pendingPackage.name}</p>
+            <div className="mt-6 grid grid-cols-1 gap-3">
+              <button
+                onClick={() => handleSelectPaymentMethod('wechat')}
+                className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3 text-base font-semibold text-gray-800 hover:border-blue-400"
+              >
+                <span className="flex items-center gap-3">
+                  <PaymentIcon type="wechat" />
+                  微信支付
+                </span>
+                <span className="text-xs text-gray-400">推荐</span>
+              </button>
+              <button
+                onClick={() => handleSelectPaymentMethod('alipay')}
+                className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3 text-base font-semibold text-gray-800 hover:border-blue-400"
+              >
+                <span className="flex items-center gap-3">
+                  <PaymentIcon type="alipay" />
+                  支付宝
+                </span>
+              </button>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => {
+                  setShowMethodSelector(false);
+                  setPendingPackage(null);
+                }}
+                className="rounded-lg bg-gray-100 px-4 py-2 text-sm text-gray-600 hover:bg-gray-200"
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

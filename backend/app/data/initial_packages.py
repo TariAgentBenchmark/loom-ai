@@ -10,7 +10,7 @@ MEMBERSHIP_PACKAGES = [
         "package_id": "membership_3000",
         "name": "3000元会员套餐",
         "category": PackageCategory.MEMBERSHIP.value,
-        "description": "高性价比会员套餐，适合长期使用",
+        "description": "高性价比会员套餐",
         "price_yuan": 3000,
         "bonus_credits": 400,
         "total_credits": 3400,
