@@ -17,8 +17,10 @@ MEMBERSHIP_PACKAGES = [
         "refund_policy": RefundPolicy.REFUNDABLE.value,
         "refund_deduction_rate": 0.2,  # 退款扣除20%
         "privileges": [
-            "购买全站功能",
-            "积分永不过期"
+            "额外赠送400积分",
+            "畅享全站功能",
+            "积分永不过期",
+            "会员可退款"
         ],
         "sort_order": 1
     },
@@ -33,8 +35,10 @@ MEMBERSHIP_PACKAGES = [
         "refund_policy": RefundPolicy.REFUNDABLE.value,
         "refund_deduction_rate": 0.2,
         "privileges": [
-            "购买全站功能",
-            "积分永不过期"
+            "额外赠送900积分",
+            "畅享全站功能",
+            "积分永不过期",
+            "会员可退款"
         ],
         "sort_order": 2
     },
@@ -49,8 +53,10 @@ MEMBERSHIP_PACKAGES = [
         "refund_policy": RefundPolicy.REFUNDABLE.value,
         "refund_deduction_rate": 0.2,
         "privileges": [
-            "购买全站功能",
-            "积分永不过期"
+            "额外赠送2000积分",
+            "畅享全站功能",
+            "积分永不过期",
+            "会员可退款"
         ],
         "popular": True,
         "recommended": True,
@@ -67,8 +73,10 @@ MEMBERSHIP_PACKAGES = [
         "refund_policy": RefundPolicy.REFUNDABLE.value,
         "refund_deduction_rate": 0.2,
         "privileges": [
-            "购买全站功能",
-            "积分永不过期"
+            "额外赠送3000积分",
+            "畅享全站功能",
+            "积分永不过期",
+            "会员可退款"
         ],
         "sort_order": 4
     },
@@ -88,8 +96,9 @@ DISCOUNT_PACKAGES = [
         "refund_policy": RefundPolicy.NON_REFUNDABLE.value,
         "refund_deduction_rate": 0.0,
         "privileges": [
-            "购买全站功能",
-            "积分永不过期"
+            "畅享全站功能",
+            "积分永不过期",
+            "优惠套餐不可退款"
         ],
         "sort_order": 5
     },
@@ -104,8 +113,10 @@ DISCOUNT_PACKAGES = [
         "refund_policy": RefundPolicy.NON_REFUNDABLE.value,
         "refund_deduction_rate": 0.0,
         "privileges": [
-            "购买全站功能",
-            "积分永不过期"
+            "额外赠送10积分",
+            "畅享全站功能",
+            "积分永不过期",
+            "优惠套餐不可退款"
         ],
         "sort_order": 6
     },
@@ -120,8 +131,10 @@ DISCOUNT_PACKAGES = [
         "refund_policy": RefundPolicy.NON_REFUNDABLE.value,
         "refund_deduction_rate": 0.0,
         "privileges": [
-            "购买全站功能",
-            "积分永不过期"
+            "额外赠送30积分",
+            "畅享全站功能",
+            "积分永不过期",
+            "优惠套餐不可退款"
         ],
         "popular": True,
         "sort_order": 7
@@ -137,8 +150,10 @@ DISCOUNT_PACKAGES = [
         "refund_policy": RefundPolicy.NON_REFUNDABLE.value,
         "refund_deduction_rate": 0.0,
         "privileges": [
-            "购买全站功能",
-            "积分永不过期"
+            "额外赠送50积分",
+            "畅享全站功能",
+            "积分永不过期",
+            "优惠套餐不可退款"
         ],
         "sort_order": 8
     },

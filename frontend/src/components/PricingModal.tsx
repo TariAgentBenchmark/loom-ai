@@ -24,6 +24,14 @@ const PAYMENT_ICON_URLS: Record<'wechat' | 'alipay', string> = {
   alipay: 'https://cdn.jsdelivr.net/npm/simple-icons@11.3.0/icons/alipay.svg',
 };
 
+const TAB_NOTICES: Record<'membership' | 'discount', string[]> = {
+  membership: [
+    '积分永不过期。',
+    '会员充值后使用不满意或者没需求可联系客服人员退款（赠送积分不参与退款）。',
+  ],
+  discount: ['积分永不过期。', '优惠套餐不参与退款政策。'],
+};
+
 const PaymentIcon = ({ type }: { type: 'wechat' | 'alipay' }) => (
   <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-50">
     <img
@@ -138,9 +146,6 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose, isLoggedIn = false
                 <h4 className="mt-2 text-2xl font-bold text-gray-900">{pkg.name}</h4>
                 <div className="mt-4 flex flex-col items-center space-y-1">
                   <span className="text-4xl font-extrabold text-gray-900">{formatPrice(pkg.price_yuan)}</span>
-                  <span className="text-sm text-gray-500">
-                    赠送 {pkg.bonus_credits.toLocaleString()} 积分 · 实得 {pkg.total_credits.toLocaleString()} 积分
-                  </span>
                   <span className="text-sm font-medium text-green-600">每元 {pkg.credits_per_yuan.toFixed(2)} 积分</span>
                 </div>
                 <div className="mt-6 space-y-2 text-left w-full">{renderPrivileges(pkg.privileges)}</div>
@@ -241,8 +246,11 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose, isLoggedIn = false
           )}
 
           <div className="rounded-2xl bg-gray-50 px-6 py-4 text-sm text-gray-600">
-            <p>• 积分永不过期，支付后立即到账，可用于所有 AI 功能。</p>
-            <p>• 交易会同步到账户中心，方便随时查看和开票。</p>
+            {TAB_NOTICES[activeTab].map((notice, index) => (
+              <p key={notice}>
+                {index + 1}. {notice}
+              </p>
+            ))}
           </div>
         </div>
       </div>
