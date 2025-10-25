@@ -74,6 +74,7 @@ export default function Home() {
   const [patternType, setPatternType] = useState<string>('general');
   const [upscaleEngine, setUpscaleEngine] = useState<'meitu_v2'>('meitu_v2');
   const [aspectRatio, setAspectRatio] = useState<string>('');
+  const [historyRefreshToken, setHistoryRefreshToken] = useState(0);
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -306,6 +307,7 @@ export default function Home() {
         clearInterval(currentPoller);
         pollingRef.current = null;
         setSuccessMessage('处理完成，可以下载结果');
+        setHistoryRefreshToken((token) => token + 1);
         return;
       }
 
@@ -444,6 +446,7 @@ export default function Home() {
           onUpscaleEngineChange={setUpscaleEngine}
           aspectRatio={aspectRatio}
           onAspectRatioChange={setAspectRatio}
+          historyRefreshToken={historyRefreshToken}
         />
       ) : (
         <HomeView
@@ -495,6 +498,7 @@ export default function Home() {
           accountSummary={accountSummary}
           onOpenLoginModal={() => setShowLoginModal(true)}
           accessToken={accessToken || undefined}
+          historyRefreshToken={historyRefreshToken}
         />
       )}
 

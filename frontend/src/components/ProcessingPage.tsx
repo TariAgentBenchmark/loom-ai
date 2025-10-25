@@ -51,6 +51,7 @@ interface ProcessingPageProps {
   onUpscaleEngineChange?: (value: 'meitu_v2') => void;
   aspectRatio?: string;
   onAspectRatioChange?: (value: string) => void;
+  historyRefreshToken?: number;
 }
 
 const ProcessingPage: React.FC<ProcessingPageProps> = ({
@@ -77,6 +78,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   onUpscaleEngineChange,
   aspectRatio,
   onAspectRatioChange,
+  historyRefreshToken = 0,
 }) => {
   const info = getProcessingMethodInfo(method);
   const [selectedTask, setSelectedTask] = useState<HistoryTask | null>(null);
@@ -524,7 +526,11 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
             历史记录
           </h3>
           {accessToken ? (
-            <HistoryList accessToken={accessToken} onTaskSelect={handleTaskSelect} />
+            <HistoryList
+              accessToken={accessToken}
+              onTaskSelect={handleTaskSelect}
+              refreshToken={historyRefreshToken}
+            />
           ) : (
             <div className="text-center text-gray-400 py-6 md:py-8">
               <p className="text-xs md:text-sm">请登录后查看历史记录</p>

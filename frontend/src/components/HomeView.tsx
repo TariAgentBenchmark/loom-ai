@@ -39,6 +39,7 @@ interface HomeViewProps {
   accountSummary?: AccountSummary;
   onOpenLoginModal: () => void;
   accessToken?: string;
+  historyRefreshToken?: number;
 }
 
 const formatNumber = (value: number | undefined, fallback: string) =>
@@ -71,6 +72,7 @@ const HomeView: React.FC<HomeViewProps> = ({
   accountSummary,
   onOpenLoginModal,
   accessToken,
+  historyRefreshToken = 0,
 }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -676,6 +678,7 @@ const HomeView: React.FC<HomeViewProps> = ({
                 <HistoryList
                   accessToken={accessToken}
                   onTaskSelect={setSelectedTask}
+                  refreshToken={historyRefreshToken}
                 />
               )}
             </div>
@@ -720,6 +723,7 @@ const HomeView: React.FC<HomeViewProps> = ({
                       accessToken={accessToken}
                       onTaskSelect={setSelectedTask}
                       showBatchSelection={true}
+                      refreshToken={historyRefreshToken}
                     />
                   </div>
                 </div>

@@ -23,9 +23,15 @@ interface HistoryListProps {
   accessToken: string;
   onTaskSelect?: (task: HistoryTask) => void;
   showBatchSelection?: boolean;
+  refreshToken?: number;
 }
 
-const HistoryList: React.FC<HistoryListProps> = ({ accessToken, onTaskSelect, showBatchSelection = false }) => {
+const HistoryList: React.FC<HistoryListProps> = ({
+  accessToken,
+  onTaskSelect,
+  showBatchSelection = false,
+  refreshToken = 0,
+}) => {
   const [tasks, setTasks] = useState<HistoryTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -85,7 +91,7 @@ const HistoryList: React.FC<HistoryListProps> = ({ accessToken, onTaskSelect, sh
   useEffect(() => {
     setPage(1);
     fetchTasks(1, true);
-  }, [fetchTasks]);
+  }, [fetchTasks, refreshToken]);
 
   const loadMore = () => {
     if (!loading && hasMore) {
