@@ -144,9 +144,8 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose, isLoggedIn = false
               <div className="text-center flex flex-col flex-1">
                 <p className="text-sm text-gray-500">{pkg.category === 'membership' ? '会员长效权益' : '积分灵活使用'}</p>
                 <h4 className="mt-2 text-2xl font-bold text-gray-900">{pkg.name}</h4>
-                <div className="mt-4 flex flex-col items-center space-y-1">
+                <div className="mt-4 flex flex-col items-center">
                   <span className="text-4xl font-extrabold text-gray-900">{formatPrice(pkg.price_yuan)}</span>
-                  <span className="text-sm font-medium text-green-600">每元 {pkg.credits_per_yuan.toFixed(2)} 积分</span>
                 </div>
                 <div className="mt-6 space-y-2 text-left w-full">{renderPrivileges(pkg.privileges)}</div>
               </div>

@@ -115,3 +115,10 @@ export const AI_MODEL_METHODS: ProcessingMethod[] = [
 export const isAIModelMethod = (method: ProcessingMethod): boolean => {
   return AI_MODEL_METHODS.includes(method);
 };
+
+// 允许用户自定义分辨率的处理方法
+const RESOLUTION_ENABLED_METHODS: ProcessingMethod[] = ['extract_pattern'];
+
+export const canAdjustResolution = (method: ProcessingMethod): boolean => {
+  return RESOLUTION_ENABLED_METHODS.includes(method);
+};

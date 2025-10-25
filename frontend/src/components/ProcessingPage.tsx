@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { History, Eye } from 'lucide-react';
-import { ProcessingMethod, getProcessingMethodInfo, isAIModelMethod } from '../lib/processing';
+import { ProcessingMethod, getProcessingMethodInfo, canAdjustResolution } from '../lib/processing';
 import { resolveFileUrl, HistoryTask, getServiceCost } from '../lib/api';
 import HistoryList from './HistoryList';
 import ImagePreview from './ImagePreview';
@@ -313,8 +313,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
             </div>
           )}
 
-          {/* 分辨率选择 - 仅在使用AI模型的方法中显示 */}
-          {isAIModelMethod(method) && (
+          {/* 分辨率选择 - 仅在允许自定义分辨率的方法中显示 */}
+          {canAdjustResolution(method) && (
             <div className="mb-4 md:mb-6">
               <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2">分辨率设置</h4>
 

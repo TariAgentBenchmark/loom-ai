@@ -203,9 +203,7 @@ const MembershipPricingModal: React.FC<MembershipPricingModalProps> = ({ onClose
                       <div className="text-sm text-gray-600">
                         赠送 {pkg.bonus_credits} 积分 | 实得 {pkg.total_credits} 积分
                       </div>
-                      <div className="text-sm text-green-600 mt-1">
-                        每元获得 {pkg.credits_per_yuan.toFixed(2)} 积分
-                      </div>
+                      
                     </div>
 
                     <button
@@ -256,9 +254,7 @@ const MembershipPricingModal: React.FC<MembershipPricingModalProps> = ({ onClose
                       <div className="text-sm text-gray-600">
                         赠送 {pkg.bonus_credits} 积分 | 实得 {pkg.total_credits} 积分
                       </div>
-                      <div className="text-sm text-green-600 mt-1">
-                        每元获得 {pkg.credits_per_yuan.toFixed(2)} 积分
-                      </div>
+                      
                     </div>
 
                     <button
