@@ -18,8 +18,7 @@ MEMBERSHIP_PACKAGES = [
         "refund_deduction_rate": 0.2,  # 退款扣除20%
         "privileges": [
             "购买全站功能",
-            "积分永不过期",
-            "可退款（需扣除充值原金额的20%，赠送积分不参与退款）"
+            "积分永不过期"
         ],
         "sort_order": 1
     },
@@ -35,8 +34,7 @@ MEMBERSHIP_PACKAGES = [
         "refund_deduction_rate": 0.2,
         "privileges": [
             "购买全站功能",
-            "积分永不过期",
-            "可退款（需扣除充值原金额的20%，赠送积分不参与退款）"
+            "积分永不过期"
         ],
         "sort_order": 2
     },
@@ -52,8 +50,7 @@ MEMBERSHIP_PACKAGES = [
         "refund_deduction_rate": 0.2,
         "privileges": [
             "购买全站功能",
-            "积分永不过期",
-            "可退款（需扣除充值原金额的20%，赠送积分不参与退款）"
+            "积分永不过期"
         ],
         "popular": True,
         "recommended": True,
@@ -71,16 +68,15 @@ MEMBERSHIP_PACKAGES = [
         "refund_deduction_rate": 0.2,
         "privileges": [
             "购买全站功能",
-            "积分永不过期",
-            "可退款（需扣除充值原金额的20%，赠送积分不参与退款）"
+            "积分永不过期"
         ],
         "sort_order": 4
     },
 ]
 
-# 优惠套餐配置
+# 积分套餐配置
 DISCOUNT_PACKAGES = [
-    # 优惠套餐（不可退款）
+    # 积分套餐（不可退款）
     {
         "package_id": "discount_30",
         "name": "30元优惠套餐",
@@ -93,8 +89,7 @@ DISCOUNT_PACKAGES = [
         "refund_deduction_rate": 0.0,
         "privileges": [
             "购买全站功能",
-            "积分永不过期",
-            "不可退款"
+            "积分永不过期"
         ],
         "sort_order": 5
     },
@@ -110,8 +105,7 @@ DISCOUNT_PACKAGES = [
         "refund_deduction_rate": 0.0,
         "privileges": [
             "购买全站功能",
-            "积分永不过期",
-            "不可退款"
+            "积分永不过期"
         ],
         "sort_order": 6
     },
@@ -127,8 +121,7 @@ DISCOUNT_PACKAGES = [
         "refund_deduction_rate": 0.0,
         "privileges": [
             "购买全站功能",
-            "积分永不过期",
-            "不可退款"
+            "积分永不过期"
         ],
         "popular": True,
         "sort_order": 7
@@ -145,8 +138,7 @@ DISCOUNT_PACKAGES = [
         "refund_deduction_rate": 0.0,
         "privileges": [
             "购买全站功能",
-            "积分永不过期",
-            "不可退款"
+            "积分永不过期"
         ],
         "sort_order": 8
     },
@@ -223,7 +215,7 @@ def get_membership_packages():
 
 
 def get_discount_packages():
-    """获取优惠套餐"""
+    """获取积分套餐"""
     return DISCOUNT_PACKAGES
 
 

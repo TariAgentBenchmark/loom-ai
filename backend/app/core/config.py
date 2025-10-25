@@ -79,6 +79,21 @@ class Settings(BaseSettings):
     stripe_secret_key: Optional[str] = None
     stripe_webhook_secret: Optional[str] = None
 
+    # 微信支付配置
+    wechat_app_id: str = ""
+    wechat_mch_id: str = ""
+    wechat_api_key: str = ""
+    wechat_sandbox: bool = True
+
+    # 支付宝配置
+    alipay_app_id: str = ""
+    alipay_private_key: str = ""
+    alipay_public_key: str = ""
+    alipay_sandbox: bool = True
+
+    # 基础URL配置
+    base_url: str = "http://localhost:8000"
+
     # 邮件配置
     smtp_host: str = "smtp.gmail.com"
     smtp_port: int = 587
