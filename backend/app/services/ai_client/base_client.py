@@ -189,16 +189,32 @@ class BaseAIClient:
                 candidate = api_response["candidates"][0]
 
                 # 检查是否是IMAGE_RECITATION错误
-                if candidate.get("finishReason") == "IMAGE_RECITATION":
+                finish_reason = candidate.get("finishReason")
+                safety_note = self._format_safety_feedback(
+                    candidate.get("safetyRatings"),
+                    api_response.get("promptFeedback", {}).get("safetyRatings")
+                )
+                if finish_reason == "IMAGE_RECITATION":
                     logger.error(
                         "Gemini API returned IMAGE_RECITATION error - model interpreted request as image description instead of generation. "
                         "This usually happens when the prompt is ambiguous. "
                         "Please make sure your prompt explicitly asks to generate a new image."
                     )
                     raise Exception(
-                        "AI模型将请求误解为图片描述而非生成。"
-                        "请确保提示词明确要求生成新图片，例如使用'生成图片'、'创建图片'等明确指令。"
+                        "AI模型将请求误解为图片描述而非生成，未扣除积分，您可以重新尝试。"
                     )
+
+                if finish_reason == "NO_IMAGE":
+                    logger.error(
+                        "Gemini API returned NO_IMAGE finish reason; prompt may not explicitly request image generation. candidate=%s",
+                        candidate
+                    )
+                    message = (
+                        "AI 生成图片异常，请在指令中明确要求“生成新的高清图像/无缝图案”，并描述风格、颜色和构图。"
+                    )
+                    if safety_note:
+                        message += f"（安全提示：{safety_note}）"
+                    raise Exception(message)
 
                 if "content" in candidate:
                     # 处理Gemini的响应格式
@@ -287,7 +303,11 @@ class BaseAIClient:
         """处理Gemini响应内容"""
         logger.debug(content)
         try:
-            parts: List[Dict[str, Any]] = content.get("parts", []) if isinstance(content, dict) else []
+            if isinstance(content, dict):
+                raw_parts = content.get("parts")
+                parts: List[Dict[str, Any]] = raw_parts if isinstance(raw_parts, list) else []
+            else:
+                parts = []
 
             for part in parts:
                 if not isinstance(part, dict):
@@ -354,6 +374,32 @@ class BaseAIClient:
                 content
             )
             raise Exception(f"AI响应解析失败: {str(exc)}")
+
+    def _format_safety_feedback(
+        self,
+        *safety_sources: Optional[Any]
+    ) -> Optional[str]:
+        """提取安全拦截信息"""
+        categories: List[str] = []
+        for source in safety_sources:
+            if not isinstance(source, list):
+                continue
+            for rating in source:
+                if not isinstance(rating, dict):
+                    continue
+                category = rating.get("category") or rating.get("harmCategory") or "未知";
+                probability = rating.get("probability") or rating.get("rating")
+                blocked = rating.get("blocked")
+                details = []
+                if probability:
+                    details.append(str(probability))
+                if blocked:
+                    details.append("已拦截")
+                label = f"{category}({', '.join(details)})" if details else category
+                categories.append(label)
+        if categories:
+            return "；".join(categories)
+        return None
 
     def _save_base64_image(self, base64_data: str) -> str:
         """保存base64图片并返回URL"""
