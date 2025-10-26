@@ -27,14 +27,20 @@ const PhoneVerification: React.FC<PhoneVerificationProps> = ({
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState('');
   const [countdown, setCountdown] = useState(initialCountdown);
+  const countdownRef = useRef(countdown);
+  const hasAutoSentRef = useRef(false);
   
   // 验证码输入框引用
   const inputRefs = useRef<Array<HTMLInputElement | null>>(Array(CODE_LENGTH).fill(null));
 
   // 发送验证码
+  useEffect(() => {
+    countdownRef.current = countdown;
+  }, [countdown]);
+
   const handleSendCode = useCallback(async () => {
-    if (countdown > 0) return;
-    
+    if (countdownRef.current > 0) return;
+
     setIsSending(true);
     setError('');
     
@@ -51,7 +57,7 @@ const PhoneVerification: React.FC<PhoneVerificationProps> = ({
     } finally {
       setIsSending(false);
     }
-  }, [countdown, onCodeSent, phone]);
+  }, [onCodeSent, phone]);
   
   // 验证验证码
   const handleVerify = useCallback(async () => {
@@ -137,13 +143,17 @@ const PhoneVerification: React.FC<PhoneVerificationProps> = ({
     setError('');
   }, [initialCountdown]);
 
-  // 初始化时自动发送验证码并聚焦
+  // 初始化时自动发送验证码
   useEffect(() => {
-    if (autoSendOnMount) {
-      void handleSendCode();
-    }
-    inputRefs.current[0]?.focus();
+    if (!autoSendOnMount || hasAutoSentRef.current) return;
+    hasAutoSentRef.current = true;
+    void handleSendCode();
   }, [autoSendOnMount, handleSendCode]);
+
+  // 初始化时聚焦第一个输入框
+  useEffect(() => {
+    inputRefs.current[0]?.focus();
+  }, []);
   
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
