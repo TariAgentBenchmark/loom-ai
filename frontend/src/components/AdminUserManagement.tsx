@@ -4,20 +4,21 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   adminGetUsers,
+  adminCreateUser,
+  adminDeleteUser,
+  adminAdjustUserCredits,
   type AdminUser,
-  type AdminUsersResponse,
 } from "../lib/api";
 import { useAdminAccessToken } from "../contexts/AdminAuthContext";
 import {
-  Search,
   Filter,
   ChevronLeft,
   ChevronRight,
   Eye,
   Edit,
   UserX,
-  UserCheck,
   Crown,
+  Plus,
 } from "lucide-react";
 
 interface FilterOptions {
@@ -25,6 +26,22 @@ interface FilterOptions {
   email_filter: string;
   sort_by: string;
   sort_order: string;
+}
+
+interface CreateUserFormState {
+  phone: string;
+  email: string;
+  nickname: string;
+  password: string;
+  confirmPassword: string;
+  initialCredits: number;
+  isAdmin: boolean;
+}
+
+interface CreditAdjustmentFormState {
+  amount: number;
+  reason: string;
+  sendNotification: boolean;
 }
 
 const defaultFilters: FilterOptions = {
@@ -49,6 +66,31 @@ const AdminUserManagement: React.FC = () => {
   const [filters, setFilters] = useState<FilterOptions>({ ...defaultFilters });
   const [activeFilters, setActiveFilters] = useState<FilterOptions>({ ...defaultFilters });
   const [showFilters, setShowFilters] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState<CreateUserFormState>({
+    phone: "",
+    email: "",
+    nickname: "",
+    password: "",
+    confirmPassword: "",
+    initialCredits: 0,
+    isAdmin: false,
+  });
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [showCreditModal, setShowCreditModal] = useState(false);
+  const [creditTarget, setCreditTarget] = useState<AdminUser | null>(null);
+  const [creditForm, setCreditForm] = useState<CreditAdjustmentFormState>({
+    amount: 0,
+    reason: "",
+    sendNotification: true,
+  });
+  const [creditError, setCreditError] = useState<string | null>(null);
+  const [isAdjustingCredits, setIsAdjustingCredits] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<AdminUser | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
 
   const fetchUsers = useCallback(
     async (page = 1, overrides?: FilterOptions) => {
@@ -121,6 +163,156 @@ const AdminUserManagement: React.FC = () => {
     return new Date(dateString).toLocaleString("zh-CN");
   };
 
+  const resetCreateForm = () => {
+    setCreateForm({
+      phone: "",
+      email: "",
+      nickname: "",
+      password: "",
+      confirmPassword: "",
+      initialCredits: 0,
+      isAdmin: false,
+    });
+  };
+
+  const closeCreateModal = () => {
+    setShowCreateModal(false);
+    setCreateError(null);
+    resetCreateForm();
+  };
+
+  const openCreateModal = () => {
+    setCreateError(null);
+    setShowCreateModal(true);
+  };
+
+  const handleCreateUser = async () => {
+    if (!accessToken) return;
+
+    if (!createForm.phone.trim()) {
+      setCreateError("请填写手机号");
+      return;
+    }
+
+    if (!createForm.password) {
+      setCreateError("请设置登录密码");
+      return;
+    }
+
+    if (createForm.password !== createForm.confirmPassword) {
+      setCreateError("两次输入的密码不一致");
+      return;
+    }
+
+    try {
+      setIsCreatingUser(true);
+      await adminCreateUser(
+        {
+          phone: createForm.phone.trim(),
+          email: createForm.email.trim() || undefined,
+          nickname: createForm.nickname.trim() || undefined,
+          password: createForm.password,
+          initialCredits: Math.max(0, createForm.initialCredits),
+          isAdmin: createForm.isAdmin,
+        },
+        accessToken
+      );
+      closeCreateModal();
+      await fetchUsers(1);
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : "创建用户失败");
+    } finally {
+      setIsCreatingUser(false);
+    }
+  };
+
+  const closeCreditModal = () => {
+    setShowCreditModal(false);
+    setCreditTarget(null);
+    setCreditError(null);
+    setCreditForm({
+      amount: 0,
+      reason: "",
+      sendNotification: true,
+    });
+  };
+
+  const openCreditModal = (user: AdminUser) => {
+    setCreditTarget(user);
+    setCreditForm({
+      amount: 0,
+      reason: "",
+      sendNotification: true,
+    });
+    setCreditError(null);
+    setShowCreditModal(true);
+  };
+
+  const handleAdjustCredits = async () => {
+    if (!accessToken || !creditTarget) return;
+
+    if (!creditForm.amount) {
+      setCreditError("请输入非零的算力变更值，可为正负数");
+      return;
+    }
+
+    if (!creditForm.reason.trim()) {
+      setCreditError("请填写调整原因");
+      return;
+    }
+
+    try {
+      setIsAdjustingCredits(true);
+      await adminAdjustUserCredits(
+        creditTarget.userId,
+        creditForm.amount,
+        creditForm.reason.trim(),
+        creditForm.sendNotification,
+        accessToken
+      );
+      closeCreditModal();
+      await fetchUsers(pagination.page);
+    } catch (err) {
+      setCreditError(err instanceof Error ? err.message : "调整算力失败");
+    } finally {
+      setIsAdjustingCredits(false);
+    }
+  };
+
+  const closeDeleteModal = () => {
+    setUserToDelete(null);
+    setDeleteReason("");
+    setDeleteError(null);
+  };
+
+  const openDeleteModal = (user: AdminUser) => {
+    setUserToDelete(user);
+    setDeleteReason("");
+    setDeleteError(null);
+  };
+
+  const handleDeleteUser = async () => {
+    if (!accessToken || !userToDelete) return;
+
+    try {
+      setIsDeletingUser(true);
+      const reason = deleteReason.trim();
+      await adminDeleteUser(
+        userToDelete.userId,
+        accessToken,
+        reason ? { reason } : undefined
+      );
+      const nextPage =
+        users.length <= 1 && pagination.page > 1 ? pagination.page - 1 : pagination.page;
+      closeDeleteModal();
+      await fetchUsers(nextPage);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "删除用户失败");
+    } finally {
+      setIsDeletingUser(false);
+    }
+  };
+
   if (loading && users.length === 0) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -142,15 +334,24 @@ const AdminUserManagement: React.FC = () => {
       {/* Filters */}
       <div className="bg-white shadow rounded-lg mb-6">
         <div className="px-4 py-5 sm:p-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
             <h3 className="text-lg font-medium text-gray-900">用户管理</h3>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              筛选
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={openCreateModal}
+                className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 shadow-sm"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                新增用户
+              </button>
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                筛选
+              </button>
+            </div>
           </div>
 
           {showFilters && (
@@ -298,6 +499,20 @@ const AdminUserManagement: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end space-x-2">
                       <button
+                        onClick={() => openCreditModal(user)}
+                        className="text-amber-600 hover:text-amber-800"
+                        title="调整算力"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => openDeleteModal(user)}
+                        className="text-red-600 hover:text-red-800"
+                        title="删除用户"
+                      >
+                        <UserX className="h-4 w-4" />
+                      </button>
+                      <button
                         onClick={() => handleViewUser(user.userId)}
                         className="text-blue-600 hover:text-blue-900"
                         title="查看详情"
@@ -390,6 +605,233 @@ const AdminUserManagement: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 px-4 py-8">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl">
+            <div className="px-6 py-4 border-b">
+              <h4 className="text-lg font-medium text-gray-900">新增用户</h4>
+              <p className="mt-1 text-sm text-gray-500">填写基础信息并设置初始算力</p>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">手机号 *</label>
+                  <input
+                    type="text"
+                    value={createForm.phone}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, phone: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="请输入11位手机号"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">邮箱</label>
+                  <input
+                    type="email"
+                    value={createForm.email}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, email: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="user@example.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">昵称</label>
+                  <input
+                    type="text"
+                    value={createForm.nickname}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, nickname: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="用户昵称"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">初始算力</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={createForm.initialCredits}
+                    onChange={(e) => {
+                      const value = Number(e.target.value);
+                      setCreateForm((prev) => ({
+                        ...prev,
+                        initialCredits: Number.isNaN(value) ? 0 : Math.max(0, value),
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">登录密码 *</label>
+                  <input
+                    type="password"
+                    value={createForm.password}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, password: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="至少6位字符"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">确认密码 *</label>
+                  <input
+                    type="password"
+                    value={createForm.confirmPassword}
+                    onChange={(e) =>
+                      setCreateForm((prev) => ({ ...prev, confirmPassword: e.target.value }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="再次输入密码"
+                  />
+                </div>
+              </div>
+              <label className="inline-flex items-center text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={createForm.isAdmin}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, isAdmin: e.target.checked }))}
+                  className="h-4 w-4 text-blue-600 border-gray-300 rounded mr-2"
+                />
+                授予管理员权限
+              </label>
+              {createError && <p className="text-sm text-red-600">{createError}</p>}
+            </div>
+            <div className="px-6 py-4 border-t flex justify-end space-x-2">
+              <button
+                onClick={closeCreateModal}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                disabled={isCreatingUser}
+              >
+                取消
+              </button>
+              <button
+                onClick={handleCreateUser}
+                disabled={isCreatingUser}
+                className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60"
+              >
+                {isCreatingUser ? "创建中..." : "确认创建"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCreditModal && creditTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 px-4 py-8">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg">
+            <div className="px-6 py-4 border-b">
+              <h4 className="text-lg font-medium text-gray-900">调整算力</h4>
+              <p className="mt-1 text-sm text-gray-500">
+                {creditTarget.nickname || creditTarget.email || creditTarget.userId}
+              </p>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">变更数量 *</label>
+                <input
+                  type="number"
+                  value={creditForm.amount}
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
+                    setCreditForm((prev) => ({
+                      ...prev,
+                      amount: Number.isNaN(value) ? 0 : value,
+                    }));
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="示例：100 或 -50"
+                />
+                <p className="mt-1 text-xs text-gray-500">正数为增加，负数为扣减</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">调整原因 *</label>
+                <textarea
+                  rows={3}
+                  value={creditForm.reason}
+                  onChange={(e) => setCreditForm((prev) => ({ ...prev, reason: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="请输入具体原因"
+                />
+              </div>
+              <label className="inline-flex items-center text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={creditForm.sendNotification}
+                  onChange={(e) =>
+                    setCreditForm((prev) => ({ ...prev, sendNotification: e.target.checked }))
+                  }
+                  className="h-4 w-4 text-blue-600 border-gray-300 rounded mr-2"
+                />
+                同时通知用户
+              </label>
+              {creditError && <p className="text-sm text-red-600">{creditError}</p>}
+            </div>
+            <div className="px-6 py-4 border-t flex justify-end space-x-2">
+              <button
+                onClick={closeCreditModal}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                disabled={isAdjustingCredits}
+              >
+                取消
+              </button>
+              <button
+                onClick={handleAdjustCredits}
+                disabled={isAdjustingCredits}
+                className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60"
+              >
+                {isAdjustingCredits ? "调整中..." : "确认调整"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {userToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 px-4 py-8">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg">
+            <div className="px-6 py-4 border-b">
+              <h4 className="text-lg font-medium text-gray-900">确认删除用户</h4>
+              <p className="mt-1 text-sm text-gray-500">
+                将永久移除 {userToDelete.nickname || userToDelete.email || userToDelete.userId} 及其关联数据
+              </p>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <div className="bg-red-50 border border-red-200 rounded-md px-3 py-2 text-sm text-red-700">
+                此操作不可撤销，请谨慎执行。
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">删除原因</label>
+                <textarea
+                  rows={3}
+                  value={deleteReason}
+                  onChange={(e) => setDeleteReason(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="可选，用于审计记录"
+                />
+              </div>
+              {deleteError && <p className="text-sm text-red-600">{deleteError}</p>}
+            </div>
+            <div className="px-6 py-4 border-t flex justify-end space-x-2">
+              <button
+                onClick={closeDeleteModal}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                disabled={isDeletingUser}
+              >
+                取消
+              </button>
+              <button
+                onClick={handleDeleteUser}
+                disabled={isDeletingUser}
+                className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-60"
+              >
+                {isDeletingUser ? "删除中..." : "确认删除"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

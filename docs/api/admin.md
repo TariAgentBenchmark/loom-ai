@@ -129,6 +129,68 @@ Retrieve detailed information about a specific user.
 }
 ```
 
+#### Create User
+
+Create a new user account directly from the admin console.
+
+**Endpoint:** `POST /users`
+
+**Request Body:**
+```json
+{
+  "phone": "13800000000",
+  "password": "SecurePass123",
+  "email": "new.user@example.com",
+  "nickname": "新客户",
+  "initialCredits": 200,
+  "isAdmin": false
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "用户创建成功",
+  "data": {
+    "userId": "user_abc123",
+    "email": "new.user@example.com",
+    "nickname": "新客户",
+    "credits": 200,
+    "membershipType": "free",
+    "status": "active",
+    "isAdmin": false,
+    "createdAt": "2023-10-01T12:00:00.000Z",
+    "lastLoginAt": null
+  }
+}
+```
+
+#### Delete User
+
+Permanently delete a user and all associated data. This action cannot be undone.
+
+**Endpoint:** `DELETE /users/{user_id}`
+
+**Request Body (optional):**
+```json
+{
+  "reason": "Requested account removal"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "用户已删除",
+  "data": {
+    "userId": "user_abc123",
+    "deletedAt": "2023-10-01T12:10:00.000Z"
+  }
+}
+```
+
 #### Update User Status
 
 Update the status of a user.

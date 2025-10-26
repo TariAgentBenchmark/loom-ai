@@ -1,17 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func, desc
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from datetime import datetime, timedelta
 
 from app.core.database import get_db
 from app.models.user import User, MembershipType, UserStatus
-from app.models.credit import CreditTransaction, CreditSource, TransactionType
+from app.models.credit import CreditTransaction, CreditSource, TransactionType, CreditTransfer, CreditAlert
 from app.models.payment import Order, Refund, OrderStatus, PackageType, PaymentMethod, Package
+from app.models.task import Task
 from app.api.dependencies import get_current_active_admin
 from app.api.decorators import admin_required, admin_route
 from app.schemas.common import SuccessResponse, PaginationMeta
+from app.services.auth_service import AuthService
 
 router = APIRouter()
 
@@ -31,6 +35,19 @@ class AdminUserResponse(BaseModel):
 class AdminUserListResponse(BaseModel):
     users: List[AdminUserResponse]
     pagination: PaginationMeta
+
+
+class AdminCreateUserRequest(BaseModel):
+    phone: str = Field(..., min_length=5, max_length=20, description="User phone number")
+    password: str = Field(..., min_length=6, max_length=128, description="Initial login password")
+    email: Optional[EmailStr] = Field(None, description="User email address")
+    nickname: Optional[str] = Field(None, max_length=100, description="Display nickname")
+    initialCredits: int = Field(0, ge=0, le=1_000_000, description="Initial credit balance")
+    isAdmin: bool = Field(False, description="Whether the user should have admin permissions")
+
+
+class AdminDeleteUserRequest(BaseModel):
+    reason: Optional[str] = Field(None, max_length=500, description="Reason for deleting the user")
 
 
 # Subscription Management Models
@@ -304,6 +321,91 @@ async def get_user_detail(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/users", dependencies=[Depends(admin_route())])
+async def create_user(
+    user_data: AdminCreateUserRequest,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin)
+):
+    """创建新用户（管理员专用）"""
+    auth_service = AuthService()
+
+    try:
+        # 检查手机号是否存在
+        existing_phone = db.query(User).filter(User.phone == user_data.phone).first()
+        if existing_phone:
+            raise HTTPException(status_code=400, detail="手机号已存在")
+
+        # 检查邮箱是否存在
+        if user_data.email:
+            existing_email = db.query(User).filter(User.email == user_data.email).first()
+            if existing_email:
+                raise HTTPException(status_code=400, detail="邮箱已存在")
+
+        user = User(
+            user_id=f"user_{uuid.uuid4().hex[:12]}",
+            phone=user_data.phone,
+            email=user_data.email,
+            nickname=user_data.nickname or user_data.phone,
+            hashed_password=auth_service.get_password_hash(user_data.password),
+            credits=user_data.initialCredits,
+            membership_type=MembershipType.FREE,
+            status=UserStatus.ACTIVE,
+            is_admin=user_data.isAdmin
+        )
+
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        if user_data.initialCredits > 0:
+            from app.services.credit_service import CreditService
+            credit_service = CreditService()
+            await credit_service.record_transaction(
+                db=db,
+                user_id=user.id,
+                amount=user_data.initialCredits,
+                source=CreditSource.ADMIN_ADJUST.value,
+                description="管理员创建用户赠送算力"
+            )
+
+        await log_admin_action(
+            db=db,
+            admin=current_admin,
+            action="create_user",
+            target_type="user",
+            target_id=user.user_id,
+            details={
+                "phone": user.phone,
+                "email": user.email,
+                "initialCredits": user_data.initialCredits,
+                "isAdmin": user_data.isAdmin
+            }
+        )
+
+        return SuccessResponse(
+            data=AdminUserResponse(
+                userId=user.user_id,
+                email=user.email,
+                nickname=user.nickname,
+                credits=user.credits,
+                membershipType=user.membership_type.value,
+                status=user.status.value,
+                isAdmin=user.is_admin,
+                createdAt=user.created_at.isoformat() if user.created_at else "",
+                lastLoginAt=user.last_login_at.isoformat() if user.last_login_at else None
+            ).dict(),
+            message="用户创建成功"
+        )
+
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 class UserStatusUpdate(BaseModel):
     status: str
     reason: Optional[str] = None
@@ -343,6 +445,76 @@ async def update_user_status(
     except HTTPException:
         raise
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/users/{user_id}", dependencies=[Depends(admin_route())])
+async def delete_user(
+    user_id: str,
+    delete_request: Optional[AdminDeleteUserRequest] = Body(None),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin)
+):
+    """删除用户（管理员专用）"""
+    try:
+        user = db.query(User).filter(User.user_id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="用户不存在")
+
+        if user.is_admin:
+            raise HTTPException(status_code=400, detail="无法删除管理员账户")
+
+        if user.id == current_admin.id:
+            raise HTTPException(status_code=400, detail="无法删除当前登录的管理员")
+
+        # 删除算力相关记录
+        db.query(CreditTransaction).filter(CreditTransaction.user_id == user.id).delete(synchronize_session=False)
+        db.query(CreditAlert).filter(CreditAlert.user_id == user.id).delete(synchronize_session=False)
+        db.query(CreditTransfer).filter(
+            or_(CreditTransfer.sender_id == user.id, CreditTransfer.recipient_id == user.id)
+        ).delete(synchronize_session=False)
+
+        # 删除退款记录需在订单之前
+        db.query(Refund).filter(Refund.user_id == user.id).delete(synchronize_session=False)
+
+        # 删除订单（包含退款关系）
+        orders = db.query(Order).filter(Order.user_id == user.id).all()
+        for order in orders:
+            db.delete(order)
+
+        # 删除任务（包含任务分享）
+        tasks = db.query(Task).filter(Task.user_id == user.id).all()
+        for task in tasks:
+            db.delete(task)
+
+        # 最后删除用户
+        db.delete(user)
+        db.commit()
+
+        await log_admin_action(
+            db=db,
+            admin=current_admin,
+            action="delete_user",
+            target_type="user",
+            target_id=user_id,
+            details={
+                "reason": delete_request.reason if delete_request else None
+            }
+        )
+
+        return SuccessResponse(
+            data={
+                "userId": user_id,
+                "deletedAt": datetime.utcnow().isoformat()
+            },
+            message="用户已删除"
+        )
+
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
 

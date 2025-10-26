@@ -256,6 +256,32 @@ const getJson = async <TData>(path: string, accessToken: string) => {
   }
 };
 
+const deleteJson = async <TData, TBody = undefined>(
+  path: string,
+  accessToken: string,
+  body?: TBody,
+) => {
+  try {
+    const response = await performAuthenticatedRequest(
+      (token) =>
+        fetch(`${API_BASE_URL}${path}`, {
+          method: "DELETE",
+          headers: withAuthHeader(body ? { "Content-Type": "application/json" } : undefined, token),
+          body: body ? JSON.stringify(body) : undefined,
+        }),
+      accessToken,
+    );
+
+    const ensured = await ensureSuccess(response);
+    return jsonResponse<ApiSuccessResponse<TData>>(ensured);
+  } catch (err) {
+    const message = (err instanceof Error && err.message === 'Failed to fetch')
+      ? '网络连接异常或被浏览器拦截，请稍后重试'
+      : (err as Error)?.message ?? '请求失败';
+    throw new Error(message);
+  }
+};
+
 const processingPathMap: Record<ProcessingMethod, string> = {
   prompt_edit: "/processing/prompt-edit",
   style: "/processing/vectorize",
@@ -836,6 +862,32 @@ export const adminGetUsers = (
 export const adminGetUserDetail = (userId: string, accessToken: string) =>
   getJson<AdminUserDetail>(`/admin/users/${userId}`, accessToken);
 
+export interface AdminCreateUserPayload {
+  phone: string;
+  password: string;
+  email?: string;
+  nickname?: string;
+  initialCredits?: number;
+  isAdmin?: boolean;
+}
+
+export const adminCreateUser = (
+  payload: AdminCreateUserPayload,
+  accessToken: string
+) =>
+  postJson<AdminUser, AdminCreateUserPayload>(
+    "/admin/users",
+    {
+      phone: payload.phone,
+      password: payload.password,
+      email: payload.email,
+      nickname: payload.nickname,
+      initialCredits: payload.initialCredits ?? 0,
+      isAdmin: Boolean(payload.isAdmin),
+    },
+    accessToken
+  );
+
 export const adminUpdateUserStatus = (
   userId: string,
   status: string,
@@ -848,6 +900,21 @@ export const adminUpdateUserStatus = (
     accessToken
   );
 
+
+export interface AdminDeleteUserPayload {
+  reason?: string;
+}
+
+export const adminDeleteUser = (
+  userId: string,
+  accessToken: string,
+  payload?: AdminDeleteUserPayload
+) =>
+  deleteJson<{ userId: string; deletedAt: string }, AdminDeleteUserPayload>(
+    `/admin/users/${userId}`,
+    accessToken,
+    payload
+  );
 
 export const adminGetUserTransactions = (
   userId: string,
