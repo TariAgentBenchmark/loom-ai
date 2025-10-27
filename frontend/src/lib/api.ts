@@ -215,22 +215,36 @@ const postFormData = async <TData>(
   accessToken: string,
 ) => {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000); // 120秒超时
+    
     const response = await performAuthenticatedRequest(
       (token) =>
         fetch(`${API_BASE_URL}${path}`, {
           method: "POST",
           headers: withAuthHeader(undefined, token),
           body: formData,
+          signal: controller.signal,
         }),
       accessToken,
     );
 
+    clearTimeout(timeoutId);
     const ensured = await ensureSuccess(response);
     return jsonResponse<ApiSuccessResponse<TData>>(ensured);
   } catch (err) {
-    const message = (err instanceof Error && err.message === 'Failed to fetch')
-      ? '网络连接异常或被浏览器拦截，请稍后重试'
-      : (err as Error)?.message ?? '请求失败';
+    let message = '请求失败';
+    
+    if (err instanceof Error) {
+      if (err.name === 'AbortError') {
+        message = '请求超时，图片处理时间较长，请稍后在历史记录中查看结果';
+      } else if (err.message === 'Failed to fetch') {
+        message = '网络连接异常，请检查网络后重试。如任务已创建，请在历史记录中查看';
+      } else {
+        message = err.message;
+      }
+    }
+    
     throw new Error(message);
   }
 };

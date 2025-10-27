@@ -168,14 +168,20 @@ async def extract_pattern(
     current_user: User = Depends(get_current_user)
 ):
     """AI提取花型"""
+    import logging
+    import time
+    logger = logging.getLogger(__name__)
+    
+    start_time = time.time()
+    request_id = f"extract_{int(start_time * 1000)}"
+    
     try:
+        logger.info(f"[{request_id}] Extract pattern request started - User: {current_user.id}, File: {image.filename}")
+        
         # 记录上传文件大小
-        file_size = 0
         image_bytes = await image.read()
         file_size = len(image_bytes)
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f"Uploaded file size: {file_size / 1024 / 1024:.2f} MB, filename: {image.filename}, pattern_type: {pattern_type}")
+        logger.info(f"[{request_id}] File uploaded - Size: {file_size / 1024 / 1024:.2f} MB, Type: {pattern_type}")
         
         # 构建选项
         options = {"pattern_type": pattern_type}
@@ -188,6 +194,7 @@ async def extract_pattern(
         if height:
             options["height"] = height
 
+        logger.info(f"[{request_id}] Creating task with options: {options}")
         task = await processing_service.create_task(
             db=db,
             user=current_user,
@@ -196,6 +203,9 @@ async def extract_pattern(
             original_filename=image.filename,
             options=options
         )
+        
+        elapsed = time.time() - start_time
+        logger.info(f"[{request_id}] Task created successfully - TaskID: {task.task_id}, Time: {elapsed:.2f}s")
         
         return SuccessResponse(
             data={
@@ -209,6 +219,8 @@ async def extract_pattern(
         )
         
     except Exception as e:
+        elapsed = time.time() - start_time
+        logger.error(f"[{request_id}] Extract pattern failed - Time: {elapsed:.2f}s, Error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=400, detail=str(e))
 
 
