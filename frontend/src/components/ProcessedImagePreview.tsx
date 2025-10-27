@@ -273,7 +273,8 @@ const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({ image, on
                     ref={objectRef}
                     data={resolvedUrl}
                     type="image/svg+xml"
-                    className="max-w-full max-h-full object-contain"
+                    className="w-full h-full"
+                    style={{ maxWidth: '100%', maxHeight: '100%' }}
                     draggable={false}
                     onLoad={handleImageLoad}
                     onError={(e) => console.error('ProcessedImagePreview: SVG failed to load', e)}

@@ -155,7 +155,13 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   };
 
   const handleProcessedImagePreview = (url: string, index?: number) => {
-    const filename = index !== undefined ? `result_${index + 1}.png` : 'result.png';
+    // 从URL中提取文件扩展名
+    const urlParts = url.split('/');
+    const urlFilename = urlParts[urlParts.length - 1];
+    const extensionMatch = urlFilename.match(/\.[^.]+$/);
+    const extension = extensionMatch ? extensionMatch[0] : '.png';
+    
+    const filename = index !== undefined ? `result_${index + 1}${extension}` : `result${extension}`;
     setProcessedImagePreview({ url, filename });
   };
 
