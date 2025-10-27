@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request, HTTPException, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from contextlib import asynccontextmanager
 import logging
 import os
@@ -77,8 +77,44 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 自定义静态文件处理器，确保SVG文件的MIME类型正确
+class CustomStaticFiles(StaticFiles):
+    async def __call__(self, scope, receive, send):
+        path = self.get_path(scope)
+        
+        # 检查是否是SVG文件
+        if path.endswith('.svg'):
+            full_path = os.path.join(self.directory, path)
+            if os.path.exists(full_path):
+                logger.info(f"Serving SVG file: {full_path}")
+                
+                # 读取SVG文件内容
+                try:
+                    with open(full_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    
+                    # 创建响应并设置正确的MIME类型
+                    response = Response(
+                        content=content,
+                        media_type="image/svg+xml",
+                        headers={
+                            "Cache-Control": "public, max-age=3600",
+                            "Access-Control-Allow-Origin": "*",
+                            "Access-Control-Allow-Methods": "GET",
+                            "Access-Control-Allow-Headers": "*"
+                        }
+                    )
+                    
+                    await response(scope, receive, send)
+                    return
+                except Exception as e:
+                    logger.error(f"Error serving SVG file {full_path}: {str(e)}")
+        
+        # 对于非SVG文件，使用默认处理
+        return await super().__call__(scope, receive, send)
+
 # 静态文件服务
-app.mount("/files", StaticFiles(directory=settings.upload_path), name="files")
+app.mount("/files", CustomStaticFiles(directory=settings.upload_path), name="files")
 
 # 包含API路由
 app.include_router(api_router, prefix="/v1")

@@ -21,6 +21,7 @@ const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({ image, on
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const imageContainerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+  const objectRef = useRef<HTMLObjectElement>(null);
 
   // 处理触控板双指缩放和鼠标滚轮缩放
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -113,12 +114,36 @@ const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({ image, on
   const handleImageLoad = useCallback(() => {
     const container = imageContainerRef.current;
     const img = imageRef.current;
-    if (!container || !img || !img.naturalWidth || !img.naturalHeight) {
+    const obj = objectRef.current;
+    
+    // 优先使用img元素，如果不存在则使用object元素
+    const element = img || obj;
+    if (!container || !element) {
       return;
     }
+    
+    // 对于SVG文件，使用不同的尺寸获取方式
+    let width = 0, height = 0;
+    if (img && img.naturalWidth && img.naturalHeight) {
+      width = img.naturalWidth;
+      height = img.naturalHeight;
+    } else if (obj) {
+      // 对于object元素，尝试获取SVG的尺寸
+      const svgDoc = obj.contentDocument;
+      if (svgDoc && svgDoc.documentElement) {
+        width = parseFloat(svgDoc.documentElement.getAttribute('width') || '500');
+        height = parseFloat(svgDoc.documentElement.getAttribute('height') || '500');
+      }
+    }
+    
+    if (!width || !height) {
+      // 如果无法获取尺寸，使用默认值
+      width = 500;
+      height = 500;
+    }
 
-    const widthScale = container.clientWidth / img.naturalWidth;
-    const heightScale = container.clientHeight / img.naturalHeight;
+    const widthScale = container.clientWidth / width;
+    const heightScale = container.clientHeight / height;
     const nextScale = Math.min(widthScale, heightScale, 1);
     const safeScale = nextScale > 0 && Number.isFinite(nextScale) ? nextScale : 1;
 
@@ -231,15 +256,53 @@ const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({ image, on
               transformOrigin: 'center',
             }}
           >
-            <img
-              ref={imageRef}
-              src={resolveFileUrl(image.url)}
-              alt={image.filename}
-              className="max-w-full max-h-full object-contain"
-              draggable={false}
-              onDragStart={(e) => e.preventDefault()}
-              onLoad={handleImageLoad}
-            />
+            {(() => {
+              const resolvedUrl = resolveFileUrl(image.url);
+              console.log('ProcessedImagePreview: Displaying image', {
+                originalUrl: image.url,
+                resolvedUrl,
+                filename: image.filename,
+                isSvg: image.filename.toLowerCase().includes('.svg') || image.url.toLowerCase().includes('.svg')
+              });
+              
+              // 检查是否是SVG文件
+              if (image.filename.toLowerCase().includes('.svg') || image.url.toLowerCase().includes('.svg')) {
+                console.log('ProcessedImagePreview: Detected SVG file, using special handling');
+                return (
+                  <object
+                    ref={objectRef}
+                    data={resolvedUrl}
+                    type="image/svg+xml"
+                    className="max-w-full max-h-full object-contain"
+                    draggable={false}
+                    onLoad={handleImageLoad}
+                    onError={(e) => console.error('ProcessedImagePreview: SVG failed to load', e)}
+                  >
+                    <img
+                      src={resolvedUrl}
+                      alt={image.filename}
+                      className="max-w-full max-h-full object-contain"
+                      draggable={false}
+                      onDragStart={(e) => e.preventDefault()}
+                      onError={(e) => console.error('ProcessedImagePreview: Fallback img also failed', e)}
+                    />
+                  </object>
+                );
+              }
+              
+              return (
+                <img
+                  ref={imageRef}
+                  src={resolvedUrl}
+                  alt={image.filename}
+                  className="max-w-full max-h-full object-contain"
+                  draggable={false}
+                  onDragStart={(e) => e.preventDefault()}
+                  onLoad={handleImageLoad}
+                  onError={(e) => console.error('ProcessedImagePreview: Image failed to load', e)}
+                />
+              );
+            })()}
           </div>
         </div>
       </div>

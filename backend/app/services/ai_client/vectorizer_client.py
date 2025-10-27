@@ -78,6 +78,18 @@ class VectorizerClient:
                 with open(file_path, "wb") as f:
                     f.write(response.content)
                 
+                # 验证文件是否保存成功
+                if os.path.exists(file_path):
+                    file_size = os.path.getsize(file_path)
+                    logger.info(f"SVG file saved successfully: {file_path}, size: {file_size} bytes")
+                    
+                    # 读取文件内容的前100个字符进行验证
+                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                        content_preview = f.read(100)
+                        logger.info(f"SVG file content preview: {content_preview}")
+                else:
+                    logger.error(f"Failed to save SVG file: {file_path}")
+                
                 # 返回文件URL格式，让处理服务可以访问
                 return f"/files/results/{filename}"
             

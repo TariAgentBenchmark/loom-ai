@@ -589,7 +589,20 @@ export const resolveFileUrl = (path: string | null | undefined) => {
   }
 
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  return `${API_ORIGIN}${normalizedPath}`;
+  const resolvedUrl = `${API_ORIGIN}${normalizedPath}`;
+  
+  // 添加日志来调试SVG文件URL解析
+  if (path.toLowerCase().includes('.svg')) {
+    console.log('resolveFileUrl: SVG file URL resolution', {
+      originalPath: path,
+      normalizedPath,
+      API_ORIGIN,
+      resolvedUrl,
+      isSvg: true
+    });
+  }
+  
+  return resolvedUrl;
 };
 
 export const getUserProfile = (accessToken: string) =>
