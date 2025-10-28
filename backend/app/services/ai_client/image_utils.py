@@ -144,13 +144,14 @@ class ImageProcessingUtils:
         if pattern_type == "fine":
             size = _build_size()
             model_option = options.get("model")
-            model = model_option.strip() if isinstance(model_option, str) and model_option.strip() else "gpt-image-1"
+            model = model_option.strip() if isinstance(model_option, str) and model_option.strip() else "gpt-4o-image"
 
             result = await self.apyi_openai_client.generate_image(
                 prompt,
                 n=2,
                 size=size,
                 model=model,
+                image_bytes=image_bytes,  # 传递输入图像数据
             )
             image_urls = self.apyi_openai_client._extract_image_urls(result)
             # 返回逗号分隔的URL字符串

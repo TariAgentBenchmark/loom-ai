@@ -73,6 +73,8 @@ class ApyiOpenAIClient(BaseAIClient):
         size: Optional[str] = "1024x1024",
         response_format: Optional[str] = None,
         model: str = "gpt-image-1",
+        image_bytes: Optional[bytes] = None,
+        image_url: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         使用OpenAI兼容API生成图像
@@ -83,10 +85,18 @@ class ApyiOpenAIClient(BaseAIClient):
             size: 输出图像尺寸，支持 256x256、512x512、1024x1024，None 表示使用服务默认值
             response_format: 返回格式，可选值如 url 或 b64_json，None 表示使用服务默认值
             model: 使用的图像生成模型，默认 gpt-image-1
+            image_bytes: 输入图像的字节数据（用于gpt-4o-image模型）
+            image_url: 输入图像的URL（用于gpt-4o-image模型）
 
         Returns:
             API响应数据
         """
+        # 如果使用gpt-4o-image模型，使用chat/completions端点
+        if model == "gpt-4o-image":
+            return await self._generate_image_with_chat_model(
+                prompt, image_bytes, image_url, n, size, model
+            )
+
         endpoint = "/images/generations"
 
         data = {
@@ -108,6 +118,74 @@ class ApyiOpenAIClient(BaseAIClient):
             model,
             response_format,
         )
+
+        return await self._make_request("POST", endpoint, data)
+
+    async def _generate_image_with_chat_model(
+        self,
+        prompt: str,
+        image_bytes: Optional[bytes] = None,
+        image_url: Optional[str] = None,
+        n: int = 1,
+        size: Optional[str] = None,
+        model: str = "gpt-4o-image"
+    ) -> Dict[str, Any]:
+        """
+        使用chat/completions端点生成图像（适用于gpt-4o-image模型）
+
+        Args:
+            prompt: 生成指令文本
+            image_bytes: 输入图像的字节数据（可选）
+            image_url: 输入图像的URL（可选）
+            n: 生成的图像数量，默认为1
+            size: 图像尺寸（对于gpt-4o-image可能不适用）
+            model: 使用的模型，默认为gpt-4o-image
+
+        Returns:
+            API响应数据
+        """
+        endpoint = "/chat/completions"
+
+        content = [
+            {
+                "type": "text",
+                "text": prompt
+            }
+        ]
+
+        # 如果有图片输入，添加到content中
+        if image_bytes:
+            base64_image = self._image_to_base64(image_bytes, "PNG")
+            content.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/png;base64,{base64_image}"
+                }
+            })
+        elif image_url:
+            content.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": image_url
+                }
+            })
+
+        data = {
+            "model": model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": content
+                }
+            ]
+        }
+
+        # 添加n参数来指定生成的图片数量
+        if n > 1:
+            data["n"] = n
+
+        logger.info(f"Generating image with chat model {model}: {prompt[:100]}...")
+        logger.info("Parameters: n=%s, size=%s, model=%s, has_image=%s", n, size, model, bool(image_bytes or image_url))
 
         return await self._make_request("POST", endpoint, data)
 

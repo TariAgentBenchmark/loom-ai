@@ -170,6 +170,42 @@ class BaseAIClient:
     def _extract_image_url(self, api_response: Dict[str, Any]) -> str:
         """从API响应中提取图片URL"""
         try:
+            # 检查chat/completion响应格式（gpt-4o-image模型）
+            if "choices" in api_response and isinstance(api_response["choices"], list):
+                choice = api_response["choices"][0] if api_response["choices"] else None
+                if choice and "message" in choice:
+                    message = choice["message"]
+                    content = message.get("content", "")
+
+                    # 检查是否包含政策违规错误
+                    if "违反了OpenAI的相关服务政策" in content or "政策" in content:
+                        logger.error("OpenAI policy violation detected: %s", content)
+                        raise Exception("暂时还不支持大牌花型哦")
+
+                    # 首先尝试从markdown格式中提取图像URL
+                    import re
+                    markdown_pattern = r'!\[.*?\]\((https?://[^\)]+)\)'
+                    matches = re.findall(markdown_pattern, content)
+                    if matches:
+                        return matches[0]
+
+                    # 按行分割内容，查找第一个有效的URL
+                    lines = content.strip().split('\n')
+                    for line in lines:
+                        line = line.strip()
+                        # 检查是否是HTTP URL且是图片格式
+                        if line.startswith("http") and any(ext in line.lower() for ext in [".jpg", ".jpeg", ".png", ".webp"]):
+                            return line
+                        # 检查是否是独立的URL（没有markdown格式）
+                        elif line.startswith("http") and ("image" in line.lower() or "img" in line.lower() or "图片" in line):
+                            return line
+
+                    # 如果还是没有，在整个文本中搜索第一个URL模式
+                    url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+(?:\.jpg|\.jpeg|\.png|\.webp)'
+                    text_matches = re.findall(url_pattern, content, re.IGNORECASE)
+                    if text_matches:
+                        return text_matches[0]
+
             # GPT-4o / OpenAI兼容响应格式
             if "data" in api_response and isinstance(api_response["data"], list):
                 first_item = api_response["data"][0] if api_response["data"] else None
@@ -210,7 +246,7 @@ class BaseAIClient:
                         candidate
                     )
                     message = (
-                        "AI 生成图片异常，请在指令中明确要求“生成新的高清图像/无缝图案”，并描述风格、颜色和构图。"
+                        "AI 生成图片异常，请在指令中明确要求\"生成新的高清图像/无缝图案\"，并描述风格、颜色和构图。"
                     )
                     if safety_note:
                         message += f"（安全提示：{safety_note}）"
@@ -231,6 +267,10 @@ class BaseAIClient:
             raise Exception("无法从AI响应中提取图片")
 
         except Exception as e:
+            # 如果是我们自定义的政策违规错误，直接抛出
+            if str(e) == "暂时还不支持大牌花型哦":
+                raise
+
             logger.error(
                 "Failed to extract image URL from response: error=%s response=%s full_response=%s",
                 str(e),
@@ -242,6 +282,58 @@ class BaseAIClient:
     def _extract_image_urls(self, api_response: Dict[str, Any]) -> List[str]:
         """从API响应中提取多张图片URL"""
         try:
+            # 检查chat/completion响应格式（gpt-4o-image模型）
+            if "choices" in api_response and isinstance(api_response["choices"], list):
+                choice = api_response["choices"][0] if api_response["choices"] else None
+                if choice and "message" in choice:
+                    message = choice["message"]
+                    content = message.get("content", "")
+
+                    # 检查是否包含政策违规错误
+                    if "违反了OpenAI的相关服务政策" in content or "政策" in content:
+                        logger.error("OpenAI policy violation detected: %s", content)
+                        raise Exception("暂时还不支持大牌花型哦")
+
+                    urls = []
+
+                    import re
+
+                    # 尝试从markdown格式中提取图像URL
+                    markdown_pattern = r'!\[.*?\]\((https?://[^\)]+)\)'
+                    markdown_matches = re.findall(markdown_pattern, content)
+                    urls.extend(markdown_matches)
+
+                    # 按行分割内容，查找独立的URL（即使有markdown格式也要检查）
+                    lines = content.strip().split('\n')
+                    for line in lines:
+                        line = line.strip()
+                        # 跳过markdown格式的行（避免重复）
+                        if line.startswith('![') and '](' in line:
+                            continue
+                        # 检查是否是HTTP URL且是图片格式
+                        if line.startswith("http") and any(ext in line.lower() for ext in [".jpg", ".jpeg", ".png", ".webp"]):
+                            urls.append(line)
+                        # 检查是否是独立的URL（没有markdown格式）
+                        elif line.startswith("http") and ("image" in line.lower() or "img" in line.lower() or "图片" in line):
+                            urls.append(line)
+
+                    # 如果还是没有，尝试在整个文本中搜索URL模式
+                    if not urls:
+                        url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+(?:\.jpg|\.jpeg|\.png|\.webp)'
+                        text_matches = re.findall(url_pattern, content, re.IGNORECASE)
+                        urls.extend(text_matches)
+
+                    # 去重并返回
+                    if urls:
+                        # 去重，保持顺序
+                        seen = set()
+                        unique_urls = []
+                        for url in urls:
+                            if url not in seen:
+                                seen.add(url)
+                                unique_urls.append(url)
+                        return unique_urls
+
             # GPT-4o响应格式 - 返回多张图片
             if "data" in api_response and isinstance(api_response["data"], list):
                 urls: List[str] = []
@@ -291,6 +383,10 @@ class BaseAIClient:
             raise Exception("无法从AI响应中提取图片")
 
         except Exception as e:
+            # 如果是我们自定义的政策违规错误，直接抛出
+            if str(e) == "暂时还不支持大牌花型哦":
+                raise
+
             logger.error(
                 "Failed to extract image URLs from response: error=%s response=%s full_response=%s",
                 str(e),
