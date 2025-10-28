@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import Optional
+from datetime import timezone, timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import os
 
 from app.core.database import get_db
@@ -11,6 +13,22 @@ from app.api.dependencies import get_current_user
 from app.schemas.common import SuccessResponse
 
 router = APIRouter()
+
+
+try:
+    BEIJING_TZ = ZoneInfo("Asia/Shanghai")
+except ZoneInfoNotFoundError:
+    BEIJING_TZ = timezone(timedelta(hours=8))
+
+
+def _to_beijing_isoformat(dt):
+    if dt is None:
+        return None
+
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+
+    return dt.astimezone(BEIJING_TZ).isoformat()
 
 
 @router.get("/tasks")
@@ -56,8 +74,8 @@ async def get_history_tasks(
                 "processingTime": task.processing_time,
                 "favorite": task.favorite,
                 "tags": task.tags or [],
-                "createdAt": task.created_at,
-                "completedAt": task.completed_at
+                "createdAt": _to_beijing_isoformat(task.created_at),
+                "completedAt": _to_beijing_isoformat(task.completed_at)
             }
             
             # 如果有结果图片，添加结果信息
@@ -136,7 +154,7 @@ async def get_task_detail(
                     "size": task.original_file_size,
                     "format": task.original_filename.split('.')[-1].lower(),
                     "dimensions": task.original_dimensions,
-                    "uploadedAt": task.created_at
+                    "uploadedAt": _to_beijing_isoformat(task.created_at)
                 },
                 "resultImage": {
                     "url": task.result_image_url,
@@ -153,10 +171,10 @@ async def get_task_detail(
                 "tags": task.tags or [],
                 "notes": task.notes,
                 "downloadCount": task.download_count,
-                "lastDownloaded": task.last_downloaded_at,
-                "createdAt": task.created_at,
-                "startedAt": task.started_at,
-                "completedAt": task.completed_at
+                "lastDownloaded": _to_beijing_isoformat(task.last_downloaded_at),
+                "createdAt": _to_beijing_isoformat(task.created_at),
+                "startedAt": _to_beijing_isoformat(task.started_at),
+                "completedAt": _to_beijing_isoformat(task.completed_at)
             },
             message="获取任务详情成功"
         )
