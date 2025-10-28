@@ -20,36 +20,38 @@ class VectorizerClient:
         image_bytes: bytes,
         options: Optional[Dict[str, Any]] = None,
     ) -> str:
-        """AI矢量化(转EPS) - 使用A8矢量化服务"""
+        """AI矢量化(转SVG/EPS) - 使用A8矢量化服务"""
         try:
             options = options or {}
 
-            filename = f"vectorized_{uuid.uuid4().hex[:8]}.eps"
-            file_path = os.path.join(settings.upload_path, "results", filename)
-
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
-
             source_filename = options.get("filename", "image.png")
 
-            eps_content = await self.a8_client.convert_to_eps(
+            result = await self.a8_client.vectorize(
                 image_bytes,
                 filename=source_filename,
                 timeout=options.get("timeout"),
                 poll_interval=options.get("poll_interval"),
             )
 
+            extension = result.extension or "svg"
+            filename = f"vectorized_{uuid.uuid4().hex[:8]}.{extension}"
+            file_path = os.path.join(settings.upload_path, "results", filename)
+
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
             with open(file_path, "wb") as output_file:
-                output_file.write(eps_content)
+                output_file.write(result.content)
 
             if os.path.exists(file_path):
                 file_size = os.path.getsize(file_path)
                 logger.info(
-                    "EPS file saved successfully: %s, size: %s bytes",
+                    "Vector file saved successfully: %s, size: %s bytes (type: %s)",
                     file_path,
                     file_size,
+                    extension,
                 )
             else:
-                logger.error("Failed to save EPS file: %s", file_path)
+                logger.error("Failed to save vector file: %s", file_path)
 
             return f"/files/results/{filename}"
 

@@ -27,7 +27,7 @@ async def test_vectorizer_api():
     try:
         print("开始测试A8矢量化服务...")
         result_url = await ai_client.vectorize_image(test_bytes.read())
-        print(f"测试成功! 矢量化后的EPS文件URL: {result_url}")
+        print(f"测试成功! 矢量化后的文件URL: {result_url}")
         return True
     except Exception as e:
         print(f"测试失败: {str(e)}")

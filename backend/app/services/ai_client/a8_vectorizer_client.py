@@ -1,13 +1,50 @@
 import asyncio
 import logging
+import os
 import time
+from dataclasses import dataclass
 from typing import Optional
+from urllib.parse import unquote
 
 import httpx
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class A8VectorizerResult:
+    """A8矢量化结果"""
+
+    content: bytes
+    content_type: str
+    filename: Optional[str] = None
+
+    @property
+    def extension(self) -> str:
+        """根据响应信息推断文件后缀"""
+        # 优先使用响应头中的文件名
+        if self.filename:
+            _, ext = os.path.splitext(self.filename)
+            if ext:
+                return ext.lstrip(".").lower()
+
+        content_type = (self.content_type or "").lower()
+        if "svg" in content_type:
+            return "svg"
+        if "eps" in content_type or "postscript" in content_type:
+            return "eps"
+
+        # 尝试根据文件内容判断
+        sample = self.content.lstrip()[:32]
+        if sample.startswith(b"<?xml") or sample.startswith(b"<svg"):
+            return "svg"
+        if sample.startswith(b"%!PS"):
+            return "eps"
+
+        # 默认返回svg，前端展示兼容性更好
+        return "svg"
 
 
 class A8VectorizerClient:
@@ -23,14 +60,14 @@ class A8VectorizerClient:
         self.default_timeout = default_timeout
         self.default_poll_interval = default_poll_interval
 
-    async def convert_to_eps(
+    async def vectorize(
         self,
         image_bytes: bytes,
         filename: str = "image.png",
         timeout: Optional[int] = None,
         poll_interval: Optional[int] = None,
-    ) -> bytes:
-        """上传图片并下载转换后的EPS文件内容"""
+    ) -> A8VectorizerResult:
+        """上传图片并下载转换后的矢量文件内容"""
         timeout = timeout or self.default_timeout
         poll_interval = poll_interval or self.default_poll_interval
 
@@ -87,7 +124,14 @@ class A8VectorizerClient:
                     f"{self.base_url}/get_image", params={"taskid": task_id}
                 )
                 download_resp.raise_for_status()
-                return download_resp.content
+
+                content_type = download_resp.headers.get("content-type", "")
+                disposition = download_resp.headers.get("content-disposition", "")
+                return A8VectorizerResult(
+                    content=download_resp.content,
+                    content_type=content_type,
+                    filename=self._parse_filename(disposition),
+                )
 
         except httpx.HTTPError as exc:
             logger.error("HTTP request to A8 vectorizer failed: %s", str(exc))
@@ -95,3 +139,44 @@ class A8VectorizerClient:
 
         except Exception:
             raise
+
+    async def convert_to_eps(
+        self,
+        image_bytes: bytes,
+        filename: str = "image.png",
+        timeout: Optional[int] = None,
+        poll_interval: Optional[int] = None,
+    ) -> A8VectorizerResult:
+        """向后兼容的别名，返回矢量化结果"""
+        return await self.vectorize(
+            image_bytes,
+            filename=filename,
+            timeout=timeout,
+            poll_interval=poll_interval,
+        )
+
+    @staticmethod
+    def _parse_filename(disposition: str) -> Optional[str]:
+        if not disposition:
+            return None
+
+        parts = disposition.split(";")
+        filename: Optional[str] = None
+
+        for part in parts:
+            item = part.strip()
+            if item.lower().startswith("filename*="):
+                _, value = item.split("=", 1)
+                if "''" in value:
+                    value = value.split("''", 1)[1]
+                filename = value.strip('"')
+                break
+            if item.lower().startswith("filename="):
+                _, value = item.split("=", 1)
+                filename = value.strip('"')
+                break
+
+        if filename:
+            return unquote(filename)
+
+        return None
