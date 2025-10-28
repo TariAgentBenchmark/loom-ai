@@ -13,12 +13,12 @@ logger = logging.getLogger(__name__)
 
 class VectorizerClient:
     """Vectorizer.ai API客户端"""
-    
+
     def __init__(self):
         self.vectorizer_api_key = settings.vectorizer_api_key
         self.vectorizer_api_secret = settings.vectorizer_api_secret
         self.vectorizer_url = "https://vectorizer.ai/api/v1/vectorize"
-    
+
     async def vectorize_image(
         self,
         image_bytes: bytes,
@@ -30,13 +30,13 @@ class VectorizerClient:
             files = {
                 'image': ('image.jpeg', BytesIO(image_bytes))
             }
-            
+
             # 准备认证信息
             auth = (self.vectorizer_api_key, self.vectorizer_api_secret)
-            
+
             # 准备请求数据
             data = {}
-            
+
             # 如果提供了额外选项，添加到请求中
             if options:
                 # Vectorizer.ai支持的各种选项
@@ -54,9 +54,9 @@ class VectorizerClient:
                     data['layering'] = options['layering']
                 if 'pathsimplify' in options:
                     data['pathsimplify'] = options['pathsimplify']
-            
+
             logger.info("Sending request to Vectorizer.ai API")
-            
+
             # 发送请求
             async with httpx.AsyncClient(timeout=300.0) as client:
                 response = await client.post(
@@ -66,33 +66,29 @@ class VectorizerClient:
                     auth=auth
                 )
                 response.raise_for_status()
-                
+
                 # 保存结果为SVG文件
                 filename = f"vectorized_{uuid.uuid4().hex[:8]}.svg"
                 file_path = f"{settings.upload_path}/results/{filename}"
-                
+
                 # 确保目录存在
                 os.makedirs(os.path.dirname(file_path), exist_ok=True)
-                
+
                 # 保存文件
                 with open(file_path, "wb") as f:
                     f.write(response.content)
-                
+
                 # 验证文件是否保存成功
                 if os.path.exists(file_path):
                     file_size = os.path.getsize(file_path)
                     logger.info(f"SVG file saved successfully: {file_path}, size: {file_size} bytes")
-                    
-                    # 读取文件内容的前100个字符进行验证
-                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                        content_preview = f.read(100)
-                        logger.info(f"SVG file content preview: {content_preview}")
                 else:
                     logger.error(f"Failed to save SVG file: {file_path}")
-                
+                    raise Exception("保存SVG文件失败")
+
                 # 返回文件URL格式，让处理服务可以访问
                 return f"/files/results/{filename}"
-            
+
         except Exception as e:
             logger.error(f"Vectorize image failed: {str(e)}")
             raise Exception(f"矢量化失败: {str(e)}")

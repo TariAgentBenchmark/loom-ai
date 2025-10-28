@@ -160,7 +160,7 @@ class ProcessingService:
                 elif task.type == TaskType.PROMPT_EDIT.value:
                     result_url = await ai_client.prompt_edit_image(image_bytes, task_options)
                 elif task.type == TaskType.VECTORIZE.value:
-                    result_url = await ai_client.vectorize_image(image_bytes, task_options)
+                    result_url = await ai_client.vectorize_image_a8_svg(image_bytes, task_options)
                 elif task.type == TaskType.EXTRACT_PATTERN.value:
                     result_url = await ai_client.extract_pattern(image_bytes, task_options)
                 elif task.type == TaskType.REMOVE_WATERMARK.value:

@@ -16,6 +16,7 @@ from app.services.ai_client.jimeng_client import JimengClient
 from app.services.ai_client.liblib_client import LiblibUpscaleAPI
 from app.services.ai_client.meitu_client import MeituClient
 from app.services.ai_client.vectorizer_client import VectorizerClient
+from app.services.ai_client.a8_vectorizer_client import A8VectorizerClient
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,7 @@ class AIClient:
         self.apyi_openai_client = ApyiOpenAIClient()
         self.jimeng_client = JimengClient()
         self.vectorizer_client = VectorizerClient()
+        self.a8_vectorizer_client = A8VectorizerClient()
         self.dewatermark_client = DewatermarkClient()
         self.meitu_client = MeituClient()
         self.image_utils = ImageProcessingUtils()
@@ -312,6 +314,59 @@ class AIClient:
     ) -> str:
         """AI矢量化(转SVG) - 使用Vectorizer.ai API"""
         return await self.vectorizer_client.vectorize_image(image_bytes, options)
+
+    async def vectorize_image_a8(
+        self,
+        image_bytes: bytes,
+        fmt: str = 'eps',
+        options: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """
+        AI矢量化 - 使用A8矢量转换API，支持EPS和SVG格式
+
+        Args:
+            image_bytes: 图片字节数据
+            fmt: 输出格式 'eps' 或 'svg'
+            options: 额外选项（目前主要用于兼容性）
+
+        Returns:
+            保存的矢量文件URL路径
+        """
+        return await self.a8_vectorizer_client.image_to_vector(image_bytes, fmt=fmt)
+
+    async def vectorize_image_a8_eps(
+        self,
+        image_bytes: bytes,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """
+        AI矢量化为EPS格式 - 使用A8矢量转换API
+
+        Args:
+            image_bytes: 图片字节数据
+            options: 额外选项（目前主要用于兼容性）
+
+        Returns:
+            保存的EPS文件URL路径
+        """
+        return await self.a8_vectorizer_client.image_to_eps(image_bytes)
+
+    async def vectorize_image_a8_svg(
+        self,
+        image_bytes: bytes,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """
+        AI矢量化为SVG格式 - 使用A8矢量转换API
+
+        Args:
+            image_bytes: 图片字节数据
+            options: 额外选项（目前主要用于兼容性）
+
+        Returns:
+            保存的SVG文件URL路径
+        """
+        return await self.a8_vectorizer_client.image_to_svg(image_bytes)
 
     # 去水印相关方法
     async def remove_watermark(
