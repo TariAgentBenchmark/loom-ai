@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     # Vectorizer.ai API配置
     vectorizer_api_key: str = ""
     vectorizer_api_secret: str = ""
+    a8_vectorizer_base_url: str = "https://a8.zifeiyuai.top:2345"
     
     # 即梦API配置
     jimeng_api_key: str = ""

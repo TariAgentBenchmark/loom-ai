@@ -310,7 +310,7 @@ class AIClient:
         image_bytes: bytes,
         options: Optional[Dict[str, Any]] = None,
     ) -> str:
-        """AI矢量化(转SVG) - 使用Vectorizer.ai API"""
+        """AI矢量化(转EPS) - 使用A8矢量化服务"""
         return await self.vectorizer_client.vectorize_image(image_bytes, options)
 
     # 去水印相关方法
