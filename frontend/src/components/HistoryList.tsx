@@ -448,9 +448,14 @@ const HistoryList: React.FC<HistoryListProps> = ({
                     </div>
                   </div>
 
-                  <p className="text-xs text-gray-500 mb-2">
-                    {formatDate(task.createdAt)}
-                  </p>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs text-gray-500">
+                      {formatDate(task.createdAt)}
+                    </p>
+                    <p className="text-xs text-blue-600 font-medium">
+                      {task.creditsUsed} 积分
+                    </p>
+                  </div>
 
                   {task.resultImage && (
                     <div className="flex items-center justify-between">
