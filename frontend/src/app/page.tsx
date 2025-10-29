@@ -441,7 +441,13 @@ export default function Home() {
           promptInstruction={promptInstruction}
           onPromptInstructionChange={setPromptInstruction}
           patternType={patternType}
-          onPatternTypeChange={setPatternType}
+          onPatternTypeChange={(value) => {
+            setPatternType(value);
+            // 当从通用模式切换到其他模式时，清除分辨率设置
+            if (value !== 'general') {
+              setAspectRatio('');
+            }
+          }}
           upscaleEngine={upscaleEngine}
           onUpscaleEngineChange={setUpscaleEngine}
           aspectRatio={aspectRatio}

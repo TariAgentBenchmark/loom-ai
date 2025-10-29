@@ -319,8 +319,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
             </div>
           )}
 
-          {/* 分辨率选择 - 仅在允许自定义分辨率的方法中显示 */}
-          {canAdjustResolution(method) && (
+          {/* 分辨率选择 - 仅在AI提取花型的通用模式下显示 */}
+          {canAdjustResolution(method) && patternType === 'general' && (
             <div className="mb-4 md:mb-6">
               <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2">分辨率设置</h4>
 
