@@ -56,6 +56,10 @@ class Settings(BaseSettings):
     liblib_access_key: str = ""
     liblib_secret_key: str = ""
 
+    # GQCH API配置
+    gqch_api_base_url: str = "https://gqch.haoee.com"
+    gqch_api_key: str = ""
+
     # 阿里云OSS配置
     oss_access_key_id: str = ""
     oss_access_key_secret: str = ""

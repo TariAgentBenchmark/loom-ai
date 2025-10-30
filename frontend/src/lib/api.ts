@@ -304,6 +304,8 @@ const processingPathMap: Record<ProcessingMethod, string> = {
   watermark_removal: "/processing/remove-watermark",
   noise_removal: "/processing/denoise",
   upscale: "/processing/upscale",
+  expand_image: "/processing/expand-image",
+  seamless_loop: "/processing/seamless-loop",
 };
 
 export interface ApiSuccessResponse<T> {
@@ -504,18 +506,36 @@ export interface ProcessingRequestPayload {
   patternType?: string;
   upscaleEngine?: 'meitu_v2';
   aspectRatio?: string;
+  expandRatio?: string;
+  expandTop?: number;
+  expandBottom?: number;
+  expandLeft?: number;
+  expandRight?: number;
+  expandPrompt?: string;
+  seamDirection?: number;
+  seamFit?: number;
 }
 
-export const createProcessingTask = ({
-  method,
-  image,
-  accessToken,
-  instruction,
-  model,
-  patternType,
-  upscaleEngine,
-  aspectRatio,
-}: ProcessingRequestPayload) => {
+export const createProcessingTask = (payload: ProcessingRequestPayload) => {
+  const {
+    method,
+    image,
+    accessToken,
+    instruction,
+    model,
+    patternType,
+    upscaleEngine,
+    aspectRatio,
+    expandRatio,
+    expandTop,
+    expandBottom,
+    expandLeft,
+    expandRight,
+    expandPrompt,
+    seamDirection,
+    seamFit,
+  } = payload;
+
   const formData = new FormData();
   formData.append("image", image);
 
@@ -535,6 +555,28 @@ export const createProcessingTask = ({
   // 添加分辨率参数
   if (aspectRatio) {
     formData.append("aspect_ratio", aspectRatio);
+  }
+
+  if (method === "expand_image") {
+    formData.append("expand_top", (expandTop ?? 0).toString());
+    formData.append("expand_bottom", (expandBottom ?? 0).toString());
+    formData.append("expand_left", (expandLeft ?? 0).toString());
+    formData.append("expand_right", (expandRight ?? 0).toString());
+    if (expandRatio) {
+      formData.append("expand_ratio", expandRatio);
+    }
+    if (expandPrompt) {
+      formData.append("prompt", expandPrompt);
+    }
+  }
+
+  if (method === "seamless_loop") {
+    const safeDirection =
+      typeof seamDirection === "number" && Number.isFinite(seamDirection) ? seamDirection : 0;
+    const safeFit = typeof seamFit === "number" && Number.isFinite(seamFit) ? seamFit : 0.5;
+
+    formData.append("direction", safeDirection.toString());
+    formData.append("fit", safeFit.toString());
   }
 
   const path = processingPathMap[method];

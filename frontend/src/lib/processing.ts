@@ -5,7 +5,9 @@ export type ProcessingMethod =
   | 'extract_pattern'
   | 'watermark_removal'
   | 'noise_removal'
-  | 'upscale';
+  | 'upscale'
+  | 'expand_image'
+  | 'seamless_loop';
 
 interface ProcessingMethodInfo {
   title: string;
@@ -96,6 +98,28 @@ export const processingMethodInfo: Record<ProcessingMethod, ProcessingMethodInfo
       'AI智能分析并放大图片',
       '保持原始清晰度和细节',
       '生成高质量放大图片',
+    ],
+  },
+  expand_image: {
+    title: 'AI扩图',
+    description: '智能延展图片边缘，自动生成符合原图风格的内容，适合尺寸延展与电商主图设计。',
+    icon: '/optimized/AI智能去水印.webp',
+    examples: [
+      '上传需要扩展的原图',
+      '默认四个方向扩展比例为0，可按需调整至30%以内',
+      '可填写提示词，引导AI生成扩展部分的风格与内容',
+      '等待处理完成，下载扩展后的高清图像',
+    ],
+  },
+  seamless_loop: {
+    title: 'AI接循环',
+    description: '将单张图片转换为可无缝平铺的循环图案，并生成网格预览图，便于布料与壁纸设计。',
+    icon: '/optimized/AI提取花型.webp',
+    examples: [
+      '上传需要接循环的图片',
+      '可设置拼合度与方向（四周、上下或左右）',
+      '支持与扩图组合使用，扩展画布后自动接循环',
+      '处理完成后可下载无缝图与网格效果图',
     ],
   },
 };

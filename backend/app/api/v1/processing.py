@@ -437,6 +437,118 @@ async def upscale_image(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post("/expand-image")
+async def expand_image(
+    image: UploadFile = File(...),
+    expand_top: float = Form(0.0),
+    expand_bottom: float = Form(0.0),
+    expand_left: float = Form(0.0),
+    expand_right: float = Form(0.0),
+    prompt: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """AI扩图"""
+    try:
+        image_bytes = await image.read()
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(
+            "Expand image upload size: %.2f MB, filename: %s",
+            len(image_bytes) / 1024 / 1024,
+            image.filename,
+        )
+
+        options = {
+            "expand_top": expand_top,
+            "expand_bottom": expand_bottom,
+            "expand_left": expand_left,
+            "expand_right": expand_right,
+        }
+
+        if prompt is not None:
+            options["prompt"] = prompt
+
+        task = await processing_service.create_task(
+            db=db,
+            user=current_user,
+            task_type="expand_image",
+            image_bytes=image_bytes,
+            original_filename=image.filename,
+            options=options,
+        )
+
+        return SuccessResponse(
+            data={
+                "taskId": task.task_id,
+                "status": task.status,
+                "estimatedTime": task.estimated_time,
+                "creditsUsed": to_float(task.credits_used),
+                "createdAt": task.created_at,
+            },
+            message="扩图任务创建成功",
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/seamless-loop")
+async def seamless_loop(
+    image: UploadFile = File(...),
+    fit: float = Form(0.5),
+    direction: int = Form(0),
+    expand_top: float = Form(0.0),
+    expand_bottom: float = Form(0.0),
+    expand_left: float = Form(0.0),
+    expand_right: float = Form(0.0),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """AI接循环（无缝拼接）"""
+    try:
+        image_bytes = await image.read()
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(
+            "Seamless loop upload size: %.2f MB, filename: %s",
+            len(image_bytes) / 1024 / 1024,
+            image.filename,
+        )
+
+        options = {
+            "fit": fit,
+            "direction": direction,
+            "expand_top": expand_top,
+            "expand_bottom": expand_bottom,
+            "expand_left": expand_left,
+            "expand_right": expand_right,
+        }
+
+        task = await processing_service.create_task(
+            db=db,
+            user=current_user,
+            task_type="seamless_loop",
+            image_bytes=image_bytes,
+            original_filename=image.filename,
+            options=options,
+        )
+
+        return SuccessResponse(
+            data={
+                "taskId": task.task_id,
+                "status": task.status,
+                "estimatedTime": task.estimated_time,
+                "creditsUsed": to_float(task.credits_used),
+                "createdAt": task.created_at,
+            },
+            message="接循环任务创建成功",
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.get("/status/{task_id}")
 async def get_task_status(
     task_id: str,

@@ -16,7 +16,11 @@ const SERVICE_PRICE_FALLBACKS: Record<ProcessingMethod, number> = {
   watermark_removal: 0.9,
   noise_removal: 0.5,
   upscale: 0.9,
+  expand_image: 1,
+  seamless_loop: 1,
 };
+
+type ExpandEdgeKey = 'top' | 'bottom' | 'left' | 'right';
 
 const formatCredits = (value: number) => {
   if (Number.isInteger(value)) {
@@ -51,6 +55,16 @@ interface ProcessingPageProps {
   onUpscaleEngineChange?: (value: 'meitu_v2') => void;
   aspectRatio?: string;
   onAspectRatioChange?: (value: string) => void;
+  expandRatio?: string;
+  onExpandRatioChange?: (value: string) => void;
+  expandEdges?: Record<ExpandEdgeKey, string>;
+  onExpandEdgeChange?: (edge: ExpandEdgeKey, value: string) => void;
+  expandPrompt?: string;
+  onExpandPromptChange?: (value: string) => void;
+  seamDirection?: number;
+  onSeamDirectionChange?: (value: number) => void;
+  seamFit?: number;
+  onSeamFitChange?: (value: number) => void;
   historyRefreshToken?: number;
 }
 
@@ -78,6 +92,16 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   onUpscaleEngineChange,
   aspectRatio,
   onAspectRatioChange,
+  expandRatio,
+  onExpandRatioChange,
+  expandEdges,
+  onExpandEdgeChange,
+  expandPrompt,
+  onExpandPromptChange,
+  seamDirection = 0,
+  onSeamDirectionChange,
+  seamFit = 0.5,
+  onSeamFitChange,
   historyRefreshToken = 0,
 }) => {
   const info = getProcessingMethodInfo(method);
@@ -96,6 +120,64 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
       description: '超清V2模式，追求稳定还原与高保真，适合对原图还原度要求高的场景。',
     },
   ];
+  const expandRatioOptions: { value: string; label: string }[] = [
+    { value: '1:1', label: '1:1' },
+    { value: '3:4', label: '3:4' },
+    { value: '4:3', label: '4:3' },
+    { value: '16:9', label: '16:9' },
+    { value: '9:16', label: '9:16' },
+  ];
+  const effectiveExpandRatio = expandRatio ?? 'original';
+  const edgeValues = expandEdges ?? { top: '0.00', bottom: '0.00', left: '0.00', right: '0.00' };
+  const expandPromptValue = expandPrompt ?? '';
+  const expandEdgeItems: { key: ExpandEdgeKey; label: string }[] = [
+    { key: 'top', label: '上' },
+    { key: 'bottom', label: '下' },
+    { key: 'left', label: '左' },
+    { key: 'right', label: '右' },
+  ];
+  const seamDirectionOptions: { value: number; label: string }[] = [
+    { value: 0, label: '四周拼接' },
+    { value: 1, label: '上下拼接' },
+    { value: 2, label: '左右拼接' },
+  ];
+  const isSeamlessLoop = method === 'seamless_loop';
+  const seamFitValue = Math.max(0, Math.min(1, seamFit));
+  const uploadZoneClasses = `border-2 border-dashed rounded-lg md:rounded-xl p-4 md:p-8 text-center transition cursor-pointer flex items-center justify-center ${
+    isSeamlessLoop
+      ? 'border-blue-300 hover:border-blue-400 bg-blue-50/70 min-h-[220px] md:min-h-[260px]'
+      : 'border-gray-300 hover:border-blue-400 min-h-[150px] md:min-h-[200px]'
+  }`;
+  const handleExpandEdgeInput = (edge: ExpandEdgeKey, value: string) => {
+    if (!onExpandEdgeChange) return;
+
+    let sanitized = value.replace(/[^0-9.]/g, '');
+    const dotIndex = sanitized.indexOf('.');
+    if (dotIndex !== -1) {
+      const integerPart = sanitized.slice(0, dotIndex + 1);
+      const decimalPart = sanitized
+        .slice(dotIndex + 1)
+        .replace(/\./g, '')
+        .slice(0, 2);
+      sanitized = integerPart + decimalPart;
+    }
+
+    onExpandEdgeChange(edge, sanitized);
+    if (onExpandRatioChange && effectiveExpandRatio !== 'original') {
+      onExpandRatioChange('original');
+    }
+  };
+
+  const handleExpandEdgeBlur = (edge: ExpandEdgeKey) => {
+    if (!onExpandEdgeChange) return;
+    const raw = parseFloat(edgeValues[edge] ?? '0');
+    if (!Number.isFinite(raw)) {
+      onExpandEdgeChange(edge, '0.00');
+      return;
+    }
+    const clamped = Math.max(0, Math.min(0.3, raw));
+    onExpandEdgeChange(edge, clamped.toFixed(2));
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -207,11 +289,11 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
       </header>
 
       <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
-        <div className="w-full md:w-80 bg-white border-r border-gray-200 p-4 md:p-6 overflow-y-auto order-2 md:order-1">
+        <div className="w-full md:w-96 bg-white border-r border-gray-200 p-4 md:p-6 overflow-y-auto order-2 md:order-1">
           <div className="mb-4 md:mb-6">
             <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-3 md:mb-4">上传图片</h3>
             <div
-              className="border-2 border-dashed border-gray-300 rounded-lg md:rounded-xl p-4 md:p-8 text-center hover:border-blue-400 transition cursor-pointer min-h-[150px] md:min-h-[200px] flex items-center justify-center"
+              className={uploadZoneClasses}
               onDragOver={onDragOver}
               onDrop={onDrop}
               onClick={() => fileInputRef.current?.click()}
@@ -226,14 +308,22 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                   <p className="text-xs md:text-sm text-gray-500">拖拽图片或点击上传</p>
                 </div>
               ) : (
-                <div className="space-y-2 md:space-y-4">
-                  <div className="mx-auto flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg md:rounded-xl bg-gray-100 text-gray-400">
-                    ⬆
+                isSeamlessLoop ? (
+                  <div className="flex flex-col items-center gap-2 md:gap-3">
+                    <span className="text-4xl md:text-5xl font-semibold text-blue-500">+</span>
+                    <p className="text-sm md:text-base font-medium text-gray-700">点击上传图片</p>
+                    <p className="text-xs md:text-sm text-gray-500">支持 JPG/PNG，建议尺寸 ≥ 1024px</p>
                   </div>
-                  <div>
-                    <p className="text-sm md:text-base font-medium text-gray-700">拖拽图片或点击上传</p>
+                ) : (
+                  <div className="space-y-2 md:space-y-4">
+                    <div className="mx-auto flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg md:rounded-xl bg-gray-100 text-gray-400">
+                      ⬆
+                    </div>
+                    <div>
+                      <p className="text-sm md:text-base font-medium text-gray-700">拖拽图片或点击上传</p>
+                    </div>
                   </div>
-                </div>
+                )
               )}
             </div>
             <input
@@ -270,6 +360,139 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
               )}
             </button>
           </div>
+
+        {method === 'expand_image' && (
+          <div className="mb-4 md:mb-6 space-y-4">
+            <div className="space-y-3 md:space-y-4">
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-4">
+                <h4 className="text-sm md:text-base font-semibold text-gray-900">扩图比例</h4>
+                <p className="text-xs md:text-sm text-gray-500 md:flex-1 md:text-left">
+                  选择预设比例快速调整扩展框，也可手动输入边距比例。
+                </p>
+              </div>
+              <div className="flex items-center gap-2 md:gap-2 overflow-x-auto pb-1">
+                {expandRatioOptions.map((option) => {
+                  const isActive = effectiveExpandRatio === option.value;
+                  return (
+                    <button
+                      type="button"
+                      key={option.value}
+                      onClick={() => onExpandRatioChange?.(option.value)}
+                      className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg border text-xs md:text-sm font-medium whitespace-nowrap flex-shrink-0 transition-all ${
+                        isActive
+                          ? 'border-blue-500 bg-blue-50 text-blue-600 shadow-sm'
+                          : 'border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50/60'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <h4 className="text-sm md:text-base font-semibold text-gray-900">扩展边距</h4>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs md:text-sm text-gray-600">
+                  {expandEdgeItems.map((edge) => {
+                    const value = edgeValues[edge.key];
+                    const displayValue = value === undefined || value === '' ? '0.00' : value;
+                    return (
+                      <span key={edge.key} className="flex items-center gap-1">
+                        {edge.label}:
+                        <span className="font-medium text-blue-600">{displayValue}</span>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+                {expandEdgeItems.map((edge) => (
+                  <div key={edge.key} className="flex flex-col gap-1">
+                    <label className="text-xs md:text-sm font-medium text-gray-700">
+                      {edge.label}方向
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={edgeValues[edge.key] ?? ''}
+                      onChange={(event) => handleExpandEdgeInput(edge.key, event.target.value)}
+                      onBlur={() => handleExpandEdgeBlur(edge.key)}
+                      className="rounded-lg border border-gray-200 px-4 py-2 text-sm md:text-base text-center focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+                      placeholder="0.00"
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500">
+                取值范围 0.00 - 0.30，表示在该方向上扩展原图边长的百分比。
+              </p>
+            </div>
+
+            <div>
+              <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2">扩图提示词（可选）</h4>
+              <textarea
+                value={expandPromptValue}
+                onChange={(event) => onExpandPromptChange?.(event.target.value)}
+                placeholder="输入希望扩展区域呈现的内容，例如：花朵、叶子、植物等"
+                className="w-full min-h-[80px] md:min-h-[96px] rounded-lg md:rounded-xl border border-gray-200 px-3 py-2 md:px-4 md:py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 resize-none"
+              />
+              <p className="text-xs text-gray-500 mt-2">提示词会引导AI生成扩展区域的细节，可留空以保持原图风格。</p>
+            </div>
+          </div>
+        )}
+
+        {method === 'seamless_loop' && (
+          <div className="mb-4 md:mb-6 space-y-4">
+            <div>
+              <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2">拼接方向</h4>
+              <div className="flex flex-wrap gap-2">
+                {seamDirectionOptions.map((option) => {
+                  const isActive = seamDirection === option.value;
+                  return (
+                    <button
+                      type="button"
+                      key={option.value}
+                      onClick={() => onSeamDirectionChange?.(option.value)}
+                      className={`px-3 py-1.5 md:px-4 md:py-2 rounded-full border text-xs md:text-sm font-medium transition-all ${
+                        isActive
+                          ? 'border-blue-500 bg-blue-50 text-blue-600 shadow-sm'
+                          : 'border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50/60'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                选择需要保持无缝的方向，默认处理四周接缝，也可仅调整单向拼接效果。
+              </p>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm md:text-base font-semibold text-gray-900">接缝拟合度</h4>
+                <span className="text-xs md:text-sm font-medium text-blue-600">
+                  {seamFitValue.toFixed(2)}
+                </span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={seamFitValue}
+                onChange={(event) => onSeamFitChange?.(parseFloat(event.target.value))}
+                className="w-full accent-blue-500"
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                当原图拼合差异较大时，可以调大此参数加强过渡；若需要保留细节，可适当调小。
+              </p>
+            </div>
+          </div>
+        )}
 
           {method === 'extract_pattern' && (
             <div className="mb-4 md:mb-6">

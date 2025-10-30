@@ -49,6 +49,10 @@ import {
 
 type PageState = 'home' | ProcessingMethod;
 
+type ExpandEdgeKey = 'top' | 'bottom' | 'left' | 'right';
+
+type ExpandEdgesState = Record<ExpandEdgeKey, string>;
+
 const AUTH_DEMO_CREDENTIALS = {
   identifier: '13800138000', // Demo phone number
   password: 'password123',
@@ -77,6 +81,16 @@ export default function Home() {
   const [patternType, setPatternType] = useState<string>('general');
   const [upscaleEngine, setUpscaleEngine] = useState<'meitu_v2'>('meitu_v2');
   const [aspectRatio, setAspectRatio] = useState<string>('');
+  const [expandRatio, setExpandRatio] = useState<string>('original');
+  const [expandEdges, setExpandEdges] = useState<ExpandEdgesState>({
+    top: '0.00',
+    bottom: '0.00',
+    left: '0.00',
+    right: '0.00',
+  });
+  const [expandPrompt, setExpandPrompt] = useState<string>('');
+  const [seamDirection, setSeamDirection] = useState<number>(0);
+  const [seamFit, setSeamFit] = useState<number>(0.5);
   const [historyRefreshToken, setHistoryRefreshToken] = useState(0);
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -391,6 +405,45 @@ export default function Home() {
       payload.aspectRatio = aspectRatio;
     }
 
+    if (currentPage === 'expand_image') {
+      const clampValue = (value: string) => {
+        const parsed = parseFloat(value);
+        if (!Number.isFinite(parsed)) {
+          return 0;
+        }
+        const normalized = Math.max(0, parsed);
+        return Math.min(0.3, Number(normalized.toFixed(2)));
+      };
+
+      const top = clampValue(expandEdges.top);
+      const bottom = clampValue(expandEdges.bottom);
+      const left = clampValue(expandEdges.left);
+      const right = clampValue(expandEdges.right);
+
+      payload.expandRatio = expandRatio !== 'original' ? expandRatio : undefined;
+      payload.expandTop = top;
+      payload.expandBottom = bottom;
+      payload.expandLeft = left;
+      payload.expandRight = right;
+
+      setExpandEdges({
+        top: top.toFixed(2),
+        bottom: bottom.toFixed(2),
+        left: left.toFixed(2),
+        right: right.toFixed(2),
+      });
+
+      const trimmedExpandPrompt = expandPrompt.trim();
+      if (trimmedExpandPrompt) {
+        payload.expandPrompt = trimmedExpandPrompt;
+      }
+    }
+
+    if (currentPage === 'seamless_loop') {
+      payload.seamDirection = seamDirection;
+      payload.seamFit = Number(seamFit.toFixed(2));
+    }
+
     createProcessingTask(payload)
       .then((response) => {
         const task = response.data;
@@ -428,6 +481,16 @@ export default function Home() {
 
   const accountSummary = useMemo(() => toAccountSummary(accountProfile), [accountProfile]);
 
+  const handleExpandEdgeChange = useCallback(
+    (edge: ExpandEdgeKey, value: string) => {
+      setExpandEdges((prev) => ({
+        ...prev,
+        [edge]: value,
+      }));
+    },
+    [],
+  );
+
   return (
     <>
       {currentPage !== 'home' ? (
@@ -444,6 +507,11 @@ export default function Home() {
             setPatternType('general');
             setUpscaleEngine('meitu_v2');
             setAspectRatio('');
+            setExpandRatio('original');
+            setExpandEdges({ top: '0.00', bottom: '0.00', left: '0.00', right: '0.00' });
+            setExpandPrompt('');
+            setSeamDirection(0);
+            setSeamFit(0.5);
           }}
           onOpenPricingModal={() => setShowPricingModal(true)}
           onProcessImage={handleProcessImage}
@@ -468,6 +536,16 @@ export default function Home() {
           onUpscaleEngineChange={setUpscaleEngine}
           aspectRatio={aspectRatio}
           onAspectRatioChange={setAspectRatio}
+          expandRatio={expandRatio}
+          onExpandRatioChange={setExpandRatio}
+          expandEdges={expandEdges}
+          onExpandEdgeChange={handleExpandEdgeChange}
+          expandPrompt={expandPrompt}
+          onExpandPromptChange={setExpandPrompt}
+          seamDirection={seamDirection}
+          onSeamDirectionChange={setSeamDirection}
+          seamFit={seamFit}
+          onSeamFitChange={setSeamFit}
           historyRefreshToken={historyRefreshToken}
         />
       ) : (
@@ -490,6 +568,15 @@ export default function Home() {
             }
             if (method === 'extract_pattern') {
               setPatternType('general');
+            }
+            if (method === 'expand_image') {
+              setExpandRatio('original');
+              setExpandEdges({ top: '0.00', bottom: '0.00', left: '0.00', right: '0.00' });
+              setExpandPrompt('');
+            }
+            if (method === 'seamless_loop') {
+              setSeamDirection(0);
+              setSeamFit(0.5);
             }
           }}
           onOpenPricingModal={() => setShowPricingModal(true)}

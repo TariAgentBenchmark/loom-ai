@@ -64,6 +64,7 @@ uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 # 必须配置
 SECRET_KEY=your-secret-key-here
 APIYI_API_KEY=your-apiyi-api-key-here
+GQCH_API_KEY=your-gqch-api-key-here
 
 # 可选配置
 DATABASE_URL=sqlite:///./loom_ai.db

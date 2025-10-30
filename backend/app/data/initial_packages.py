@@ -217,6 +217,20 @@ SERVICE_PRICES = [
         "description": "AI无损放大",
         "price_credits": 0.9
     },
+    {
+        "service_id": "expand_image",
+        "service_name": "扩图",
+        "service_key": "expand_image",
+        "description": "AI扩图",
+        "price_credits": 1.0
+    },
+    {
+        "service_id": "seamless_loop",
+        "service_name": "接循环",
+        "service_key": "seamless_loop",
+        "description": "AI接循环",
+        "price_credits": 1.0
+    },
 ]
 
 # 新用户福利配置

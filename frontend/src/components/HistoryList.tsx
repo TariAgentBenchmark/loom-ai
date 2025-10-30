@@ -53,6 +53,8 @@ const HistoryList: React.FC<HistoryListProps> = ({
     { value: 'remove_watermark', label: 'AI智能去水印' },
     { value: 'denoise', label: 'AI布纹去噪' },
     { value: 'embroidery', label: 'AI刺绣' },
+    { value: 'expand_image', label: 'AI扩图' },
+    { value: 'seamless_loop', label: 'AI接循环' },
   ];
 
   const statusOptions = [

@@ -12,6 +12,7 @@ from app.services.ai_client.apyi_gemini_client import ApyiGeminiClient
 from app.services.ai_client.apyi_openai_client import ApyiOpenAIClient
 from app.services.ai_client.gpt4o_client import GPT4oClient
 from app.services.ai_client.image_utils import ImageProcessingUtils
+from app.services.ai_client.gqch_client import GQCHClient
 from app.services.ai_client.jimeng_client import JimengClient
 from app.services.ai_client.liblib_client import LiblibUpscaleAPI
 from app.services.ai_client.meitu_client import MeituClient
@@ -37,6 +38,7 @@ class AIClient:
         self.meitu_client = MeituClient()
         self.image_utils = ImageProcessingUtils()
         self.base_client_utils = BaseAIClient()
+        self.gqch_client = GQCHClient()
         
         # Liblib API配置
         self.liblib_client = LiblibUpscaleAPI(
@@ -237,6 +239,16 @@ class AIClient:
         """AI四方连续转换"""
         return await self.image_utils.seamless_pattern_conversion(image_bytes, options)
 
+    async def seamless_loop(
+        self,
+        image_bytes: bytes,
+        options: Optional[Dict[str, Any]] = None,
+        original_filename: Optional[str] = None,
+    ) -> str:
+        """调用GQCH实现无缝拼接/接循环"""
+        filename = original_filename or "upload.png"
+        return await self.gqch_client.seamless_loop(image_bytes, filename, options)
+
     async def prompt_edit_image(
         self,
         image_bytes: bytes,
@@ -305,6 +317,16 @@ class AIClient:
     ) -> str:
         """AI布纹去噪"""
         return await self.image_utils.denoise_image(image_bytes, options)
+
+    async def expand_image(
+        self,
+        image_bytes: bytes,
+        options: Optional[Dict[str, Any]] = None,
+        original_filename: Optional[str] = None,
+    ) -> str:
+        """调用GQCH实现智能扩图"""
+        filename = original_filename or "upload.png"
+        return await self.gqch_client.expand_image(image_bytes, filename, options)
 
     # 矢量化相关方法
     async def vectorize_image(
