@@ -91,7 +91,7 @@ async def register(
                 "credits": user.credits,
                 "createdAt": user.created_at
             },
-            message="注册成功，已赠送200积分"
+            message="注册成功，已赠送10积分"
         )
         
     except Exception as e:

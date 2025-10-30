@@ -8,6 +8,7 @@ from jose import JWTError, jwt
 
 from app.core.config import settings
 from app.models.user import User, MembershipType, UserStatus
+from app.services.credit_math import to_decimal
 
 # 密码加密上下文
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -97,7 +98,7 @@ class AuthService:
             hashed_password=self.get_password_hash(password),
             nickname=nickname or phone,  # 如果没有昵称，使用手机号
             phone=phone,  # 现在是必需的
-            credits=200,  # 新用户赠送200积分
+            credits=to_decimal(10),  # 新用户赠送10积分
             membership_type=MembershipType.FREE,
             status=UserStatus.ACTIVE
         )
@@ -112,7 +113,7 @@ class AuthService:
         await credit_service.record_transaction(
             db=db,
             user_id=user.id,
-            amount=200,
+            amount=to_decimal(10),
             source="registration",
             description="新用户注册赠送"
         )

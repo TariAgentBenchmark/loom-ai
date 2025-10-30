@@ -33,10 +33,10 @@
     "userId": "user_123456789",
     "email": "user@example.com",
     "nickname": "用户昵称",
-    "credits": 200,                 // 新用户赠送200算力
+    "credits": 10,                  // 新用户赠送10积分
     "createdAt": "2023-12-01T10:00:00Z"
   },
-  "message": "注册成功，已赠送200算力"
+  "message": "注册成功，已赠送10积分"
 }
 ```
 
