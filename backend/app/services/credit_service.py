@@ -68,6 +68,33 @@ class CreditService:
         
         current_balance = to_decimal(user.credits or 0)
 
+        now = datetime.utcnow()
+        current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        monthly_spent_raw = db.query(func.sum(CreditTransaction.amount)).filter(
+            and_(
+                CreditTransaction.user_id == user_id,
+                CreditTransaction.type == TransactionType.SPEND.value,
+                CreditTransaction.created_at >= current_month_start
+            )
+        ).scalar()
+        monthly_spent = to_decimal(monthly_spent_raw or 0).copy_abs()
+
+        monthly_quotas = {
+            "free": Decimal("200"),
+            "basic": Decimal("7500"),
+            "premium": Decimal("11000"),
+            "enterprise": Decimal("30000"),
+        }
+
+        membership_key = user.membership_type.value if user.membership_type else "free"
+        monthly_quota = monthly_quotas.get(membership_key, Decimal("200"))
+        monthly_remaining = monthly_quota - monthly_spent
+        if monthly_remaining < 0:
+            monthly_remaining = Decimal("0")
+
+        usage_percent = float((monthly_spent / monthly_quota * 100) if monthly_quota > 0 else 0.0)
+
         earned_sum = db.query(func.sum(CreditTransaction.amount)).filter(
             and_(
                 CreditTransaction.user_id == user_id,
@@ -90,7 +117,11 @@ class CreditService:
             "totalEarned": to_float(total_earned),
             "totalSpent": to_float(total_spent),
             "netChange": to_float(net_change),
-            "lastUpdated": datetime.utcnow().isoformat()
+            "monthlySpent": to_float(monthly_spent),
+            "monthlyQuota": float(monthly_quota),
+            "monthlyRemaining": to_float(monthly_remaining),
+            "monthlyUsagePercent": round(usage_percent, 1),
+            "lastUpdated": now.isoformat()
         }
 
     async def get_transaction_history(

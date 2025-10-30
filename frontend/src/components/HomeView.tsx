@@ -15,7 +15,7 @@ import {
 import { ProcessingMethod } from '../lib/processing';
 import HistoryList from './HistoryList';
 import ImagePreview from './ImagePreview';
-import { HistoryTask } from '../lib/api';
+import { HistoryTask, type CreditBalanceResponse } from '../lib/api';
 
 type MembershipTag = 'free' | 'basic' | 'premium' | 'enterprise' | string | undefined;
 
@@ -37,13 +37,19 @@ interface HomeViewProps {
   isAuthenticating: boolean;
   authError?: string;
   accountSummary?: AccountSummary;
+  creditBalance?: CreditBalanceResponse;
   onOpenLoginModal: () => void;
   accessToken?: string;
   historyRefreshToken?: number;
 }
 
-const formatNumber = (value: number | undefined, fallback: string) =>
-  typeof value === 'number' ? value.toLocaleString() : fallback;
+const formatNumber = (value: number | undefined, fallback: string, fractionDigits = 0) =>
+  typeof value === 'number'
+    ? value.toLocaleString(undefined, {
+        minimumFractionDigits: fractionDigits,
+        maximumFractionDigits: fractionDigits,
+      })
+    : fallback;
 
 const membershipLabel = (membershipType: MembershipTag) => {
   switch (membershipType) {
@@ -70,6 +76,7 @@ const HomeView: React.FC<HomeViewProps> = ({
   isAuthenticating,
   authError,
   accountSummary,
+  creditBalance,
   onOpenLoginModal,
   accessToken,
   historyRefreshToken = 0,
@@ -80,9 +87,27 @@ const HomeView: React.FC<HomeViewProps> = ({
   const [showBatchDownload, setShowBatchDownload] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const creditsLabel = formatNumber(accountSummary?.credits, isLoggedIn ? '0' : '--');
+  const creditsLabel = formatNumber(
+    creditBalance?.credits ?? accountSummary?.credits,
+    isLoggedIn ? '0.00' : '--',
+    2,
+  );
   const monthlyLabel = formatNumber(accountSummary?.monthlyProcessed, isLoggedIn ? '0' : '--');
   const totalLabel = formatNumber(accountSummary?.totalProcessed, isLoggedIn ? '0' : '--');
+  const monthlyUsagePercent = isLoggedIn ? creditBalance?.monthlyUsagePercent ?? 0 : 35;
+  const monthlyUsageLabel = formatNumber(
+    creditBalance?.monthlyUsagePercent,
+    isLoggedIn ? '0.0' : '35.0',
+    1,
+  );
+  const monthlySpentLabel = formatNumber(creditBalance?.monthlySpent, isLoggedIn ? '0.00' : '--', 2);
+  const monthlyQuotaLabel = formatNumber(creditBalance?.monthlyQuota, isLoggedIn ? '0' : '--');
+  const progressWidth = `${Math.min(100, Math.max(0, monthlyUsagePercent))}%`;
+  const monthlyUsageText = isLoggedIn
+    ? creditBalance
+      ? `本月已使用 ${monthlyUsageLabel}%（${monthlySpentLabel} / ${monthlyQuotaLabel} 积分）`
+      : `本月已使用 ${monthlyUsageLabel}%`
+    : '本月已使用 35%';
 
   const handleLogout = () => {
     if (onLogout) {
@@ -373,10 +398,10 @@ const HomeView: React.FC<HomeViewProps> = ({
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
                         className="bg-gradient-to-r from-blue-500 to-indigo-500 h-2 rounded-full"
-                        style={{ width: isLoggedIn ? '65%' : '35%' }}
+                        style={{ width: progressWidth }}
                       ></div>
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">本月已使用 35%</div>
+                    <div className="text-xs text-gray-500 mt-1">{monthlyUsageText}</div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-gray-50 rounded-lg p-2 text-center">
@@ -461,10 +486,10 @@ const HomeView: React.FC<HomeViewProps> = ({
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
                     className="bg-gradient-to-r from-blue-500 to-indigo-500 h-2 rounded-full"
-                    style={{ width: isLoggedIn ? '65%' : '35%' }}
+                    style={{ width: progressWidth }}
                   ></div>
                 </div>
-                <div className="text-xs text-gray-500 mt-1">本月已使用 35%</div>
+                <div className="text-xs text-gray-500 mt-1">{monthlyUsageText}</div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-gray-50 rounded-lg p-2 md:p-3 text-center">

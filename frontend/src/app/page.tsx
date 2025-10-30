@@ -31,7 +31,9 @@ import {
   ApiSuccessResponse,
   UserProfile,
   createProcessingTask,
+  CreditBalanceResponse,
   getProcessingStatus,
+  getCreditBalance,
   ProcessingRequestPayload,
   ProcessingStatusData,
   register,
@@ -58,6 +60,7 @@ const POLLING_INTERVAL_MS = 3000;
 export default function Home() {
   const [authState, setAuthState] = useState(createLoggedOutState());
   const [accountProfile, setAccountProfile] = useState<UserProfile | undefined>(undefined);
+  const [creditBalance, setCreditBalance] = useState<CreditBalanceResponse | undefined>(undefined);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [authError, setAuthError] = useState<string>('');
   const [registerError, setRegisterError] = useState<string>('');
@@ -82,6 +85,18 @@ export default function Home() {
 
   const isLoggedIn = isAuthenticated(authState);
   const accessToken = isLoggedIn ? authState.accessToken : null;
+
+  const hydrateAccount = useCallback(
+    async (token: string) => {
+      const [profileResponse, balanceResponse] = await Promise.all([
+        fetchUserProfile(token),
+        getCreditBalance(token),
+      ]);
+      setAccountProfile(profileResponse.data);
+      setCreditBalance(balanceResponse.data);
+    },
+    [],
+  );
 
   useEffect(() => {
     registerTokenUpdateHandler((tokens) => {
@@ -136,19 +151,19 @@ export default function Home() {
 
     setAuthState(authenticated);
 
-    fetchUserProfile(restored.accessToken)
-      .then((profileResponse: ApiSuccessResponse<UserProfile>) => {
-        setAccountProfile(profileResponse.data);
+    hydrateAccount(restored.accessToken)
+      .then(() => {
         persistSession({ ...restored, rememberMe: restored.rememberMe });
       })
       .catch(() => {
         clearPersistedSession();
         setAuthState(createLoggedOutState());
         setAccountProfile(undefined);
+        setCreditBalance(undefined);
         clearAuthTokens();
         rememberMeRef.current = false;
       });
-  }, []);
+  }, [hydrateAccount]);
 
   const clearPolling = useCallback(() => {
     if (pollingRef.current) {
@@ -180,22 +195,20 @@ export default function Home() {
           rememberMe: credentials.rememberMe,
         });
 
-        const profileResponse: ApiSuccessResponse<UserProfile> = await fetchUserProfile(
-          loginResult.accessToken,
-        );
-        setAccountProfile(profileResponse.data);
+        await hydrateAccount(loginResult.accessToken);
         setShowLoginModal(false);
       } catch (error) {
         clearPersistedSession();
         setAuthState(createLoggedOutState());
         setAccountProfile(undefined);
+        setCreditBalance(undefined);
         setAuthError((error as Error)?.message ?? '登录失败，请检查配置后重试');
         clearAuthTokens();
         rememberMeRef.current = false;
         throw error;
       }
     },
-    [],
+    [hydrateAccount],
   );
 
   const registerAndLoad = useCallback(
@@ -234,16 +247,14 @@ export default function Home() {
           rememberMe: true,
         });
 
-        const profileResponse: ApiSuccessResponse<UserProfile> = await fetchUserProfile(
-          loginResult.accessToken,
-        );
-        setAccountProfile(profileResponse.data);
+        await hydrateAccount(loginResult.accessToken);
         setShowRegisterModal(false);
         console.log('page.tsx: Registration flow completed successfully');
       } catch (error) {
         console.error('page.tsx: Registration flow failed', error);
         setAuthState(createLoggedOutState());
         setAccountProfile(undefined);
+        setCreditBalance(undefined);
         
         // Handle specific registration errors
         const errorMessage = (error as Error)?.message;
@@ -262,7 +273,7 @@ export default function Home() {
         throw error;
       }
     },
-    [],
+    [hydrateAccount],
   );
 
   const handleImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
@@ -308,6 +319,11 @@ export default function Home() {
         pollingRef.current = null;
         setSuccessMessage('处理完成，可以下载结果');
         setHistoryRefreshToken((token) => token + 1);
+        if (accessToken) {
+          hydrateAccount(accessToken).catch(() => {
+            /* 静默忽略刷新错误 */
+          });
+        }
         return;
       }
 
@@ -318,7 +334,7 @@ export default function Home() {
         pollingRef.current = null;
       }
     },
-    [],
+    [hydrateAccount, accessToken],
   );
 
   const handleProcessImage = () => {
@@ -482,6 +498,7 @@ export default function Home() {
             clearPersistedSession();
             setAuthState(createLoggedOutState());
             setAccountProfile(undefined);
+            setCreditBalance(undefined);
             setAuthError('');
             setRegisterError('');
             setShowLoginModal(true);
@@ -502,6 +519,7 @@ export default function Home() {
           isAuthenticating={authState.status === 'authenticating'}
           authError={authError}
           accountSummary={accountSummary}
+          creditBalance={creditBalance}
           onOpenLoginModal={() => setShowLoginModal(true)}
           accessToken={accessToken || undefined}
           historyRefreshToken={historyRefreshToken}

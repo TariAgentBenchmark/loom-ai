@@ -440,6 +440,18 @@ export interface ServiceCostResponse {
   unit_cost: number;
 }
 
+export interface CreditBalanceResponse {
+  credits: number;
+  totalEarned: number;
+  totalSpent: number;
+  netChange: number;
+  monthlySpent: number;
+  monthlyQuota: number;
+  monthlyRemaining: number;
+  monthlyUsagePercent: number;
+  lastUpdated: string;
+}
+
 export const login = (payload: LoginPayload) =>
   postJson<LoginResult, { identifier: string; password: string; remember_me: boolean }>(
     "/auth/login",
@@ -584,6 +596,9 @@ export const getServiceCost = async (
     throw new Error(message);
   }
 };
+
+export const getCreditBalance = (accessToken: string) =>
+  getJson<CreditBalanceResponse>('/credits/balance', accessToken);
 
 export const getApiBaseUrl = () => API_BASE_URL;
 
