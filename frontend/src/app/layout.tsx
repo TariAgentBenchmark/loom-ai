@@ -15,6 +15,10 @@ export const metadata: Metadata = {
   icons: {
     icon: "/favicon.png",
   },
+  other: {
+    "google": "notranslate",
+    "googlebot": "notranslate",
+  },
 };
 
 export const viewport: Viewport = {
@@ -26,8 +30,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="en" className={inter.className}>
-      <body>{children}</body>
+    <html lang="en" className={inter.className} translate="no">
+      <body className="notranslate">{children}</body>
     </html>
   );
 }

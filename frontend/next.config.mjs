@@ -1,6 +1,19 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-Google-Translate-Disable',
+            value: 'true',
+          },
+        ],
+      },
+    ];
+  },
   async rewrites() {
     // 仅在开发环境中启用代理
     if (process.env.NODE_ENV === 'development') {

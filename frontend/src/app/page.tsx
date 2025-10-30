@@ -492,7 +492,7 @@ export default function Home() {
   );
 
   return (
-    <>
+    <div className="notranslate">
       {currentPage !== 'home' ? (
         <ProcessingPage
           method={currentPage}
@@ -652,6 +652,6 @@ export default function Home() {
           setRegisterError('');
         }}
       />
-    </>
+    </div>
   );
 }
