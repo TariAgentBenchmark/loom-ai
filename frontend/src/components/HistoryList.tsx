@@ -131,6 +131,17 @@ const HistoryList: React.FC<HistoryListProps> = ({
     }
   };
 
+  const formatCredits = (value: number | undefined) => {
+    if (typeof value !== 'number' || Number.isNaN(value)) {
+      return '--';
+    }
+
+    return value.toLocaleString('zh-CN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('zh-CN', {
@@ -453,7 +464,7 @@ const HistoryList: React.FC<HistoryListProps> = ({
                       {formatDate(task.createdAt)}
                     </p>
                     <p className="text-xs text-blue-600 font-medium">
-                      {task.creditsUsed} 积分
+                      {formatCredits(task.creditsUsed)} 积分
                     </p>
                   </div>
 

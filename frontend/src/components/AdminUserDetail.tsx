@@ -126,7 +126,7 @@ const AdminUserDetail: React.FC = () => {
       setShowCreditModal(false);
       setCreditAdjustment({ amount: 0, reason: "", sendNotification: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "调整用户算力失败");
+      setError(err instanceof Error ? err.message : "调整用户积分失败");
     } finally {
       setIsAdjustingCredits(false);
     }
@@ -279,7 +279,7 @@ const AdminUserDetail: React.FC = () => {
             <div className="flex items-center">
               <CreditCard className="h-8 w-8 text-blue-500" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">算力余额</p>
+                <p className="text-sm font-medium text-gray-500">积分余额</p>
                 <p className="text-2xl font-semibold text-gray-900">{user.credits.toLocaleString()}</p>
               </div>
             </div>
@@ -378,11 +378,11 @@ const AdminUserDetail: React.FC = () => {
       {activeTab === "actions" && (
         <div className="space-y-6">
           <div className="bg-white shadow rounded-lg p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">算力调整</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-4">积分调整</h3>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  当前算力
+                  当前积分
                 </label>
                 <p className="text-2xl font-semibold text-gray-900">{user.credits.toLocaleString()}</p>
               </div>
@@ -395,7 +395,7 @@ const AdminUserDetail: React.FC = () => {
                   className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
                 >
                   <Plus className="h-4 w-4 mr-1" />
-                  增加算力
+                  增加积分
                 </button>
                 <button
                   onClick={() => {
@@ -405,7 +405,7 @@ const AdminUserDetail: React.FC = () => {
                   className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700"
                 >
                   <Minus className="h-4 w-4 mr-1" />
-                  减少算力
+                  减少积分
                 </button>
               </div>
             </div>
@@ -478,7 +478,7 @@ const AdminUserDetail: React.FC = () => {
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="mt-3">
               <h3 className="text-lg font-medium text-gray-900 mb-4">
-                调整用户算力
+                调整用户积分
               </h3>
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -507,7 +507,7 @@ const AdminUserDetail: React.FC = () => {
                   }
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="请输入算力调整原因"
+                  placeholder="请输入积分调整原因"
                 />
               </div>
               <div className="mb-4">

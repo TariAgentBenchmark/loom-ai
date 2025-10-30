@@ -167,7 +167,7 @@ class TestAdminUserManagementWorkflow:
         # Verify table headers
         await authenticated_page.wait_for_selector('text=邮箱')
         await authenticated_page.wait_for_selector('text=昵称')
-        await authenticated_page.wait_for_selector('text=算力')
+        await authenticated_page.wait_for_selector('text=积分')
         await authenticated_page.wait_for_selector('text=会员类型')
         await authenticated_page.wait_for_selector('text=状态')
         
@@ -289,10 +289,10 @@ class TestAdminUserManagementWorkflow:
         await authenticated_page.wait_for_url("**/admin/users/*")
         
         # Click credit adjustment button
-        await authenticated_page.click('button:has-text("调整算力")')
+        await authenticated_page.click('button:has-text("调整积分")')
         
         # Wait for credit adjustment modal
-        await authenticated_page.wait_for_selector('text=调整用户算力')
+        await authenticated_page.wait_for_selector('text=调整用户积分')
         
         # Enter adjustment amount
         await authenticated_page.fill('input[name="amount"]', "100")
@@ -304,7 +304,7 @@ class TestAdminUserManagementWorkflow:
         await authenticated_page.click('button:has-text("确认")')
         
         # Wait for success message
-        await authenticated_page.wait_for_selector('text=算力调整成功')
+        await authenticated_page.wait_for_selector('text=积分调整成功')
 
 
 class TestAdminOrderManagementWorkflow:

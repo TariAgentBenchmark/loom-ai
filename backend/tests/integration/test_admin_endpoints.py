@@ -133,7 +133,7 @@ class TestAdminEndpoints:
             assert response.status_code in [200, 404]
     
     def test_adjust_user_credits(self):
-        """测试调整用户算力"""
+        """测试调整用户积分"""
         # 登录管理员
         login_response = client.post("/api/v1/auth/login", json={
             "email": TEST_ADMIN_EMAIL,
@@ -144,11 +144,11 @@ class TestAdminEndpoints:
             token = login_response.json()["data"]["token"]
             headers = {"Authorization": f"Bearer {token}"}
             
-            # 测试增加用户算力
+            # 测试增加用户积分
             response = client.post("/api/v1/admin/users/test_user_id/credits/adjust", 
                                   json={
                                       "amount": 100,
-                                      "reason": "测试添加算力",
+                                      "reason": "测试添加积分",
                                       "sendNotification": True
                                   },
                                   headers=headers)

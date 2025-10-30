@@ -132,7 +132,7 @@ const AdminOrderManagement: React.FC = () => {
   const getPackageTypeBadge = (type: string) => {
     const typeConfig = {
       membership: { bg: "bg-purple-100", text: "text-purple-800", label: "会员套餐" },
-      credits: { bg: "bg-blue-100", text: "text-blue-800", label: "算力套餐" },
+      credits: { bg: "bg-blue-100", text: "text-blue-800", label: "积分套餐" },
     };
 
     const config = typeConfig[type as keyof typeof typeConfig] || typeConfig.credits;
@@ -280,7 +280,7 @@ const AdminOrderManagement: React.FC = () => {
                   >
                     <option value="">全部</option>
                     <option value="membership">会员套餐</option>
-                    <option value="credits">算力套餐</option>
+                    <option value="credits">积分套餐</option>
                   </select>
                 </div>
                 <div>

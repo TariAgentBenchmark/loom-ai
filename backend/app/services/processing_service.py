@@ -10,6 +10,8 @@ from app.models.user import User
 from app.services.ai_client import ai_client
 from app.services.credit_service import CreditService
 from app.services.file_service import FileService
+from app.services.membership_service import MembershipService
+from app.services.credit_math import to_decimal, to_float
 
 logger = logging.getLogger(__name__)
 
@@ -20,17 +22,17 @@ class ProcessingService:
     def __init__(self):
         self.credit_service = CreditService()
         self.file_service = FileService()
+        self.membership_service = MembershipService()
         
-        # 各功能的基础算力消耗
-        self.credit_costs = {
-            TaskType.PROMPT_EDIT.value: 80,
-            TaskType.SEAMLESS.value: 60,
-            TaskType.VECTORIZE.value: 100,
-            TaskType.EXTRACT_PATTERN.value: 100,
-            TaskType.REMOVE_WATERMARK.value: 70,
-            TaskType.DENOISE.value: 80,
-            TaskType.EMBROIDERY.value: 120,  # 成本更高
-            TaskType.UPSCALE.value: 90,  # 无损放大
+        self.service_key_map = {
+            TaskType.PROMPT_EDIT.value: "prompt_edit",
+            TaskType.SEAMLESS.value: "seamless",
+            TaskType.VECTORIZE.value: "style",
+            TaskType.EXTRACT_PATTERN.value: "extract_pattern",
+            TaskType.REMOVE_WATERMARK.value: "watermark_removal",
+            TaskType.DENOISE.value: "noise_removal",
+            TaskType.EMBROIDERY.value: "embroidery",
+            TaskType.UPSCALE.value: "upscale",
         }
         
         # 预计处理时间（秒）
@@ -45,28 +47,11 @@ class ProcessingService:
             TaskType.UPSCALE.value: 180,  # 无损放大
         }
 
-    def calculate_credits_needed(self, task_type: str, image_info: Dict[str, Any], user: User) -> int:
-        """计算所需算力"""
-        base_credits = self.credit_costs.get(task_type, 100)
-        
-        # 高分辨率附加费用
-        width = image_info.get('width', 0)
-        height = image_info.get('height', 0)
-        if max(width, height) > 2048:
-            base_credits = int(base_credits * 1.5)
-        
-        # 大文件附加费用
-        file_size = image_info.get('size', 0)
-        if file_size > 10 * 1024 * 1024:  # 10MB
-            base_credits += 20
-        
-        # 会员折扣
-        if user.membership_type.value == "premium":
-            base_credits = int(base_credits * 0.9)  # 9折
-        elif user.membership_type.value == "enterprise":
-            base_credits = int(base_credits * 0.8)  # 8折
-        
-        return max(base_credits, 10)  # 最少10算力
+    def _resolve_service_key(self, task_type: str) -> str:
+        service_key = self.service_key_map.get(task_type)
+        if not service_key:
+            raise Exception(f"未配置的服务类型: {task_type}")
+        return service_key
 
     async def create_task(
         self,
@@ -87,14 +72,17 @@ class ProcessingService:
         # 获取图片信息
         image_info = await self.file_service.get_image_info(image_bytes)
         
-        # 计算所需算力
-        credits_needed = self.calculate_credits_needed(task_type, image_info, user)
-        
-        # 检查算力是否足够
+        # 计算所需积分
+        service_key = self._resolve_service_key(task_type)
+        credits_needed = await self.membership_service.calculate_service_cost(db, service_key)
+        if credits_needed is None:
+            raise Exception("服务价格未配置，请联系管理员")
+
+        # 检查积分是否足够
         if not user.can_afford(credits_needed):
-            raise Exception("算力不足，请充值后再试")
-        
-        # 扣除算力
+            raise Exception("积分不足，请充值后再试")
+
+        # 扣除积分
         user.deduct_credits(credits_needed)
         
         # 创建任务记录
@@ -116,7 +104,7 @@ class ProcessingService:
         db.commit()
         db.refresh(task)
         
-        # 记录算力消耗
+        # 记录积分消耗
         await self.credit_service.record_transaction(
             db=db,
             user_id=user.id,
@@ -269,17 +257,17 @@ class ProcessingService:
                 error_msg = str(e)
                 task.mark_as_failed(error_msg, "P006")
                 
-                # 退还算力
+                # 退还积分
                 user = db.query(User).filter(User.id == task.user_id).first()
                 user.add_credits(task.credits_used)
                 
-                # 记录退还算力
+                # 记录退还积分
                 await self.credit_service.record_transaction(
                     db=db,
                     user_id=user.id,
                     amount=task.credits_used,
                     source="refund",
-                    description=f"{task.type_name}处理失败，退还算力",
+                    description=f"{task.type_name}处理失败，退还积分",
                     related_task_id=task.task_id
                 )
                 
@@ -362,39 +350,18 @@ class ProcessingService:
         image_info: Dict[str, Any],
         user: User,
     ) -> Dict[str, Any]:
-        """预估算力消耗"""
-        base_credits = self.credit_costs.get(task_type, 100)
-        additional_credits = 0
-        
-        # 高分辨率附加费用
-        width = image_info.get('width', 0)
-        height = image_info.get('height', 0)
-        if max(width, height) > 2048:
-            additional_credits += int(base_credits * 0.5)
-        
-        # 大文件附加费用
-        file_size = image_info.get('size', 0)
-        if file_size > 10 * 1024 * 1024:
-            additional_credits += 20
-        
-        total_credits = base_credits + additional_credits
-        
-        # 会员折扣
-        discount = 0
-        if user.membership_type.value == "premium":
-            discount = 0.1  # 10%折扣
-        elif user.membership_type.value == "enterprise":
-            discount = 0.2  # 20%折扣
-        
-        final_credits = int(total_credits * (1 - discount))
-        final_credits = max(final_credits, 10)  # 最少10算力
-        
+        """预估积分消耗"""
+        service_key = self._resolve_service_key(task_type)
+        unit_price = await self.membership_service.get_service_price(db, service_key)
+        if unit_price is None:
+            raise Exception("服务价格未配置，请联系管理员")
+
+        final_credits = unit_price
         return {
-            "estimatedCredits": final_credits,
-            "baseCredits": base_credits,
-            "additionalCredits": additional_credits,
-            "discount": discount,
-            "finalCredits": final_credits,
+            "unitPrice": to_float(unit_price),
+            "estimatedCredits": to_float(final_credits),
+            "finalCredits": to_float(final_credits),
+            "quantity": 1,
             "canAfford": user.can_afford(final_credits),
-            "currentBalance": user.credits
+            "currentBalance": to_float(user.credits)
         }

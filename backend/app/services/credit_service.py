@@ -1,21 +1,26 @@
+import json
 import uuid
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
+
+from decimal import Decimal
+
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func
 
 from app.models.user import User
 from app.models.credit import CreditTransaction, CreditTransfer, TransactionType, CreditSource
+from app.services.credit_math import to_decimal, to_float
 
 
 class CreditService:
-    """算力服务"""
+    """积分服务"""
 
     async def record_transaction(
         self,
         db: Session,
         user_id: int,
-        amount: int,
+        amount,
         source: str,
         description: str,
         related_task_id: Optional[str] = None,
@@ -23,26 +28,30 @@ class CreditService:
         related_transfer_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None
     ) -> CreditTransaction:
-        """记录算力交易"""
+        """记录积分交易"""
         
         # 获取用户当前余额
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             raise Exception("用户不存在")
         
+        normalized_amount = to_decimal(amount)
+        transaction_type = TransactionType.EARN.value if normalized_amount > 0 else TransactionType.SPEND.value
+        balance_after = to_decimal(user.credits or 0)
+
         # 创建交易记录
         transaction = CreditTransaction(
             transaction_id=f"txn_{uuid.uuid4().hex[:12]}",
             user_id=user_id,
-            type=TransactionType.EARN.value if amount > 0 else TransactionType.SPEND.value,
-            amount=amount,
-            balance_after=user.credits,
+            type=transaction_type,
+            amount=normalized_amount,
+            balance_after=balance_after,
             source=source,
             description=description,
             related_task_id=related_task_id,
             related_order_id=related_order_id,
             related_transfer_id=related_transfer_id,
-            details=str(metadata) if metadata else None
+            details=json.dumps(metadata, ensure_ascii=False, default=str) if metadata else None
         )
         
         db.add(transaction)
@@ -52,43 +61,36 @@ class CreditService:
         return transaction
 
     async def get_user_balance(self, db: Session, user_id: int) -> Dict[str, Any]:
-        """获取用户算力余额信息"""
+        """获取用户积分余额信息"""
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             raise Exception("用户不存在")
         
-        # 计算本月使用情况
-        current_month_start = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        
-        monthly_usage = db.query(func.sum(CreditTransaction.amount)).filter(
+        current_balance = to_decimal(user.credits or 0)
+
+        earned_sum = db.query(func.sum(CreditTransaction.amount)).filter(
             and_(
                 CreditTransaction.user_id == user_id,
-                CreditTransaction.type == TransactionType.SPEND.value,
-                CreditTransaction.created_at >= current_month_start
+                CreditTransaction.type == TransactionType.EARN.value
             )
-        ).scalar() or 0
-        
-        monthly_usage = abs(monthly_usage)  # 转为正数
-        
-        # 会员月度配额
-        monthly_quotas = {
-            "free": 200,
-            "basic": 7500,
-            "premium": 11000,
-            "enterprise": 30000
-        }
-        
-        monthly_quota = monthly_quotas.get(user.membership_type.value, 200)
-        remaining_quota = max(0, monthly_quota - monthly_usage)
-        usage_percentage = (monthly_usage / monthly_quota * 100) if monthly_quota > 0 else 0
+        ).scalar()
+        total_earned = to_decimal(earned_sum or 0)
+
+        spent_sum = db.query(func.sum(CreditTransaction.amount)).filter(
+            and_(
+                CreditTransaction.user_id == user_id,
+                CreditTransaction.type == TransactionType.SPEND.value
+            )
+        ).scalar()
+        total_spent = to_decimal(spent_sum or 0).copy_abs()
+        net_change = total_earned - total_spent
         
         return {
-            "credits": user.credits,
-            "monthlyUsage": monthly_usage,
-            "monthlyQuota": monthly_quota,
-            "remainingQuota": remaining_quota,
-            "usagePercentage": round(usage_percentage, 1),
-            "lastUpdated": datetime.utcnow()
+            "credits": to_float(current_balance),
+            "totalEarned": to_float(total_earned),
+            "totalSpent": to_float(total_spent),
+            "netChange": to_float(net_change),
+            "lastUpdated": datetime.utcnow().isoformat()
         }
 
     async def get_transaction_history(
@@ -122,30 +124,32 @@ class CreditService:
         transactions = query.offset((page - 1) * limit).limit(limit).all()
         
         # 计算统计信息
-        total_earned = db.query(func.sum(CreditTransaction.amount)).filter(
+        total_earned_raw = db.query(func.sum(CreditTransaction.amount)).filter(
             and_(
                 CreditTransaction.user_id == user_id,
                 CreditTransaction.type == TransactionType.EARN.value,
                 CreditTransaction.created_at >= (start_date or datetime(1970, 1, 1)),
                 CreditTransaction.created_at <= (end_date or datetime.utcnow())
             )
-        ).scalar() or 0
+        ).scalar()
+        total_earned = to_decimal(total_earned_raw or 0)
         
-        total_spent = abs(db.query(func.sum(CreditTransaction.amount)).filter(
+        total_spent_raw = db.query(func.sum(CreditTransaction.amount)).filter(
             and_(
                 CreditTransaction.user_id == user_id,
                 CreditTransaction.type == TransactionType.SPEND.value,
                 CreditTransaction.created_at >= (start_date or datetime(1970, 1, 1)),
                 CreditTransaction.created_at <= (end_date or datetime.utcnow())
             )
-        ).scalar() or 0)
+        ).scalar()
+        total_spent = to_decimal(total_spent_raw or 0).copy_abs()
         
         return {
             "transactions": transactions,
             "summary": {
-                "totalEarned": total_earned,
-                "totalSpent": total_spent,
-                "netChange": total_earned - total_spent,
+                "totalEarned": to_float(total_earned),
+                "totalSpent": to_float(total_spent),
+                "netChange": to_float(total_earned - total_spent),
                 "period": f"{start_date.strftime('%Y-%m-%d') if start_date else '开始'} to {end_date.strftime('%Y-%m-%d') if end_date else '现在'}"
             },
             "pagination": {
@@ -161,10 +165,10 @@ class CreditService:
         db: Session,
         sender_id: int,
         recipient_email: str,
-        amount: int,
+        amount,
         message: Optional[str] = None
     ) -> CreditTransfer:
-        """转赠算力"""
+        """转赠积分"""
         
         # 获取发送方用户
         sender = db.query(User).filter(User.id == sender_id).first()
@@ -177,44 +181,46 @@ class CreditService:
             raise Exception("接收方用户不存在")
         
         if sender.id == recipient.id:
-            raise Exception("不能向自己转赠算力")
+            raise Exception("不能向自己转赠积分")
+
+        normalized_amount = to_decimal(amount)
         
-        # 检查发送方余额（管理员用户有无限算力）
-        if not sender.can_afford(amount):
-            raise Exception("算力余额不足")
+        # 检查发送方余额（管理员用户有无限积分）
+        if not sender.can_afford(normalized_amount):
+            raise Exception("积分余额不足")
         
-        # 执行转账（管理员用户不需要扣除算力）
-        sender.deduct_credits(amount)
-        recipient.add_credits(amount)
+        # 执行转账（管理员用户不需要扣除积分）
+        sender.deduct_credits(normalized_amount)
+        recipient.add_credits(normalized_amount)
         
         # 创建转赠记录
         transfer = CreditTransfer(
             transfer_id=f"transfer_{uuid.uuid4().hex[:12]}",
             sender_id=sender.id,
             recipient_id=recipient.id,
-            amount=amount,
+            amount=normalized_amount,
             message=message,
             status="completed"
         )
         
         db.add(transfer)
         
-        # 记录双方的算力交易
+        # 记录双方的积分交易
         await self.record_transaction(
             db=db,
             user_id=sender.id,
-            amount=-amount,
+            amount=-normalized_amount,
             source=CreditSource.TRANSFER_OUT.value,
-            description=f"转赠算力给 {recipient_email}",
+            description=f"转赠积分给 {recipient_email}",
             related_transfer_id=transfer.transfer_id
         )
         
         await self.record_transaction(
             db=db,
             user_id=recipient.id,
-            amount=amount,
+            amount=normalized_amount,
             source=CreditSource.TRANSFER_IN.value,
-            description=f"收到来自 {sender.email} 的算力转赠",
+            description=f"收到来自 {sender.email} 的积分转赠",
             related_transfer_id=transfer.transfer_id
         )
         
@@ -268,7 +274,7 @@ class CreditService:
         user_id: int,
         period: str = "daily"
     ) -> Dict[str, Any]:
-        """获取算力统计"""
+        """获取积分统计"""
         
         # 计算时间范围
         now = datetime.utcnow()
@@ -301,36 +307,44 @@ class CreditService:
             if date_key not in stats_dict:
                 stats_dict[date_key] = {
                     "date": date_key,
-                    "earned": 0,
-                    "spent": 0,
-                    "balance": 0,
+                    "earned": Decimal("0"),
+                    "spent": Decimal("0"),
+                    "balance": Decimal("0"),
                     "tasks": 0
                 }
             
             if txn.type == TransactionType.EARN.value:
-                stats_dict[date_key]["earned"] += txn.amount
+                stats_dict[date_key]["earned"] += to_decimal(txn.amount)
             else:
-                stats_dict[date_key]["spent"] += abs(txn.amount)
+                stats_dict[date_key]["spent"] += to_decimal(txn.amount).copy_abs()
                 if txn.source == "processing":
                     stats_dict[date_key]["tasks"] += 1
             
-            stats_dict[date_key]["balance"] = txn.balance_after
-        
-        statistics = list(stats_dict.values())
+            stats_dict[date_key]["balance"] = to_decimal(txn.balance_after)
+
+        statistics = []
+        for stat in stats_dict.values():
+            statistics.append({
+                "date": stat["date"],
+                "earned": to_float(stat["earned"]),
+                "spent": to_float(stat["spent"]),
+                "balance": to_float(stat["balance"]),
+                "tasks": stat["tasks"]
+            })
         
         # 计算总计
-        total_earned = sum(stat["earned"] for stat in statistics)
-        total_spent = sum(stat["spent"] for stat in statistics)
+        total_earned = sum(to_decimal(stat["earned"]) for stat in statistics)
+        total_spent = sum(to_decimal(stat["spent"]) for stat in statistics)
         total_tasks = sum(stat["tasks"] for stat in statistics)
-        avg_daily = total_spent / len(statistics) if statistics else 0
+        avg_daily = (total_spent / len(statistics)) if statistics else Decimal("0")
         
         return {
             "period": period,
             "statistics": statistics,
             "summary": {
-                "totalEarned": total_earned,
-                "totalSpent": total_spent,
-                "averageDaily": round(avg_daily, 1),
+                "totalEarned": to_float(total_earned),
+                "totalSpent": to_float(total_spent),
+                "averageDaily": float(round(avg_daily, 1)) if statistics else 0,
                 "totalTasks": total_tasks,
                 "period": f"最近{len(statistics)}{'天' if period == 'daily' else '周' if period == 'weekly' else '月'}"
             }
@@ -338,10 +352,7 @@ class CreditService:
 
     async def check_low_balance_alert(self, db: Session, user: User) -> bool:
         """检查低余额预警"""
-        # 这里可以实现预警逻辑
-        # 比如余额低于200时发送通知
-        if user.credits < 200:
-            # TODO: 发送预警通知
+        if to_decimal(user.credits or 0) < to_decimal(10):
             return True
         return False
 
@@ -349,22 +360,23 @@ class CreditService:
         self,
         db: Session,
         user_id: int,
-        amount: int,
+        amount,
         order_id: str,
         package_name: str
     ) -> CreditTransaction:
-        """购买套餐后增加算力"""
+        """购买套餐后增加积分"""
         
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             raise Exception("用户不存在")
         
-        user.add_credits(amount)
+        normalized_amount = to_decimal(amount)
+        user.add_credits(normalized_amount)
         
         transaction = await self.record_transaction(
             db=db,
             user_id=user_id,
-            amount=amount,
+            amount=normalized_amount,
             source=CreditSource.PURCHASE.value,
             description=f"{package_name}购买",
             related_order_id=order_id

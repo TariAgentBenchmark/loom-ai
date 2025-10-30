@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Float, JSON
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Float, JSON, Numeric
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from enum import Enum as PyEnum
@@ -51,8 +51,8 @@ class Task(Base):
     options = Column(JSON, nullable=True)  # 处理选项
     extra_metadata = Column(JSON, nullable=True)  # 处理元数据（算法版本、步骤等）
     
-    # 算力和时间
-    credits_used = Column(Integer, nullable=False)  # 消耗的算力
+    # 积分和时间
+    credits_used = Column(Numeric(18, 2), nullable=False)  # 消耗的积分
     estimated_time = Column(Integer, nullable=True)  # 预计处理时间（秒）
     processing_time = Column(Integer, nullable=True)  # 实际处理时间（秒）
     

@@ -162,6 +162,13 @@ DISCOUNT_PACKAGES = [
 # 服务价格配置
 SERVICE_PRICES = [
     {
+        "service_id": "seamless",
+        "service_name": "四方连续转换",
+        "service_key": "seamless",
+        "description": "AI四方连续转换",
+        "price_credits": 1.2
+    },
+    {
         "service_id": "prompt_edit",
         "service_name": "用嘴改图",
         "service_key": "prompt_edit",

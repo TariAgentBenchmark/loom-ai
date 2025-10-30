@@ -11,6 +11,7 @@ from app.models.user import User
 from app.models.task import Task
 from app.api.dependencies import get_current_user
 from app.schemas.common import SuccessResponse
+from app.services.credit_math import to_float
 
 router = APIRouter()
 
@@ -70,7 +71,7 @@ async def get_history_tasks(
                     "size": task.original_file_size,
                     "dimensions": task.original_dimensions
                 },
-                "creditsUsed": task.credits_used,
+                "creditsUsed": to_float(task.credits_used),
                 "processingTime": task.processing_time,
                 "favorite": task.favorite,
                 "tags": task.tags or [],
@@ -101,6 +102,7 @@ async def get_history_tasks(
         ).count()
         
         processing_times = [task.processing_time for task in tasks if task.processing_time]
+        total_credits_used = sum((task.credits_used or 0) for task in tasks if task.credits_used)
 
         return SuccessResponse(
             data={
@@ -109,7 +111,7 @@ async def get_history_tasks(
                     "totalTasks": total_tasks,
                     "completedTasks": completed_tasks,
                     "failedTasks": failed_tasks,
-                    "totalCreditsUsed": sum(task.credits_used for task in tasks if task.credits_used),
+                    "totalCreditsUsed": to_float(total_credits_used),
                     "avgProcessingTime": int(sum(processing_times) / len(processing_times)) if processing_times else 0
                 },
                 "pagination": {
@@ -165,7 +167,7 @@ async def get_task_detail(
                 } if task.result_image_url else None,
                 "options": task.options,
                 "metadata": task.extra_metadata,
-                "creditsUsed": task.credits_used,
+                "creditsUsed": to_float(task.credits_used),
                 "processingTime": task.processing_time,
                 "favorite": task.favorite,
                 "tags": task.tags or [],

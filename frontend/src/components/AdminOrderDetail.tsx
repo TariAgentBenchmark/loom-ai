@@ -99,7 +99,7 @@ const AdminOrderDetail: React.FC = () => {
   const getPackageTypeBadge = (type: string) => {
     const typeConfig = {
       membership: { bg: "bg-purple-100", text: "text-purple-800", label: "会员套餐" },
-      credits: { bg: "bg-blue-100", text: "text-blue-800", label: "算力套餐" },
+      credits: { bg: "bg-blue-100", text: "text-blue-800", label: "积分套餐" },
     };
 
     const config = typeConfig[type as keyof typeof typeConfig] || typeConfig.credits;
@@ -239,7 +239,7 @@ const AdminOrderDetail: React.FC = () => {
             </div>
             {order.creditsAmount && (
               <div>
-                <p className="text-sm font-medium text-gray-500">包含算力</p>
+                <p className="text-sm font-medium text-gray-500">包含积分</p>
                 <p className="text-sm text-gray-900">{order.creditsAmount.toLocaleString()}</p>
               </div>
             )}

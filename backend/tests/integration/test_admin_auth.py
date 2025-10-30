@@ -45,7 +45,7 @@ async def test_admin_authentication():
                 nickname="Admin",
                 is_admin=True,
                 status=UserStatus.ACTIVE,
-                credits=999999  # 管理员拥有大量算力
+                credits=999999  # 管理员拥有大量积分
             )
             db.add(admin_user)
             db.commit()

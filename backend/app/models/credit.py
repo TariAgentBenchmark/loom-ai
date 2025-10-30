@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Boolean, Float
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Boolean, Float, Numeric
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from enum import Enum as PyEnum
@@ -7,23 +7,22 @@ from app.core.database import Base
 
 
 class TransactionType(PyEnum):
-    EARN = "earn"  # 获得算力
-    SPEND = "spend"  # 消耗算力
+    EARN = "earn"  # 获得积分
+    SPEND = "spend"  # 消耗积分
 
 
 class CreditSource(PyEnum):
     REGISTRATION = "registration"  # 注册赠送
     PURCHASE = "purchase"  # 购买套餐
-    RECHARGE = "recharge"  # 算力充值
     TRANSFER_IN = "transfer_in"  # 转入
     TRANSFER_OUT = "transfer_out"  # 转出
-    PROCESSING = "processing"  # 图片处理消耗
+    PROCESSING = "processing"  # 服务消耗
     REFUND = "refund"  # 退款
     ADMIN_ADJUST = "admin_adjust"  # 管理员调整
 
 
 class CreditTransaction(Base):
-    """算力交易记录模型"""
+    """积分交易记录模型"""
     __tablename__ = "credit_transactions"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -32,8 +31,8 @@ class CreditTransaction(Base):
     
     # 交易信息
     type = Column(String(20), nullable=False, index=True)  # earn, spend
-    amount = Column(Integer, nullable=False)  # 算力变动量（正数为获得，负数为消耗）
-    balance_after = Column(Integer, nullable=False)  # 交易后余额
+    amount = Column(Numeric(18, 2), nullable=False)  # 积分变动量（正数为获得，负数为消耗）
+    balance_after = Column(Numeric(18, 2), nullable=False)  # 交易后余额
     
     # 来源和描述
     source = Column(String(50), nullable=False, index=True)  # 来源类型
@@ -58,7 +57,7 @@ class CreditTransaction(Base):
 
 
 class CreditTransfer(Base):
-    """算力转赠记录模型"""
+    """积分转赠记录模型"""
     __tablename__ = "credit_transfers"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -69,7 +68,7 @@ class CreditTransfer(Base):
     recipient_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     
     # 转账信息
-    amount = Column(Integer, nullable=False)  # 转赠数量
+    amount = Column(Numeric(18, 2), nullable=False)  # 转赠数量
     message = Column(String(500), nullable=True)  # 转赠留言
     status = Column(String(20), default="completed")  # completed, failed
     
@@ -85,7 +84,7 @@ class CreditTransfer(Base):
 
 
 class CreditAlert(Base):
-    """算力预警设置模型"""
+    """积分预警设置模型"""
     __tablename__ = "credit_alerts"
 
     id = Column(Integer, primary_key=True, index=True)

@@ -5,6 +5,7 @@
 
 import sys
 import os
+import asyncio
 
 # 添加项目根目录到Python路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -12,7 +13,14 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from app.core.database import init_db, SessionLocal
 from app.models.user import User, MembershipType, UserStatus
 from app.models.payment import Package
+from app.models.membership_package import ServicePrice, MembershipPackage, NewUserBonus
 from app.services.auth_service import AuthService
+from app.services.membership_service import MembershipService
+from app.data.initial_packages import (
+    get_all_packages,
+    get_service_prices,
+    get_new_user_bonus,
+)
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -40,7 +48,7 @@ def create_sample_packages():
                 price=0,
                 credits=200,
                 duration=7,
-                features=["赠送200算力积分", "7天内有效", "基础功能"],
+                features=["赠送200积分", "7天内有效", "基础功能"],
                 description="免费试用",
                 active=True,
                 popular=False
@@ -54,7 +62,7 @@ def create_sample_packages():
                 original_price=8900,
                 credits=7500,
                 duration=30,
-                features=["每月7500算力积分", "所有基础功能", "优先处理"],
+                features=["每月7500积分", "所有基础功能", "优先处理"],
                 description="性价比之选",
                 active=True,
                 popular=True,
@@ -62,12 +70,12 @@ def create_sample_packages():
             ),
             Package(
                 package_id="credits_basic",
-                name="基础算力包",
+                name="基础积分包",
                 type="credits",
                 category="credits",
                 price=1900,
                 credits=1000,
-                features=["1000算力积分", "永久有效"],
+                features=["1000积分", "永久有效"],
                 description="适合偶尔使用",
                 active=True,
                 popular=False
@@ -105,6 +113,7 @@ def create_admin_user():
             email="admin@loom-ai.com",
             hashed_password=auth_service.get_password_hash("admin123456"),
             nickname="管理员",
+            phone="13800000000",
             credits=999999,
             membership_type=MembershipType.ENTERPRISE,
             status=UserStatus.ACTIVE,
@@ -126,6 +135,46 @@ def create_admin_user():
         db.close()
 
 
+def create_membership_data():
+    """初始化会员套餐、服务价格及新用户福利数据"""
+    db = SessionLocal()
+
+    try:
+        has_packages = db.query(MembershipPackage).first()
+        has_services = db.query(ServicePrice).first()
+        has_bonus = db.query(NewUserBonus).first()
+
+        if has_packages and has_services and has_bonus:
+            logger.info("会员套餐/服务价格数据已存在，跳过创建")
+            return
+
+        # 使用服务初始化，保持与线上逻辑一致
+        service = MembershipService()
+        asyncio.run(service.initialize_packages(db))
+
+        # double-check: 如果服务未插入（例如表为空但async逻辑跳过），则手动填充
+        if not db.query(MembershipPackage).first():
+            for package in get_all_packages():
+                db.add(MembershipPackage(**package))
+
+        if not db.query(ServicePrice).first():
+            for service_data in get_service_prices():
+                db.add(ServicePrice(**service_data))
+
+        if not db.query(NewUserBonus).first():
+            db.add(NewUserBonus(**get_new_user_bonus()))
+
+        db.commit()
+        logger.info("✅ 会员套餐与服务价格数据创建成功")
+
+    except Exception as e:
+        logger.error(f"❌ 创建会员套餐/服务价格数据失败: {e}")
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
 def main():
     """主函数"""
     print("🗄️  初始化 LoomAI 数据库...")
@@ -137,6 +186,7 @@ def main():
         
         # 创建示例数据
         create_sample_packages()
+        create_membership_data()
         create_admin_user()
         
         print("\n🎉 数据库初始化完成!")

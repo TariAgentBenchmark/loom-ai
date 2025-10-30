@@ -223,7 +223,7 @@ const HomeView: React.FC<HomeViewProps> = ({
                               </div>
                               <div className="flex-1">
                                 <p className="text-sm font-medium text-gray-900">使用提示</p>
-                                <p className="text-xs text-gray-600 mt-1">上传前先裁剪图片，可节省20%算力消耗。</p>
+                                <p className="text-xs text-gray-600 mt-1">上传前先裁剪图片，可节省20%积分消耗。</p>
                                 <p className="text-xs text-gray-500 mt-2">1小时前</p>
                               </div>
                             </div>
@@ -367,7 +367,7 @@ const HomeView: React.FC<HomeViewProps> = ({
                 <div className="space-y-3">
                   <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-gray-600">剩余算力</span>
+                      <span className="text-xs text-gray-600">剩余积分</span>
                       <span className="text-base font-bold text-blue-600">{creditsLabel}</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
@@ -406,7 +406,7 @@ const HomeView: React.FC<HomeViewProps> = ({
                       className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white p-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center space-x-2"
                     >
                       <Crown className="h-3 w-3" />
-                      <span>充值算力</span>
+                      <span>充值积分</span>
                     </button>
                   )}
                   <button
@@ -455,7 +455,7 @@ const HomeView: React.FC<HomeViewProps> = ({
             <div className="space-y-3">
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 md:p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs md:text-sm text-gray-600">剩余算力</span>
+                  <span className="text-xs md:text-sm text-gray-600">剩余积分</span>
                   <span className="text-base md:text-lg font-bold text-blue-600">{creditsLabel}</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
@@ -491,7 +491,7 @@ const HomeView: React.FC<HomeViewProps> = ({
                   className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white p-2 md:p-3 rounded-lg text-xs md:text-sm font-medium transition-all flex items-center justify-center space-x-2"
                 >
                   <Crown className="h-3 w-3 md:h-4 md:w-4" />
-                  <span>充值算力</span>
+                  <span>充值积分</span>
                 </button>
               )}
               <button

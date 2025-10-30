@@ -8,6 +8,7 @@ from app.core.database import get_db
 from app.api.dependencies import get_current_user
 from app.models.user import User
 from app.services.membership_service import MembershipService
+from app.services.credit_math import to_float
 
 router = APIRouter()
 
@@ -167,8 +168,8 @@ async def get_service_cost(
     return {
         "service_key": service_key,
         "quantity": quantity,
-        "total_cost": cost,
-        "unit_cost": cost / quantity if quantity > 0 else 0
+        "total_cost": to_float(cost),
+        "unit_cost": to_float(cost / quantity) if quantity > 0 else 0
     }
 
 
@@ -189,8 +190,8 @@ async def can_afford_service(
         "can_afford": can_afford,
         "service_key": service_key,
         "quantity": quantity,
-        "required_credits": cost,
-        "current_credits": current_user.credits
+        "required_credits": to_float(cost) if cost is not None else None,
+        "current_credits": to_float(current_user.credits)
     }
 
 

@@ -88,11 +88,11 @@ async def check_credits(
     required_credits: int,
     current_user: User = Depends(get_current_user)
 ) -> User:
-    """检查用户算力是否足够"""
+    """检查用户积分是否足够"""
     if not current_user.can_afford(required_credits):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"算力不足，需要{required_credits}算力"
+            detail=f"积分不足，需要{required_credits}积分"
         )
     return current_user
 

@@ -89,12 +89,12 @@ class LoomAITester:
             print()
 
     async def test_credits_balance(self):
-        """测试算力余额查询"""
+    """测试积分余额查询"""
         if not self.token:
             print("❌ 需要先登录")
             return
 
-        print("💰 测试算力余额查询...")
+    print("💰 测试积分余额查询...")
 
         headers = {"Authorization": f"Bearer {self.token}"}
 
@@ -107,12 +107,12 @@ class LoomAITester:
             print()
 
     async def test_processing_estimate(self):
-        """测试算力预估"""
+    """测试积分预估"""
         if not self.token:
             print("❌ 需要先登录")
             return
 
-        print("🎯 测试算力预估...")
+    print("🎯 测试积分预估...")
 
         # 创建一个测试图片
         import io

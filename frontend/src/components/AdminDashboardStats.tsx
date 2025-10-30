@@ -384,16 +384,16 @@ const AdminDashboardStats: React.FC = () => {
         </div>
         <div className="xl:col-span-6">
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="text-sm font-medium text-slate-500">算力与订单概览</div>
+            <div className="text-sm font-medium text-slate-500">积分与订单概览</div>
             <div className="mt-6 grid gap-6 lg:grid-cols-2">
               <div className="space-y-4">
                 <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-white/60 p-4 shadow-sm">
                   <div>
-                    <div className="text-xs font-medium text-slate-500">算力余额</div>
+                    <div className="text-xs font-medium text-slate-500">积分余额</div>
                     <div className="mt-2 text-2xl font-semibold text-slate-900">
                       {formatNumber(stats.credits.total)}
                     </div>
-                    <div className="mt-1 text-xs text-slate-400">当前可用算力</div>
+                    <div className="mt-1 text-xs text-slate-400">当前可用积分</div>
                   </div>
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
                     kw
@@ -457,7 +457,7 @@ const AdminDashboardStats: React.FC = () => {
                 </div>
                 <div>
                   <div className="flex items-center justify-between text-xs font-medium text-slate-500">
-                    <span>今日算力消耗</span>
+                    <span>今日积分消耗</span>
                     <span className="text-slate-900">{Math.round(creditTurnoverRate)}%</span>
                   </div>
                   <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100">

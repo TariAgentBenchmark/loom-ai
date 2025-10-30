@@ -1,22 +1,25 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, condecimal
 from typing import Optional
 from datetime import datetime
 
 from app.core.database import get_db
 from app.models.user import User
 from app.services.credit_service import CreditService
+from app.services.membership_service import MembershipService
 from app.api.dependencies import get_current_user
 from app.schemas.common import SuccessResponse
+from app.services.credit_math import to_float
 
 router = APIRouter()
 credit_service = CreditService()
+membership_service = MembershipService()
 
 
 class CreditTransferRequest(BaseModel):
     recipient_email: EmailStr
-    amount: int
+    amount: condecimal(gt=0, decimal_places=2)
     message: Optional[str] = None
 
 
@@ -25,13 +28,13 @@ async def get_balance(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """获取算力余额"""
+    """获取积分余额"""
     try:
         balance_info = await credit_service.get_user_balance(db, current_user.id)
         
         return SuccessResponse(
             data=balance_info,
-            message="获取算力余额成功"
+            message="获取积分余额成功"
         )
         
     except Exception as e:
@@ -48,7 +51,7 @@ async def get_transactions(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """获取算力消耗记录"""
+    """获取积分消耗记录"""
     try:
         # 解析日期
         start_dt = None
@@ -75,8 +78,8 @@ async def get_transactions(
             formatted_txn = {
                 "transactionId": txn.transaction_id,
                 "type": txn.type,
-                "amount": txn.amount,
-                "balance": txn.balance_after,
+                "amount": to_float(txn.amount),
+                "balance": to_float(txn.balance_after),
                 "description": txn.description,
                 "relatedTaskId": txn.related_task_id,
                 "relatedOrderId": txn.related_order_id,
@@ -103,14 +106,8 @@ async def transfer_credits(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """算力转赠"""
+    """积分转赠"""
     try:
-        if transfer_data.amount <= 0:
-            raise HTTPException(status_code=400, detail="转赠数量必须大于0")
-        
-        if transfer_data.amount > 1000:
-            raise HTTPException(status_code=400, detail="单次转赠不能超过1000算力")
-        
         transfer = await credit_service.transfer_credits(
             db=db,
             sender_id=current_user.id,
@@ -122,17 +119,17 @@ async def transfer_credits(
         return SuccessResponse(
             data={
                 "transferId": transfer.transfer_id,
-                "amount": transfer.amount,
+                "amount": to_float(transfer.amount),
                 "recipientEmail": transfer_data.recipient_email,
-                "senderBalance": current_user.credits,
+                "senderBalance": to_float(current_user.credits),
                 "status": transfer.status,
                 "createdAt": transfer.created_at
             },
-            message="算力转赠成功"
+            message="积分转赠成功"
         )
         
     except Exception as e:
-        if "不存在" in str(e) or "不能向自己" in str(e) or "余额不足" in str(e):
+        if "不存在" in str(e) or "不能向自己" in str(e) or "积分" in str(e):
             raise HTTPException(status_code=400, detail=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -163,7 +160,7 @@ async def get_transfers(
             formatted_transfer = {
                 "transferId": transfer.transfer_id,
                 "type": transfer_type,
-                "amount": transfer.amount,
+                "amount": to_float(transfer.amount),
                 "recipientEmail": transfer.recipient.email if transfer_type == "sent" else None,
                 "senderEmail": transfer.sender.email if transfer_type == "received" else None,
                 "message": transfer.message,
@@ -190,7 +187,7 @@ async def get_statistics(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """获取算力统计"""
+    """获取积分统计"""
     try:
         if period not in ["daily", "weekly", "monthly", "yearly"]:
             raise HTTPException(status_code=400, detail="无效的统计周期")
@@ -213,73 +210,19 @@ async def get_statistics(
 
 
 @router.get("/pricing")
-async def get_pricing():
-    """获取算力价格表"""
+async def get_pricing(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取积分价格表"""
     try:
-        pricing_data = {
-            "processing": {
-                "seamless": {
-                    "name": "AI四方连续转换",
-                    "baseCredits": 60,
-                    "description": "对独幅矩形图转换成可四方连续的打印图"
-                },
-                "vectorize": {
-                    "name": "AI矢量化(转SVG)",
-                    "baseCredits": 100,
-                    "description": "使用AI一键将图片变成矢量图"
-                },
-                "extractPattern": {
-                    "name": "AI提取花型",
-                    "baseCredits": 100,
-                    "description": "提取图案中的花型元素"
-                },
-                "removeWatermark": {
-                    "name": "AI智能去水印",
-                    "baseCredits": 70,
-                    "description": "去除文字和Logo水印"
-                },
-                "denoise": {
-                    "name": "AI布纹去噪",
-                    "baseCredits": 80,
-                    "description": "去除噪点和布纹"
-                },
-                "embroidery": {
-                    "name": "AI毛线刺绣增强",
-                    "baseCredits": 90,
-                    "description": "毛线刺绣效果处理"
-                }
-            },
-            "modifiers": {
-                "highResolution": {
-                    "threshold": 2048,
-                    "multiplier": 1.5,
-                    "description": "高分辨率处理"
-                },
-                "largeFile": {
-                    "threshold": 10485760,
-                    "additionalCredits": 20,
-                    "description": "大文件处理"
-                }
-            },
-            "discounts": {
-                "premium": {
-                    "membershipType": "premium",
-                    "discount": 0.1,
-                    "description": "高级会员折扣"
-                },
-                "enterprise": {
-                    "membershipType": "enterprise",
-                    "discount": 0.2,
-                    "description": "企业会员折扣"
-                }
-            },
-            "lastUpdated": datetime.utcnow().isoformat()
-        }
-        
+        services = await membership_service.get_service_prices(db)
         return SuccessResponse(
-            data=pricing_data,
+            data={
+                "services": services,
+                "lastUpdated": datetime.utcnow().isoformat()
+            },
             message="获取价格表成功"
         )
-        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime, timedelta
+from decimal import Decimal
 from typing import Dict, Any, Optional, List
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func
@@ -10,6 +11,7 @@ from app.models.user import User
 from app.models.membership_package import MembershipPackage, ServicePrice, UserMembership, NewUserBonus
 from app.models.credit import CreditTransaction, CreditSource
 from app.data.initial_packages import get_all_packages, get_service_prices, get_new_user_bonus
+from app.services.credit_math import to_decimal, to_float, multiply
 
 
 class MembershipService:
@@ -84,7 +86,7 @@ class MembershipService:
                 "service_name": service.service_name,
                 "service_key": service.service_key,
                 "description": service.description,
-                "price_credits": service.price_credits,
+                "price_credits": to_float(service.price_credits),
                 "active": service.active
             })
 
@@ -99,7 +101,7 @@ class MembershipService:
             )
         ).first()
 
-        return service.price_credits if service else None
+        return to_decimal(service.price_credits) if service else None
 
     async def purchase_package(
         self,
@@ -140,15 +142,15 @@ class MembershipService:
         db.add(user_membership)
 
         # 增加用户积分
-        user.add_credits(package.total_credits)
+        user.add_credits(to_decimal(package.total_credits))
 
         # 记录积分交易
         transaction = CreditTransaction(
             transaction_id=f"txn_{uuid.uuid4().hex[:12]}",
             user_id=user_id,
             type="earn",
-            amount=package.total_credits,
-            balance_after=user.credits,
+            amount=to_decimal(package.total_credits),
+            balance_after=to_decimal(user.credits or 0),
             source=CreditSource.PURCHASE.value,
             description=f"购买 {package.name}",
             related_order_id=order_id,
@@ -168,8 +170,8 @@ class MembershipService:
         return {
             "success": True,
             "user_membership_id": user_membership.id,
-            "credits_added": package.total_credits,
-            "new_balance": user.credits,
+            "credits_added": to_float(package.total_credits),
+            "new_balance": to_float(user.credits),
             "package_info": {
                 "name": package.name,
                 "price_yuan": package.price_yuan,
@@ -225,12 +227,12 @@ class MembershipService:
         user = db.query(User).filter(User.id == user_id).first()
 
         # 扣除积分（只扣除实际支付金额对应的积分，赠送积分不扣除）
-        credits_to_deduct = user_membership.purchase_amount_yuan  # 1元=1积分
+        credits_to_deduct = to_decimal(user_membership.purchase_amount_yuan)  # 1元=1积分
 
-        if user.credits < credits_to_deduct:
+        if not user.can_afford(credits_to_deduct):
             raise Exception("用户积分不足，无法完成退款")
 
-        user.credits -= credits_to_deduct
+        user.deduct_credits(credits_to_deduct)
 
         # 记录退款交易
         transaction = CreditTransaction(
@@ -238,7 +240,7 @@ class MembershipService:
             user_id=user_id,
             type="spend",
             amount=-credits_to_deduct,
-            balance_after=user.credits,
+            balance_after=to_decimal(user.credits or 0),
             source=CreditSource.REFUND.value,
             description=f"套餐退款: {package.name}",
             related_order_id=user_membership.order_id,
@@ -256,8 +258,8 @@ class MembershipService:
         return {
             "success": True,
             "refund_amount_yuan": refund_amount_yuan,
-            "credits_deducted": credits_to_deduct,
-            "new_balance": user.credits,
+            "credits_deducted": to_float(credits_to_deduct),
+            "new_balance": to_float(user.credits),
             "refund_reason": reason
         }
 
@@ -296,15 +298,15 @@ class MembershipService:
             }
 
         # 增加用户积分
-        user.add_credits(bonus_config.bonus_credits)
+        user.add_credits(to_decimal(bonus_config.bonus_credits))
 
         # 记录积分交易
         transaction = CreditTransaction(
             transaction_id=f"txn_{uuid.uuid4().hex[:12]}",
             user_id=user_id,
             type="earn",
-            amount=bonus_config.bonus_credits,
-            balance_after=user.credits,
+            amount=to_decimal(bonus_config.bonus_credits),
+            balance_after=to_decimal(user.credits or 0),
             source=CreditSource.REGISTRATION.value,
             description="新用户注册福利",
             details={
@@ -319,7 +321,7 @@ class MembershipService:
         return {
             "success": True,
             "bonus_credits": bonus_config.bonus_credits,
-            "new_balance": user.credits,
+            "new_balance": to_float(user.credits),
             "message": "新用户福利已发放"
         }
 
@@ -353,13 +355,13 @@ class MembershipService:
 
         return result
 
-    async def calculate_service_cost(self, db: Session, service_key: str, quantity: int = 1) -> Optional[float]:
+    async def calculate_service_cost(self, db: Session, service_key: str, quantity: int = 1) -> Optional[Decimal]:
         """计算服务成本"""
         price = await self.get_service_price(db, service_key)
         if price is None:
             return None
 
-        return price * quantity
+        return multiply(price, quantity)
 
     async def can_afford_service(self, db: Session, user_id: int, service_key: str, quantity: int = 1) -> bool:
         """检查用户是否能支付服务费用"""
@@ -367,7 +369,7 @@ class MembershipService:
         if not user:
             return False
 
-        # 管理员用户有无限算力
+        # 管理员用户有无限积分
         if user.is_admin:
             return True
 
@@ -375,7 +377,7 @@ class MembershipService:
         if cost is None:
             return False
 
-        return user.credits >= cost
+        return to_decimal(user.credits or 0) >= cost
 
     async def deduct_service_cost(
         self,
@@ -390,7 +392,7 @@ class MembershipService:
         if not user:
             return False
 
-        # 管理员用户不需要扣除算力
+        # 管理员用户不需要扣除积分
         if user.is_admin:
             return True
 
@@ -398,11 +400,11 @@ class MembershipService:
         if cost is None:
             return False
 
-        if not user.can_afford(int(cost)):
+        if not user.can_afford(cost):
             return False
 
         # 扣除积分
-        user.deduct_credits(int(cost))
+        user.deduct_credits(cost)
 
         # 记录积分交易
         service = db.query(ServicePrice).filter(ServicePrice.service_key == service_key).first()
@@ -412,8 +414,8 @@ class MembershipService:
             transaction_id=f"txn_{uuid.uuid4().hex[:12]}",
             user_id=user_id,
             type="spend",
-            amount=-int(cost),
-            balance_after=user.credits,
+            amount=-cost,
+            balance_after=to_decimal(user.credits or 0),
             source="processing",
             description=f"使用 {service_name}",
             related_task_id=task_id,
@@ -421,8 +423,8 @@ class MembershipService:
                 "service_key": service_key,
                 "service_name": service_name,
                 "quantity": quantity,
-                "unit_price": cost / quantity,
-                "total_cost": cost
+                "unit_price": to_float(cost / quantity),
+                "total_cost": to_float(cost)
             }
         )
 

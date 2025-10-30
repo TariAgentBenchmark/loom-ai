@@ -1,10 +1,11 @@
 import uuid
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func, desc
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, condecimal
 from datetime import datetime, timedelta
 
 from app.core.database import get_db
@@ -16,15 +17,19 @@ from app.api.dependencies import get_current_active_admin
 from app.api.decorators import admin_required, admin_route
 from app.schemas.common import SuccessResponse, PaginationMeta
 from app.services.auth_service import AuthService
+from app.services.credit_math import to_decimal, to_float
 
 router = APIRouter()
+
+CreditBalance = condecimal(max_digits=12, decimal_places=2, ge=0, le=1_000_000)
+CreditDelta = condecimal(max_digits=12, decimal_places=2)
 
 
 class AdminUserResponse(BaseModel):
     userId: str
     email: Optional[str]
     nickname: Optional[str]
-    credits: int
+    credits: float
     membershipType: str
     status: str
     isAdmin: bool
@@ -42,7 +47,7 @@ class AdminCreateUserRequest(BaseModel):
     password: str = Field(..., min_length=6, max_length=128, description="Initial login password")
     email: Optional[EmailStr] = Field(None, description="User email address")
     nickname: Optional[str] = Field(None, max_length=100, description="Display nickname")
-    initialCredits: int = Field(0, ge=0, le=1_000_000, description="Initial credit balance")
+    initialCredits: CreditBalance = Field(Decimal("0.00"), description="Initial credit balance")
     isAdmin: bool = Field(False, description="Whether the user should have admin permissions")
 
 
@@ -74,8 +79,8 @@ class AdminCreditTransactionResponse(BaseModel):
     userId: str
     userEmail: str
     type: str
-    amount: int
-    balanceAfter: int
+    amount: float
+    balanceAfter: float
     source: str
     description: str
     createdAt: str
@@ -90,7 +95,7 @@ class AdminCreditTransactionListResponse(BaseModel):
 
 
 class CreditAdjustmentRequest(BaseModel):
-    amount: int = Field(..., description="Amount to adjust (positive to add, negative to deduct)")
+    amount: CreditDelta = Field(..., description="Amount to adjust (positive to add, negative to deduct)")
     reason: str = Field(..., description="Reason for adjustment")
     sendNotification: bool = Field(True, description="Send notification to user")
 
@@ -241,7 +246,7 @@ async def get_all_users(
                 userId=user.user_id,
                 email=user.email,
                 nickname=user.nickname,
-                credits=user.credits,
+                credits=to_float(user.credits),
                 membershipType=user.membership_type.value,
                 status=user.status.value,
                 isAdmin=user.is_admin,
@@ -302,7 +307,7 @@ async def get_user_detail(
             userId=user.user_id,
             email=user.email,
             nickname=user.nickname,
-            credits=user.credits,
+            credits=to_float(user.credits),
             membershipType=user.membership_type.value,
             status=user.status.value,
             isAdmin=user.is_admin,
@@ -348,7 +353,7 @@ async def create_user(
             email=user_data.email,
             nickname=user_data.nickname or user_data.phone,
             hashed_password=auth_service.get_password_hash(user_data.password),
-            credits=user_data.initialCredits,
+            credits=to_decimal(user_data.initialCredits),
             membership_type=MembershipType.FREE,
             status=UserStatus.ACTIVE,
             is_admin=user_data.isAdmin
@@ -358,15 +363,17 @@ async def create_user(
         db.commit()
         db.refresh(user)
 
-        if user_data.initialCredits > 0:
+        initial_credits = to_decimal(user_data.initialCredits)
+
+        if initial_credits > to_decimal(0):
             from app.services.credit_service import CreditService
             credit_service = CreditService()
             await credit_service.record_transaction(
                 db=db,
                 user_id=user.id,
-                amount=user_data.initialCredits,
+                amount=initial_credits,
                 source=CreditSource.ADMIN_ADJUST.value,
-                description="管理员创建用户赠送算力"
+                description="管理员创建用户赠送积分"
             )
 
         await log_admin_action(
@@ -378,7 +385,7 @@ async def create_user(
             details={
                 "phone": user.phone,
                 "email": user.email,
-                "initialCredits": user_data.initialCredits,
+                "initialCredits": to_float(initial_credits),
                 "isAdmin": user_data.isAdmin
             }
         )
@@ -388,7 +395,7 @@ async def create_user(
                 userId=user.user_id,
                 email=user.email,
                 nickname=user.nickname,
-                credits=user.credits,
+                credits=to_float(user.credits),
                 membershipType=user.membership_type.value,
                 status=user.status.value,
                 isAdmin=user.is_admin,
@@ -467,7 +474,7 @@ async def delete_user(
         if user.id == current_admin.id:
             raise HTTPException(status_code=400, detail="无法删除当前登录的管理员")
 
-        # 删除算力相关记录
+        # 删除积分相关记录
         db.query(CreditTransaction).filter(CreditTransaction.user_id == user.id).delete(synchronize_session=False)
         db.query(CreditAlert).filter(CreditAlert.user_id == user.id).delete(synchronize_session=False)
         db.query(CreditTransfer).filter(
@@ -519,7 +526,7 @@ async def delete_user(
 
 
 class UserCreditsUpdate(BaseModel):
-    credits: int
+    credits: CreditBalance
     reason: str
 
 
@@ -529,23 +536,24 @@ async def update_user_credits(
     credits_update: UserCreditsUpdate,
     db: Session = Depends(get_db)
 ):
-    """更新用户算力（管理员专用）"""
+    """更新用户积分（管理员专用）"""
     try:
         user = db.query(User).filter(User.user_id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="用户不存在")
         
-        old_credits = user.credits
-        user.credits = credits_update.credits
+        old_credits = to_decimal(user.credits or 0)
+        new_credits = to_decimal(credits_update.credits)
+        user.credits = new_credits
         db.commit()
         
-        # 记录算力变更
+        # 记录积分变更
         from app.services.credit_service import CreditService
         credit_service = CreditService()
         await credit_service.record_transaction(
             db=db,
             user_id=user.id,
-            amount=credits_update.credits - old_credits,
+            amount=new_credits - old_credits,
             source="admin_adjustment",
             description=f"管理员调整: {credits_update.reason}"
         )
@@ -553,11 +561,11 @@ async def update_user_credits(
         return SuccessResponse(
             data={
                 "userId": user.user_id,
-                "oldCredits": old_credits,
-                "newCredits": user.credits,
+                "oldCredits": to_float(old_credits),
+                "newCredits": to_float(new_credits),
                 "reason": credits_update.reason
             },
-            message="用户算力已更新"
+            message="用户积分已更新"
         )
         
     except HTTPException:
@@ -685,7 +693,7 @@ async def get_user_credit_transactions(
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_active_admin)
 ):
-    """获取用户算力交易记录（管理员专用）"""
+    """获取用户积分交易记录（管理员专用）"""
     try:
         user = db.query(User).filter(User.user_id == user_id).first()
         if not user:
@@ -731,8 +739,8 @@ async def get_user_credit_transactions(
                 userId=user.user_id,
                 userEmail=user.email,
                 type=txn.type,
-                amount=txn.amount,
-                balanceAfter=txn.balance_after,
+                amount=to_float(txn.amount),
+                balanceAfter=to_float(txn.balance_after),
                 source=txn.source,
                 description=txn.description,
                 createdAt=txn.created_at.isoformat(),
@@ -741,19 +749,23 @@ async def get_user_credit_transactions(
             ))
         
         # 计算统计信息
-        total_earned = db.query(func.sum(CreditTransaction.amount)).filter(
+        total_earned_raw = db.query(func.sum(CreditTransaction.amount)).filter(
             and_(
                 CreditTransaction.user_id == user.id,
                 CreditTransaction.type == TransactionType.EARN.value
             )
-        ).scalar() or 0
+        ).scalar()
         
-        total_spent = abs(db.query(func.sum(CreditTransaction.amount)).filter(
+        total_spent_raw = db.query(func.sum(CreditTransaction.amount)).filter(
             and_(
                 CreditTransaction.user_id == user.id,
                 CreditTransaction.type == TransactionType.SPEND.value
             )
-        ).scalar() or 0)
+        ).scalar()
+
+        total_earned = to_decimal(total_earned_raw or 0)
+        total_spent = to_decimal(total_spent_raw or 0).copy_abs()
+        net_change = total_earned - total_spent
         
         # 记录审计日志
         await log_admin_action(
@@ -785,10 +797,10 @@ async def get_user_credit_transactions(
                     total_pages=total_pages
                 ).dict(),
                 summary={
-                    "totalEarned": total_earned,
-                    "totalSpent": total_spent,
-                    "netChange": total_earned - total_spent,
-                    "currentBalance": user.credits
+                    "totalEarned": to_float(total_earned),
+                    "totalSpent": to_float(total_spent),
+                    "netChange": to_float(net_change),
+                    "currentBalance": to_float(user.credits)
                 }
             ).dict(),
             message="获取用户交易记录成功"
@@ -807,23 +819,24 @@ async def adjust_user_credits(
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_active_admin)
 ):
-    """调整用户算力（管理员专用）"""
+    """调整用户积分（管理员专用）"""
     try:
         user = db.query(User).filter(User.user_id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="用户不存在")
         
-        old_credits = user.credits
-        user.credits += adjustment.amount
+        old_credits = to_decimal(user.credits or 0)
+        delta = to_decimal(adjustment.amount)
+        user.credits = old_credits + delta
         db.commit()
         
-        # 记录算力变更
+        # 记录积分变更
         from app.services.credit_service import CreditService
         credit_service = CreditService()
         await credit_service.record_transaction(
             db=db,
             user_id=user.id,
-            amount=adjustment.amount,
+            amount=delta,
             source=CreditSource.ADMIN_ADJUST.value,
             description=f"管理员调整: {adjustment.reason}"
         )
@@ -836,9 +849,9 @@ async def adjust_user_credits(
             target_type="user",
             target_id=user_id,
             details={
-                "oldCredits": old_credits,
-                "newCredits": user.credits,
-                "adjustment": adjustment.amount,
+                "oldCredits": to_float(old_credits),
+                "newCredits": to_float(user.credits),
+                "adjustment": to_float(delta),
                 "reason": adjustment.reason,
                 "sendNotification": adjustment.sendNotification
             }
@@ -849,12 +862,12 @@ async def adjust_user_credits(
         return SuccessResponse(
             data={
                 "userId": user.user_id,
-                "oldCredits": old_credits,
-                "newCredits": user.credits,
-                "adjustment": adjustment.amount,
+                "oldCredits": to_float(old_credits),
+                "newCredits": to_float(user.credits),
+                "adjustment": to_float(delta),
                 "reason": adjustment.reason
             },
-            message="用户算力已调整"
+            message="用户积分已调整"
         )
         
     except HTTPException:
@@ -1074,13 +1087,13 @@ async def update_order_status(
         if status_update.status == OrderStatus.PAID.value and old_status != OrderStatus.PAID.value:
             order.paid_at = datetime.utcnow()
             
-            # 如果是套餐订单，需要添加相应的算力或延长会员
+            # 如果是套餐订单，需要添加相应的积分或延长会员
             if order.package_type == PackageType.CREDITS.value and order.credits_amount:
                 user = db.query(User).filter(User.id == order.user_id).first()
                 if user:
                     user.add_credits(order.credits_amount)
                     
-                    # 记录算力交易
+                    # 记录积分交易
                     from app.services.credit_service import CreditService
                     credit_service = CreditService()
                     await credit_service.add_credits_from_purchase(
@@ -1356,7 +1369,7 @@ async def get_admin_dashboard_stats(
             count = db.query(User).filter(User.membership_type == membership_type).count()
             membership_stats[membership_type.value] = count
         
-        # 算力统计
+        # 积分统计
         total_credits = db.query(func.sum(User.credits)).scalar() or 0
         credit_transactions_today = db.query(CreditTransaction).filter(
             CreditTransaction.created_at >= datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -1482,7 +1495,7 @@ async def get_admin_dashboard_stats(
             User.membership_type.in_([MembershipType.BASIC, MembershipType.PREMIUM, MembershipType.ENTERPRISE])
         ).count()
         
-        # 算力统计
+        # 积分统计
         from app.models.credit import CreditTransaction
         total_credits = db.query(User).with_entities(db.func.sum(User.credits)).scalar() or 0
         

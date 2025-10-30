@@ -16,7 +16,7 @@ class OrderStatus(PyEnum):
 
 class PackageType(PyEnum):
     MEMBERSHIP = "membership"  # 会员套餐
-    CREDITS = "credits"  # 算力充值
+    CREDITS = "credits"  # 积分充值
 
 
 class PaymentMethod(PyEnum):
@@ -58,7 +58,7 @@ class Order(Base):
     coupon_discount = Column(Integer, default=0)  # 优惠券折扣金额
     
     # 套餐内容
-    credits_amount = Column(Integer, nullable=True)  # 算力数量
+    credits_amount = Column(Integer, nullable=True)  # 积分数量
     membership_duration = Column(Integer, nullable=True)  # 会员时长（天）
     
     # 发票信息
@@ -195,7 +195,7 @@ class Package(Base):
     original_price = Column(Integer, nullable=True)  # 原价（分）
     
     # 套餐内容
-    credits = Column(Integer, nullable=False)  # 算力数量
+    credits = Column(Integer, nullable=False)  # 积分数量
     duration = Column(Integer, nullable=True)  # 时长（天）
     
     # 特性和描述

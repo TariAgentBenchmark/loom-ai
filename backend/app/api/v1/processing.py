@@ -10,6 +10,7 @@ from app.models.user import User
 from app.services.processing_service import ProcessingService
 from app.api.dependencies import get_current_user
 from app.schemas.common import SuccessResponse
+from app.services.credit_math import to_float
 
 router = APIRouter()
 processing_service = ProcessingService()
@@ -46,7 +47,7 @@ async def seamless_pattern_conversion(
                 "taskId": task.task_id,
                 "status": task.status,
                 "estimatedTime": task.estimated_time,
-                "creditsUsed": task.credits_used,
+                "creditsUsed": to_float(task.credits_used),
                 "createdAt": task.created_at
             },
             message="任务创建成功，正在处理中"
@@ -109,7 +110,7 @@ async def prompt_edit_image(
                 "taskId": task.task_id,
                 "status": task.status,
                 "estimatedTime": task.estimated_time,
-                "creditsUsed": task.credits_used,
+                "creditsUsed": to_float(task.credits_used),
                 "createdAt": task.created_at
             },
             message="指令改图任务创建成功"
@@ -148,7 +149,7 @@ async def vectorize_image(
                 "taskId": task.task_id,
                 "status": task.status,
                 "estimatedTime": task.estimated_time,
-                "creditsUsed": task.credits_used,
+                "creditsUsed": to_float(task.credits_used),
                 "createdAt": task.created_at
             },
             message="矢量化任务创建成功"
@@ -212,7 +213,7 @@ async def extract_pattern(
                 "taskId": task.task_id,
                 "status": task.status,
                 "estimatedTime": task.estimated_time,
-                "creditsUsed": task.credits_used,
+                "creditsUsed": to_float(task.credits_used),
                 "createdAt": task.created_at
             },
             message="花型提取任务创建成功"
@@ -253,7 +254,7 @@ async def remove_watermark(
                 "taskId": task.task_id,
                 "status": task.status,
                 "estimatedTime": task.estimated_time,
-                "creditsUsed": task.credits_used,
+                "creditsUsed": to_float(task.credits_used),
                 "createdAt": task.created_at
             },
             message="去水印任务创建成功"
@@ -307,7 +308,7 @@ async def denoise_image(
                 "taskId": task.task_id,
                 "status": task.status,
                 "estimatedTime": task.estimated_time,
-                "creditsUsed": task.credits_used,
+                "creditsUsed": to_float(task.credits_used),
                 "createdAt": task.created_at
             },
             message="去噪任务创建成功"
@@ -368,7 +369,7 @@ async def enhance_embroidery(
                 "taskId": task.task_id,
                 "status": task.status,
                 "estimatedTime": task.estimated_time,
-                "creditsUsed": task.credits_used,
+                "creditsUsed": to_float(task.credits_used),
                 "createdAt": task.created_at
             },
             message="刺绣增强任务创建成功"
@@ -426,7 +427,7 @@ async def upscale_image(
                 "taskId": task.task_id,
                 "status": task.status,
                 "estimatedTime": task.estimated_time,
-                "creditsUsed": task.credits_used,
+                "creditsUsed": to_float(task.credits_used),
                 "createdAt": task.created_at
             },
             message="无损放大任务创建成功"
@@ -645,7 +646,7 @@ async def estimate_credits(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """预估算力消耗"""
+    """预估积分消耗"""
     try:
         # 记录上传文件大小
         file_size = 0
@@ -659,7 +660,7 @@ async def estimate_credits(
         file_service = FileService()
         image_info = await file_service.get_image_info(image_bytes)
         
-        # 预估算力
+        # 预估积分
         estimation = await processing_service.estimate_credits(
             task_type=task_type,
             image_info=image_info,
@@ -668,7 +669,7 @@ async def estimate_credits(
         
         return SuccessResponse(
             data=estimation,
-            message="预估算力消耗成功"
+            message="预估积分消耗成功"
         )
         
     except Exception as e:

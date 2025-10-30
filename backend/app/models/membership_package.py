@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, JSON, Float
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, JSON, Float, Numeric
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from enum import Enum as PyEnum
@@ -90,7 +90,7 @@ class ServicePrice(Base):
     description = Column(Text, nullable=True)  # 服务描述
 
     # 价格信息
-    price_credits = Column(Float, nullable=False)  # 价格（积分）
+    price_credits = Column(Numeric(18, 2), nullable=False)  # 价格（积分）
 
     # 状态
     active = Column(Boolean, default=True)

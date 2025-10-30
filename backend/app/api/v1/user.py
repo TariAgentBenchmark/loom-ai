@@ -7,6 +7,7 @@ from app.core.database import get_db
 from app.models.user import User
 from app.api.dependencies import get_current_user
 from app.schemas.common import SuccessResponse
+from app.services.credit_math import to_float
 
 router = APIRouter()
 
@@ -28,7 +29,7 @@ async def get_profile(
             "nickname": current_user.nickname,
             "phone": current_user.phone,
             "avatar": current_user.avatar_url,
-            "credits": current_user.credits,
+            "credits": to_float(current_user.credits),
             "membershipType": current_user.membership_type.value,
             "membershipExpiry": current_user.membership_expiry,
             "totalProcessed": current_user.total_processed,

@@ -97,7 +97,7 @@ class AuthService:
             hashed_password=self.get_password_hash(password),
             nickname=nickname or phone,  # 如果没有昵称，使用手机号
             phone=phone,  # 现在是必需的
-            credits=200,  # 新用户赠送200算力
+            credits=200,  # 新用户赠送200积分
             membership_type=MembershipType.FREE,
             status=UserStatus.ACTIVE
         )
@@ -106,7 +106,7 @@ class AuthService:
         db.commit()
         db.refresh(user)
         
-        # 记录注册赠送算力
+        # 记录注册赠送积分
         from app.services.credit_service import CreditService
         credit_service = CreditService()
         await credit_service.record_transaction(

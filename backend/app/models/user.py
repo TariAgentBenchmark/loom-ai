@@ -1,9 +1,10 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Enum
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Enum, Numeric
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from enum import Enum as PyEnum
 
 from app.core.database import Base
+from app.services.credit_math import to_decimal
 
 
 class MembershipType(PyEnum):
@@ -40,7 +41,7 @@ class User(Base):
     sms_attempts_today = Column(Integer, default=0)  # 今日发送次数
     
     # 账户信息
-    credits = Column(Integer, default=0)  # 算力余额
+    credits = Column(Numeric(18, 2), default=0, server_default="0.00")  # 积分余额
     total_processed = Column(Integer, default=0)  # 总处理次数
     monthly_processed = Column(Integer, default=0)  # 本月处理次数
     
@@ -93,26 +94,31 @@ class User(Base):
         from datetime import datetime
         return self.membership_expiry > datetime.utcnow()
 
-    def can_afford(self, credits_needed: int) -> bool:
-        """检查是否有足够算力"""
-        # 管理员用户有无限算力
+    def can_afford(self, credits_needed) -> bool:
+        """检查是否有足够积分"""
+        # 管理员用户有无限积分
         if self.is_admin:
             return True
-        return self.credits >= credits_needed
+        current_balance = to_decimal(self.credits or 0)
+        required = to_decimal(credits_needed)
+        return current_balance >= required
 
-    def deduct_credits(self, amount: int) -> bool:
-        """扣除算力"""
-        # 管理员用户不需要扣除算力
+    def deduct_credits(self, amount) -> bool:
+        """扣除积分"""
+        # 管理员用户不需要扣除积分
         if self.is_admin:
             return True
-        if self.can_afford(amount):
-            self.credits -= amount
+        normalized_amount = to_decimal(amount)
+        if self.can_afford(normalized_amount):
+            new_balance = to_decimal(self.credits or 0) - normalized_amount
+            self.credits = new_balance
             return True
         return False
 
-    def add_credits(self, amount: int):
-        """增加算力"""
-        self.credits += amount
+    def add_credits(self, amount):
+        """增加积分"""
+        current_balance = to_decimal(self.credits or 0)
+        self.credits = current_balance + to_decimal(amount)
 
     def increment_processed_count(self):
         """增加处理次数计数"""

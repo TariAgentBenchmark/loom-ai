@@ -252,7 +252,7 @@ const AdminUserManagement: React.FC = () => {
     if (!accessToken || !creditTarget) return;
 
     if (!creditForm.amount) {
-      setCreditError("请输入非零的算力变更值，可为正负数");
+      setCreditError("请输入非零的积分变更值，可为正负数");
       return;
     }
 
@@ -273,7 +273,7 @@ const AdminUserManagement: React.FC = () => {
       closeCreditModal();
       await fetchUsers(pagination.page);
     } catch (err) {
-      setCreditError(err instanceof Error ? err.message : "调整算力失败");
+      setCreditError(err instanceof Error ? err.message : "调整积分失败");
     } finally {
       setIsAdjustingCredits(false);
     }
@@ -395,7 +395,7 @@ const AdminUserManagement: React.FC = () => {
                   >
                     <option value="created_at">创建时间</option>
                     <option value="last_login_at">最后登录</option>
-                    <option value="credits">算力余额</option>
+                    <option value="credits">积分余额</option>
                     <option value="email">邮箱</option>
                   </select>
                 </div>
@@ -445,7 +445,7 @@ const AdminUserManagement: React.FC = () => {
                   状态
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  算力余额
+                  积分余额
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   注册时间
@@ -501,7 +501,7 @@ const AdminUserManagement: React.FC = () => {
                       <button
                         onClick={() => openCreditModal(user)}
                         className="text-amber-600 hover:text-amber-800"
-                        title="调整算力"
+                        title="调整积分"
                       >
                         <Edit className="h-4 w-4" />
                       </button>
@@ -611,7 +611,7 @@ const AdminUserManagement: React.FC = () => {
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl">
             <div className="px-6 py-4 border-b">
               <h4 className="text-lg font-medium text-gray-900">新增用户</h4>
-              <p className="mt-1 text-sm text-gray-500">填写基础信息并设置初始算力</p>
+              <p className="mt-1 text-sm text-gray-500">填写基础信息并设置初始积分</p>
             </div>
             <div className="px-6 py-4 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -646,7 +646,7 @@ const AdminUserManagement: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">初始算力</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">初始积分</label>
                   <input
                     type="number"
                     min={0}
@@ -722,7 +722,7 @@ const AdminUserManagement: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 px-4 py-8">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-lg">
             <div className="px-6 py-4 border-b">
-              <h4 className="text-lg font-medium text-gray-900">调整算力</h4>
+              <h4 className="text-lg font-medium text-gray-900">调整积分</h4>
               <p className="mt-1 text-sm text-gray-500">
                 {creditTarget.nickname || creditTarget.email || creditTarget.userId}
               </p>

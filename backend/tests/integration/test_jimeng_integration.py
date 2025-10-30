@@ -164,11 +164,11 @@ class TestJimengIntegration:
     
     @patch('app.services.auth_service.AuthService.verify_token')
     def test_embroidery_insufficient_credits(self, mock_auth, client, db, test_user):
-        """测试算力不足的情况"""
+    """测试积分不足的情况"""
         # 模拟认证
         mock_auth.return_value = test_user
         
-        # 将用户算力设置为0
+    # 将用户积分设置为0
         test_user.credits = 0
         db.commit()
         
@@ -190,7 +190,7 @@ class TestJimengIntegration:
         # 验证响应
         assert response.status_code == 400
         data = response.json()
-        assert "算力不足" in data["detail"]
+    assert "积分不足" in data["detail"]
     
     @patch('app.services.ai_client.AIClient.enhance_embroidery')
     @patch('app.services.auth_service.AuthService.verify_token')
