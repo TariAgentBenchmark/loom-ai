@@ -47,6 +47,18 @@ class AIClient:
             base_url=settings.liblib_api_url
         )
 
+    async def _make_jimeng_request(self, method: str, endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        """向即梦API发送请求（兼容旧接口）"""
+        return await self.jimeng_client._make_jimeng_request(method, endpoint, data)
+
+    async def query_jimeng_task_status(self, task_id: str) -> Dict[str, Any]:
+        """查询即梦任务状态（兼容旧接口）"""
+        return await self.jimeng_client.query_task_status(task_id)
+
+    async def _download_image_from_url(self, url: str) -> bytes:
+        """下载图片（兼容旧接口）"""
+        return await self.base_client_utils._download_image_from_url(url)
+
     # GPT-4o相关方法
     async def generate_image_gpt4o(self, prompt: str, size: str = "1024x1024") -> Dict[str, Any]:
         """使用GPT-4o生成图片"""
@@ -468,6 +480,162 @@ class AIClient:
 
         return image_url, image_bytes
 
+    async def _prepare_image_for_jimeng(self, image_bytes: bytes, temp_prefix: str) -> str:
+        """上传图片到OSS供即梦API使用，必要时回退到本地存储"""
+        from app.services.oss_service import oss_service
+
+        temp_filename = f"{temp_prefix}_{uuid.uuid4().hex[:8]}.jpg"
+        logger.info("OSS配置状态: %s", "已配置" if oss_service.is_configured() else "未配置")
+
+        if oss_service.is_configured():
+            logger.info("上传图片到OSS以供即梦API使用")
+            image_url = await oss_service.upload_image_for_jimeng(image_bytes, temp_filename)
+            logger.info("OSS上传完成，获得的URL: %s", image_url)
+            return image_url
+
+        logger.warning("OSS未配置，使用本地存储")
+        temp_file_path = f"{settings.upload_path}/originals/{temp_filename}"
+        os.makedirs(os.path.dirname(temp_file_path), exist_ok=True)
+
+        with open(temp_file_path, "wb") as file_obj:
+            file_obj.write(image_bytes)
+
+        image_url = f"/files/originals/{temp_filename}"
+        logger.warning("使用本地路径: %s", image_url)
+        return image_url
+
+    def _apply_jimeng_options(self, data: Dict[str, Any], options: Optional[Dict[str, Any]]) -> None:
+        """将可选参数应用到即梦任务数据中"""
+        if not options:
+            return
+
+        if "scale" in options:
+            data["scale"] = options["scale"]
+        if "size" in options:
+            data["size"] = options["size"]
+
+        if "width" in options and "height" in options:
+            data["width"] = options["width"]
+            data["height"] = options["height"]
+        elif "aspect_ratio" in options:
+            aspect_ratio = options["aspect_ratio"]
+            ratio_map = {
+                "21:9": (2048, 877),
+                "16:9": (1920, 1080),
+                "4:3": (1600, 1200),
+                "3:2": (1800, 1200),
+                "1:1": (2048, 2048),
+                "9:16": (1080, 1920),
+                "3:4": (1200, 1600),
+                "2:3": (1200, 1800),
+                "5:4": (1600, 1280),
+                "4:5": (1280, 1600),
+            }
+            if aspect_ratio in ratio_map:
+                width, height = ratio_map[aspect_ratio]
+                data["width"] = width
+                data["height"] = height
+
+        if "force_single" in options:
+            data["force_single"] = options["force_single"]
+
+    async def _execute_jimeng_task(
+        self,
+        data: Dict[str, Any],
+        *,
+        log_label: str,
+        result_prefix: str,
+    ) -> str:
+        """提交即梦任务并轮询结果"""
+        try:
+            result = await self.jimeng_client._make_jimeng_request("POST", "", data)
+            if "code" in result and result["code"] != 10000:
+                error_msg = result.get("message", "未知错误")
+                logger.error("%s API error: %s - %s", log_label, result.get("code"), error_msg)
+                raise Exception(f"{log_label}处理失败: {error_msg}")
+
+            if "data" not in result or "task_id" not in result["data"]:
+                logger.error("%s API unexpected response: %s", log_label, result)
+                raise Exception(f"{log_label}响应格式错误")
+
+            task_id = result["data"]["task_id"]
+            logger.info("%s task created: %s", log_label, task_id)
+
+            max_attempts = 40
+            for attempt in range(max_attempts):
+                wait_time = 3 if attempt < 20 else 5
+                await asyncio.sleep(wait_time)
+
+                status_result = await self.jimeng_client.query_task_status(task_id)
+                if "code" in status_result and status_result["code"] != 10000:
+                    error_msg = status_result.get("message", "未知错误")
+                    logger.error("%s status query error: %s - %s", log_label, status_result.get("code"), error_msg)
+                    raise Exception(f"{log_label}状态查询失败: {error_msg}")
+
+                status_data = status_result.get("data", {})
+                current_status = status_data.get("status", "")
+                logger.info("%s task %s status: %s", log_label, task_id, current_status)
+                logger.debug("%s full status response: %s", log_label, status_result)
+
+                if current_status == "done":
+                    image_urls = status_data.get("image_urls") or status_result.get("image_urls")
+                    binary_data = status_data.get("binary_data_base64") or status_result.get("binary_data_base64")
+
+                    if image_urls:
+                        result_url = image_urls[0]
+                        logger.info("Downloading %s result from: %s", log_label, result_url)
+                        result_bytes = await self.gemini_client._download_image_from_url(result_url)
+                        saved_url = self.base_client_utils._save_image_bytes(result_bytes, prefix=result_prefix)
+                        logger.info("%s result saved to: %s", log_label, saved_url)
+                        return saved_url
+
+                    if binary_data:
+                        logger.info("%s processing base64 encoded image data", log_label)
+                        try:
+                            import base64
+                            if isinstance(binary_data, list):
+                                if not binary_data:
+                                    raise Exception("二进制数据列表为空")
+                                binary_data = binary_data[0]
+
+                            if not isinstance(binary_data, str):
+                                raise Exception(f"二进制数据格式错误: {type(binary_data)}")
+
+                            result_bytes = base64.b64decode(binary_data)
+                            saved_url = self.base_client_utils._save_image_bytes(result_bytes, prefix=result_prefix)
+                            logger.info("%s result saved to: %s", log_label, saved_url)
+                            return saved_url
+                        except Exception as exc:
+                            logger.error("%s failed to process base64 image data: %s", log_label, str(exc))
+                            raise Exception(f"{log_label}处理base64图片数据失败: {str(exc)}")
+
+                    if attempt < max_attempts - 1:
+                        logger.warning(
+                            "%s task done but no results yet, retrying... (attempt %s/%s)",
+                            log_label,
+                            attempt + 1,
+                            max_attempts,
+                        )
+                        continue
+
+                    logger.error(
+                        "%s task completed but no results found. status_data=%s, status_result=%s",
+                        log_label,
+                        status_data,
+                        status_result,
+                    )
+                    raise Exception(f"{log_label}任务完成但未找到结果图片")
+
+                if current_status in ["failed", "expired", "not_found"]:
+                    error_msg = status_data.get("message", "任务执行失败")
+                    raise Exception(f"{log_label}任务失败: {error_msg}")
+
+            raise Exception(f"{log_label}任务超时: {task_id}")
+
+        except Exception as exc:
+            logger.error("%s failed: %s", log_label, str(exc))
+            raise
+
     async def _upscale_with_liblib(
         self,
         image_url: str,
@@ -527,7 +695,44 @@ class AIClient:
             logger.error("Meitu AI 超清V2失败: %s", str(exc))
             raise Exception(f"美图AI超清失败: {str(exc)}")
 
-    # 毛线刺绣增强相关方法
+    # 即梦特效相关方法
+    async def convert_flat_to_3d(
+        self,
+        image_bytes: bytes,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """AI平面转3D"""
+        try:
+            image_url = await self._prepare_image_for_jimeng(image_bytes, "temp_flat3d")
+
+            prompt = "将图片里的图案转换成3d立体效果，鲜艳颜色，精致细节。"
+
+            data = {
+                "Action": "CVSync2AsyncSubmitTask",
+                "Version": "2022-08-31",
+                "req_key": "jimeng_t2i_v40",
+                "prompt": prompt,
+                "image_urls": [image_url],
+                "size": 2048 * 2048,
+                "scale": 0.75,
+                "force_single": True,
+                "min_ratio": 1 / 3,
+                "max_ratio": 3,
+            }
+
+            self._apply_jimeng_options(data, options)
+            logger.info("Sending flat-to-3D request with image URL: %s", image_url)
+
+            return await self._execute_jimeng_task(
+                data,
+                log_label="Flat to 3D conversion",
+                result_prefix="flat3d",
+            )
+
+        except Exception as exc:
+            logger.error("Convert flat to 3D failed: %s", str(exc))
+            raise Exception(f"AI平面转3D失败: {str(exc)}")
+
     async def enhance_embroidery(
         self,
         image_bytes: bytes,
@@ -535,32 +740,8 @@ class AIClient:
     ) -> str:
         """AI毛线刺绣增强"""
         try:
-            # 导入OSS服务
-            from app.services.oss_service import oss_service
-            
-            # 生成临时文件名
-            temp_filename = f"temp_embroidery_{uuid.uuid4().hex[:8]}.jpg"
-            
-            # 上传图片到OSS获取公开URL
-            logger.info(f"OSS配置状态: {'已配置' if oss_service.is_configured() else '未配置'}")
-            if oss_service.is_configured():
-                logger.info("上传图片到OSS以供处理使用")
-                image_url = await oss_service.upload_image_for_jimeng(image_bytes, temp_filename)
-                logger.info(f"OSS上传完成，获得的URL: {image_url}")
-            else:
-                # 如果OSS未配置，保存到本地并使用相对路径（不推荐用于生产环境）
-                logger.warning("OSS未配置，使用本地存储")
-                
-                temp_file_path = f"{settings.upload_path}/originals/{temp_filename}"
-                os.makedirs(os.path.dirname(temp_file_path), exist_ok=True)
-                
-                with open(temp_file_path, "wb") as f:
-                    f.write(image_bytes)
-                
-                image_url = f"/files/originals/{temp_filename}"
-                logger.warning(f"使用本地路径: {image_url}")
-            
-            # 构建请求参数
+            image_url = await self._prepare_image_for_jimeng(image_bytes, "temp_embroidery")
+
             prompt = """
             将这张图片转换为毛线刺绣效果：
             1. 针线类型：中等针脚，平衡的刺绣效果
@@ -571,7 +752,7 @@ class AIClient:
             6. 色彩要自然，符合毛线刺绣的特点
             
             请生成逼真的毛线刺绣效果图。
-            """
+            """.strip()
             
             data = {
                 "Action": "CVSync2AsyncSubmitTask",
@@ -586,156 +767,15 @@ class AIClient:
                 "max_ratio": 3
             }
             
-            # 如果提供了额外选项，添加到请求中
-            if options:
-                if "scale" in options:
-                    data["scale"] = options["scale"]
-                if "size" in options:
-                    data["size"] = options["size"]
-                if "width" in options and "height" in options:
-                    data["width"] = options["width"]
-                    data["height"] = options["height"]
-                elif "aspect_ratio" in options:
-                    # 根据预设比例设置宽高
-                    aspect_ratio = options["aspect_ratio"]
-                    if aspect_ratio == "21:9":
-                        data["width"] = 2048
-                        data["height"] = 877
-                    elif aspect_ratio == "16:9":
-                        data["width"] = 1920
-                        data["height"] = 1080
-                    elif aspect_ratio == "4:3":
-                        data["width"] = 1600
-                        data["height"] = 1200
-                    elif aspect_ratio == "3:2":
-                        data["width"] = 1800
-                        data["height"] = 1200
-                    elif aspect_ratio == "1:1":
-                        data["width"] = 2048
-                        data["height"] = 2048
-                    elif aspect_ratio == "9:16":
-                        data["width"] = 1080
-                        data["height"] = 1920
-                    elif aspect_ratio == "3:4":
-                        data["width"] = 1200
-                        data["height"] = 1600
-                    elif aspect_ratio == "2:3":
-                        data["width"] = 1200
-                        data["height"] = 1800
-                    elif aspect_ratio == "5:4":
-                        data["width"] = 1600
-                        data["height"] = 1280
-                    elif aspect_ratio == "4:5":
-                        data["width"] = 1280
-                        data["height"] = 1600
-                if "force_single" in options:
-                    data["force_single"] = options["force_single"]
-            
-            logger.info(f"Sending embroidery enhancement request with image URL: {image_url}")
-            result = await self.jimeng_client._make_jimeng_request("POST", "", data)
-            
-            # 检查响应是否包含错误
-            if "code" in result and result["code"] != 10000:
-                error_msg = result.get("message", "未知错误")
-                logger.error(f"Embroidery enhancement API error: {result['code']} - {error_msg}")
-                raise Exception(f"毛线刺绣增强处理失败: {error_msg}")
-            
-            # 提取任务ID
-            if "data" not in result or "task_id" not in result["data"]:
-                logger.error(f"Embroidery enhancement API unexpected response: {result}")
-                raise Exception("毛线刺绣增强响应格式错误")
-            
-            task_id = result["data"]["task_id"]
-            logger.info(f"Embroidery enhancement task created: {task_id}")
-            
-            # 轮询任务状态
-            max_attempts = 40  # 最多轮询40次（增加到约2分钟）
-            for attempt in range(max_attempts):
-                # 动态调整等待时间：前20次等待3秒，后20次等待5秒
-                wait_time = 3 if attempt < 20 else 5
-                await asyncio.sleep(wait_time)
-                
-                status_result = await self.jimeng_client.query_task_status(task_id)
-                if "code" in status_result and status_result["code"] != 10000:
-                    error_msg = status_result.get("message", "未知错误")
-                    logger.error(f"Embroidery enhancement status query error: {status_result['code']} - {error_msg}")
-                    raise Exception(f"毛线刺绣增强状态查询失败: {error_msg}")
-                
-                if "data" in status_result:
-                    status_data = status_result["data"]
-                    current_status = status_data.get("status", "")
-                    logger.info(f"Task {task_id} status: {current_status}")
-                    logger.debug(f"Full status response: {status_result}")
-                    
-                    if current_status == "done":  # 任务成功
-                        logger.info(f"Embroidery enhancement task {task_id} completed successfully")
-                        
-                        # 检查image_urls位置 - 可能在data中，也可能在根级别
-                        image_urls = None
-                        if "image_urls" in status_data and status_data["image_urls"]:
-                            image_urls = status_data["image_urls"]
-                        elif "image_urls" in status_result and status_result["image_urls"]:
-                            image_urls = status_result["image_urls"]
-                        
-                        # 检查是否有二进制数据
-                        binary_data = None
-                        if "binary_data_base64" in status_data and status_data["binary_data_base64"]:
-                            binary_data = status_data["binary_data_base64"]
-                        elif "binary_data_base64" in status_result and status_result["binary_data_base64"]:
-                            binary_data = status_result["binary_data_base64"]
-                        
-                        if image_urls and len(image_urls) > 0:
-                            # 下载并保存结果图片
-                            result_url = image_urls[0]
-                            logger.info(f"Downloading result from: {result_url}")
-                            result_bytes = await self.gemini_client._download_image_from_url(result_url)
-                            saved_url = self.base_client_utils._save_image_bytes(result_bytes, prefix="embroidery")
-                            logger.info("Result saved to: %s", saved_url)
-                            return saved_url
-                        elif binary_data:
-                            # 处理base64编码的图片数据
-                            logger.info("Processing base64 encoded image data")
-                            try:
-                                import base64
-                                # 处理binary_data可能是列表的情况
-                                if isinstance(binary_data, list):
-                                    if binary_data and len(binary_data) > 0:
-                                        binary_data = binary_data[0]
-                                    else:
-                                        logger.error("Binary data list is empty")
-                                        raise Exception("二进制数据列表为空")
-                                
-                                # 确保binary_data是字符串
-                                if not isinstance(binary_data, str):
-                                    logger.error(f"Binary data is not a string: {type(binary_data)}")
-                                    raise Exception(f"二进制数据格式错误: {type(binary_data)}")
-                                
-                                result_bytes = base64.b64decode(binary_data)
-                                saved_url = self.base_client_utils._save_image_bytes(result_bytes, prefix="embroidery")
-                                logger.info("Result saved to: %s", saved_url)
-                                return saved_url
-                            except Exception as e:
-                                logger.error(f"Failed to process base64 image data: {str(e)}")
-                                raise Exception(f"处理base64图片数据失败: {str(e)}")
-                        else:
-                            # 任务状态为done但没有结果，可能需要等待更长时间
-                            if attempt < max_attempts - 1:  # 不是最后一次尝试
-                                logger.warning(f"Task done but no results yet, retrying... (attempt {attempt + 1}/{max_attempts})")
-                                continue
-                            else:
-                                logger.error("Task completed but no image URLs or binary data found in response")
-                                logger.error(f"Status data: {status_data}")
-                                logger.error(f"Full response: {status_result}")
-                                raise Exception("任务完成但未找到结果图片")
-                    
-                    elif current_status in ["failed", "expired", "not_found"]:
-                        error_msg = status_data.get("message", "任务执行失败")
-                        raise Exception(f"毛线刺绣任务失败: {error_msg}")
-                    
-                    logger.info(f"Embroidery enhancement task {task_id} status: {current_status}")
-            
-            raise Exception(f"毛线刺绣任务超时: {task_id}")
-            
+            self._apply_jimeng_options(data, options)
+            logger.info("Sending embroidery enhancement request with image URL: %s", image_url)
+
+            return await self._execute_jimeng_task(
+                data,
+                log_label="Embroidery enhancement",
+                result_prefix="embroidery",
+            )
+
         except Exception as e:
             logger.error(f"Enhance embroidery failed: {str(e)}")
             raise Exception(f"毛线刺绣增强失败: {str(e)}")

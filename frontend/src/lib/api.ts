@@ -300,6 +300,7 @@ const processingPathMap: Record<ProcessingMethod, string> = {
   prompt_edit: "/processing/prompt-edit",
   style: "/processing/vectorize",
   embroidery: "/processing/embroidery",
+  flat_to_3d: "/processing/flat-to-3d",
   extract_pattern: "/processing/extract-pattern",
   watermark_removal: "/processing/remove-watermark",
   noise_removal: "/processing/denoise",

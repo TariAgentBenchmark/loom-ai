@@ -2,6 +2,7 @@ export type ProcessingMethod =
   | 'prompt_edit'
   | 'style'
   | 'embroidery'
+  | 'flat_to_3d'
   | 'extract_pattern'
   | 'watermark_removal'
   | 'noise_removal'
@@ -51,6 +52,18 @@ export const processingMethodInfo: Record<ProcessingMethod, ProcessingMethodInfo
       'AI智能分析图片内容',
       '生成高质量刺绣效果图',
       '支持4K超高清输出，细节更丰富',
+    ],
+  },
+  flat_to_3d: {
+    title: 'AI平面转3D',
+    description: '一键将平面花型转换为立体3D效果，鲜艳配色与精致细节同步增强，适用于布料、家居等场景展示。',
+    icon: '/optimized/AI提取花型.webp',
+    examples: [
+      '上传需要立体化的平面图案或花型',
+      '确保主体图案清晰、构图完整，避免严重压缩的图片',
+      'AI自动重建立体光影与材质细节',
+      '生成鲜艳色彩与精致纹理的3D视觉效果',
+      '适合制作产品展示图或效果稿',
     ],
   },
   extract_pattern: {
@@ -131,6 +144,7 @@ export const getProcessingMethodInfo = (method: ProcessingMethod) =>
 export const AI_MODEL_METHODS: ProcessingMethod[] = [
   'prompt_edit',      // AI用嘴改图 - 使用Gemini
   'embroidery',       // AI刺绣 - 使用Gemini
+  'flat_to_3d',       // AI平面转3D - 使用即梦
   'extract_pattern',  // AI提取花型 - 使用Gemini/GPT-4o
   'noise_removal',    // AI布纹去噪 - 使用Gemini
 ];

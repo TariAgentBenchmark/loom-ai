@@ -32,6 +32,7 @@ class ProcessingService:
             TaskType.REMOVE_WATERMARK.value: "watermark_removal",
             TaskType.DENOISE.value: "noise_removal",
             TaskType.EMBROIDERY.value: "embroidery",
+            TaskType.FLAT_TO_3D.value: "flat_to_3d",
             TaskType.UPSCALE.value: "upscale",
             TaskType.EXPAND.value: "expand_image",
             TaskType.SEAMLESS_LOOP.value: "seamless_loop",
@@ -46,9 +47,15 @@ class ProcessingService:
             TaskType.REMOVE_WATERMARK.value: 90,
             TaskType.DENOISE.value: 120,
             TaskType.EMBROIDERY.value: 200,  # 处理时间更长
+            TaskType.FLAT_TO_3D.value: 210,
             TaskType.UPSCALE.value: 180,  # 无损放大
             TaskType.EXPAND.value: 180,
             TaskType.SEAMLESS_LOOP.value: 210,
+        }
+        
+        # 服务成本兜底配置，避免未初始化价格时阻塞功能
+        self.default_service_costs = {
+            TaskType.FLAT_TO_3D.value: to_decimal(1.5),
         }
 
     def _resolve_service_key(self, task_type: str) -> str:
@@ -69,8 +76,12 @@ class ProcessingService:
         """创建处理任务"""
         
         # 保存原始图片
+        jimeng_purposes = {TaskType.EMBROIDERY.value, TaskType.FLAT_TO_3D.value}
         original_url = await self.file_service.save_upload_file(
-            image_bytes, original_filename, "originals", purpose="jimeng" if task_type == TaskType.EMBROIDERY.value else "general"
+            image_bytes,
+            original_filename,
+            "originals",
+            purpose="jimeng" if task_type in jimeng_purposes else "general"
         )
         
         # 获取图片信息
@@ -80,7 +91,9 @@ class ProcessingService:
         service_key = self._resolve_service_key(task_type)
         credits_needed = await self.membership_service.calculate_service_cost(db, service_key)
         if credits_needed is None:
-            raise Exception("服务价格未配置，请联系管理员")
+            credits_needed = self.default_service_costs.get(task_type)
+            if credits_needed is None:
+                raise Exception("服务价格未配置，请联系管理员")
 
         # 检查积分是否足够
         if not user.can_afford(credits_needed):
@@ -161,6 +174,8 @@ class ProcessingService:
                     result_url = await ai_client.denoise_image(image_bytes, task_options)
                 elif task.type == TaskType.EMBROIDERY.value:
                     result_url = await ai_client.enhance_embroidery(image_bytes, task_options)
+                elif task.type == TaskType.FLAT_TO_3D.value:
+                    result_url = await ai_client.convert_flat_to_3d(image_bytes, task_options)
                 elif task.type == TaskType.UPSCALE.value:
                     # For upscale, we need to first save the image and get its URL
                     temp_filename = f"temp_upscale_{task.task_id}.jpg"

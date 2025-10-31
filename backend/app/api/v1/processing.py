@@ -379,6 +379,59 @@ async def enhance_embroidery(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post("/flat-to-3d")
+async def convert_flat_to_3d(
+    image: UploadFile = File(...),
+    scale: float = Form(0.75),
+    size: int = Form(2048 * 2048),
+    force_single: bool = Form(True),
+    aspect_ratio: Optional[str] = Form(None),
+    width: Optional[int] = Form(None),
+    height: Optional[int] = Form(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """AI平面转3D"""
+    try:
+        image_bytes = await image.read()
+
+        options = {
+            "scale": scale,
+            "size": size,
+            "force_single": force_single,
+        }
+
+        if aspect_ratio:
+            options["aspect_ratio"] = aspect_ratio
+        if width:
+            options["width"] = width
+        if height:
+            options["height"] = height
+
+        task = await processing_service.create_task(
+            db=db,
+            user=current_user,
+            task_type="flat_to_3d",
+            image_bytes=image_bytes,
+            original_filename=image.filename,
+            options=options
+        )
+
+        return SuccessResponse(
+            data={
+                "taskId": task.task_id,
+                "status": task.status,
+                "estimatedTime": task.estimated_time,
+                "creditsUsed": to_float(task.credits_used),
+                "createdAt": task.created_at
+            },
+            message="平面转3D任务创建成功"
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.post("/upscale")
 async def upscale_image(
     image: UploadFile = File(...),

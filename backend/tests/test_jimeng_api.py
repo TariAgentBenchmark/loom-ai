@@ -1,7 +1,20 @@
 import pytest
 import asyncio
 import os
+import sys
+from types import SimpleNamespace
 from unittest.mock import patch, AsyncMock, MagicMock
+
+mock_oss2_exceptions = SimpleNamespace(OssError=Exception)
+mock_oss2 = SimpleNamespace(
+    Auth=MagicMock(),
+    Bucket=MagicMock(),
+    exceptions=mock_oss2_exceptions,
+)
+sys.modules.setdefault("oss2", mock_oss2)
+sys.modules.setdefault("oss2.exceptions", mock_oss2_exceptions)
+
+import app.services.oss_service as oss_module
 from app.services.ai_client import AIClient
 from app.core.config import settings
 
@@ -33,7 +46,7 @@ class TestJimengAPI:
     async def test_make_jimeng_request(self, ai_client):
         """测试即梦API请求方法"""
         # 模拟即梦API响应
-        mock_response = {
+        mock_response_data = {
             "code": 10000,
             "data": {
                 "task_id": "test_task_id_123"
@@ -41,9 +54,11 @@ class TestJimengAPI:
             "message": "Success"
         }
         
-        with patch('httpx.AsyncClient.request') as mock_request:
-            mock_request.return_value.raise_for_status = MagicMock()
-            mock_request.return_value.json = AsyncMock(return_value=mock_response)
+        with patch('httpx.AsyncClient.request', new_callable=AsyncMock) as mock_request:
+            mock_response = MagicMock()
+            mock_response.raise_for_status = MagicMock()
+            mock_response.json = MagicMock(return_value=mock_response_data)
+            mock_request.return_value = mock_response
             
             # 测试数据
             test_data = {
@@ -55,10 +70,10 @@ class TestJimengAPI:
             }
             
             # 调用方法
-            result = await ai_client._make_jimeng_request("POST", "", test_data)
+            result = await ai_client.jimeng_client._make_jimeng_request("POST", "", test_data)
             
             # 验证结果
-            assert result == mock_response
+            assert result == mock_response_data
             mock_request.assert_called_once()
     
     @pytest.mark.asyncio
@@ -74,11 +89,11 @@ class TestJimengAPI:
             "message": "Success"
         }
         
-        with patch.object(ai_client, '_make_jimeng_request') as mock_request:
+        with patch.object(ai_client.jimeng_client, '_make_jimeng_request') as mock_request:
             mock_request.return_value = mock_response
             
             # 调用方法
-            result = await ai_client.query_jimeng_task_status("test_task_id")
+            result = await ai_client.jimeng_client.query_task_status("test_task_id")
             
             # 验证结果
             assert result == mock_response
@@ -116,22 +131,19 @@ class TestJimengAPI:
         # 模拟图片下载
         mock_image_data = b"mock_image_data"
         
-        with patch.object(ai_client, '_make_jimeng_request') as mock_request, \
-             patch.object(ai_client, 'query_jimeng_task_status') as mock_query, \
-             patch.object(ai_client, '_download_image_from_url') as mock_download, \
-             patch('builtins.open', create=True) as mock_open, \
-             patch('os.makedirs') as mock_makedirs, \
-             patch('uuid.uuid4') as mock_uuid:
+        with patch.object(ai_client.jimeng_client, '_make_jimeng_request') as mock_request, \
+             patch.object(ai_client.jimeng_client, 'query_task_status') as mock_query, \
+             patch.object(ai_client.gemini_client, '_download_image_from_url') as mock_download, \
+             patch.object(oss_module, 'oss_service') as mock_oss_service, \
+             patch.object(ai_client.base_client_utils, '_save_image_bytes') as mock_save:
             
             # 设置模拟返回值
             mock_request.return_value = submit_response
             mock_query.return_value = complete_response
             mock_download.return_value = mock_image_data
-            mock_uuid.return_value.hex = "test12345"
-            
-            # 模拟文件操作
-            mock_file = MagicMock()
-            mock_open.return_value.__enter__.return_value = mock_file
+            mock_oss_service.is_configured.return_value = True
+            mock_oss_service.upload_image_for_jimeng = AsyncMock(return_value="https://example.com/uploaded.jpg")
+            mock_save.return_value = "/files/results/embroidery_test12345.png"
             
             # 调用方法
             result = await ai_client.enhance_embroidery(sample_image_bytes)
@@ -141,9 +153,53 @@ class TestJimengAPI:
             mock_request.assert_called_once()
             mock_query.assert_called_once_with("jimeng_task_123")
             mock_download.assert_called_once_with("https://example.com/embroidery_result.jpg")
-            mock_open.assert_called()
-            mock_makedirs.assert_called()
-    
+            mock_oss_service.upload_image_for_jimeng.assert_called_once()
+            mock_save.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_convert_flat_to_3d_with_jimeng(self, ai_client, sample_image_bytes):
+        """测试使用即梦API进行平面转3D"""
+        submit_response = {
+            "code": 10000,
+            "data": {
+                "task_id": "jimeng_task_flat3d"
+            },
+            "message": "Success"
+        }
+
+        complete_response = {
+            "code": 10000,
+            "data": {
+                "status": "done",
+                "image_urls": ["https://example.com/flat3d_result.jpg"]
+            },
+            "message": "Success"
+        }
+
+        mock_image_data = b"mock_flat3d_image"
+
+        with patch.object(ai_client.jimeng_client, '_make_jimeng_request') as mock_request, \
+             patch.object(ai_client.jimeng_client, 'query_task_status') as mock_query, \
+             patch.object(ai_client.gemini_client, '_download_image_from_url') as mock_download, \
+             patch.object(oss_module, 'oss_service') as mock_oss_service, \
+             patch.object(ai_client.base_client_utils, '_save_image_bytes') as mock_save:
+
+            mock_request.return_value = submit_response
+            mock_query.return_value = complete_response
+            mock_download.return_value = mock_image_data
+            mock_oss_service.is_configured.return_value = True
+            mock_oss_service.upload_image_for_jimeng = AsyncMock(return_value="https://example.com/uploaded_flat3d.jpg")
+            mock_save.return_value = "/files/results/flat3d_test12345.png"
+
+            result = await ai_client.convert_flat_to_3d(sample_image_bytes)
+
+            assert result == "/files/results/flat3d_test12345.png"
+            mock_request.assert_called_once()
+            mock_query.assert_called_once_with("jimeng_task_flat3d")
+            mock_download.assert_called_once_with("https://example.com/flat3d_result.jpg")
+            mock_oss_service.upload_image_for_jimeng.assert_called_once()
+            mock_save.assert_called_once()
+
     @pytest.mark.asyncio
     async def test_download_image_from_url(self, ai_client):
         """测试从URL下载图片"""
@@ -171,14 +227,17 @@ class TestJimengAPI:
             "message": "Pre Img Risk Not Pass"
         }
         
-        with patch.object(ai_client, '_make_jimeng_request') as mock_request:
+        with patch.object(ai_client.jimeng_client, '_make_jimeng_request') as mock_request, \
+             patch.object(oss_module, 'oss_service') as mock_oss_service:
             mock_request.return_value = error_response
+            mock_oss_service.is_configured.return_value = True
+            mock_oss_service.upload_image_for_jimeng = AsyncMock(return_value="https://example.com/uploaded.jpg")
             
             # 调用方法并验证异常
             with pytest.raises(Exception) as exc_info:
                 await ai_client.enhance_embroidery(b"test_image_data")
             
-            assert "即梦毛线刺绣API处理失败" in str(exc_info.value)
+            assert "毛线刺绣增强失败" in str(exc_info.value)
     
     @pytest.mark.asyncio
     async def test_jimeng_task_timeout(self, ai_client, sample_image_bytes):
@@ -201,21 +260,24 @@ class TestJimengAPI:
             "message": "Success"
         }
         
-        with patch.object(ai_client, '_make_jimeng_request') as mock_request, \
-             patch.object(ai_client, 'query_jimeng_task_status') as mock_query, \
-             patch('asyncio.sleep') as mock_sleep:
+        with patch.object(ai_client.jimeng_client, '_make_jimeng_request') as mock_request, \
+             patch.object(ai_client.jimeng_client, 'query_task_status') as mock_query, \
+             patch.object(oss_module, 'oss_service') as mock_oss_service, \
+             patch('asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
             
             # 设置模拟返回值
             mock_request.return_value = submit_response
             mock_query.return_value = processing_response
+            mock_oss_service.is_configured.return_value = True
+            mock_oss_service.upload_image_for_jimeng = AsyncMock(return_value="https://example.com/uploaded.jpg")
             
             # 调用方法并验证超时异常
             with pytest.raises(Exception) as exc_info:
                 await ai_client.enhance_embroidery(sample_image_bytes)
             
-            assert "毛线刺绣任务超时" in str(exc_info.value)
+            assert "任务超时" in str(exc_info.value)
             # 验证轮询次数
-            assert mock_query.call_count == 30  # 最大轮询次数
+            assert mock_query.call_count == 40  # 最大轮询次数
 
 
 if __name__ == "__main__":

@@ -14,6 +14,7 @@ class TaskType(PyEnum):
     REMOVE_WATERMARK = "remove_watermark"  # AI智能去水印
     DENOISE = "denoise"  # AI布纹去噪
     EMBROIDERY = "embroidery"  # AI毛线刺绣增强
+    FLAT_TO_3D = "flat_to_3d"  # AI平面转3D
     UPSCALE = "upscale"  # AI无损放大
     EXPAND = "expand_image"  # AI扩图
     SEAMLESS_LOOP = "seamless_loop"  # AI接循环
@@ -93,6 +94,7 @@ class Task(Base):
             TaskType.REMOVE_WATERMARK.value: "AI智能去水印",
             TaskType.DENOISE.value: "AI布纹去噪",
             TaskType.EMBROIDERY.value: "AI毛线刺绣增强",
+            TaskType.FLAT_TO_3D.value: "AI平面转3D",
             TaskType.UPSCALE.value: "AI无损放大",
             TaskType.EXPAND.value: "AI扩图",
             TaskType.SEAMLESS_LOOP.value: "AI接循环",

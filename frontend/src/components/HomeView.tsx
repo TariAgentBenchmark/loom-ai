@@ -666,6 +666,24 @@ const HomeView: React.FC<HomeViewProps> = ({
 
             <div
               className="relative flex flex-col h-full bg-white rounded-xl md:rounded-2xl border border-gray-200 p-4 md:p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
+              onClick={() => onSelectMethod('flat_to_3d')}
+            >
+              <div className="text-center mb-4 md:mb-6 flex-1">
+                <div className="flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-xl md:rounded-2xl bg-gradient-to-br from-indigo-50 to-blue-50 shadow-lg mx-auto mb-3 md:mb-4 group-hover:shadow-xl transition-all">
+                  <img src="/optimized/AI提取花型.webp" alt="AI平面转3D" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
+                </div>
+                <h4 className="text-lg md:text-xl font-bold text-gray-900 mb-2 md:mb-3">AI平面转3D</h4>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  将平面图案快速转换为立体效果，自动生成鲜艳色彩与精致细节，让作品更具空间感与展示力。
+                </p>
+              </div>
+              <div className="mt-auto bg-gradient-to-r from-indigo-500 to-blue-500 text-white py-2 px-4 md:py-3 md:px-6 rounded-lg md:rounded-xl text-center font-medium hover:from-indigo-600 hover:to-blue-600 transition-all">
+                立即使用
+              </div>
+            </div>
+
+            <div
+              className="relative flex flex-col h-full bg-white rounded-xl md:rounded-2xl border border-gray-200 p-4 md:p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
               onClick={() => onSelectMethod('upscale')}
             >
               <div className="text-center mb-4 md:mb-6 flex-1">

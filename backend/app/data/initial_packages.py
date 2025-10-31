@@ -183,6 +183,13 @@ SERVICE_PRICES = [
         "price_credits": 0.7
     },
     {
+        "service_id": "flat_to_3d",
+        "service_name": "平面转3D",
+        "service_key": "flat_to_3d",
+        "description": "AI平面转3D",
+        "price_credits": 1.5
+    },
+    {
         "service_id": "extract_pattern",
         "service_name": "提取花型",
         "service_key": "extract_pattern",

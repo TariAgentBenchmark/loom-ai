@@ -12,6 +12,7 @@ const SERVICE_PRICE_FALLBACKS: Record<ProcessingMethod, number> = {
   prompt_edit: 0.5,
   style: 2.5,
   embroidery: 0.7,
+  flat_to_3d: 1.5,
   extract_pattern: 1.5,
   watermark_removal: 0.9,
   noise_removal: 0.5,
