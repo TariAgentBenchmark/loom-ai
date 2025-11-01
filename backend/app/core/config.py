@@ -95,6 +95,19 @@ class Settings(BaseSettings):
     alipay_public_key: str = ""
     alipay_sandbox: bool = True
 
+    # 聚合支付配置
+    payment_gateway_base_url: str = "https://test.wsmsd.cn/sit/api/v3/ccss/counter"
+    payment_gateway_create_path: str = "/order/special_create"
+    payment_gateway_query_path: str = "/order/query"
+    payment_gateway_version: str = "3.0"
+    payment_gateway_merchant_no: str = ""
+    payment_gateway_channel_id: Optional[str] = None
+    payment_gateway_vpos_id: Optional[str] = None
+    payment_gateway_notify_url: Optional[str] = None
+    payment_gateway_callback_url: Optional[str] = None
+    payment_gateway_sign_key: Optional[str] = None
+    payment_gateway_timeout_seconds: int = 10
+
     # 基础URL配置
     base_url: str = "http://localhost:8000"
 

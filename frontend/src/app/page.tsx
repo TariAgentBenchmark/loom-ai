@@ -476,6 +476,7 @@ export default function Home() {
           setShowPricingModal(false);
           setShowLoginModal(true);
         }}
+        accessToken={accessToken || undefined}
       />
     ) : null;
 

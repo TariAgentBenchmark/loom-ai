@@ -32,7 +32,7 @@ async def get_packages(
 
 class OrderCreate(BaseModel):
     package_id: str
-    payment_method: str
+    payment_method: Optional[str] = None
     quantity: int = 1
     coupon_code: Optional[str] = None
 
@@ -64,70 +64,23 @@ async def create_order(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/wechat/notify")
-async def wechat_notify(
+@router.post("/aggregate/notify")
+async def aggregate_notify(
     request: Request,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    """微信支付回调"""
+    """聚合收银台异步通知"""
 
     payment_service = PaymentService()
 
     try:
-        # 解析XML数据
-        body = await request.body()
-        import xml.etree.ElementTree as ET
-        root = ET.fromstring(body.decode('utf-8'))
+        notify_data = await request.json()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"无法解析通知数据: {exc}") from exc
 
-        notify_data = {}
-        for child in root:
-            notify_data[child.tag] = child.text
+    success = await payment_service.handle_counter_notify(db, notify_data)
 
-        # 处理回调
-        success = await payment_service.handle_wechat_notify(db, notify_data)
-
-        if success:
-            return {
-                "return_code": "SUCCESS",
-                "return_msg": "OK"
-            }
-        else:
-            return {
-                "return_code": "FAIL",
-                "return_msg": "处理失败"
-            }
-
-    except Exception as e:
-        return {
-            "return_code": "FAIL",
-            "return_msg": str(e)
-        }
-
-
-@router.post("/alipay/notify")
-async def alipay_notify(
-    request: Request,
-    db: Session = Depends(get_db)
-):
-    """支付宝支付回调"""
-
-    payment_service = PaymentService()
-
-    try:
-        # 解析表单数据
-        form_data = await request.form()
-        notify_data = dict(form_data)
-
-        # 处理回调
-        success = await payment_service.handle_alipay_notify(db, notify_data)
-
-        if success:
-            return "success"
-        else:
-            return "failure"
-
-    except Exception as e:
-        return "failure"
+    return "SUCCESS" if success else "FAIL"
 
 
 @router.get("/orders/{order_id}")
@@ -144,7 +97,7 @@ async def get_order_status(
         order_status = await payment_service.get_order_status(db, order_id)
 
         # 检查订单是否属于当前用户
-        if order_status["user_id"] != current_user.id:
+        if order_status.get("user_id") != current_user.id:
             raise HTTPException(status_code=403, detail="无权访问此订单")
 
         return SuccessResponse(

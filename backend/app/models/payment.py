@@ -24,6 +24,7 @@ class PaymentMethod(PyEnum):
     WECHAT = "wechat"  # 微信支付
     BANK_CARD = "bank_card"  # 银行卡
     PAYPAL = "paypal"  # PayPal
+    LAKALA_COUNTER = "lakala_counter"  # 聚合收银台
 
 
 class Order(Base):

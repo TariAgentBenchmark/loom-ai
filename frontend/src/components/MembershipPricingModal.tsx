@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import PaymentModal from './PaymentModal';
 
 interface Package {
@@ -26,33 +26,40 @@ interface Package {
 
 interface MembershipPricingModalProps {
   onClose: () => void;
+  accessToken?: string;
+  onLogin?: () => void;
 }
 
-const MembershipPricingModal: React.FC<MembershipPricingModalProps> = ({ onClose }) => {
+const MembershipPricingModal: React.FC<MembershipPricingModalProps> = ({ onClose, accessToken, onLogin }) => {
   const [activeTab, setActiveTab] = useState<'membership' | 'discount'>('membership');
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [currentOrder, setCurrentOrder] = useState<any>(null);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'wechat' | 'alipay'>('wechat');
 
-  useEffect(() => {
-    fetchPackages();
-  }, []);
-
-  const fetchPackages = async () => {
+  const fetchPackages = useCallback(async () => {
     try {
-      const response = await fetch('/api/v1/membership/packages');
+      const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined;
+      const endpoint = accessToken ? '/api/v1/membership/packages' : '/api/v1/membership/public/packages';
+      const response = await fetch(endpoint, { headers });
       if (response.ok) {
         const data = await response.json();
         setPackages(data);
+      } else if (response.status === 401 || response.status === 403) {
+        alert('登录状态已失效，请重新登录后再试');
+        onLogin?.();
+        onClose();
       }
     } catch (error) {
       console.error('获取套餐失败:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [accessToken, onClose, onLogin]);
+
+  useEffect(() => {
+    fetchPackages();
+  }, [fetchPackages]);
 
   const membershipPackages = packages.filter(pkg => pkg.category === 'membership');
   const discountPackages = packages.filter(pkg => pkg.category === 'discount');
@@ -61,15 +68,24 @@ const MembershipPricingModal: React.FC<MembershipPricingModalProps> = ({ onClose
     try {
       console.log('开始购买套餐:', packageId);
 
+      if (!accessToken) {
+        alert('登录状态已失效，请重新登录后再试');
+        onClose();
+        onLogin?.();
+        return;
+      }
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      };
+
       // 创建订单
       const response = await fetch('/api/v1/payment/orders', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           package_id: packageId,
-          payment_method: selectedPaymentMethod,
           quantity: 1
         }),
       });
@@ -144,34 +160,6 @@ const MembershipPricingModal: React.FC<MembershipPricingModalProps> = ({ onClose
             </button>
           </div>
 
-          {/* 支付方式选择 */}
-          <div className="mt-4">
-            <div className="text-sm font-medium text-gray-700 mb-2">支付方式</div>
-            <div className="flex gap-4">
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="wechat"
-                  checked={selectedPaymentMethod === 'wechat'}
-                  onChange={(e) => setSelectedPaymentMethod(e.target.value as 'wechat' | 'alipay')}
-                  className="mr-2"
-                />
-                微信支付
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="alipay"
-                  checked={selectedPaymentMethod === 'alipay'}
-                  onChange={(e) => setSelectedPaymentMethod(e.target.value as 'wechat' | 'alipay')}
-                  className="mr-2"
-                />
-                支付宝
-              </label>
-            </div>
-          </div>
         </div>
 
         <div className="px-4 md:px-8 py-4 md:py-8">
@@ -295,6 +283,7 @@ const MembershipPricingModal: React.FC<MembershipPricingModalProps> = ({ onClose
           orderInfo={currentOrder}
           onClose={() => setShowPaymentModal(false)}
           onPaymentSuccess={handlePaymentSuccess}
+          accessToken={accessToken}
         />
       )}
     </div>

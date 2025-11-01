@@ -7,19 +7,22 @@ interface PaymentModalProps {
     order_id: string;
     package_name: string;
     final_amount: number;
-    payment_method: string;
+    payment_method?: string;
+    pay_order_no?: string;
     payment_url?: string;
     qr_code_url?: string;
     expires_at: string;
   };
   onClose: () => void;
   onPaymentSuccess: () => void;
+  accessToken?: string;
 }
 
 const PaymentModal: React.FC<PaymentModalProps> = ({
   orderInfo,
   onClose,
-  onPaymentSuccess
+  onPaymentSuccess,
+  accessToken,
 }) => {
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'success' | 'failed'>('pending');
   const [isChecking, setIsChecking] = useState(false);
@@ -39,21 +42,34 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
     const checkInterval = setInterval(async () => {
       try {
-        const response = await fetch(`/api/v1/payment/orders/${orderInfo.order_id}`);
-        if (response.ok) {
-          const data = await response.json();
+        const headers = accessToken
+          ? { Authorization: `Bearer ${accessToken}` }
+          : undefined;
 
-          if (data.data.status === 'paid') {
-            setPaymentStatus('success');
+        const response = await fetch(`/api/v1/payment/orders/${orderInfo.order_id}`, {
+          headers,
+        });
+        if (!response.ok) {
+          if ([401, 403].includes(response.status)) {
+            setPaymentStatus('failed');
             clearInterval(checkInterval);
             setIsChecking(false);
-
-            // 延迟关闭并触发成功回调
-            setTimeout(() => {
-              onPaymentSuccess();
-              onClose();
-            }, 2000);
           }
+          return;
+        }
+
+        const data = await response.json();
+
+        if (data.data.status === 'paid') {
+          setPaymentStatus('success');
+          clearInterval(checkInterval);
+          setIsChecking(false);
+
+          // 延迟关闭并触发成功回调
+          setTimeout(() => {
+            onPaymentSuccess();
+            onClose();
+          }, 2000);
         }
       } catch (error) {
         console.error('检查支付状态失败:', error);
@@ -73,10 +89,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
   const getPaymentMethodName = (method: string) => {
     switch (method) {
-      case 'wechat':
-        return '微信支付';
-      case 'alipay':
-        return '支付宝';
+      case 'lakala_counter':
+        return '聚合收银台';
       default:
         return method;
     }
@@ -115,7 +129,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                 {orderInfo.qr_code_url && (
                   <div className="text-center">
                     <div className="text-sm text-gray-600 mb-2">
-                      请使用{getPaymentMethodName(orderInfo.payment_method)}扫描二维码
+                      请使用{getPaymentMethodName(orderInfo.payment_method || 'lakala_counter')}扫描二维码
                     </div>
                     <img
                       src={orderInfo.qr_code_url}
@@ -131,13 +145,22 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                     disabled={isChecking}
                     className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white py-3 rounded-lg font-medium transition"
                   >
-                    {isChecking ? '正在检查支付状态...' : `前往${getPaymentMethodName(orderInfo.payment_method)}支付`}
+                    {isChecking ? '正在检查支付状态...' : '跳转至收银台支付'}
                   </button>
+                </div>
+
+                <div className="text-xs text-gray-500 text-center">
+                  支付页面将在新窗口打开，如未跳转请检查浏览器弹窗拦截。
                 </div>
 
                 <div className="text-xs text-gray-500 text-center">
                   订单将在 {new Date(orderInfo.expires_at).toLocaleString()} 过期
                 </div>
+                {orderInfo.pay_order_no && (
+                  <div className="text-xs text-gray-500 text-center">
+                    平台订单号：{orderInfo.pay_order_no}
+                  </div>
+                )}
               </div>
             </>
           )}

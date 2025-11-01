@@ -1,40 +1,44 @@
 """支付服务"""
 
-import uuid
 import hashlib
-import time
 import json
+import logging
+import uuid
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional, List
-from urllib.parse import urlencode
+from typing import Any, Dict, Optional
+from urllib.parse import urljoin
+
 import requests
 from sqlalchemy.orm import Session
 
-from app.models.payment import Order, OrderStatus, PaymentMethod, PackageType
-from app.models.membership_package import MembershipPackage
-from app.models.user import User
 from app.core.config import settings
+from app.models.membership_package import MembershipPackage
+from app.models.payment import Order, OrderStatus, PaymentMethod, PackageType
+from app.models.user import User
 
 
 class PaymentService:
-    """支付服务"""
+    """聚合收银台支付服务"""
 
-    def __init__(self):
-        self.wechat_config = {
-            "app_id": settings.WECHAT_APP_ID,
-            "mch_id": settings.WECHAT_MCH_ID,
-            "api_key": settings.WECHAT_API_KEY,
-            "notify_url": f"{settings.BASE_URL}/api/v1/payment/wechat/notify",
-            "sandbox": settings.WECHAT_SANDBOX
-        }
+    def __init__(self) -> None:
+        base_url = settings.payment_gateway_base_url.rstrip("/")
+        create_path = settings.payment_gateway_create_path.lstrip("/")
+        query_path = settings.payment_gateway_query_path.lstrip("/")
 
-        self.alipay_config = {
-            "app_id": settings.ALIPAY_APP_ID,
-            "private_key": settings.ALIPAY_PRIVATE_KEY,
-            "alipay_public_key": settings.ALIPAY_PUBLIC_KEY,
-            "notify_url": f"{settings.BASE_URL}/api/v1/payment/alipay/notify",
-            "return_url": f"{settings.BASE_URL}/payment/success",
-            "sandbox": settings.ALIPAY_SANDBOX
+        self.logger = logging.getLogger(__name__)
+        self.counter_config = {
+            "create_url": f"{base_url}/{create_path}",
+            "query_url": f"{base_url}/{query_path}",
+            "version": settings.payment_gateway_version,
+            "merchant_no": settings.payment_gateway_merchant_no,
+            "channel_id": settings.payment_gateway_channel_id,
+            "vpos_id": settings.payment_gateway_vpos_id,
+            "notify_url": settings.payment_gateway_notify_url
+            or f"{settings.base_url.rstrip('/')}/api/v1/payment/aggregate/notify",
+            "callback_url": settings.payment_gateway_callback_url
+            or settings.base_url.rstrip("/"),
+            "sign_key": settings.payment_gateway_sign_key,
+            "timeout": settings.payment_gateway_timeout_seconds,
         }
 
     async def create_order(
@@ -42,10 +46,17 @@ class PaymentService:
         db: Session,
         user_id: int,
         package_id: str,
-        payment_method: str,
-        coupon_code: Optional[str] = None
+        payment_method: Optional[str] = None,
+        coupon_code: Optional[str] = None,
     ) -> Dict[str, Any]:
         """创建支付订单"""
+
+        method = payment_method or PaymentMethod.LAKALA_COUNTER.value
+        if method != PaymentMethod.LAKALA_COUNTER.value:
+            raise Exception("当前仅支持聚合收银台支付")
+
+        if not self.counter_config["merchant_no"]:
+            raise Exception("支付通道未配置商户号，请联系管理员")
 
         # 获取用户
         user = db.query(User).filter(User.id == user_id).first()
@@ -53,10 +64,11 @@ class PaymentService:
             raise Exception("用户不存在")
 
         # 获取套餐
-        package = db.query(MembershipPackage).filter(
-            MembershipPackage.package_id == package_id
-        ).first()
-
+        package = (
+            db.query(MembershipPackage)
+            .filter(MembershipPackage.package_id == package_id)
+            .first()
+        )
         if not package:
             raise Exception("套餐不存在")
 
@@ -66,9 +78,10 @@ class PaymentService:
         final_amount = original_amount - discount_amount
 
         # 生成订单ID
-        order_id = f"order_{uuid.uuid4().hex[:12]}"
+        order_id = f"order_{uuid.uuid4().hex[:24]}"
 
-        # 创建订单
+        expires_at = datetime.utcnow() + timedelta(hours=2)
+
         order = Order(
             order_id=order_id,
             user_id=user_id,
@@ -78,305 +91,316 @@ class PaymentService:
             original_amount=original_amount,
             discount_amount=discount_amount,
             final_amount=final_amount,
-            payment_method=payment_method,
+            payment_method=method,
             status=OrderStatus.PENDING.value,
             coupon_code=coupon_code,
             coupon_discount=discount_amount,
             credits_amount=package.total_credits,
-            expires_at=datetime.utcnow() + timedelta(hours=2)
+            expires_at=expires_at,
+            extra_metadata={
+                "payment_gateway": "lakala_counter",
+                "package_name": package.name,
+            },
         )
 
         db.add(order)
-        db.commit()
+        db.flush()
 
-        # 根据支付方式生成支付信息
-        payment_info = {}
-        if payment_method == PaymentMethod.WECHAT.value:
-            payment_info = await self._create_wechat_payment(order)
-        elif payment_method == PaymentMethod.ALIPAY.value:
-            payment_info = await self._create_alipay_payment(order)
-        else:
-            raise Exception("不支持的支付方式")
+        try:
+            gateway_data = self._create_counter_order(order, package)
+        except Exception:
+            db.rollback()
+            raise
 
-        # 更新订单支付信息
-        order.payment_url = payment_info.get("payment_url")
-        order.qr_code_url = payment_info.get("qr_code_url")
+        extra_metadata = order.extra_metadata or {}
+        extra_metadata.update(
+            {
+                "payment_gateway": "lakala_counter",
+                "pay_order_no": gateway_data.get("pay_order_no"),
+                "merchant_no": gateway_data.get("merchant_no"),
+                "channel_id": gateway_data.get("channel_id"),
+            }
+        )
+
+        order.payment_url = gateway_data.get("counter_url")
+        order.qr_code_url = None
+        order.extra_metadata = extra_metadata
+
         db.commit()
+        db.refresh(order)
 
         return {
             "order_id": order.order_id,
+            "user_id": order.user_id,
             "package_id": package.package_id,
             "package_name": package.name,
             "original_amount": original_amount,
             "discount_amount": discount_amount,
             "final_amount": final_amount,
-            "payment_method": payment_method,
+            "payment_method": method,
             "status": order.status,
             "payment_url": order.payment_url,
             "qr_code_url": order.qr_code_url,
             "expires_at": order.expires_at.isoformat(),
-            "created_at": order.created_at.isoformat()
+            "created_at": order.created_at.isoformat(),
+            "pay_order_no": gateway_data.get("pay_order_no"),
         }
 
-    async def _create_wechat_payment(self, order: Order) -> Dict[str, Any]:
-        """创建微信支付"""
+    def _create_counter_order(
+        self,
+        order: Order,
+        package: MembershipPackage,
+    ) -> Dict[str, Any]:
+        """调用聚合收银台创建订单"""
 
-        # 微信支付API基础URL
-        base_url = "https://api.mch.weixin.qq.com"
-        if self.wechat_config["sandbox"]:
-            base_url = "https://api.mch.weixin.qq.com/sandboxnew"
-
-        # 构建请求参数
-        params = {
-            "appid": self.wechat_config["app_id"],
-            "mch_id": self.wechat_config["mch_id"],
-            "nonce_str": self._generate_nonce_str(),
-            "body": f"LoomAI - {order.package_name}",
-            "out_trade_no": order.order_id,
-            "total_fee": order.final_amount,  # 单位：分
-            "spbill_create_ip": "127.0.0.1",  # 实际应该获取用户IP
-            "notify_url": self.wechat_config["notify_url"],
-            "trade_type": "NATIVE",  # 扫码支付
-            "time_expire": order.expires_at.strftime("%Y%m%d%H%M%S")
+        req_data: Dict[str, Any] = {
+            "out_order_no": order.order_id,
+            "merchant_no": self.counter_config["merchant_no"],
+            "total_amount": str(order.final_amount),
+            "order_efficient_time": order.expires_at.strftime("%Y%m%d%H%M%S"),
+            "notify_url": self.counter_config["notify_url"],
+            "callback_url": self.counter_config["callback_url"],
+            "support_cancel": "0",
+            "support_refund": "1",
+            "support_repeat_pay": "1",
+            "order_info": package.name[:64],
         }
 
-        # 生成签名
-        params["sign"] = self._generate_wechat_sign(params)
+        if self.counter_config.get("channel_id"):
+            req_data["channel_id"] = self.counter_config["channel_id"]
+        if self.counter_config.get("vpos_id"):
+            req_data["vpos_id"] = self.counter_config["vpos_id"]
 
-        # 发送请求
-        xml_data = self._dict_to_xml(params)
-        response = requests.post(
-            f"{base_url}/pay/unifiedorder",
-            data=xml_data,
-            headers={'Content-Type': 'application/xml'}
+        payload = self._wrap_request_payload(req_data)
+        response_data = self._request_gateway(
+            self.counter_config["create_url"], payload
         )
 
-        if response.status_code != 200:
-            raise Exception("微信支付请求失败")
+        resp_data = response_data.get("resp_data")
+        if not resp_data:
+            raise Exception("聚合收银台返回数据异常")
 
-        # 解析响应
-        result = self._xml_to_dict(response.text)
+        return resp_data
 
-        if result.get("return_code") != "SUCCESS":
-            raise Exception(f"微信支付失败: {result.get('return_msg', '未知错误')}")
-
-        if result.get("result_code") != "SUCCESS":
-            raise Exception(f"微信支付业务失败: {result.get('err_code_des', '未知错误')}")
-
-        return {
-            "payment_url": result.get("code_url"),
-            "qr_code_url": f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={result.get('code_url')}"
-        }
-
-    async def _create_alipay_payment(self, order: Order) -> Dict[str, Any]:
-        """创建支付宝支付"""
-
-        # 支付宝网关
-        gateway = "https://openapi.alipay.com/gateway.do"
-        if self.alipay_config["sandbox"]:
-            gateway = "https://openapi.alipaydev.com/gateway.do"
-
-        # 构建请求参数
-        biz_content = {
-            "out_trade_no": order.order_id,
-            "total_amount": order.final_amount / 100.0,  # 转换为元
-            "subject": f"LoomAI - {order.package_name}",
-            "body": order.package_name,
-            "timeout_express": "2h",
-            "product_code": "FAST_INSTANT_TRADE_PAY"
-        }
-
-        params = {
-            "app_id": self.alipay_config["app_id"],
-            "method": "alipay.trade.page.pay",
-            "charset": "utf-8",
-            "sign_type": "RSA2",
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "version": "1.0",
-            "notify_url": self.alipay_config["notify_url"],
-            "return_url": self.alipay_config["return_url"],
-            "biz_content": json.dumps(biz_content, separators=(',', ':'))
-        }
-
-        # 生成签名
-        params["sign"] = self._generate_alipay_sign(params)
-
-        # 构建支付URL
-        payment_url = f"{gateway}?{urlencode(params)}"
-
-        return {
-            "payment_url": payment_url,
-            "qr_code_url": None  # 支付宝页面支付不需要二维码
-        }
-
-    async def handle_wechat_notify(self, db: Session, notify_data: Dict[str, Any]) -> bool:
-        """处理微信支付回调"""
-
-        # 验证签名
-        if not self._verify_wechat_sign(notify_data):
-            return False
-
-        # 获取订单
-        order = db.query(Order).filter(Order.order_id == notify_data["out_trade_no"]).first()
-        if not order:
-            return False
-
-        # 检查订单状态
-        if order.status != OrderStatus.PENDING.value:
-            return True  # 已处理，返回成功
-
-        # 验证金额
-        if order.final_amount != int(notify_data["total_fee"]):
-            return False
-
-        # 更新订单状态
-        if notify_data["return_code"] == "SUCCESS" and notify_data["result_code"] == "SUCCESS":
-            order.mark_as_paid(notify_data["transaction_id"])
-            db.commit()
-
-            # 调用会员服务激活套餐
-            from app.services.membership_service import MembershipService
-            membership_service = MembershipService()
-            await membership_service.purchase_package(
-                db, order.user_id, order.package_id, order.payment_method, order.order_id
-            )
-
-        return True
-
-    async def handle_alipay_notify(self, db: Session, notify_data: Dict[str, Any]) -> bool:
-        """处理支付宝支付回调"""
-
-        # 验证签名
-        if not self._verify_alipay_sign(notify_data):
-            return False
-
-        # 获取订单
-        order = db.query(Order).filter(Order.order_id == notify_data["out_trade_no"]).first()
-        if not order:
-            return False
-
-        # 检查订单状态
-        if order.status != OrderStatus.PENDING.value:
-            return True  # 已处理，返回成功
-
-        # 验证金额
-        expected_amount = order.final_amount / 100.0  # 转换为元
-        if float(notify_data["total_amount"]) != expected_amount:
-            return False
-
-        # 更新订单状态
-        if notify_data["trade_status"] in ["TRADE_SUCCESS", "TRADE_FINISHED"]:
-            order.mark_as_paid(notify_data["trade_no"])
-            db.commit()
-
-            # 调用会员服务激活套餐
-            from app.services.membership_service import MembershipService
-            membership_service = MembershipService()
-            await membership_service.purchase_package(
-                db, order.user_id, order.package_id, order.payment_method, order.order_id
-            )
-
-        return True
-
-    def _generate_nonce_str(self, length: int = 32) -> str:
-        """生成随机字符串"""
-        import random
-        import string
-        return ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
-
-    def _generate_wechat_sign(self, params: Dict[str, Any]) -> str:
-        """生成微信支付签名"""
-        # 按参数名ASCII码从小到大排序
-        sorted_params = sorted(params.items())
-
-        # 拼接字符串
-        sign_str = "&".join([f"{k}={v}" for k, v in sorted_params if k != "sign" and v])
-        sign_str += f"&key={self.wechat_config['api_key']}"
-
-        # MD5加密并转为大写
-        return hashlib.md5(sign_str.encode('utf-8')).hexdigest().upper()
-
-    def _verify_wechat_sign(self, params: Dict[str, Any]) -> bool:
-        """验证微信支付签名"""
-        sign = params.pop("sign", None)
-        if not sign:
-            return False
-
-        generated_sign = self._generate_wechat_sign(params)
-        return sign == generated_sign
-
-    def _generate_alipay_sign(self, params: Dict[str, Any]) -> str:
-        """生成支付宝签名"""
-        import rsa
-
-        # 按参数名ASCII码从小到大排序
-        sorted_params = sorted(params.items())
-
-        # 拼接字符串
-        sign_str = "&".join([f"{k}={v}" for k, v in sorted_params if k != "sign" and v])
-
-        # RSA2签名
-        private_key = rsa.PrivateKey.load_pkcs1(self.alipay_config["private_key"])
-        signature = rsa.sign(sign_str.encode('utf-8'), private_key, 'SHA-256')
-
-        return signature.hex()
-
-    def _verify_alipay_sign(self, params: Dict[str, Any]) -> bool:
-        """验证支付宝签名"""
-        import rsa
-
-        sign = params.pop("sign", None)
-        if not sign:
-            return False
-
-        # 按参数名ASCII码从小到大排序
-        sorted_params = sorted(params.items())
-
-        # 拼接字符串
-        sign_str = "&".join([f"{k}={v}" for k, v in sorted_params if k != "sign" and v])
+    def _request_gateway(self, url: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """向支付网关发送请求"""
 
         try:
-            public_key = rsa.PublicKey.load_pkcs1_openssl_pem(self.alipay_config["alipay_public_key"])
-            rsa.verify(sign_str.encode('utf-8'), bytes.fromhex(sign), public_key)
-            return True
-        except:
+            response = requests.post(
+                url,
+                json=payload,
+                timeout=self.counter_config["timeout"],
+                headers={"Content-Type": "application/json"},
+            )
+        except requests.RequestException as exc:
+            self.logger.error("调用聚合收银台失败: %s", exc)
+            raise Exception("聚合收银台网络请求失败") from exc
+
+        if response.status_code != 200:
+            self.logger.error(
+                "聚合收银台响应异常: status=%s body=%s",
+                response.status_code,
+                response.text,
+            )
+            raise Exception("聚合收银台响应异常")
+
+        try:
+            data = response.json()
+        except json.JSONDecodeError as exc:
+            self.logger.error("聚合收银台返回非JSON数据: %s", response.text)
+            raise Exception("聚合收银台返回数据解析失败") from exc
+
+        code = data.get("code")
+        if code not in ("000000", "SUCCESS"):
+            msg = data.get("msg", "未知错误")
+            raise Exception(f"聚合收银台下单失败: {msg}")
+
+        return data
+
+    def _wrap_request_payload(self, req_data: Dict[str, Any]) -> Dict[str, Any]:
+        """构造标准请求报文"""
+
+        payload = {
+            "req_time": datetime.utcnow().strftime("%Y%m%d%H%M%S"),
+            "version": self.counter_config["version"],
+            "req_data": req_data,
+        }
+
+        sign_key = self.counter_config.get("sign_key")
+        if sign_key:
+            payload["sign"] = self._generate_counter_sign(payload, sign_key)
+
+        return payload
+
+    def _generate_counter_sign(self, payload: Dict[str, Any], secret: str) -> str:
+        """生成聚合收银台签名"""
+
+        req_data = payload.get("req_data", {})
+        sign_str = json.dumps(
+            req_data,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        raw = f"{sign_str}{secret}"
+        return hashlib.md5(raw.encode("utf-8")).hexdigest().upper()
+
+    async def handle_counter_notify(
+        self,
+        db: Session,
+        notify_data: Dict[str, Any],
+    ) -> bool:
+        """处理聚合收银台异步通知"""
+
+        out_order_no = notify_data.get("out_order_no")
+        if not out_order_no:
             return False
 
-    def _dict_to_xml(self, params: Dict[str, Any]) -> str:
-        """字典转XML"""
-        xml = ["<xml>"]
-        for k, v in params.items():
-            if v:
-                xml.append(f"<{k}><![CDATA[{v}]]></{k}>")
-        xml.append("</xml>")
-        return "".join(xml)
+        order = db.query(Order).filter(Order.order_id == out_order_no).first()
+        if not order:
+            return False
 
-    def _xml_to_dict(self, xml: str) -> Dict[str, Any]:
-        """XML转字典"""
-        import xml.etree.ElementTree as ET
+        extra = order.extra_metadata or {}
+        extra["notify_payload"] = notify_data
+        if notify_data.get("pay_order_no"):
+            extra["pay_order_no"] = notify_data["pay_order_no"]
+        order.extra_metadata = extra
 
-        result = {}
-        root = ET.fromstring(xml)
-        for child in root:
-            result[child.tag] = child.text
-        return result
+        order_status = str(notify_data.get("order_status", ""))
+        trade_info = notify_data.get("order_trade_info") or {}
 
-    async def get_order_status(self, db: Session, order_id: str) -> Dict[str, Any]:
+        status_changed = self._apply_gateway_status(order, order_status, trade_info)
+
+        db.commit()
+        db.refresh(order)
+
+        if status_changed and order.status == OrderStatus.PAID.value:
+            from app.services.membership_service import MembershipService
+
+            membership_service = MembershipService()
+            await membership_service.purchase_package(
+                db,
+                order.user_id,
+                order.package_id,
+                order.payment_method,
+                order.order_id,
+            )
+
+        return True
+
+    def _apply_gateway_status(
+        self,
+        order: Order,
+        gateway_status: str,
+        trade_info: Dict[str, Any],
+    ) -> bool:
+        """根据聚合收银台状态同步本地订单"""
+
+        previous_status = order.status
+
+        if gateway_status == "2":
+            transaction_id = self._extract_trade_reference(trade_info)
+            order.mark_as_paid(transaction_id or trade_info.get("trade_no") or "")
+        elif gateway_status in {"3", "4"}:
+            order.status = OrderStatus.FAILED.value
+        elif gateway_status in {"5", "7"}:
+            order.status = OrderStatus.CANCELLED.value
+        elif gateway_status == "6":
+            order.status = OrderStatus.REFUNDED.value
+
+        if trade_info:
+            extra = order.extra_metadata or {}
+            extra["last_trade_info"] = trade_info
+            order.extra_metadata = extra
+
+        return previous_status != order.status
+
+    def _extract_trade_reference(self, trade_info: Dict[str, Any]) -> Optional[str]:
+        """提取交易流水号"""
+        for key in ("trade_no", "acc_trade_no", "sub_trade_no", "log_no"):
+            value = trade_info.get(key)
+            if value:
+                return str(value)
+        return None
+
+    async def get_order_status(
+        self,
+        db: Session,
+        order_id: str,
+    ) -> Dict[str, Any]:
         """获取订单状态"""
+
         order = db.query(Order).filter(Order.order_id == order_id).first()
         if not order:
             raise Exception("订单不存在")
 
+        if order.status == OrderStatus.PENDING.value:
+            try:
+                gateway_data = self._query_counter_order(order)
+            except Exception as exc:
+                self.logger.warning("查询聚合收银台订单失败: %s", exc)
+                gateway_data = None
+
+            if gateway_data:
+                order_status = str(gateway_data.get("order_status", ""))
+                trade_info = {}
+                trade_list = gateway_data.get("order_trade_info_list")
+                if isinstance(trade_list, list) and trade_list:
+                    trade_info = trade_list[0]
+
+                status_changed = self._apply_gateway_status(
+                    order,
+                    order_status,
+                    trade_info,
+                )
+
+                extra = order.extra_metadata or {}
+                extra["last_query_response"] = gateway_data
+                order.extra_metadata = extra
+
+                if status_changed:
+                    db.commit()
+                    db.refresh(order)
+                else:
+                    db.commit()
+
         return {
             "order_id": order.order_id,
+            "user_id": order.user_id,
             "status": order.status,
             "final_amount": order.final_amount,
             "package_name": order.package_name,
+            "payment_url": order.payment_url,
             "created_at": order.created_at.isoformat(),
             "paid_at": order.paid_at.isoformat() if order.paid_at else None,
             "expires_at": order.expires_at.isoformat(),
-            "is_expired": order.is_expired
+            "is_expired": order.is_expired,
+            "extra_metadata": order.extra_metadata or {},
         }
+
+    def _query_counter_order(self, order: Order) -> Optional[Dict[str, Any]]:
+        """查询聚合收银台订单状态"""
+
+        pay_order_no = None
+        if order.extra_metadata:
+            pay_order_no = order.extra_metadata.get("pay_order_no")
+
+        req_data: Dict[str, Any] = {"merchant_no": self.counter_config["merchant_no"]}
+
+        if pay_order_no:
+            req_data["pay_order_no"] = pay_order_no
+        else:
+            req_data["out_order_no"] = order.order_id
+
+        if self.counter_config.get("channel_id"):
+            req_data["channel_id"] = self.counter_config["channel_id"]
+
+        payload = self._wrap_request_payload(req_data)
+        response_data = self._request_gateway(
+            self.counter_config["query_url"], payload
+        )
+
+        return response_data.get("resp_data")
 
     async def cancel_order(self, db: Session, order_id: str) -> bool:
         """取消订单"""
@@ -389,4 +413,5 @@ class PaymentService:
 
         order.mark_as_cancelled()
         db.commit()
+
         return True

@@ -12,17 +12,13 @@ interface PricingModalProps {
   onClose: () => void;
   isLoggedIn?: boolean;
   onLogin?: () => void;
+  accessToken?: string;
 }
 
 const TABS: Array<{ key: 'membership' | 'discount'; label: string }> = [
   { key: 'membership', label: '会员套餐' },
   { key: 'discount', label: '积分套餐' },
 ];
-
-const PAYMENT_ICON_URLS: Record<'wechat' | 'alipay', string> = {
-  wechat: 'https://cdn.jsdelivr.net/npm/simple-icons@11.3.0/icons/wechat.svg',
-  alipay: 'https://cdn.jsdelivr.net/npm/simple-icons@11.3.0/icons/alipay.svg',
-};
 
 const TAB_NOTICES: Record<'membership' | 'discount', string[]> = {
   membership: [
@@ -32,39 +28,41 @@ const TAB_NOTICES: Record<'membership' | 'discount', string[]> = {
   discount: ['积分永不过期。', '优惠套餐不参与退款政策。'],
 };
 
-const PaymentIcon = ({ type }: { type: 'wechat' | 'alipay' }) => (
-  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-50">
-    <img
-      src={PAYMENT_ICON_URLS[type]}
-      alt={type === 'wechat' ? '微信' : '支付宝'}
-      className="h-6 w-6 object-contain"
-      loading="lazy"
-    />
-  </span>
-);
-
-const PricingModal: React.FC<PricingModalProps> = ({ onClose, isLoggedIn = false, onLogin }) => {
+const PricingModal: React.FC<PricingModalProps> = ({
+  onClose,
+  isLoggedIn = false,
+  onLogin,
+  accessToken,
+}) => {
   const [activeTab, setActiveTab] = useState<'membership' | 'discount'>('membership');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [currentOrder, setCurrentOrder] = useState<any>(null);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'wechat' | 'alipay'>('wechat');
-  const [showMethodSelector, setShowMethodSelector] = useState(false);
-  const [pendingPackage, setPendingPackage] = useState<PackageData | null>(null);
 
   const membershipPackages = membershipPackageData;
   const discountPackages = discountPackageData;
 
-  const handlePurchase = async (packageId: string, paymentMethod: 'wechat' | 'alipay') => {
+  const handlePurchase = async (packageId: string) => {
     try {
+      if (!accessToken) {
+        alert('登录状态已失效，请重新登录后再试');
+        onClose();
+        onLogin?.();
+        return;
+      }
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      };
+
       const response = await fetch('/api/v1/payment/orders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ package_id: packageId, payment_method: paymentMethod, quantity: 1 }),
+        headers,
+        body: JSON.stringify({ package_id: packageId, quantity: 1 }),
       });
 
       if (response.ok) {
         const orderData = await response.json();
-        setSelectedPaymentMethod(paymentMethod);
         setCurrentOrder(orderData.data);
         setShowPaymentModal(true);
       } else {
@@ -79,17 +77,6 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose, isLoggedIn = false
 
   const handlePaymentSuccess = () => {
     alert('支付成功！积分已到账');
-  };
-
-  const requestPaymentMethod = (pkg: PackageData) => {
-    setPendingPackage(pkg);
-    setShowMethodSelector(true);
-  };
-
-  const handleSelectPaymentMethod = (method: 'wechat' | 'alipay') => {
-    if (!pendingPackage) return;
-    setShowMethodSelector(false);
-    handlePurchase(pendingPackage.package_id, method);
   };
 
   const formatPrice = (value: number) => {
@@ -151,7 +138,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose, isLoggedIn = false
               </div>
 
               <button
-                onClick={() => requestPaymentMethod(pkg)}
+                onClick={() => handlePurchase(pkg.package_id)}
                 className="mt-6 w-full rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 py-3 text-base font-semibold text-white shadow hover:from-blue-600 hover:to-blue-700"
               >
                 立即开通
@@ -259,49 +246,10 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose, isLoggedIn = false
           orderInfo={currentOrder}
           onClose={() => setShowPaymentModal(false)}
           onPaymentSuccess={handlePaymentSuccess}
+          accessToken={accessToken}
         />
       )}
 
-      {showMethodSelector && pendingPackage && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <h3 className="text-xl font-bold text-gray-900">选择支付方式</h3>
-            <p className="mt-2 text-sm text-gray-600">{pendingPackage.name}</p>
-            <div className="mt-6 grid grid-cols-1 gap-3">
-              <button
-                onClick={() => handleSelectPaymentMethod('wechat')}
-                className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3 text-base font-semibold text-gray-800 hover:border-blue-400"
-              >
-                <span className="flex items-center gap-3">
-                  <PaymentIcon type="wechat" />
-                  微信支付
-                </span>
-                <span className="text-xs text-gray-400">推荐</span>
-              </button>
-              <button
-                onClick={() => handleSelectPaymentMethod('alipay')}
-                className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3 text-base font-semibold text-gray-800 hover:border-blue-400"
-              >
-                <span className="flex items-center gap-3">
-                  <PaymentIcon type="alipay" />
-                  支付宝
-                </span>
-              </button>
-            </div>
-            <div className="mt-4 flex justify-end">
-              <button
-                onClick={() => {
-                  setShowMethodSelector(false);
-                  setPendingPackage(null);
-                }}
-                className="rounded-lg bg-gray-100 px-4 py-2 text-sm text-gray-600 hover:bg-gray-200"
-              >
-                取消
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
