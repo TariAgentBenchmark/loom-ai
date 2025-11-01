@@ -3,7 +3,8 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import Optional
 import os
-from datetime import datetime
+
+from app.utils.downloads import build_download_filename
 
 from app.core.database import get_db
 from app.models.user import User
@@ -709,10 +710,10 @@ async def download_result(
                             # 添加文件到ZIP，使用原始文件名
                             zip_file.write(file_path, fname)
                 
-                zip_filename = f"{task_id}_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+                download_name = build_download_filename(None, "zip")
                 return FileResponse(
                     path=temp_file.name,
-                    filename=zip_filename,
+                    filename=download_name,
                     media_type="application/zip"
                 )
         else:
@@ -722,9 +723,13 @@ async def download_result(
             if not os.path.exists(file_path):
                 raise HTTPException(status_code=404, detail="文件不存在")
             
+            download_name = build_download_filename(task.result_filename)
+            if download_name == "tuyun":
+                download_name = build_download_filename(file_path)
+
             return FileResponse(
                 path=file_path,
-                filename=task.result_filename,
+                filename=download_name,
                 media_type="application/octet-stream"
             )
         
@@ -863,7 +868,6 @@ async def batch_download(
         # 创建压缩包
         import zipfile
         import tempfile
-        from fastapi.responses import FileResponse
         from app.services.file_service import FileService
         
         file_service = FileService()
@@ -878,9 +882,10 @@ async def batch_download(
                     except Exception as e:
                         continue  # 跳过有问题的文件
             
+            download_name = build_download_filename(None, "zip")
             return FileResponse(
                 path=temp_file.name,
-                filename=f"loom_ai_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
+                filename=download_name,
                 media_type="application/zip"
             )
         

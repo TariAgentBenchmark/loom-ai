@@ -12,6 +12,7 @@ from app.models.task import Task
 from app.api.dependencies import get_current_user
 from app.schemas.common import SuccessResponse
 from app.services.credit_math import to_float
+from app.utils.downloads import build_download_filename
 
 router = APIRouter()
 
@@ -238,7 +239,6 @@ async def download_task_file(
             # 多个文件，返回ZIP压缩包
             import zipfile
             import tempfile
-            from datetime import datetime
             
             with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_file:
                 with zipfile.ZipFile(temp_file.name, 'w', zipfile.ZIP_DEFLATED) as zip_file:
@@ -251,10 +251,10 @@ async def download_task_file(
                             # 添加文件到ZIP，使用原始文件名
                             zip_file.write(file_path, fname)
                 
-                zip_filename = f"{task_id}_{file_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+                download_name = build_download_filename(None, "zip")
                 return FileResponse(
                     path=temp_file.name,
-                    filename=zip_filename,
+                    filename=download_name,
                     media_type="application/zip"
                 )
         else:
@@ -264,9 +264,13 @@ async def download_task_file(
             if not os.path.exists(file_path):
                 raise HTTPException(status_code=404, detail="文件不存在")
             
+            download_name = build_download_filename(filename)
+            if download_name == "tuyun":
+                download_name = build_download_filename(file_path)
+
             return FileResponse(
                 path=file_path,
-                filename=filename,
+                filename=download_name,
                 media_type="application/octet-stream"
             )
         
