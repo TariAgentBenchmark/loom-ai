@@ -7,6 +7,7 @@ import { resolveFileUrl, HistoryTask, getServiceCost } from '../lib/api';
 import HistoryList from './HistoryList';
 import ImagePreview from './ImagePreview';
 import ProcessedImagePreview from './ProcessedImagePreview';
+import ExpandPreviewFrame from './ExpandPreviewFrame';
 
 const SERVICE_PRICE_FALLBACKS: Record<ProcessingMethod, number> = {
   prompt_edit: 0.5,
@@ -143,11 +144,14 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     { value: 2, label: '左右拼接' },
   ];
   const isSeamlessLoop = method === 'seamless_loop';
+  const isExpandImage = method === 'expand_image';
   const seamFitValue = Math.max(0, Math.min(1, seamFit));
   const uploadZoneClasses = `border-2 border-dashed rounded-lg md:rounded-xl p-4 md:p-8 text-center transition cursor-pointer flex items-center justify-center ${
     isSeamlessLoop
       ? 'border-blue-300 hover:border-blue-400 bg-blue-50/70 min-h-[220px] md:min-h-[260px]'
-      : 'border-gray-300 hover:border-blue-400 min-h-[150px] md:min-h-[200px]'
+      : isExpandImage
+        ? 'border-gray-300 hover:border-blue-400 bg-white min-h-[210px] md:min-h-[260px]'
+        : 'border-gray-300 hover:border-blue-400 min-h-[150px] md:min-h-[200px]'
   }`;
   const handleExpandEdgeInput = (edge: ExpandEdgeKey, value: string) => {
     if (!onExpandEdgeChange) return;
@@ -300,14 +304,22 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
               onClick={() => fileInputRef.current?.click()}
             >
               {imagePreview ? (
-                <div className="space-y-2 md:space-y-4">
-                  <img
-                    src={resolveFileUrl(imagePreview)}
-                    alt="Preview"
-                    className="mx-auto max-h-24 md:max-h-32 rounded-lg border border-gray-200"
+                isExpandImage ? (
+                  <ExpandPreviewFrame
+                    imageUrl={imagePreview}
+                    ratio={effectiveExpandRatio}
+                    edges={edgeValues}
                   />
-                  <p className="text-xs md:text-sm text-gray-500">拖拽图片或点击上传</p>
-                </div>
+                ) : (
+                  <div className="space-y-2 md:space-y-4">
+                    <img
+                      src={resolveFileUrl(imagePreview)}
+                      alt="Preview"
+                      className="mx-auto max-h-24 md:max-h-32 rounded-lg border border-gray-200"
+                    />
+                    <p className="text-xs md:text-sm text-gray-500">拖拽图片或点击上传</p>
+                  </div>
+                )
               ) : (
                 isSeamlessLoop ? (
                   <div className="flex flex-col items-center gap-2 md:gap-3">
