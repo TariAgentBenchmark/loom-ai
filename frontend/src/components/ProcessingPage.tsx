@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { History, Eye } from 'lucide-react';
 import { ProcessingMethod, getProcessingMethodInfo, canAdjustResolution } from '../lib/processing';
 import { resolveFileUrl, HistoryTask, getServiceCost } from '../lib/api';
@@ -123,6 +123,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     },
   ];
   const expandRatioOptions: { value: string; label: string }[] = [
+    { value: 'original', label: '原图' },
     { value: '1:1', label: '1:1' },
     { value: '3:4', label: '3:4' },
     { value: '4:3', label: '4:3' },
@@ -138,6 +139,10 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     { key: 'left', label: '左' },
     { key: 'right', label: '右' },
   ];
+  const EDGE_MIN = 0;
+  const EDGE_MAX = 0.3;
+  const EDGE_STEP = 0.01;
+  const [computedPresetEdges, setComputedPresetEdges] = useState<Record<ExpandEdgeKey, string> | null>(null);
   const seamDirectionOptions: { value: number; label: string }[] = [
     { value: 0, label: '四周拼接' },
     { value: 1, label: '上下拼接' },
@@ -153,36 +158,90 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
         ? 'border-gray-300 hover:border-blue-400 bg-white min-h-[210px] md:min-h-[260px]'
         : 'border-gray-300 hover:border-blue-400 min-h-[150px] md:min-h-[200px]'
   }`;
-  const handleExpandEdgeInput = (edge: ExpandEdgeKey, value: string) => {
+
+  useEffect(() => {
+    if (effectiveExpandRatio === 'original') {
+      setComputedPresetEdges(null);
+    }
+  }, [effectiveExpandRatio]);
+
+  const resetManualEdges = () => {
     if (!onExpandEdgeChange) return;
-
-    let sanitized = value.replace(/[^0-9.]/g, '');
-    const dotIndex = sanitized.indexOf('.');
-    if (dotIndex !== -1) {
-      const integerPart = sanitized.slice(0, dotIndex + 1);
-      const decimalPart = sanitized
-        .slice(dotIndex + 1)
-        .replace(/\./g, '')
-        .slice(0, 2);
-      sanitized = integerPart + decimalPart;
-    }
-
-    onExpandEdgeChange(edge, sanitized);
-    if (onExpandRatioChange && effectiveExpandRatio !== 'original') {
-      onExpandRatioChange('original');
-    }
+    onExpandEdgeChange('top', '0.00');
+    onExpandEdgeChange('bottom', '0.00');
+    onExpandEdgeChange('left', '0.00');
+    onExpandEdgeChange('right', '0.00');
   };
 
-  const handleExpandEdgeBlur = (edge: ExpandEdgeKey) => {
-    if (!onExpandEdgeChange) return;
-    const raw = parseFloat(edgeValues[edge] ?? '0');
-    if (!Number.isFinite(raw)) {
-      onExpandEdgeChange(edge, '0.00');
+  const handlePresetRatioSelect = (value: string) => {
+    setComputedPresetEdges(null);
+    if (value === 'original') {
+      onExpandRatioChange?.('original');
+      resetManualEdges();
       return;
     }
-    const clamped = Math.max(0, Math.min(0.3, raw));
-    onExpandEdgeChange(edge, clamped.toFixed(2));
+
+    onExpandRatioChange?.(value);
+    resetManualEdges();
   };
+  const clampEdgeValue = (value: number) => Math.max(EDGE_MIN, Math.min(EDGE_MAX, value));
+
+  const formatEdgeValue = (value: number) => clampEdgeValue(value).toFixed(2);
+
+  const parseEdgeValue = (edge: ExpandEdgeKey) => {
+    const parsed = parseFloat(edgeValues[edge] ?? '0');
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
+  const getDisplayEdgeValue = (edge: ExpandEdgeKey) => {
+    if (effectiveExpandRatio !== 'original' && computedPresetEdges) {
+      return computedPresetEdges[edge] ?? '0.00';
+    }
+    return formatEdgeValue(parseEdgeValue(edge));
+  };
+
+  const adjustEdgeValue = (edge: ExpandEdgeKey, delta: number) => {
+    if (!onExpandEdgeChange) return;
+
+    const current = parseEdgeValue(edge);
+    const next = clampEdgeValue(Number((current + delta).toFixed(2)));
+    if (Math.abs(next - current) < 0.0001) {
+      return;
+    }
+    onExpandEdgeChange(edge, next.toFixed(2));
+
+    if (onExpandRatioChange && effectiveExpandRatio !== 'original') {
+      onExpandRatioChange('original');
+      setComputedPresetEdges(null);
+    }
+  };
+
+  const handleNormalizedEdgesChange = useCallback(
+    (edges: Record<ExpandEdgeKey, number>) => {
+      if (effectiveExpandRatio === 'original') {
+        return;
+      }
+      setComputedPresetEdges((prev) => {
+        const formatted = {
+          top: formatEdgeValue(edges.top),
+          bottom: formatEdgeValue(edges.bottom),
+          left: formatEdgeValue(edges.left),
+          right: formatEdgeValue(edges.right),
+        };
+        if (
+          prev &&
+          prev.top === formatted.top &&
+          prev.bottom === formatted.bottom &&
+          prev.left === formatted.left &&
+          prev.right === formatted.right
+        ) {
+          return prev;
+        }
+        return formatted;
+      });
+    },
+    [effectiveExpandRatio],
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -309,6 +368,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                     imageUrl={imagePreview}
                     ratio={effectiveExpandRatio}
                     edges={edgeValues}
+                    onNormalizedEdgesChange={handleNormalizedEdgesChange}
                   />
                 ) : (
                   <div className="space-y-2 md:space-y-4">
@@ -390,7 +450,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                     <button
                       type="button"
                       key={option.value}
-                      onClick={() => onExpandRatioChange?.(option.value)}
+                      onClick={() => handlePresetRatioSelect(option.value)}
                       className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg border text-xs md:text-sm font-medium whitespace-nowrap flex-shrink-0 transition-all ${
                         isActive
                           ? 'border-blue-500 bg-blue-50 text-blue-600 shadow-sm'
@@ -409,8 +469,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                 <h4 className="text-sm md:text-base font-semibold text-gray-900">扩展边距</h4>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs md:text-sm text-gray-600">
                   {expandEdgeItems.map((edge) => {
-                    const value = edgeValues[edge.key];
-                    const displayValue = value === undefined || value === '' ? '0.00' : value;
+                    const displayValue = getDisplayEdgeValue(edge.key);
                     return (
                       <span key={edge.key} className="flex items-center gap-1">
                         {edge.label}:
@@ -421,22 +480,45 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-                {expandEdgeItems.map((edge) => (
-                  <div key={edge.key} className="flex flex-col gap-1">
-                    <label className="text-xs md:text-sm font-medium text-gray-700">
-                      {edge.label}方向
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={edgeValues[edge.key] ?? ''}
-                      onChange={(event) => handleExpandEdgeInput(edge.key, event.target.value)}
-                      onBlur={() => handleExpandEdgeBlur(edge.key)}
-                      className="rounded-lg border border-gray-200 px-4 py-2 text-sm md:text-base text-center focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
-                      placeholder="0.00"
-                    />
-                  </div>
-                ))}
+                {expandEdgeItems.map((edge) => {
+                  const parsedValue = parseEdgeValue(edge.key);
+                  const displayValue = getDisplayEdgeValue(edge.key);
+                  const canIncrease = parsedValue + EDGE_STEP <= EDGE_MAX + 1e-6;
+                  const canDecrease = parsedValue - EDGE_STEP >= EDGE_MIN - 1e-6;
+
+                  return (
+                    <div key={edge.key} className="flex flex-col gap-2">
+                      <label className="text-xs md:text-sm font-medium text-gray-700">
+                        {edge.label}方向
+                      </label>
+                      <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 md:px-4">
+                        <span className="text-sm md:text-base font-semibold text-gray-800">
+                          {displayValue}
+                        </span>
+                        <div className="flex flex-col gap-1">
+                          <button
+                            type="button"
+                            onClick={() => adjustEdgeValue(edge.key, EDGE_STEP)}
+                            disabled={!canIncrease}
+                            className="flex h-6 w-6 items-center justify-center rounded-full border border-blue-400 bg-white text-xs text-blue-600 hover:bg-blue-50 disabled:border-gray-200 disabled:text-gray-300 disabled:hover:bg-white transition"
+                            aria-label={`${edge.label}方向增加`}
+                          >
+                            ▲
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => adjustEdgeValue(edge.key, -EDGE_STEP)}
+                            disabled={!canDecrease}
+                            className="flex h-6 w-6 items-center justify-center rounded-full border border-blue-400 bg-white text-xs text-blue-600 hover:bg-blue-50 disabled:border-gray-200 disabled:text-gray-300 disabled:hover:bg-white transition"
+                            aria-label={`${edge.label}方向减少`}
+                          >
+                            ▼
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
               <p className="text-xs text-gray-500">
                 取值范围 0.00 - 0.30，表示在该方向上扩展原图边长的百分比。

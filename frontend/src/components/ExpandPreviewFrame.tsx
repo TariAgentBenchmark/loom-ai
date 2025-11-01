@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { resolveFileUrl } from '../lib/api';
 
 type ExpandEdgeKey = 'top' | 'bottom' | 'left' | 'right';
@@ -9,6 +9,7 @@ interface ExpandPreviewFrameProps {
   imageUrl: string;
   ratio: string;
   edges: Record<ExpandEdgeKey, string>;
+  onNormalizedEdgesChange?: (edges: Record<ExpandEdgeKey, number>) => void;
 }
 
 const clampEdge = (value: string | undefined) => {
@@ -37,7 +38,12 @@ const parseRatio = (value: string) => {
   return width / height;
 };
 
-const ExpandPreviewFrame: React.FC<ExpandPreviewFrameProps> = ({ imageUrl, ratio, edges }) => {
+const ExpandPreviewFrame: React.FC<ExpandPreviewFrameProps> = ({
+  imageUrl,
+  ratio,
+  edges,
+  onNormalizedEdgesChange,
+}) => {
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>({
     width: 1,
     height: 1,
@@ -50,12 +56,7 @@ const ExpandPreviewFrame: React.FC<ExpandPreviewFrameProps> = ({ imageUrl, ratio
     }
   }, []);
 
-  const {
-    finalAspect,
-    originalAreaStyle,
-    canvasStyle,
-    normalizedEdges,
-  } = useMemo(() => {
+  const { finalAspect, originalAreaStyle, canvasStyle, normalizedEdges } = useMemo(() => {
     const { width, height } = dimensions;
     const safeWidth = width > 0 ? width : 1;
     const safeHeight = height > 0 ? height : 1;
@@ -115,6 +116,13 @@ const ExpandPreviewFrame: React.FC<ExpandPreviewFrameProps> = ({ imageUrl, ratio
       },
     };
   }, [dimensions, edges, ratio]);
+
+  useEffect(() => {
+    if (!onNormalizedEdgesChange) {
+      return;
+    }
+    onNormalizedEdgesChange(normalizedEdges);
+  }, [normalizedEdges, onNormalizedEdgesChange]);
 
   const resolvedImageUrl = resolveFileUrl(imageUrl);
 
