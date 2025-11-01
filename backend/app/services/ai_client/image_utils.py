@@ -27,7 +27,7 @@ class ImageProcessingUtils:
         options: Optional[Dict[str, Any]] = None,
     ) -> str:
         """AI四方连续转换"""
-        prompt = """基于这张图片，生成一个新的四方连续循环图案，适合大面积印花使用，图案可无缝拼接。请生成高质量的图片。"""
+        prompt = """生成图片：基于这张图片，生成一个新的四方连续循环图案，适合大面积印花使用，图案可无缝拼接。请生成高质量的图片。"""
 
         result = await self.apyi_gemini_client.process_image(image_bytes, prompt, "image/png")
         return self.apyi_gemini_client._extract_image_url(result)
@@ -59,6 +59,7 @@ class ImageProcessingUtils:
             )
 
         prompt = (
+            "生成图片：\n"
             f"{prefix}\n"
             "请仔细阅读用户的中文指令，根据指令对上传的图片进行精准修改并生成新的图片。"
             "确保修改区域自然融入，避免出现明显的编辑痕迹或违背常识的结果。\n"
@@ -112,7 +113,7 @@ class ImageProcessingUtils:
         else:
             # 通用类型（默认）
             prompt = (
-                "生成图片:"
+                "生成图片："
                 "从输入图片中精准提取印花图案，保持原始位置与比例。完整还原所有纹理、颜色与细节，自动修复缺失部分并去除褶皱。确保颜色亮丽饱满、不失真。输出为高分辨率平面印刷效果图，排除所有服装形状，适当补充缺失图案填充画面，避免过度平铺，构图协调完整。"
                 "请根据要求提取图案，并生成高质量图片"
             )
@@ -177,7 +178,10 @@ class ImageProcessingUtils:
     ) -> str:
         """AI布纹去噪"""
         options = options or {}
-        prompt = "Generate a new image by removing the fabric texture from this image, make the surface smooth while preserving the original color tone and overall appearance as much as possible."
+        prompt = (
+            "生成图片："
+            "Generate a new image by removing the fabric texture from this image, make the surface smooth while preserving the original color tone and overall appearance as much as possible."
+        )
 
         # 提取分辨率参数
         aspect_ratio = options.get("aspect_ratio")
