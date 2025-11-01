@@ -98,9 +98,6 @@ class ProcessingService:
         # 检查积分是否足够
         if not user.can_afford(credits_needed):
             raise Exception("积分不足，请充值后再试")
-
-        # 扣除积分
-        user.deduct_credits(credits_needed)
         
         # 创建任务记录
         task = Task(
@@ -120,16 +117,6 @@ class ProcessingService:
         db.add(task)
         db.commit()
         db.refresh(task)
-        
-        # 记录积分消耗
-        await self.credit_service.record_transaction(
-            db=db,
-            user_id=user.id,
-            amount=-credits_needed,
-            source="processing",
-            description=f"{task.type_name}处理",
-            related_task_id=task.task_id
-        )
         
         # 异步开始处理任务
         asyncio.create_task(self._process_task_async(task.task_id))
@@ -275,33 +262,41 @@ class ProcessingService:
                     result_size=total_size,
                     processing_time=processing_time
                 )
-                
-                # 更新用户处理次数
+
+                # 扣除积分并更新处理次数
                 user = db.query(User).filter(User.id == task.user_id).first()
+                if not user:
+                    raise Exception(f"找不到用户 {task.user_id}")
+
+                if not user.deduct_credits(task.credits_used):
+                    task.mark_as_failed("积分不足，请充值后再试", "P007")
+                    task.credits_used = to_decimal(0)
+                    db.commit()
+                    logger.warning("Task %s failed during settlement due to insufficient credits", task_id)
+                    return
+
                 user.increment_processed_count()
                 
                 db.commit()
+
+                if task.credits_used:
+                    await self.credit_service.record_transaction(
+                        db=db,
+                        user_id=user.id,
+                        amount=-task.credits_used,
+                        source="processing",
+                        description=f"{task.type_name}处理",
+                        related_task_id=task.task_id
+                    )
+
                 logger.info(f"Task {task_id} completed successfully")
                 
             except Exception as e:
                 # 处理失败
                 error_msg = str(e)
                 task.mark_as_failed(error_msg, "P006")
-                
-                # 退还积分
-                user = db.query(User).filter(User.id == task.user_id).first()
-                user.add_credits(task.credits_used)
-                
-                # 记录退还积分
-                await self.credit_service.record_transaction(
-                    db=db,
-                    user_id=user.id,
-                    amount=task.credits_used,
-                    source="refund",
-                    description=f"{task.type_name}处理失败，退还积分",
-                    related_task_id=task.task_id
-                )
-                
+                task.credits_used = to_decimal(0)
+
                 db.commit()
                 logger.error(f"Task {task_id} failed: {error_msg}")
                 

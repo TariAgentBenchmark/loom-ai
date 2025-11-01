@@ -8,7 +8,7 @@ import os
 
 from app.core.database import get_db
 from app.models.user import User
-from app.models.task import Task
+from app.models.task import Task, TaskStatus
 from app.api.dependencies import get_current_user
 from app.schemas.common import SuccessResponse
 from app.services.credit_math import to_float
@@ -61,6 +61,10 @@ async def get_history_tasks(
         # 格式化任务数据
         formatted_tasks = []
         for task in tasks:
+            credits_used_value = to_float(task.credits_used)
+            if task.status == TaskStatus.FAILED.value:
+                credits_used_value = 0.0
+
             formatted_task = {
                 "taskId": task.task_id,
                 "type": task.type,
@@ -72,7 +76,7 @@ async def get_history_tasks(
                     "size": task.original_file_size,
                     "dimensions": task.original_dimensions
                 },
-                "creditsUsed": to_float(task.credits_used),
+                "creditsUsed": credits_used_value,
                 "processingTime": task.processing_time,
                 "favorite": task.favorite,
                 "tags": task.tags or [],
@@ -103,7 +107,11 @@ async def get_history_tasks(
         ).count()
         
         processing_times = [task.processing_time for task in tasks if task.processing_time]
-        total_credits_used = sum((task.credits_used or 0) for task in tasks if task.credits_used)
+        total_credits_used = sum(
+            (task.credits_used or 0)
+            for task in tasks
+            if task.status == TaskStatus.COMPLETED.value and task.credits_used
+        )
 
         return SuccessResponse(
             data={

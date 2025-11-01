@@ -12,9 +12,17 @@ from app.services.processing_service import ProcessingService
 from app.api.dependencies import get_current_user
 from app.schemas.common import SuccessResponse
 from app.services.credit_math import to_float
+from app.models.task import TaskStatus
 
 router = APIRouter()
 processing_service = ProcessingService()
+
+
+def _display_credits(task) -> float:
+    """Return visible credits for a task, zeroing out failed ones."""
+    if task.status == TaskStatus.FAILED.value:
+        return 0.0
+    return to_float(task.credits_used)
 
 
 @router.post("/seamless")
@@ -48,7 +56,7 @@ async def seamless_pattern_conversion(
                 "taskId": task.task_id,
                 "status": task.status,
                 "estimatedTime": task.estimated_time,
-                "creditsUsed": to_float(task.credits_used),
+                "creditsUsed": _display_credits(task),
                 "createdAt": task.created_at
             },
             message="任务创建成功，正在处理中"
@@ -111,7 +119,7 @@ async def prompt_edit_image(
                 "taskId": task.task_id,
                 "status": task.status,
                 "estimatedTime": task.estimated_time,
-                "creditsUsed": to_float(task.credits_used),
+                "creditsUsed": _display_credits(task),
                 "createdAt": task.created_at
             },
             message="指令改图任务创建成功"
@@ -150,7 +158,7 @@ async def vectorize_image(
                 "taskId": task.task_id,
                 "status": task.status,
                 "estimatedTime": task.estimated_time,
-                "creditsUsed": to_float(task.credits_used),
+                "creditsUsed": _display_credits(task),
                 "createdAt": task.created_at
             },
             message="矢量化任务创建成功"
@@ -214,7 +222,7 @@ async def extract_pattern(
                 "taskId": task.task_id,
                 "status": task.status,
                 "estimatedTime": task.estimated_time,
-                "creditsUsed": to_float(task.credits_used),
+                "creditsUsed": _display_credits(task),
                 "createdAt": task.created_at
             },
             message="花型提取任务创建成功"
@@ -255,7 +263,7 @@ async def remove_watermark(
                 "taskId": task.task_id,
                 "status": task.status,
                 "estimatedTime": task.estimated_time,
-                "creditsUsed": to_float(task.credits_used),
+                "creditsUsed": _display_credits(task),
                 "createdAt": task.created_at
             },
             message="去水印任务创建成功"
@@ -309,7 +317,7 @@ async def denoise_image(
                 "taskId": task.task_id,
                 "status": task.status,
                 "estimatedTime": task.estimated_time,
-                "creditsUsed": to_float(task.credits_used),
+                "creditsUsed": _display_credits(task),
                 "createdAt": task.created_at
             },
             message="去噪任务创建成功"
@@ -370,7 +378,7 @@ async def enhance_embroidery(
                 "taskId": task.task_id,
                 "status": task.status,
                 "estimatedTime": task.estimated_time,
-                "creditsUsed": to_float(task.credits_used),
+                "creditsUsed": _display_credits(task),
                 "createdAt": task.created_at
             },
             message="刺绣增强任务创建成功"
@@ -423,7 +431,7 @@ async def convert_flat_to_3d(
                 "taskId": task.task_id,
                 "status": task.status,
                 "estimatedTime": task.estimated_time,
-                "creditsUsed": to_float(task.credits_used),
+                "creditsUsed": _display_credits(task),
                 "createdAt": task.created_at
             },
             message="平面转3D任务创建成功"
@@ -481,7 +489,7 @@ async def upscale_image(
                 "taskId": task.task_id,
                 "status": task.status,
                 "estimatedTime": task.estimated_time,
-                "creditsUsed": to_float(task.credits_used),
+                "creditsUsed": _display_credits(task),
                 "createdAt": task.created_at
             },
             message="无损放大任务创建成功"
@@ -537,7 +545,7 @@ async def expand_image(
                 "taskId": task.task_id,
                 "status": task.status,
                 "estimatedTime": task.estimated_time,
-                "creditsUsed": to_float(task.credits_used),
+                "creditsUsed": _display_credits(task),
                 "createdAt": task.created_at,
             },
             message="扩图任务创建成功",
@@ -593,7 +601,7 @@ async def seamless_loop(
                 "taskId": task.task_id,
                 "status": task.status,
                 "estimatedTime": task.estimated_time,
-                "creditsUsed": to_float(task.credits_used),
+                "creditsUsed": _display_credits(task),
                 "createdAt": task.created_at,
             },
             message="接循环任务创建成功",
@@ -767,7 +775,7 @@ async def get_tasks(
                 "type": task.type,
                 "typeName": task.type_name,
                 "status": task.status,
-                "creditsUsed": task.credits_used,
+                "creditsUsed": _display_credits(task),
                 "createdAt": task.created_at,
                 "completedAt": task.completed_at
             }
