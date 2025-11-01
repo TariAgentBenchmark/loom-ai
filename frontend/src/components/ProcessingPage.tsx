@@ -140,7 +140,12 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     { key: 'right', label: '右' },
   ];
   const EDGE_MIN = 0;
-  const EDGE_MAX = 0.3;
+  const EDGE_MAX_VALUES: Record<ExpandEdgeKey, number> = {
+    top: 0.5,
+    bottom: 0.5,
+    left: 1,
+    right: 1,
+  };
   const EDGE_STEP = 0.01;
   const [computedPresetEdges, setComputedPresetEdges] = useState<Record<ExpandEdgeKey, string> | null>(null);
   const seamDirectionOptions: { value: number; label: string }[] = [
@@ -184,9 +189,10 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     onExpandRatioChange?.(value);
     resetManualEdges();
   };
-  const clampEdgeValue = (value: number) => Math.max(EDGE_MIN, Math.min(EDGE_MAX, value));
+  const clampEdgeValue = (edge: ExpandEdgeKey, value: number) =>
+    Math.max(EDGE_MIN, Math.min(EDGE_MAX_VALUES[edge], value));
 
-  const formatEdgeValue = (value: number) => clampEdgeValue(value).toFixed(2);
+  const formatEdgeValue = (edge: ExpandEdgeKey, value: number) => clampEdgeValue(edge, value).toFixed(2);
 
   const parseEdgeValue = (edge: ExpandEdgeKey) => {
     const parsed = parseFloat(edgeValues[edge] ?? '0');
@@ -197,14 +203,14 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     if (effectiveExpandRatio !== 'original' && computedPresetEdges) {
       return computedPresetEdges[edge] ?? '0.00';
     }
-    return formatEdgeValue(parseEdgeValue(edge));
+    return formatEdgeValue(edge, parseEdgeValue(edge));
   };
 
   const adjustEdgeValue = (edge: ExpandEdgeKey, delta: number) => {
     if (!onExpandEdgeChange) return;
 
     const current = parseEdgeValue(edge);
-    const next = clampEdgeValue(Number((current + delta).toFixed(2)));
+    const next = clampEdgeValue(edge, Number((current + delta).toFixed(2)));
     if (Math.abs(next - current) < 0.0001) {
       return;
     }
@@ -223,10 +229,10 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
       }
       setComputedPresetEdges((prev) => {
         const formatted = {
-          top: formatEdgeValue(edges.top),
-          bottom: formatEdgeValue(edges.bottom),
-          left: formatEdgeValue(edges.left),
-          right: formatEdgeValue(edges.right),
+          top: formatEdgeValue('top', edges.top),
+          bottom: formatEdgeValue('bottom', edges.bottom),
+          left: formatEdgeValue('left', edges.left),
+          right: formatEdgeValue('right', edges.right),
         };
         if (
           prev &&
@@ -483,7 +489,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                 {expandEdgeItems.map((edge) => {
                   const parsedValue = parseEdgeValue(edge.key);
                   const displayValue = getDisplayEdgeValue(edge.key);
-                  const canIncrease = parsedValue + EDGE_STEP <= EDGE_MAX + 1e-6;
+                  const canIncrease = parsedValue + EDGE_STEP <= EDGE_MAX_VALUES[edge.key] + 1e-6;
                   const canDecrease = parsedValue - EDGE_STEP >= EDGE_MIN - 1e-6;
 
                   return (
@@ -521,7 +527,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                 })}
               </div>
               <p className="text-xs text-gray-500">
-                取值范围 0.00 - 0.30，表示在该方向上扩展原图边长的百分比。
+                上/下取值范围 0.00 - 0.50，左/右取值范围 0.00 - 1.00，表示在该方向上扩展原图边长的百分比。
               </p>
             </div>
 

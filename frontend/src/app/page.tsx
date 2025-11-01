@@ -53,6 +53,13 @@ type ExpandEdgeKey = 'top' | 'bottom' | 'left' | 'right';
 
 type ExpandEdgesState = Record<ExpandEdgeKey, string>;
 
+const EXPAND_EDGE_MAX: Record<ExpandEdgeKey, number> = {
+  top: 0.5,
+  bottom: 0.5,
+  left: 1,
+  right: 1,
+};
+
 const AUTH_DEMO_CREDENTIALS = {
   identifier: '13800138000', // Demo phone number
   password: 'password123',
@@ -406,19 +413,19 @@ export default function Home() {
     }
 
     if (currentPage === 'expand_image') {
-      const clampValue = (value: string) => {
+      const clampValue = (edge: ExpandEdgeKey, value: string) => {
         const parsed = parseFloat(value);
         if (!Number.isFinite(parsed)) {
           return 0;
         }
         const normalized = Math.max(0, parsed);
-        return Math.min(0.3, Number(normalized.toFixed(2)));
+        return Math.min(EXPAND_EDGE_MAX[edge], Number(normalized.toFixed(2)));
       };
 
-      const top = clampValue(expandEdges.top);
-      const bottom = clampValue(expandEdges.bottom);
-      const left = clampValue(expandEdges.left);
-      const right = clampValue(expandEdges.right);
+      const top = clampValue('top', expandEdges.top);
+      const bottom = clampValue('bottom', expandEdges.bottom);
+      const left = clampValue('left', expandEdges.left);
+      const right = clampValue('right', expandEdges.right);
 
       payload.expandRatio = expandRatio !== 'original' ? expandRatio : undefined;
       payload.expandTop = top;
