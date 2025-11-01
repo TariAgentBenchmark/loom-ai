@@ -590,7 +590,7 @@ export const getProcessingStatus = (taskId: string, accessToken: string) =>
 export const downloadProcessingResult = async (
   taskId: string,
   accessToken: string,
-  format: "png" | "jpg" | "svg" = "png",
+  format: "png" | "jpg" | "svg" | "zip" = "png",
 ): Promise<DownloadResult> => {
   const response = await fetch(
     `${API_BASE_URL}/processing/result/${taskId}/download?format=${format}`,
@@ -605,7 +605,8 @@ export const downloadProcessingResult = async (
 
   const contentDisposition = ensured.headers.get("content-disposition") ?? "";
   const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
-  const filename = filenameMatch?.[1] ?? `${taskId}.${format}`;
+  const defaultExtension = format === "jpg" ? "jpg" : format === "svg" ? "svg" : format === "zip" ? "zip" : "png";
+  const filename = filenameMatch?.[1] ?? `tuyun.${defaultExtension}`;
 
   return { blob, filename };
 };

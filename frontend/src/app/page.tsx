@@ -78,6 +78,7 @@ export default function Home() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
+  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
@@ -334,6 +335,7 @@ export default function Home() {
       const statusData = statusResponse.data;
 
       if (statusData.status === 'completed' && statusData.result?.processedImage) {
+        setCurrentTaskId(statusData.taskId);
         setProcessedImage(statusData.result.processedImage);
         setIsProcessing(false);
         clearInterval(currentPoller);
@@ -353,6 +355,7 @@ export default function Home() {
         setIsProcessing(false);
         clearInterval(currentPoller);
         pollingRef.current = null;
+        setCurrentTaskId(null);
       }
     },
     [hydrateAccount, accessToken],
@@ -451,9 +454,12 @@ export default function Home() {
       payload.seamFit = Number(seamFit.toFixed(2));
     }
 
+    setCurrentTaskId(null);
+
     createProcessingTask(payload)
       .then((response) => {
         const task = response.data;
+        setCurrentTaskId(task.taskId);
 
         const poller = setInterval(() => {
           getProcessingStatus(task.taskId, accessToken)
@@ -506,11 +512,13 @@ export default function Home() {
           method={currentPage}
           imagePreview={imagePreview}
           processedImage={processedImage}
+          currentTaskId={currentTaskId || undefined}
           isProcessing={isProcessing}
           hasUploadedImage={Boolean(uploadedImage)}
           onBack={() => {
             clearPolling();
             setCurrentPage('home');
+            setCurrentTaskId(null);
             setPromptInstruction('');
             setPatternType('general');
             setUpscaleEngine('meitu_v2');
@@ -565,6 +573,7 @@ export default function Home() {
             }
             setCurrentPage(method);
             setProcessedImage(null);
+            setCurrentTaskId(null);
             setErrorMessage('');
             setSuccessMessage('');
             setImagePreview(null);

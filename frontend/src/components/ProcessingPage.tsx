@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { History, Eye } from 'lucide-react';
 import { ProcessingMethod, getProcessingMethodInfo, canAdjustResolution } from '../lib/processing';
-import { resolveFileUrl, HistoryTask, getServiceCost } from '../lib/api';
+import { resolveFileUrl, HistoryTask, getServiceCost, downloadProcessingResult } from '../lib/api';
 import HistoryList from './HistoryList';
 import ImagePreview from './ImagePreview';
 import ProcessedImagePreview from './ProcessedImagePreview';
@@ -37,6 +37,7 @@ interface ProcessingPageProps {
   method: ProcessingMethod;
   imagePreview: string | null;
   processedImage: string | null;
+  currentTaskId?: string;
   isProcessing: boolean;
   hasUploadedImage: boolean;
   onBack: () => void;
@@ -74,6 +75,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   method,
   imagePreview,
   processedImage,
+  currentTaskId,
   isProcessing,
   hasUploadedImage,
   onBack,
@@ -110,6 +112,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   const [selectedTask, setSelectedTask] = useState<HistoryTask | null>(null);
   const [showImagePreview, setShowImagePreview] = useState(false);
   const [processedImagePreview, setProcessedImagePreview] = useState<{url: string, filename: string} | null>(null);
+  const [isDownloadingResult, setIsDownloadingResult] = useState(false);
   const isPromptReady = method !== 'prompt_edit' || Boolean(promptInstruction?.trim());
   const isActionDisabled = !hasUploadedImage || isProcessing || !isPromptReady;
   const fallbackCredits = SERVICE_PRICE_FALLBACKS[method];
@@ -319,6 +322,127 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
 
   const handleCloseProcessedImagePreview = () => {
     setProcessedImagePreview(null);
+  };
+
+  const extractExtension = (value: string): string => {
+    const sanitized = value.split(/[?#]/)[0] ?? value;
+    const parts = sanitized.split('.');
+    if (parts.length < 2) {
+      return 'png';
+    }
+    const rawExt = parts.pop() ?? 'png';
+    return rawExt.toLowerCase();
+  };
+
+  const buildDownloadName = (extension: string, index?: number) => {
+    const normalizedExt = extension.replace(/^\./, '').toLowerCase();
+    const effectiveExt =
+      normalizedExt === 'jpeg' ? 'jpg' :
+      normalizedExt || 'png';
+    const cleanExt = effectiveExt.replace(/[^a-z0-9]/g, '') || 'png';
+    if (typeof index === 'number') {
+      return `tuyun_${index + 1}.${cleanExt}`;
+    }
+    return `tuyun.${cleanExt}`;
+  };
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const fetchAndDownload = async (url: string, filename: string) => {
+    const response = await fetch(resolveFileUrl(url));
+    if (!response.ok) {
+      throw new Error(`下载失败，状态码: ${response.status}`);
+    }
+    const blob = await response.blob();
+    downloadBlob(blob, filename);
+  };
+
+  const normalizeFormat = (extension: string): "png" | "jpg" | "svg" | "zip" => {
+    const normalized = extension.replace(/^\./, '').toLowerCase();
+    if (normalized === 'svg') return 'svg';
+    if (normalized === 'jpg' || normalized === 'jpeg') return 'jpg';
+    if (normalized === 'zip') return 'zip';
+    return 'png';
+  };
+
+  const handleDownloadProcessedResult = async () => {
+    if (!processedImage) return;
+    const urls = processedImage
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+    if (!urls.length) return;
+
+    const primaryUrl = urls[0];
+    const extension = extractExtension(primaryUrl);
+    const fallbackName = buildDownloadName(extension);
+
+    try {
+      setIsDownloadingResult(true);
+      if (accessToken && currentTaskId) {
+        const format = normalizeFormat(extension);
+        const { blob, filename } = await downloadProcessingResult(currentTaskId, accessToken, format);
+        downloadBlob(blob, filename);
+      } else {
+        await fetchAndDownload(primaryUrl, fallbackName);
+      }
+    } catch (error) {
+      console.error('下载结果失败:', error);
+    } finally {
+      setIsDownloadingResult(false);
+    }
+  };
+
+  const handleDownloadSingleImage = async (url: string, index: number) => {
+    const extension = extractExtension(url);
+    const filename = buildDownloadName(extension, index);
+    try {
+      setIsDownloadingResult(true);
+      await fetchAndDownload(url, filename);
+    } catch (error) {
+      console.error('下载图片失败:', error);
+    } finally {
+      setIsDownloadingResult(false);
+    }
+  };
+
+  const handleBatchDownload = async () => {
+    if (!processedImage) return;
+    const urls = processedImage
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+    if (!urls.length) return;
+
+    try {
+      setIsDownloadingResult(true);
+      if (accessToken && currentTaskId) {
+        const { blob, filename } = await downloadProcessingResult(currentTaskId, accessToken, 'zip');
+        downloadBlob(blob, filename);
+      } else {
+        for (let i = 0; i < urls.length; i += 1) {
+          const extension = extractExtension(urls[i]);
+          const filename = buildDownloadName(extension, i);
+          await fetchAndDownload(urls[i], filename);
+          if (i < urls.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 400));
+          }
+        }
+      }
+    } catch (error) {
+      console.error('批量下载失败:', error);
+    } finally {
+      setIsDownloadingResult(false);
+    }
   };
 
   return (
@@ -767,32 +891,24 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                                   <Eye className="h-4 w-4" />
                                 </button>
                               </div>
-                              <a
-                                className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg"
-                                href={resolveFileUrl(url.trim())}
-                                download
-                                target="_blank"
-                                rel="noopener noreferrer"
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadSingleImage(url.trim(), index)}
+                                disabled={isDownloadingResult}
+                                className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 disabled:bg-green-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
                               >
-                                下载图片 {index + 1}
-                              </a>
+                                {isDownloadingResult ? '下载中…' : `下载图片 ${index + 1}`}
+                              </button>
                             </div>
                           ))}
                         </div>
                         <button
-                          onClick={() => {
-                            imageUrls.forEach((url, index) => {
-                              const link = document.createElement('a');
-                              link.href = resolveFileUrl(url.trim());
-                              link.download = `result_${index + 1}.png`;
-                              document.body.appendChild(link);
-                              link.click();
-                              document.body.removeChild(link);
-                            });
-                          }}
-                          className="inline-flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 md:px-8 md:py-3 rounded-lg md:rounded-xl font-medium transition shadow-lg"
+                          type="button"
+                          onClick={handleBatchDownload}
+                          disabled={isDownloadingResult}
+                          className="inline-flex items-center justify-center bg-blue-500 hover:bg-blue-600 disabled:bg-blue-400 text-white px-6 py-2 md:px-8 md:py-3 rounded-lg md:rounded-xl font-medium transition shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
                         >
-                          批量下载全部
+                          {isDownloadingResult ? '下载中…' : '批量下载全部'}
                         </button>
                       </>
                     );
@@ -855,15 +971,14 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                             <Eye className="h-4 w-4" />
                           </button>
                         </div>
-                        <a
-                          className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 text-white px-6 py-2 md:px-8 md:py-3 rounded-lg md:rounded-xl font-medium transition shadow-lg"
-                          href={resolveFileUrl(processedImage)}
-                          download
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
+                          onClick={handleDownloadProcessedResult}
+                          disabled={isDownloadingResult}
+                          className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 disabled:bg-green-400 text-white px-6 py-2 md:px-8 md:py-3 rounded-lg md:rounded-xl font-medium transition shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
                         >
-                          下载结果
-                        </a>
+                          {isDownloadingResult ? '下载中…' : '下载结果'}
+                        </button>
                       </>
                     );
                   }
