@@ -48,6 +48,7 @@ services:
       - LIBLIB_WORKFLOW_UUID=${LIBLIB_WORKFLOW_UUID:-18d5858e862d474abe93c72b2fb1b8cc}
       - LIBLIB_ACCESS_KEY=${LIBLIB_ACCESS_KEY:-}
       - LIBLIB_SECRET_KEY=${LIBLIB_SECRET_KEY:-}
+      - GQCH_API_KEY=${GQCH_API_KEY:-your_gqch_api_key}
       - OSS_ACCESS_KEY_ID=${OSS_ACCESS_KEY_ID:-}
       - OSS_ACCESS_KEY_SECRET=${OSS_ACCESS_KEY_SECRET:-}
       - OSS_ENDPOINT=${OSS_ENDPOINT:-https://oss-cn-hangzhou.aliyuncs.com}
