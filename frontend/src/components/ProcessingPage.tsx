@@ -230,26 +230,39 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
       if (effectiveExpandRatio === 'original') {
         return;
       }
+
+      const formattedValues: Record<ExpandEdgeKey, string> = {
+        top: clampEdgeValue('top', edges.top).toFixed(2),
+        bottom: clampEdgeValue('bottom', edges.bottom).toFixed(2),
+        left: clampEdgeValue('left', edges.left).toFixed(2),
+        right: clampEdgeValue('right', edges.right).toFixed(2),
+      };
+
       setComputedPresetEdges((prev) => {
-        const formatted = {
-          top: formatEdgeValue('top', edges.top),
-          bottom: formatEdgeValue('bottom', edges.bottom),
-          left: formatEdgeValue('left', edges.left),
-          right: formatEdgeValue('right', edges.right),
-        };
         if (
           prev &&
-          prev.top === formatted.top &&
-          prev.bottom === formatted.bottom &&
-          prev.left === formatted.left &&
-          prev.right === formatted.right
+          prev.top === formattedValues.top &&
+          prev.bottom === formattedValues.bottom &&
+          prev.left === formattedValues.left &&
+          prev.right === formattedValues.right
         ) {
           return prev;
         }
-        return formatted;
+        return formattedValues;
       });
+
+      if (onExpandEdgeChange) {
+        (['top', 'bottom', 'left', 'right'] as const).forEach((edgeKey) => {
+          const currentValue = edgeValues[edgeKey] ?? '0.00';
+          const formattedValue = formattedValues[edgeKey];
+
+          if (currentValue !== formattedValue) {
+            onExpandEdgeChange(edgeKey, formattedValue);
+          }
+        });
+      }
     },
-    [effectiveExpandRatio],
+    [effectiveExpandRatio, edgeValues, onExpandEdgeChange],
   );
 
   useEffect(() => {
