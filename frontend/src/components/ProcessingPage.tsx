@@ -3,24 +3,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { History, Eye } from 'lucide-react';
 import { ProcessingMethod, getProcessingMethodInfo, canAdjustResolution } from '../lib/processing';
-import { resolveFileUrl, HistoryTask, getServiceCost, downloadProcessingResult } from '../lib/api';
+import { resolveFileUrl, HistoryTask, getServiceCost, downloadProcessingResult, getPublicServicePrices } from '../lib/api';
 import HistoryList from './HistoryList';
 import ImagePreview from './ImagePreview';
 import ProcessedImagePreview from './ProcessedImagePreview';
 import ExpandPreviewFrame from './ExpandPreviewFrame';
-
-const SERVICE_PRICE_FALLBACKS: Record<ProcessingMethod, number> = {
-  prompt_edit: 0.5,
-  style: 2.5,
-  embroidery: 0.7,
-  flat_to_3d: 1.5,
-  extract_pattern: 1.5,
-  watermark_removal: 0.9,
-  noise_removal: 0.5,
-  upscale: 0.9,
-  expand_image: 1,
-  seamless_loop: 1,
-};
 
 type ExpandEdgeKey = 'top' | 'bottom' | 'left' | 'right';
 
@@ -115,9 +102,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   const [isDownloadingResult, setIsDownloadingResult] = useState(false);
   const isPromptReady = method !== 'prompt_edit' || Boolean(promptInstruction?.trim());
   const isActionDisabled = !hasUploadedImage || isProcessing || !isPromptReady;
-  const fallbackCredits = SERVICE_PRICE_FALLBACKS[method];
-  const [serviceCredits, setServiceCredits] = useState<number | null>(fallbackCredits ?? null);
-  const [isLoadingServiceCost, setIsLoadingServiceCost] = useState(false);
+  const [serviceCredits, setServiceCredits] = useState<number | null>(null);
+  const [isLoadingServiceCost, setIsLoadingServiceCost] = useState(true);
   const upscaleOptions: { value: 'meitu_v2'; label: string; description: string }[] = [
     {
       value: 'meitu_v2',
@@ -267,37 +253,45 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
 
   useEffect(() => {
     let isMounted = true;
-    setServiceCredits(fallbackCredits ?? null);
-
-    if (!accessToken) {
-      setIsLoadingServiceCost(false);
-      return () => {
-        isMounted = false;
-      };
-    }
-
     setIsLoadingServiceCost(true);
-    getServiceCost(method, accessToken)
-      .then((response) => {
-        if (!isMounted) return;
-        const resolved = response.unit_cost ?? response.total_cost ?? fallbackCredits ?? null;
-        setServiceCredits(resolved);
-      })
-      .catch((error) => {
-        if (!isMounted) return;
-        console.warn(`获取服务价格失败: ${method}`, error);
-        setServiceCredits((prev) => prev ?? fallbackCredits ?? null);
-      })
-      .finally(() => {
-        if (isMounted) {
-          setIsLoadingServiceCost(false);
+    setServiceCredits(null);
+
+    const fetchPrice = async () => {
+      let resolvedCost: number | null = null;
+
+      if (accessToken) {
+        try {
+          const response = await getServiceCost(method, accessToken);
+          resolvedCost = response.unit_cost ?? response.total_cost ?? null;
+        } catch (error) {
+          console.warn(`获取服务价格失败（需登录接口）: ${method}`, error);
         }
-      });
+      }
+
+      if (resolvedCost === null) {
+        try {
+          const response = await getPublicServicePrices();
+          const matched = response.data.find((item) => item.service_key === method);
+          resolvedCost = matched ? matched.price_credits ?? null : null;
+        } catch (error) {
+          console.warn(`获取服务价格失败（公开接口）: ${method}`, error);
+        }
+      }
+
+      if (!isMounted) {
+        return;
+      }
+
+      setServiceCredits(resolvedCost);
+      setIsLoadingServiceCost(false);
+    };
+
+    fetchPrice();
 
     return () => {
       isMounted = false;
     };
-  }, [method, accessToken, fallbackCredits]);
+  }, [method, accessToken]);
 
   const handlePromptTemplateSelect = (template: string) => {
     if (onPromptInstructionChange) {

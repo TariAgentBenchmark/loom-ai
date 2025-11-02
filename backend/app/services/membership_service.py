@@ -17,6 +17,20 @@ from app.services.credit_math import to_decimal, to_float, multiply
 class MembershipService:
     """会员服务"""
 
+    def _serialize_service_price(self, service: ServicePrice) -> Dict[str, Any]:
+        """序列化服务价格对象，便于 API 返回"""
+        return {
+            "id": service.id,
+            "service_id": service.service_id,
+            "service_name": service.service_name,
+            "service_key": service.service_key,
+            "description": service.description,
+            "price_credits": to_float(service.price_credits),
+            "active": service.active,
+            "created_at": service.created_at.isoformat() if service.created_at else None,
+            "updated_at": service.updated_at.isoformat() if service.updated_at else None,
+        }
+
     async def initialize_packages(self, db: Session):
         """初始化套餐数据"""
         # 检查是否已有数据
@@ -74,23 +88,14 @@ class MembershipService:
 
         return result
 
-    async def get_service_prices(self, db: Session) -> List[Dict[str, Any]]:
+    async def get_service_prices(self, db: Session, include_inactive: bool = False) -> List[Dict[str, Any]]:
         """获取所有服务价格"""
-        services = db.query(ServicePrice).filter(ServicePrice.active == True).all()
+        query = db.query(ServicePrice)
+        if not include_inactive:
+            query = query.filter(ServicePrice.active == True)
 
-        result = []
-        for service in services:
-            result.append({
-                "id": service.id,
-                "service_id": service.service_id,
-                "service_name": service.service_name,
-                "service_key": service.service_key,
-                "description": service.description,
-                "price_credits": to_float(service.price_credits),
-                "active": service.active
-            })
-
-        return result
+        services = query.order_by(ServicePrice.service_key).all()
+        return [self._serialize_service_price(service) for service in services]
 
     async def get_service_price(self, db: Session, service_key: str) -> Optional[float]:
         """获取特定服务价格"""
@@ -102,6 +107,72 @@ class MembershipService:
         ).first()
 
         return to_decimal(service.price_credits) if service else None
+
+    async def update_service_price(
+        self,
+        db: Session,
+        service_key: str,
+        price_credits: Decimal,
+        *,
+        service_name: Optional[str] = None,
+        description: Optional[str] = None,
+        active: Optional[bool] = None
+    ) -> Dict[str, Any]:
+        """更新服务价格及相关元数据"""
+        service = db.query(ServicePrice).filter(
+            ServicePrice.service_key == service_key
+        ).first()
+
+        if not service:
+            raise ValueError("SERVICE_NOT_FOUND")
+
+        changes: Dict[str, Any] = {}
+        updated = False
+
+        if price_credits is not None:
+            new_price = to_decimal(price_credits)
+            current_price = to_decimal(service.price_credits)
+            if new_price != current_price:
+                changes["price_credits"] = {
+                    "old": to_float(current_price),
+                    "new": to_float(new_price)
+                }
+                service.price_credits = new_price
+                updated = True
+
+        if service_name is not None and service.service_name != service_name:
+            changes["service_name"] = {
+                "old": service.service_name,
+                "new": service_name
+            }
+            service.service_name = service_name
+            updated = True
+
+        if description is not None and service.description != description:
+            changes["description"] = {
+                "old": service.description,
+                "new": description
+            }
+            service.description = description
+            updated = True
+
+        if active is not None and service.active != active:
+            changes["active"] = {
+                "old": service.active,
+                "new": active
+            }
+            service.active = active
+            updated = True
+
+        if updated:
+            db.commit()
+            db.refresh(service)
+
+        return {
+            "service": self._serialize_service_price(service),
+            "changes": changes,
+            "updated": updated
+        }
 
     async def purchase_package(
         self,

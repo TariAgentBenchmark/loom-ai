@@ -36,6 +36,16 @@ async def get_public_packages(
     return packages
 
 
+@router.get("/public/services", response_model=List[Dict[str, Any]])
+async def get_public_services(
+    db: Session = Depends(get_db)
+):
+    """获取公开服务价格（无需认证）"""
+    service = MembershipService()
+    services = await service.get_service_prices(db)
+    return services
+
+
 @router.get("/services", response_model=List[Dict[str, Any]])
 async def get_services(
     db: Session = Depends(get_db),

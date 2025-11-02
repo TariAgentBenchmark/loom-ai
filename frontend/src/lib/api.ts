@@ -209,6 +209,40 @@ const postJson = async <TData, TBody = unknown>(
   }
 };
 
+const putJson = async <TData, TBody = unknown>(
+  path: string,
+  body: TBody,
+  accessToken?: string,
+  init?: RequestInit,
+) => {
+  console.log('putJson: Making request to', `${API_BASE_URL}${path}`, 'with body', body);
+  try {
+    const response = await performAuthenticatedRequest(
+      (token) => {
+        const url = `${API_BASE_URL}${path}`;
+        const options = {
+          method: "PUT",
+          headers: withAuthHeader({ "Content-Type": "application/json" }, token),
+          body: JSON.stringify(body),
+          ...init,
+        };
+        console.log('putJson: Fetch options', { url, headers: options.headers, method: options.method });
+        return fetch(url, options);
+      },
+      accessToken,
+    );
+
+    console.log('putJson: Response status', response.status, response.statusText);
+    const ensured = await ensureSuccess(response);
+    return jsonResponse<ApiSuccessResponse<TData>>(ensured);
+  } catch (err) {
+    const message = (err instanceof Error && err.message === 'Failed to fetch')
+      ? '网络连接异常或被浏览器拦截，请稍后重试'
+      : (err as Error)?.message ?? '请求失败';
+    throw new Error(message);
+  }
+};
+
 const postFormData = async <TData>(
   path: string,
   formData: FormData,
@@ -443,6 +477,18 @@ export interface ServiceCostResponse {
   unit_cost: number;
 }
 
+export interface ServicePriceItem {
+  id: number;
+  service_id: string;
+  service_key: string;
+  service_name: string;
+  description?: string | null;
+  price_credits: number;
+  active: boolean;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
 export interface CreditBalanceResponse {
   credits: number;
   totalEarned: number;
@@ -633,6 +679,22 @@ export const getServiceCost = async (
 
     const ensured = await ensureSuccess(response);
     return jsonResponse<ServiceCostResponse>(ensured);
+  } catch (err) {
+    const message = (err instanceof Error && err.message === 'Failed to fetch')
+      ? '网络连接异常或被浏览器拦截，请稍后重试'
+      : (err as Error)?.message ?? '请求失败';
+    throw new Error(message);
+  }
+};
+
+export const getPublicServicePrices = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/membership/public/services`, {
+      method: "GET",
+    });
+
+    const ensured = await ensureSuccess(response);
+    return jsonResponse<ApiSuccessResponse<ServicePriceItem[]>>(ensured);
   } catch (err) {
     const message = (err instanceof Error && err.message === 'Failed to fetch')
       ? '网络连接异常或被浏览器拦截，请稍后重试'
@@ -911,6 +973,27 @@ export interface AdminDashboardStats {
   }>;
 }
 
+export interface AdminServicePrice {
+  serviceId: string;
+  serviceKey: string;
+  serviceName: string;
+  description?: string | null;
+  priceCredits: number;
+  active: boolean;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface AdminServicePriceList {
+  services: AdminServicePrice[];
+}
+
+export interface AdminServicePriceUpdateResult {
+  service: AdminServicePrice;
+  changes: Record<string, unknown>;
+  updated: boolean;
+}
+
 // Admin API functions
 export const adminLogin = (identifier: string, password: string) =>
   postJson<LoginResult, { identifier: string; password: string }>(
@@ -1081,6 +1164,42 @@ export const adminUpdateOrderStatus = (
   postJson<any, { status: string; reason: string; adminNotes: string }>(
     `/admin/orders/${orderId}/status`,
     { status, reason, adminNotes },
+    accessToken
+  );
+
+export const adminGetServicePrices = (
+  accessToken: string,
+  includeInactive = true
+) => {
+  const params = new URLSearchParams();
+  if (includeInactive) {
+    params.append("include_inactive", "true");
+  }
+
+  const query = params.toString();
+  const path = `/admin/service-prices${query ? `?${query}` : ""}`;
+
+  return getJson<AdminServicePriceList>(path, accessToken);
+};
+
+export const adminUpdateServicePrice = (
+  serviceKey: string,
+  payload: {
+    priceCredits: number;
+    serviceName?: string;
+    description?: string;
+    active?: boolean;
+  },
+  accessToken: string
+) =>
+  putJson<AdminServicePriceUpdateResult, {
+    priceCredits: number;
+    serviceName?: string;
+    description?: string;
+    active?: boolean;
+  }>(
+    `/admin/service-prices/${serviceKey}`,
+    payload,
     accessToken
   );
 

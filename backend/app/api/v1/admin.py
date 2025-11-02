@@ -18,6 +18,7 @@ from app.api.decorators import admin_required, admin_route
 from app.schemas.common import SuccessResponse, PaginationMeta
 from app.services.auth_service import AuthService
 from app.services.credit_math import to_decimal, to_float
+from app.services.membership_service import MembershipService
 
 router = APIRouter()
 
@@ -98,6 +99,28 @@ class CreditAdjustmentRequest(BaseModel):
     amount: CreditDelta = Field(..., description="Amount to adjust (positive to add, negative to deduct)")
     reason: str = Field(..., description="Reason for adjustment")
     sendNotification: bool = Field(True, description="Send notification to user")
+
+
+class AdminServicePriceResponse(BaseModel):
+    serviceId: str
+    serviceKey: str
+    serviceName: str
+    description: Optional[str]
+    priceCredits: float
+    active: bool
+    createdAt: Optional[str]
+    updatedAt: Optional[str]
+
+
+class AdminServicePriceListResponse(BaseModel):
+    services: List[AdminServicePriceResponse]
+
+
+class AdminServicePriceUpdateRequest(BaseModel):
+    priceCredits: condecimal(max_digits=12, decimal_places=2, ge=0)
+    serviceName: Optional[str] = Field(None, max_length=100, description="Updated display name for the service")
+    description: Optional[str] = Field(None, description="Service description")
+    active: Optional[bool] = Field(None, description="Whether the service is active")
 
 
 # Order Management Models
@@ -568,6 +591,121 @@ async def update_user_credits(
             message="用户积分已更新"
         )
         
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Service Pricing Management
+@router.get("/service-prices", dependencies=[Depends(admin_route())])
+async def get_service_prices_admin(
+    include_inactive: bool = Query(True, description="Whether to include inactive services"),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin)
+):
+    """获取所有功能的积分价格（管理员专用）"""
+    try:
+        membership_service = MembershipService()
+        services = await membership_service.get_service_prices(
+            db=db,
+            include_inactive=include_inactive
+        )
+
+        service_items = [
+            AdminServicePriceResponse(
+                serviceId=item["service_id"],
+                serviceKey=item["service_key"],
+                serviceName=item["service_name"],
+                description=item.get("description"),
+                priceCredits=item["price_credits"],
+                active=item["active"],
+                createdAt=item.get("created_at"),
+                updatedAt=item.get("updated_at")
+            )
+            for item in services
+        ]
+
+        await log_admin_action(
+            db=db,
+            admin=current_admin,
+            action="view_service_prices",
+            target_type="service_price",
+            target_id="list",
+            details={
+                "include_inactive": include_inactive,
+                "total": len(service_items)
+            }
+        )
+
+        return SuccessResponse(
+            data=AdminServicePriceListResponse(services=service_items).dict(),
+            message="获取服务价格列表成功"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/service-prices/{service_key}", dependencies=[Depends(admin_route())])
+async def update_service_price_admin(
+    service_key: str,
+    update_request: AdminServicePriceUpdateRequest,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin)
+):
+    """更新指定功能的积分价格（管理员专用）"""
+    try:
+        membership_service = MembershipService()
+
+        update_result = await membership_service.update_service_price(
+            db=db,
+            service_key=service_key,
+            price_credits=update_request.priceCredits,
+            service_name=update_request.serviceName,
+            description=update_request.description,
+            active=update_request.active
+        )
+
+        service_data_raw = update_result["service"]
+        service_data = AdminServicePriceResponse(
+            serviceId=service_data_raw["service_id"],
+            serviceKey=service_data_raw["service_key"],
+            serviceName=service_data_raw["service_name"],
+            description=service_data_raw.get("description"),
+            priceCredits=service_data_raw["price_credits"],
+            active=service_data_raw["active"],
+            createdAt=service_data_raw.get("created_at"),
+            updatedAt=service_data_raw.get("updated_at")
+        )
+
+        await log_admin_action(
+            db=db,
+            admin=current_admin,
+            action="update_service_price",
+            target_type="service_price",
+            target_id=service_key,
+            details={
+                "changes": update_result.get("changes", {}),
+                "priceCredits": to_float(update_request.priceCredits),
+                "serviceName": update_request.serviceName,
+                "active": update_request.active
+            }
+        )
+
+        return SuccessResponse(
+            data={
+                "service": service_data.dict(),
+                "changes": update_result.get("changes", {}),
+                "updated": update_result.get("updated", False)
+            },
+            message="服务价格更新成功"
+        )
+
+    except ValueError:
+        raise HTTPException(status_code=404, detail="服务不存在")
     except HTTPException:
         raise
     except Exception as e:
