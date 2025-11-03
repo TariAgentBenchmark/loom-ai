@@ -90,7 +90,7 @@ const parseErrorBody = async (
   return {};
 };
 
-const ensureSuccess = async (response: Response) => {
+const ensureSuccess = async (response: Response, isProcessingRequest = false) => {
   if (response.ok) {
     return response;
   }
@@ -114,6 +114,11 @@ const ensureSuccess = async (response: Response) => {
     return Promise.reject(
       new Error(creditErrorMessages[0] ?? "积分不足，请充值后再试"),
     );
+  }
+
+  // For processing requests, always show the generic message
+  if (isProcessingRequest) {
+    return Promise.reject(new Error("服务器火爆，重试一下。"));
   }
 
   const messageParts = [
@@ -247,6 +252,7 @@ const postFormData = async <TData>(
   path: string,
   formData: FormData,
   accessToken: string,
+  isProcessingRequest = false,
 ) => {
   try {
     const controller = new AbortController();
@@ -264,7 +270,7 @@ const postFormData = async <TData>(
     );
 
     clearTimeout(timeoutId);
-    const ensured = await ensureSuccess(response);
+    const ensured = await ensureSuccess(response, isProcessingRequest);
     return jsonResponse<ApiSuccessResponse<TData>>(ensured);
   } catch (err) {
     let message = '请求失败';
@@ -627,7 +633,7 @@ export const createProcessingTask = (payload: ProcessingRequestPayload) => {
   }
 
   const path = processingPathMap[method];
-  return postFormData<ProcessingTaskData>(path, formData, accessToken);
+  return postFormData<ProcessingTaskData>(path, formData, accessToken, true);
 };
 
 export const getProcessingStatus = (taskId: string, accessToken: string) =>

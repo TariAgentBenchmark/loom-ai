@@ -351,7 +351,7 @@ export default function Home() {
       }
 
       if (statusData.status === 'failed') {
-        setErrorMessage(statusData.error?.message ?? '处理失败，请稍后再试');
+        setErrorMessage('服务器火爆，重试一下。');
         setIsProcessing(false);
         clearInterval(currentPoller);
         pollingRef.current = null;

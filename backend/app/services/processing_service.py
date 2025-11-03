@@ -294,7 +294,7 @@ class ProcessingService:
             except Exception as e:
                 # 处理失败
                 error_msg = str(e)
-                task.mark_as_failed(error_msg, "P006")
+                task.mark_as_failed("服务器火爆，重试一下。", "P006")
                 task.credits_used = to_decimal(0)
 
                 db.commit()

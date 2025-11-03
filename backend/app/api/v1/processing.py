@@ -63,7 +63,7 @@ async def seamless_pattern_conversion(
         )
         
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
 
 
 @router.post("/prompt-edit")
@@ -126,7 +126,7 @@ async def prompt_edit_image(
         )
 
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
 
 
 @router.post("/vectorize")
@@ -165,7 +165,7 @@ async def vectorize_image(
         )
         
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
 
 @router.post("/extract-pattern")
 async def extract_pattern(
@@ -231,7 +231,7 @@ async def extract_pattern(
     except Exception as e:
         elapsed = time.time() - start_time
         logger.error(f"[{request_id}] Extract pattern failed - Time: {elapsed:.2f}s, Error: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
 
 
 @router.post("/remove-watermark")
@@ -270,7 +270,7 @@ async def remove_watermark(
         )
         
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
 
 
 @router.post("/denoise")
@@ -324,7 +324,7 @@ async def denoise_image(
         )
         
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
 
 
 @router.post("/embroidery")
@@ -385,7 +385,7 @@ async def enhance_embroidery(
         )
         
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
 
 
 @router.post("/flat-to-3d")
@@ -438,7 +438,7 @@ async def convert_flat_to_3d(
         )
 
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
 
 
 @router.post("/upscale")
@@ -496,7 +496,7 @@ async def upscale_image(
         )
         
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
 
 
 @router.post("/expand-image")
@@ -552,7 +552,7 @@ async def expand_image(
         )
 
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
 
 
 @router.post("/seamless-loop")
@@ -608,7 +608,7 @@ async def seamless_loop(
         )
 
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
 
 
 @router.get("/status/{task_id}")
@@ -668,7 +668,7 @@ async def get_task_status(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="服务器火爆，重试一下。")
 
 
 @router.get("/result/{task_id}/download")
@@ -744,7 +744,7 @@ async def download_result(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="服务器火爆，重试一下。")
 
 
 @router.get("/tasks")
@@ -790,7 +790,7 @@ async def get_tasks(
         )
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="服务器火爆，重试一下。")
 
 
 @router.delete("/task/{task_id}")
@@ -814,7 +814,7 @@ async def delete_task(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="服务器火爆，重试一下。")
 
 
 @router.post("/estimate")
@@ -851,7 +851,7 @@ async def estimate_credits(
         )
         
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
 
 
 @router.post("/batch-download")
@@ -900,4 +900,4 @@ async def batch_download(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="服务器火爆，重试一下。")
