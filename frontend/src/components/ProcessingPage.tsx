@@ -136,6 +136,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     right: 1,
   };
   const EDGE_STEP = 0.01;
+  const EDGE_LARGE_STEP = 0.1;
   const [computedPresetEdges, setComputedPresetEdges] = useState<Record<ExpandEdgeKey, string> | null>(null);
   const seamDirectionOptions: { value: number; label: string }[] = [
     { value: 0, label: '四周拼接' },
@@ -620,8 +621,10 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                 {expandEdgeItems.map((edge) => {
                   const parsedValue = parseEdgeValue(edge.key);
                   const displayValue = getDisplayEdgeValue(edge.key);
-                  const canIncrease = parsedValue + EDGE_STEP <= EDGE_MAX_VALUES[edge.key] + 1e-6;
-                  const canDecrease = parsedValue - EDGE_STEP >= EDGE_MIN - 1e-6;
+                  const canIncreaseSmall = parsedValue + EDGE_STEP <= EDGE_MAX_VALUES[edge.key] + 1e-6;
+                  const canDecreaseSmall = parsedValue - EDGE_STEP >= EDGE_MIN - 1e-6;
+                  const canIncreaseLarge = parsedValue + EDGE_LARGE_STEP <= EDGE_MAX_VALUES[edge.key] + 1e-6;
+                  const canDecreaseLarge = parsedValue - EDGE_LARGE_STEP >= EDGE_MIN - 1e-6;
 
                   return (
                     <div key={edge.key} className="flex flex-col gap-2">
@@ -632,25 +635,57 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                         <span className="text-sm md:text-base font-semibold text-gray-800">
                           {displayValue}
                         </span>
-                        <div className="flex flex-col gap-1">
-                          <button
-                            type="button"
-                            onClick={() => adjustEdgeValue(edge.key, EDGE_STEP)}
-                            disabled={!canIncrease}
-                            className="flex h-6 w-6 items-center justify-center rounded-full border border-blue-400 bg-white text-xs text-blue-600 hover:bg-blue-50 disabled:border-gray-200 disabled:text-gray-300 disabled:hover:bg-white transition"
-                            aria-label={`${edge.label}方向增加`}
-                          >
-                            ▲
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => adjustEdgeValue(edge.key, -EDGE_STEP)}
-                            disabled={!canDecrease}
-                            className="flex h-6 w-6 items-center justify-center rounded-full border border-blue-400 bg-white text-xs text-blue-600 hover:bg-blue-50 disabled:border-gray-200 disabled:text-gray-300 disabled:hover:bg-white transition"
-                            aria-label={`${edge.label}方向减少`}
-                          >
-                            ▼
-                          </button>
+                        <div className="flex items-center gap-3">
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-[10px] leading-none text-gray-400">0.10</span>
+                            <div className="flex flex-col gap-1">
+                              <button
+                                type="button"
+                                onClick={() => adjustEdgeValue(edge.key, EDGE_LARGE_STEP)}
+                                disabled={!canIncreaseLarge}
+                                className="flex h-6 w-6 items-center justify-center rounded-full border border-blue-400 bg-white text-xs text-blue-600 hover:bg-blue-50 disabled:border-gray-200 disabled:text-gray-300 disabled:hover:bg-white transition"
+                                aria-label={`${edge.label}方向增加0.10`}
+                                title="增加0.10"
+                              >
+                                ▲
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => adjustEdgeValue(edge.key, -EDGE_LARGE_STEP)}
+                                disabled={!canDecreaseLarge}
+                                className="flex h-6 w-6 items-center justify-center rounded-full border border-blue-400 bg-white text-xs text-blue-600 hover:bg-blue-50 disabled:border-gray-200 disabled:text-gray-300 disabled:hover:bg-white transition"
+                                aria-label={`${edge.label}方向减少0.10`}
+                                title="减少0.10"
+                              >
+                                ▼
+                              </button>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-[10px] leading-none text-gray-400">0.01</span>
+                            <div className="flex flex-col gap-1">
+                              <button
+                                type="button"
+                                onClick={() => adjustEdgeValue(edge.key, EDGE_STEP)}
+                                disabled={!canIncreaseSmall}
+                                className="flex h-6 w-6 items-center justify-center rounded-full border border-blue-400 bg-white text-xs text-blue-600 hover:bg-blue-50 disabled:border-gray-200 disabled:text-gray-300 disabled:hover:bg-white transition"
+                                aria-label={`${edge.label}方向增加0.01`}
+                                title="增加0.01"
+                              >
+                                ▲
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => adjustEdgeValue(edge.key, -EDGE_STEP)}
+                                disabled={!canDecreaseSmall}
+                                className="flex h-6 w-6 items-center justify-center rounded-full border border-blue-400 bg-white text-xs text-blue-600 hover:bg-blue-50 disabled:border-gray-200 disabled:text-gray-300 disabled:hover:bg-white transition"
+                                aria-label={`${edge.label}方向减少0.01`}
+                                title="减少0.01"
+                              >
+                                ▼
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
