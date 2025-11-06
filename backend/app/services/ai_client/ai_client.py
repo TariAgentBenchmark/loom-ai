@@ -723,11 +723,91 @@ class AIClient:
             self._apply_jimeng_options(data, options)
             logger.info("Sending flat-to-3D request with image URL: %s", image_url)
 
-            return await self._execute_jimeng_task(
+            base_result_url = await self._execute_jimeng_task(
                 data,
                 log_label="Flat to 3D conversion",
                 result_prefix="flat3d",
             )
+
+            if not base_result_url:
+                raise Exception("AI平面转3D失败：未生成结果图片")
+
+            hd_scale_factor = 4
+            if options:
+                custom_scale = options.get("hd_scale_factor") or options.get("upscale_scale_factor")
+                if custom_scale is not None:
+                    try:
+                        parsed_scale = int(float(custom_scale))
+                        if parsed_scale >= 2:
+                            hd_scale_factor = parsed_scale
+                    except (TypeError, ValueError):
+                        logger.warning("Invalid HD scale factor provided: %s", custom_scale)
+
+            upscale_options: Dict[str, Any] = {
+                "engine": "meitu_v2",
+                "sr_num": 4 if hd_scale_factor >= 4 else 2,
+                "task": "/v1/Ultra_High_Definition_V2/478332",
+                "task_type": "formula",
+                "sync_timeout": 30,
+                "rsp_media_type": "url",
+            }
+
+            if options:
+                custom_upscale_options = options.get("hd_options") or options.get("upscale_options")
+                if isinstance(custom_upscale_options, dict):
+                    upscale_options.update(custom_upscale_options)
+
+            source_bytes: Optional[bytes] = None
+            if base_result_url.startswith("/files/"):
+                local_path = base_result_url.replace("/files/", f"{settings.upload_path}/")
+                try:
+                    with open(local_path, "rb") as file_obj:
+                        source_bytes = file_obj.read()
+                except Exception as exc:
+                    logger.warning("Failed to read local flat-to-3D result for HD upscale: %s", str(exc))
+
+            try:
+                enhanced_result = await self.upscale_image(
+                    base_result_url,
+                    scale_factor=hd_scale_factor,
+                    options=upscale_options,
+                    image_bytes=source_bytes,
+                )
+
+                enhanced_urls = [
+                    url.strip()
+                    for url in enhanced_result.split(",")
+                    if url and url.strip()
+                ] if enhanced_result else []
+
+                saved_hd_urls: List[str] = []
+                for enhanced_url in enhanced_urls:
+                    try:
+                        if enhanced_url.startswith("/files/"):
+                            saved_hd_urls.append(enhanced_url)
+                            continue
+
+                        enhanced_bytes = await self.base_client_utils._download_image_from_url(enhanced_url)
+                        saved_url = self.base_client_utils._save_image_bytes(
+                            enhanced_bytes,
+                            prefix="flat3d_hd",
+                        )
+                        saved_hd_urls.append(saved_url)
+                    except Exception as enhance_exc:
+                        logger.warning(
+                            "Failed to persist HD flat-to-3D result from %s: %s",
+                            enhanced_url,
+                            str(enhance_exc),
+                        )
+
+                if saved_hd_urls:
+                    logger.info("Flat-to-3D HD enhancement succeeded, returning %s", saved_hd_urls)
+                    return ",".join(saved_hd_urls)
+
+            except Exception as exc:
+                logger.warning("Flat-to-3D HD enhancement failed: %s. Returning base result.", str(exc))
+
+            return base_result_url
 
         except Exception as exc:
             logger.error("Convert flat to 3D failed: %s", str(exc))

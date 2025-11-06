@@ -177,28 +177,38 @@ class TestJimengAPI:
         }
 
         mock_image_data = b"mock_flat3d_image"
+        mock_hd_image_data = b"mock_flat3d_image_hd"
 
         with patch.object(ai_client.jimeng_client, '_make_jimeng_request') as mock_request, \
              patch.object(ai_client.jimeng_client, 'query_task_status') as mock_query, \
              patch.object(ai_client.gemini_client, '_download_image_from_url') as mock_download, \
+             patch.object(ai_client.base_client_utils, '_download_image_from_url', new_callable=AsyncMock) as mock_base_download, \
+             patch.object(ai_client, 'upscale_image', new_callable=AsyncMock) as mock_upscale, \
              patch.object(oss_module, 'oss_service') as mock_oss_service, \
              patch.object(ai_client.base_client_utils, '_save_image_bytes') as mock_save:
 
             mock_request.return_value = submit_response
             mock_query.return_value = complete_response
             mock_download.return_value = mock_image_data
+            mock_base_download.return_value = mock_hd_image_data
+            mock_upscale.return_value = "https://example.com/flat3d_hd.jpg"
             mock_oss_service.is_configured.return_value = True
             mock_oss_service.upload_image_for_jimeng = AsyncMock(return_value="https://example.com/uploaded_flat3d.jpg")
-            mock_save.return_value = "/files/results/flat3d_test12345.png"
+            mock_save.side_effect = [
+                "/files/results/flat3d_test12345.png",
+                "/files/results/flat3d_hd_test67890.png",
+            ]
 
             result = await ai_client.convert_flat_to_3d(sample_image_bytes)
 
-            assert result == "/files/results/flat3d_test12345.png"
+            assert result == "/files/results/flat3d_hd_test67890.png"
             mock_request.assert_called_once()
             mock_query.assert_called_once_with("jimeng_task_flat3d")
             mock_download.assert_called_once_with("https://example.com/flat3d_result.jpg")
             mock_oss_service.upload_image_for_jimeng.assert_called_once()
-            mock_save.assert_called_once()
+            mock_upscale.assert_called_once()
+            mock_base_download.assert_awaited_once_with("https://example.com/flat3d_hd.jpg")
+            assert mock_save.call_count == 2
 
     @pytest.mark.asyncio
     async def test_download_image_from_url(self, ai_client):
