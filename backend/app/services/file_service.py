@@ -77,13 +77,7 @@ class FileService:
         try:
             image = Image.open(BytesIO(file_bytes))
             width, height = image.size
-            
-            # 检查分辨率
-            if width < 256 or height < 256:
-                raise Exception("图片分辨率过低，最小支持256x256")
-            
-            if width > 8192 or height > 8192:
-                raise Exception("图片分辨率过高，最大支持8192x8192")
+            logger.debug("Validated image dimensions: %sx%s", width, height)
             
             return {
                 "valid": True,
