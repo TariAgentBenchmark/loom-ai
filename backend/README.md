@@ -65,6 +65,8 @@ uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 SECRET_KEY=your-secret-key-here
 APIYI_API_KEY=your-apiyi-api-key-here
 GQCH_API_KEY=your-gqch-api-key-here
+RUNNINGHUB_API_KEY=your-runninghub-api-key
+RUNNINGHUB_WORKFLOW_ID_POSITIONING=your-runninghub-workflow-id
 
 # 可选配置
 DATABASE_URL=sqlite:///./loom_ai.db
@@ -76,6 +78,7 @@ REDIS_URL=redis://localhost:6379/0
 - **Apyi API**: 在 https://api.apiyi.com 获取API密钥
 - 支持GPT-4o图像生成和Gemini-2.5-flash-image处理
 - 支持OpenAI兼容的图像编辑和对话功能
+- **RunningHub**: 在 https://www.runninghub.cn 控制台获取 API Key 与 workflowId，用于定位花型工作流
 
 ## 🎯 核心功能
 

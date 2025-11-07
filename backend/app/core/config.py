@@ -60,6 +60,15 @@ class Settings(BaseSettings):
     gqch_api_base_url: str = "https://gqch.haoee.com"
     gqch_api_key: str = ""
 
+    # RunningHub API配置
+    runninghub_api_base_url: str = "https://www.runninghub.cn"
+    runninghub_api_key: str = ""
+    runninghub_workflow_id_positioning: str = ""
+    runninghub_positioning_node_id: str = "78"
+    runninghub_positioning_field_name: str = "image"
+    runninghub_poll_interval_seconds: int = 5
+    runninghub_poll_timeout_seconds: int = 600
+
     # 阿里云OSS配置
     oss_access_key_id: str = ""
     oss_access_key_secret: str = ""

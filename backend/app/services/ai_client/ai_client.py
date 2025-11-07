@@ -18,6 +18,7 @@ from app.services.ai_client.liblib_client import LiblibUpscaleAPI
 from app.services.ai_client.meitu_client import MeituClient
 from app.services.ai_client.vectorizer_client import VectorizerClient
 from app.services.ai_client.a8_vectorizer_client import A8VectorizerClient
+from app.services.ai_client.runninghub_client import RunningHubClient
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,7 @@ class AIClient:
         self.image_utils = ImageProcessingUtils()
         self.base_client_utils = BaseAIClient()
         self.gqch_client = GQCHClient()
+        self.runninghub_client = RunningHubClient()
         
         # Liblib API配置
         self.liblib_client = LiblibUpscaleAPI(
@@ -278,6 +280,12 @@ class AIClient:
         options = options or {}
         pattern_type = (options.get("pattern_type") or "general").strip().lower()
 
+        if pattern_type == "positioning":
+            return await self.runninghub_client.run_positioning_workflow(
+                image_bytes,
+                options,
+            )
+
         raw_result = await self.image_utils.extract_pattern(image_bytes, options)
         if not raw_result:
             raise Exception("AI提取花型失败：未获得结果")
@@ -293,7 +301,7 @@ class AIClient:
         enhanced_urls: List[str] = []
         for url in result_urls:
             try:
-                # 通用 / 定位花：调用美图高清模型
+                # 通用模式：调用美图高清模型增强
                 meitu_options = {
                     "engine": "meitu_v2",
                     "sr_num": 4,

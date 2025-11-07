@@ -144,7 +144,9 @@ class ProcessingService:
             
             # 根据任务类型调用相应的AI处理方法
             start_time = datetime.utcnow()
-            task_options = task.options or {}
+            task_options = dict(task.options or {})
+            if task.original_filename:
+                task_options.setdefault("original_filename", task.original_filename)
 
             try:
                 if task.type == TaskType.SEAMLESS.value:
