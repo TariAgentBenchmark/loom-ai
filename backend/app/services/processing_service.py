@@ -203,7 +203,7 @@ class ProcessingService:
                 # 计算处理时间
                 processing_time = int((datetime.utcnow() - start_time).total_seconds())
                 
-                # 检查是否是多张图片（精细效果类型）
+                # 检查是否是多张图片（烫画/胸前花类型）
                 result_urls = result_url.split(",") if "," in result_url else [result_url]
                 
                 # 处理所有结果图片

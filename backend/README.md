@@ -78,7 +78,7 @@ REDIS_URL=redis://localhost:6379/0
 - **Apyi API**: 在 https://api.apiyi.com 获取API密钥
 - 支持GPT-4o图像生成和Gemini-2.5-flash-image处理
 - 支持OpenAI兼容的图像编辑和对话功能
-- **RunningHub**: 在 https://www.runninghub.cn 控制台获取 API Key 与 workflowId，用于定位花型工作流
+- **RunningHub**: 在 https://www.runninghub.cn 控制台获取 API Key 与 workflowId，用于线条/矢量工作流
 
 ## 🎯 核心功能
 

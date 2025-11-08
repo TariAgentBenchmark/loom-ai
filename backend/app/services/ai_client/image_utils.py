@@ -88,14 +88,14 @@ class ImageProcessingUtils:
     ) -> str:
         """AI提取花型
         
-        注意：当pattern_type为"fine"时，返回的字符串是逗号分隔的多个URL
+        注意：当pattern_type为"fine"（烫画/胸前花）时，返回的字符串是逗号分隔的多个URL
         """
         options = options or {}
         pattern_type = options.get("pattern_type", "general")
         
         # 根据不同的花型类型使用不同的提示词
         if pattern_type == "positioning":
-            # 定位花类型
+            # 线条/矢量类型
             prompt = (
                 "生成图片："
                 "衣服的图案展开平铺。将图案设计的风格和内容元索还原为填充整个画面的平面印刷图像，"
@@ -105,7 +105,7 @@ class ImageProcessingUtils:
                 "特写镜头, 放大视角，平滑，矢量风格，无颗粒感，无模糊。1:1"
             )
         elif pattern_type == "fine":
-            # 精细效果类型
+            # 烫画/胸前花类型
             prompt = (
                 "生成图片："
                 "从提供的图片中严格提取图案，将图案设计的风格和内容元索还原为填充整个画面的平面印刷图像，准确识别并完整还原图案、纹理、颜色,等设计元素。2 1：1"
@@ -144,7 +144,7 @@ class ImageProcessingUtils:
 
             return "1024x1024"
 
-        # 精细效果类型使用Apyi OpenAI模型，生成2张图片
+        # 烫画/胸前花类型使用Apyi OpenAI模型，生成2张图片
         if pattern_type == "fine":
             size = _build_size()
             model_option = options.get("model")

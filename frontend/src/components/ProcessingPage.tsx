@@ -772,8 +772,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                 className="w-full rounded-lg md:rounded-xl border border-gray-200 px-3 py-2 md:px-4 md:py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
               >
                 <option value="general">通用</option>
-                <option value="positioning">定位花</option>
-                <option value="fine">精细效果</option>
+                <option value="positioning">线条/矢量</option>
+                <option value="fine">烫画/胸前花</option>
               </select>
               <p className="text-xs text-gray-500 mt-2">选择不同的花型类型，AI会使用相应的处理方式。</p>
             </div>
