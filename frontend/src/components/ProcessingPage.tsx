@@ -20,6 +20,98 @@ const formatCredits = (value: number) => {
   return formatted.replace(/(\.\d*[1-9])0$/, '$1');
 };
 
+const CLOUD_KEYFRAMES = `
+@keyframes loomCloudFloat {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-12px); }
+  100% { transform: translateY(0px); }
+}
+@keyframes loomCloudDraw {
+  0% { stroke-dashoffset: 620; }
+  50% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -620; }
+}
+@keyframes loomCloudShadow {
+  0% { transform: translateX(-50%) scale(1); opacity: 0.35; }
+  50% { transform: translateX(-50%) scale(0.9); opacity: 0.15; }
+  100% { transform: translateX(-50%) scale(1); opacity: 0.35; }
+}
+`;
+
+interface CloudLoaderProps {
+  message?: string;
+  animated?: boolean;
+}
+
+const CloudLoader: React.FC<CloudLoaderProps> = ({ message = '处理中...', animated = true }) => (
+  <>
+    {animated && <style>{CLOUD_KEYFRAMES}</style>}
+    <div className="flex flex-col items-center justify-center gap-4 text-center">
+      <div className="relative w-48 max-w-[70vw]">
+        <svg
+          className="w-full h-auto drop-shadow-[0_14px_24px_rgba(59,130,246,0.25)]"
+          style={animated ? { animation: 'loomCloudFloat 3.2s ease-in-out infinite' } : undefined}
+          viewBox="0 0 200 120"
+          role="img"
+          aria-label="cloud loading"
+        >
+          <defs>
+            <linearGradient id="loomCloudGradient" x1="0%" y1="50%" x2="100%" y2="50%">
+              <stop offset="0%" stopColor="#bfdbfe">
+                {animated && (
+                  <animate attributeName="offset" values="0;0.4;0" dur="4s" repeatCount="indefinite" />
+                )}
+              </stop>
+              <stop offset="50%" stopColor="#93c5fd">
+                {animated && (
+                  <animate attributeName="offset" values="0.3;0.7;0.3" dur="4s" repeatCount="indefinite" />
+                )}
+              </stop>
+              <stop offset="100%" stopColor="#bfdbfe">
+                {animated && (
+                  <animate attributeName="offset" values="0.6;1;0.6" dur="4s" repeatCount="indefinite" />
+                )}
+              </stop>
+            </linearGradient>
+          </defs>
+          <path
+            d="M147 68c11.6 0 21-9.4 21-21s-9.4-21-21-21c-2.9 0-5.7.6-8.3 1.6C134.7 15.3 122.1 6 107.5 6 89 6 73.7 20.6 73 39c-1.8-.4-3.6-.6-5.5-.6-17.7 0-32 14.3-32 32s14.3 32 32 32H147c14.4 0 26-11.6 26-26s-11.6-26-26-26z"
+            fill="url(#loomCloudGradient)"
+            opacity={0.85}
+          />
+          <path
+            d="M147 68c11.6 0 21-9.4 21-21s-9.4-21-21-21c-2.9 0-5.7.6-8.3 1.6C134.7 15.3 122.1 6 107.5 6 89 6 73.7 20.6 73 39c-1.8-.4-3.6-.6-5.5-.6-17.7 0-32 14.3-32 32s14.3 32 32 32H147c14.4 0 26-11.6 26-26s-11.6-26-26-26z"
+            fill="none"
+            stroke="#3b82f6"
+            strokeWidth="5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={
+              animated
+                ? {
+                    strokeDasharray: 620,
+                    strokeDashoffset: 620,
+                    animation: 'loomCloudDraw 3s ease-in-out infinite',
+                  }
+                : undefined
+            }
+          />
+        </svg>
+        <div
+          className="absolute left-1/2 bottom-[-16px] h-4 w-3/5 rounded-full"
+          style={{
+            background:
+              'radial-gradient(circle, rgba(148,163,184,0.35) 0%, rgba(148,163,184,0.05) 70%, transparent 100%)',
+            transform: 'translateX(-50%)',
+            animation: animated ? 'loomCloudShadow 3.2s ease-in-out infinite' : 'none',
+          }}
+        />
+      </div>
+      <p className="text-base md:text-lg tracking-[0.15em] text-gray-600">{message}</p>
+    </div>
+  </>
+);
+
 interface ProcessingPageProps {
   method: ProcessingMethod;
   imagePreview: string | null;
@@ -907,7 +999,12 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                 {successMessage}
               </div>
             )}
-            {processedImage ? (
+            {isProcessing ? (
+              <div className="text-center w-full flex flex-col items-center justify-center gap-4 md:gap-6">
+                <CloudLoader />
+                <p className="text-gray-500 text-xs md:text-sm">AI 正在处理您的图片，请稍等片刻～</p>
+              </div>
+            ) : processedImage ? (
               <div className="text-center w-full h-full flex flex-col items-center justify-center">
                 {(() => {
                   const imageUrls = processedImage.split(',');
@@ -1027,21 +1124,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                 })()}
               </div>
             ) : (
-              <div className="text-center">
-                <div className="w-24 h-24 md:w-32 md:h-32 mx-auto mb-4 md:mb-6 rounded-full bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600 flex items-center justify-center relative overflow-hidden">
-                  <div className="relative w-20 h-20 md:w-24 md:h-24">
-                    <div className="absolute inset-0 bg-blue-500 rounded-full"></div>
-                    <div className="absolute top-2 left-3 w-3 h-2 md:w-4 md:h-3 bg-green-400 rounded-full"></div>
-                    <div className="absolute top-4 right-2 w-2 h-1 md:w-3 md:h-2 bg-green-400 rounded-full"></div>
-                    <div className="absolute bottom-3 left-2 w-4 h-3 md:w-5 md:h-4 bg-green-400 rounded-full"></div>
-                    <div className="absolute top-1 left-8 w-6 h-1 md:w-8 md:h-2 bg-white rounded-full opacity-70"></div>
-                    <div className="absolute bottom-6 right-1 w-4 h-1 md:w-6 md:h-2 bg-white rounded-full opacity-50"></div>
-                    <div className="absolute -top-4 left-4 w-2 h-3 md:w-2 md:h-4 bg-red-400 transform rotate-12"></div>
-                    <div className="absolute -top-2 right-3 w-2 h-4 md:w-3 md:h-6 bg-yellow-400 transform -rotate-12"></div>
-                    <div className="absolute -bottom-2 left-6 w-2 h-3 md:w-2 md:h-4 bg-purple-400 transform rotate-45"></div>
-                  </div>
-                </div>
-                <p className="text-gray-400 text-sm md:text-lg">什么都没有呢，赶快开始吧吧</p>
+              <div className="text-center w-full flex flex-col items-center justify-center gap-4 md:gap-5">
+                <CloudLoader message="暂时没有任务，赶快开始吧" animated={false} />
               </div>
             )}
           </div>
