@@ -36,43 +36,21 @@ const PricingModal: React.FC<PricingModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'membership' | 'discount'>('membership');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [currentOrder, setCurrentOrder] = useState<any>(null);
+  const [selectedPackage, setSelectedPackage] = useState<PackageData | null>(null);
 
   const membershipPackages = membershipPackageData;
   const discountPackages = discountPackageData;
 
-  const handlePurchase = async (packageId: string) => {
-    try {
-      if (!accessToken) {
-        alert('登录状态已失效，请重新登录后再试');
-        onClose();
-        onLogin?.();
-        return;
-      }
-
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      };
-
-      const response = await fetch('/api/v1/payment/orders', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ package_id: packageId, quantity: 1 }),
-      });
-
-      if (response.ok) {
-        const orderData = await response.json();
-        setCurrentOrder(orderData.data);
-        setShowPaymentModal(true);
-      } else {
-        const errorData = await response.json();
-        alert(`创建订单失败: ${errorData.detail || '未知错误'}`);
-      }
-    } catch (error) {
-      console.error('购买失败:', error);
-      alert('购买失败，请稍后重试');
+  const handlePurchase = (pkg: PackageData) => {
+    if (!accessToken) {
+      alert('登录状态已失效，请重新登录后再试');
+      onClose();
+      onLogin?.();
+      return;
     }
+
+    setSelectedPackage(pkg);
+    setShowPaymentModal(true);
   };
 
   const handlePaymentSuccess = () => {
@@ -138,7 +116,7 @@ const PricingModal: React.FC<PricingModalProps> = ({
               </div>
 
               <button
-                onClick={() => handlePurchase(pkg.package_id)}
+                onClick={() => handlePurchase(pkg)}
                 className="mt-6 w-full rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 py-3 text-base font-semibold text-white shadow hover:from-blue-600 hover:to-blue-700"
               >
                 立即开通
@@ -241,9 +219,14 @@ const PricingModal: React.FC<PricingModalProps> = ({
         </div>
       </div>
 
-      {showPaymentModal && currentOrder && (
+      {showPaymentModal && selectedPackage && (
         <PaymentModal
-          orderInfo={currentOrder}
+          packageInfo={{
+            packageId: selectedPackage.package_id,
+            packageName: selectedPackage.name,
+            priceYuan: selectedPackage.price_yuan,
+            totalCredits: selectedPackage.total_credits,
+          }}
           onClose={() => setShowPaymentModal(false)}
           onPaymentSuccess={handlePaymentSuccess}
           accessToken={accessToken}

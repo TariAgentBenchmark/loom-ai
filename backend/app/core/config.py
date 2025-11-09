@@ -104,18 +104,19 @@ class Settings(BaseSettings):
     alipay_public_key: str = ""
     alipay_sandbox: bool = True
 
-    # 聚合支付配置
-    payment_gateway_base_url: str = "https://test.wsmsd.cn/sit/api/v3/ccss/counter"
-    payment_gateway_create_path: str = "/order/special_create"
-    payment_gateway_query_path: str = "/order/query"
-    payment_gateway_version: str = "3.0"
-    payment_gateway_merchant_no: str = ""
-    payment_gateway_channel_id: Optional[str] = None
-    payment_gateway_vpos_id: Optional[str] = None
-    payment_gateway_notify_url: Optional[str] = None
-    payment_gateway_callback_url: Optional[str] = None
-    payment_gateway_sign_key: Optional[str] = None
-    payment_gateway_timeout_seconds: int = 10
+    # 拉卡拉单笔交易API（Micropay）配置
+    lakala_api_base_url: str = "https://test.wsmsd.cn/sit"
+    lakala_api_schema: str = "LKLAPI-SHA256withRSA"
+    lakala_api_version: str = "3.0"
+    lakala_app_id: str = "OP00000003"
+    lakala_serial_no: str = "00dfba8194c41b84cf"
+    lakala_merchant_no: str = "82229007392000A"
+    lakala_term_no: str = "D9296400"
+    lakala_private_key_path: str = "./assets/OP00000003_private_key.pem"
+    lakala_certificate_path: str = "./assets/lkl-apigw-v2.cer"
+    lakala_notify_certificate_path: Optional[str] = "./assets/OP00000003_cert.cer"
+    lakala_sm4_key: Optional[str] = "LHo55AjrT4aDhAIBZhb5KQ=="
+    lakala_default_timeout: int = 10
 
     # 基础URL配置
     base_url: str = "http://localhost:8000"

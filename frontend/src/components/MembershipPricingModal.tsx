@@ -35,7 +35,7 @@ const MembershipPricingModal: React.FC<MembershipPricingModalProps> = ({ onClose
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [currentOrder, setCurrentOrder] = useState<any>(null);
+  const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
 
   const fetchPackages = useCallback(async () => {
     try {
@@ -64,46 +64,16 @@ const MembershipPricingModal: React.FC<MembershipPricingModalProps> = ({ onClose
   const membershipPackages = packages.filter(pkg => pkg.category === 'membership');
   const discountPackages = packages.filter(pkg => pkg.category === 'discount');
 
-  const handlePurchase = async (packageId: string) => {
-    try {
-      console.log('开始购买套餐:', packageId);
-
-      if (!accessToken) {
-        alert('登录状态已失效，请重新登录后再试');
-        onClose();
-        onLogin?.();
-        return;
-      }
-
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      };
-
-      // 创建订单
-      const response = await fetch('/api/v1/payment/orders', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          package_id: packageId,
-          quantity: 1
-        }),
-      });
-
-      if (response.ok) {
-        const orderData = await response.json();
-        console.log('订单创建成功:', orderData);
-
-        setCurrentOrder(orderData.data);
-        setShowPaymentModal(true);
-      } else {
-        const errorData = await response.json();
-        alert(`创建订单失败: ${errorData.detail || '未知错误'}`);
-      }
-    } catch (error) {
-      console.error('购买失败:', error);
-      alert('购买失败，请稍后重试');
+  const handlePurchase = (pkg: Package) => {
+    if (!accessToken) {
+      alert('登录状态已失效，请重新登录后再试');
+      onClose();
+      onLogin?.();
+      return;
     }
+
+    setSelectedPackage(pkg);
+    setShowPaymentModal(true);
   };
 
   const handlePaymentSuccess = () => {
@@ -195,7 +165,7 @@ const MembershipPricingModal: React.FC<MembershipPricingModalProps> = ({ onClose
                     </div>
 
                     <button
-                      onClick={() => handlePurchase(pkg.package_id)}
+                      onClick={() => handlePurchase(pkg)}
                       className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium mb-4 transition"
                     >
                       立即购买
@@ -246,7 +216,7 @@ const MembershipPricingModal: React.FC<MembershipPricingModalProps> = ({ onClose
                     </div>
 
                     <button
-                      onClick={() => handlePurchase(pkg.package_id)}
+                      onClick={() => handlePurchase(pkg)}
                       className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium mb-4 transition"
                     >
                       立即购买
@@ -278,9 +248,14 @@ const MembershipPricingModal: React.FC<MembershipPricingModalProps> = ({ onClose
       </div>
 
       {/* 支付弹窗 */}
-      {showPaymentModal && currentOrder && (
+      {showPaymentModal && selectedPackage && (
         <PaymentModal
-          orderInfo={currentOrder}
+          packageInfo={{
+            packageId: selectedPackage.package_id,
+            packageName: selectedPackage.name,
+            priceYuan: selectedPackage.price_yuan,
+            totalCredits: selectedPackage.total_credits,
+          }}
           onClose={() => setShowPaymentModal(false)}
           onPaymentSuccess={handlePaymentSuccess}
           accessToken={accessToken}

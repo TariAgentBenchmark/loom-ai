@@ -1,109 +1,117 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 
 interface PaymentModalProps {
-  orderInfo: {
-    order_id: string;
-    package_name: string;
-    final_amount: number;
-    payment_method?: string;
-    pay_order_no?: string;
-    payment_url?: string;
-    qr_code_url?: string;
-    expires_at: string;
+  packageInfo: {
+    packageId: string;
+    packageName: string;
+    priceYuan: number;
+    totalCredits?: number;
   };
   onClose: () => void;
   onPaymentSuccess: () => void;
   accessToken?: string;
 }
 
+type PaymentStatus = 'idle' | 'processing' | 'success' | 'failed';
+
+const generateTradeNo = () =>
+  `WEB${Date.now()}${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+
 const PaymentModal: React.FC<PaymentModalProps> = ({
-  orderInfo,
+  packageInfo,
   onClose,
   onPaymentSuccess,
   accessToken,
 }) => {
-  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'success' | 'failed'>('pending');
-  const [isChecking, setIsChecking] = useState(false);
+  const [authCode, setAuthCode] = useState('135178236713755038');
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('idle');
+  const [resultMessage, setResultMessage] = useState<string>('');
+  const [responseData, setResponseData] = useState<any>(null);
+  const [tradeNo, setTradeNo] = useState(generateTradeNo());
 
-  const handlePayment = () => {
-    if (orderInfo.payment_url) {
-      // 打开支付页面
-      window.open(orderInfo.payment_url, '_blank');
+  const amountInFen = useMemo(
+    () => Math.round(packageInfo.priceYuan * 100),
+    [packageInfo.priceYuan]
+  );
 
-      // 开始轮询检查支付状态
-      startPaymentPolling();
+  const handleMicropay = async () => {
+    if (!authCode.trim()) {
+      alert('请输入拉卡拉扫码枪获得的付款码（auth_code）');
+      return;
     }
-  };
 
-  const startPaymentPolling = () => {
-    setIsChecking(true);
+    setPaymentStatus('processing');
+    setResultMessage('');
+    setResponseData(null);
 
-    const checkInterval = setInterval(async () => {
-      try {
-        const headers = accessToken
-          ? { Authorization: `Bearer ${accessToken}` }
-          : undefined;
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`;
+    }
 
-        const response = await fetch(`/api/v1/payment/orders/${orderInfo.order_id}`, {
-          headers,
-        });
-        if (!response.ok) {
-          if ([401, 403].includes(response.status)) {
-            setPaymentStatus('failed');
-            clearInterval(checkInterval);
-            setIsChecking(false);
-          }
-          return;
-        }
+    const freshTradeNo = generateTradeNo();
+    setTradeNo(freshTradeNo);
 
-        const data = await response.json();
+    const reqData = {
+      out_trade_no: freshTradeNo,
+      out_order_no: `${freshTradeNo}_${packageInfo.packageId}`,
+      auth_code: authCode.trim(),
+      total_amount: String(amountInFen),
+      location_info: {
+        request_ip:
+          typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1',
+        location: '+37.123456789,-121.123456789',
+      },
+    };
 
-        if (data.data.status === 'paid') {
-          setPaymentStatus('success');
-          clearInterval(checkInterval);
-          setIsChecking(false);
+    try {
+      const response = await fetch('/api/v1/payment/lakala/micropay', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ req_data: reqData }),
+      });
 
-          // 延迟关闭并触发成功回调
-          setTimeout(() => {
-            onPaymentSuccess();
-            onClose();
-          }, 2000);
-        }
-      } catch (error) {
-        console.error('检查支付状态失败:', error);
+      const data = await response.json().catch(() => ({}));
+      setResponseData(data);
+
+      if (!response.ok) {
+        throw new Error(data.detail || data.message || '请求失败');
       }
-    }, 3000); // 每3秒检查一次
 
-    // 30分钟后停止检查
-    setTimeout(() => {
-      clearInterval(checkInterval);
-      setIsChecking(false);
-    }, 30 * 60 * 1000);
-  };
-
-  const formatAmount = (amount: number) => {
-    return `¥${(amount / 100).toLocaleString()}`;
-  };
-
-  const getPaymentMethodName = (method: string) => {
-    switch (method) {
-      case 'lakala_counter':
-        return '聚合收银台';
-      default:
-        return method;
+      const code = (data.code || '').toString().toUpperCase();
+      if (code === 'SUCCESS' || code === '000000') {
+        setPaymentStatus('success');
+        setResultMessage('支付成功，积分已到账。');
+        onPaymentSuccess();
+      } else {
+        setPaymentStatus('failed');
+        setResultMessage(data.msg || '支付失败，请重试');
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : '支付失败，请重试';
+      setPaymentStatus('failed');
+      setResultMessage(message);
     }
   };
+
+  const formatPrice = (value: number) => `¥${value.toLocaleString()}`;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900">
-              {paymentStatus === 'success' ? '支付成功' : '订单支付'}
-            </h2>
+        <div className="p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">{packageInfo.packageName}</h2>
+              <p className="text-sm text-gray-500">
+                套餐价格：{formatPrice(packageInfo.priceYuan)} · 最终扣款：¥{(amountInFen / 100).toFixed(2)}
+              </p>
+            </div>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 text-2xl font-light"
@@ -112,88 +120,53 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
             </button>
           </div>
 
-          {paymentStatus === 'pending' && (
-            <>
-              <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-gray-900 mb-2">
-                    {formatAmount(orderInfo.final_amount)}
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {orderInfo.package_name}
-                  </div>
-                </div>
-              </div>
+          <div className="space-y-4">
+            <label className="block text-sm font-medium text-gray-700">
+              付款码（auth_code）
+              <input
+                type="text"
+                value={authCode}
+                onChange={(e) => setAuthCode(e.target.value)}
+                placeholder="请扫描顾客付款码后填写"
+                className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 focus:border-blue-500 focus:outline-none"
+              />
+            </label>
 
-              <div className="space-y-4">
-                {orderInfo.qr_code_url && (
-                  <div className="text-center">
-                    <div className="text-sm text-gray-600 mb-2">
-                      请使用{getPaymentMethodName(orderInfo.payment_method || 'lakala_counter')}扫描二维码
-                    </div>
-                    <img
-                      src={orderInfo.qr_code_url}
-                      alt="支付二维码"
-                      className="mx-auto w-48 h-48 border border-gray-200 rounded-lg"
-                    />
-                  </div>
-                )}
-
-                <div className="text-center">
-                  <button
-                    onClick={handlePayment}
-                    disabled={isChecking}
-                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white py-3 rounded-lg font-medium transition"
-                  >
-                    {isChecking ? '正在检查支付状态...' : '跳转至收银台支付'}
-                  </button>
-                </div>
-
-                <div className="text-xs text-gray-500 text-center">
-                  支付页面将在新窗口打开，如未跳转请检查浏览器弹窗拦截。
-                </div>
-
-                <div className="text-xs text-gray-500 text-center">
-                  订单将在 {new Date(orderInfo.expires_at).toLocaleString()} 过期
-                </div>
-                {orderInfo.pay_order_no && (
-                  <div className="text-xs text-gray-500 text-center">
-                    平台订单号：{orderInfo.pay_order_no}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-
-          {paymentStatus === 'success' && (
-            <div className="text-center py-8">
-              <div className="text-green-500 text-6xl mb-4">✓</div>
-              <div className="text-xl font-bold text-gray-900 mb-2">
-                支付成功！
-              </div>
-              <div className="text-gray-600">
-                套餐已激活，积分已到账
-              </div>
+            <div className="text-xs text-gray-500">
+              当前订单号：{tradeNo}
             </div>
-          )}
 
-          {paymentStatus === 'failed' && (
-            <div className="text-center py-8">
-              <div className="text-red-500 text-6xl mb-4">✗</div>
-              <div className="text-xl font-bold text-gray-900 mb-2">
-                支付失败
-              </div>
-              <div className="text-gray-600 mb-4">
-                请重试或联系客服
-              </div>
-              <button
-                onClick={handlePayment}
-                className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-medium"
+            <button
+              onClick={handleMicropay}
+              disabled={paymentStatus === 'processing'}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white py-3 rounded-lg font-medium transition"
+            >
+              {paymentStatus === 'processing' ? '支付处理中...' : '立即发起支付'}
+            </button>
+
+            {resultMessage && (
+              <div
+                className={`rounded-lg px-3 py-2 text-sm ${
+                  paymentStatus === 'success'
+                    ? 'bg-green-50 text-green-700'
+                    : paymentStatus === 'failed'
+                      ? 'bg-red-50 text-red-600'
+                      : 'bg-blue-50 text-blue-600'
+                }`}
               >
-                重新支付
-              </button>
-            </div>
-          )}
+                {resultMessage}
+              </div>
+            )}
+
+            {responseData && (
+              <div className="rounded-lg bg-gray-50 p-3 text-xs text-gray-600 max-h-60 overflow-auto">
+                <div className="font-semibold text-gray-800 mb-1">拉卡拉返回</div>
+                <pre className="whitespace-pre-wrap break-all">
+                  {JSON.stringify(responseData, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
