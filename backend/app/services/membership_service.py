@@ -31,6 +31,39 @@ class MembershipService:
             "updated_at": service.updated_at.isoformat() if service.updated_at else None,
         }
 
+    def _ensure_service_prices_seeded(
+        self,
+        db: Session,
+        target_service_key: Optional[str] = None,
+    ) -> None:
+        """
+        确保默认的服务价格已经写入数据库。
+        线上数据库初始化后新增的服务（如平面转3D）不会自动插入，需要在读取前兜底一次。
+        """
+        base_configs = get_service_prices()
+        if target_service_key:
+            base_configs = [cfg for cfg in base_configs if cfg["service_key"] == target_service_key]
+
+        if not base_configs:
+            return
+
+        keys_to_check = [cfg["service_key"] for cfg in base_configs]
+        existing_rows = (
+            db.query(ServicePrice.service_key)
+            .filter(ServicePrice.service_key.in_(keys_to_check))
+            .all()
+        )
+        existing_keys = {row[0] for row in existing_rows}
+        missing_configs = [cfg for cfg in base_configs if cfg["service_key"] not in existing_keys]
+
+        if not missing_configs:
+            return
+
+        for config in missing_configs:
+            db.add(ServicePrice(**config))
+
+        db.commit()
+
     async def initialize_packages(self, db: Session):
         """初始化套餐数据"""
         # 检查是否已有数据
@@ -90,6 +123,8 @@ class MembershipService:
 
     async def get_service_prices(self, db: Session, include_inactive: bool = False) -> List[Dict[str, Any]]:
         """获取所有服务价格"""
+        self._ensure_service_prices_seeded(db)
+
         query = db.query(ServicePrice)
         if not include_inactive:
             query = query.filter(ServicePrice.active == True)
@@ -99,6 +134,8 @@ class MembershipService:
 
     async def get_service_price(self, db: Session, service_key: str) -> Optional[float]:
         """获取特定服务价格"""
+        self._ensure_service_prices_seeded(db, service_key)
+
         service = db.query(ServicePrice).filter(
             and_(
                 ServicePrice.service_key == service_key,
