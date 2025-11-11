@@ -239,20 +239,6 @@ const HomeView: React.FC<HomeViewProps> = ({
                             </div>
                           </div>
                           
-                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                            <div className="flex items-start space-x-3">
-                              <div className="flex-shrink-0">
-                                <div className="h-8 w-8 bg-yellow-500 rounded-full flex items-center justify-center">
-                                  <span className="text-white text-sm font-medium">提</span>
-                                </div>
-                              </div>
-                              <div className="flex-1">
-                                <p className="text-sm font-medium text-gray-900">使用提示</p>
-                                <p className="text-xs text-gray-600 mt-1">上传前先裁剪图片，可节省20%积分消耗。</p>
-                                <p className="text-xs text-gray-500 mt-2">1小时前</p>
-                              </div>
-                            </div>
-                          </div>
                         </div>
                       </div>
                       <div className="p-3 border-t border-gray-200 text-center">
