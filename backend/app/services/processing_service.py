@@ -12,6 +12,7 @@ from app.services.credit_service import CreditService
 from app.services.file_service import FileService
 from app.services.membership_service import MembershipService
 from app.services.credit_math import to_decimal, to_float
+from app.utils.result_filter import filter_result_lists
 
 logger = logging.getLogger(__name__)
 
@@ -204,7 +205,13 @@ class ProcessingService:
                 processing_time = int((datetime.utcnow() - start_time).total_seconds())
                 
                 # 检查是否是多张图片（烫画/胸前花类型）
-                result_urls = result_url.split(",") if "," in result_url else [result_url]
+                if "," in result_url:
+                    result_urls = [url.strip() for url in result_url.split(",") if url.strip()]
+                else:
+                    result_urls = [result_url.strip()]
+                result_urls, _ = filter_result_lists(task.type, result_urls)
+                if not result_urls:
+                    raise Exception("未获取到有效的处理结果")
                 
                 # 处理所有结果图片
                 final_result_urls = []

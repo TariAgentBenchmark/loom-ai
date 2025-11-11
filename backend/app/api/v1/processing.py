@@ -5,6 +5,11 @@ from typing import Optional
 import os
 
 from app.utils.downloads import build_download_filename
+from app.utils.result_filter import (
+    filter_result_lists,
+    filter_result_strings,
+    split_and_clean_csv,
+)
 
 from app.core.database import get_db
 from app.models.user import User
@@ -646,9 +651,16 @@ async def get_task_status(
         
         # 如果任务完成，包含结果信息
         if task.is_completed and task.result_image_url:
+            filtered_urls, _ = filter_result_strings(
+                task.type,
+                task.result_image_url,
+                task.result_filename,
+            )
+            processed_value = ",".join(filtered_urls) if filtered_urls else task.result_image_url
+
             response_data["result"] = {
                 "originalImage": task.original_image_url,
-                "processedImage": task.result_image_url,
+                "processedImage": processed_value,
                 "fileSize": task.result_file_size,
                 "dimensions": task.result_dimensions
             }
@@ -696,26 +708,32 @@ async def download_result(
         db.commit()
         
         # 检查是否有多个文件（逗号分隔）
-        file_urls = task.result_image_url.split(',')
-        filenames = task.result_filename.split(',')
+        file_urls = split_and_clean_csv(task.result_image_url)
+        filenames = split_and_clean_csv(task.result_filename)
+        filtered_urls, filtered_filenames = filter_result_lists(task.type, file_urls, filenames)
+
+        if not filtered_urls:
+            raise HTTPException(status_code=404, detail="结果文件不存在")
         
         from app.services.file_service import FileService
         file_service = FileService()
         
-        if len(file_urls) > 1:
+        if len(filtered_urls) > 1:
             # 多个文件，返回ZIP压缩包
             import zipfile
             import tempfile
             
             with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_file:
                 with zipfile.ZipFile(temp_file.name, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-                    for i, (url, fname) in enumerate(zip(file_urls, filenames)):
-                        url = url.strip()
-                        fname = fname.strip()
-                        file_path = file_service.get_file_path(url)
-                        
+                    for index, url in enumerate(filtered_urls):
+                        clean_url = url.strip()
+                        file_path = file_service.get_file_path(clean_url)
                         if os.path.exists(file_path):
-                            # 添加文件到ZIP，使用原始文件名
+                            fname = None
+                            if filtered_filenames and index < len(filtered_filenames):
+                                fname = filtered_filenames[index].strip()
+                            if not fname:
+                                fname = os.path.basename(file_path)
                             zip_file.write(file_path, fname)
                 
                 download_name = build_download_filename(None, "zip")
@@ -726,12 +744,13 @@ async def download_result(
                 )
         else:
             # 单个文件
-            file_path = file_service.get_file_path(task.result_image_url)
+            file_path = file_service.get_file_path(filtered_urls[0])
             
             if not os.path.exists(file_path):
                 raise HTTPException(status_code=404, detail="文件不存在")
             
-            download_name = build_download_filename(task.result_filename)
+            filename_value = (filtered_filenames or [task.result_filename or "result.png"])[0]
+            download_name = build_download_filename(filename_value)
             if download_name == "tuyun":
                 download_name = build_download_filename(file_path)
 
@@ -884,9 +903,26 @@ async def batch_download(
             with zipfile.ZipFile(temp_file.name, 'w') as zip_file:
                 for task in tasks:
                     try:
-                        file_path = file_service.get_file_path(task.result_image_url)
-                        if os.path.exists(file_path):
-                            zip_file.write(file_path, task.result_filename)
+                        urls = split_and_clean_csv(task.result_image_url)
+                        filenames = split_and_clean_csv(task.result_filename)
+                        filtered_urls, filtered_filenames = filter_result_lists(
+                            task.type,
+                            urls,
+                            filenames,
+                        )
+                        if not filtered_urls:
+                            continue
+                        for index, url in enumerate(filtered_urls):
+                            file_path = file_service.get_file_path(url)
+                            if os.path.exists(file_path):
+                                name = None
+                                if filtered_filenames and index < len(filtered_filenames):
+                                    name = filtered_filenames[index]
+                                elif task.result_filename:
+                                    name = task.result_filename
+                                else:
+                                    name = os.path.basename(file_path)
+                                zip_file.write(file_path, name)
                     except Exception as e:
                         continue  # 跳过有问题的文件
             

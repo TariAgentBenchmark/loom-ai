@@ -13,6 +13,11 @@ from app.api.dependencies import get_current_user
 from app.schemas.common import SuccessResponse
 from app.services.credit_math import to_float
 from app.utils.downloads import build_download_filename
+from app.utils.result_filter import (
+    filter_result_lists,
+    filter_result_strings,
+    split_and_clean_csv,
+)
 
 router = APIRouter()
 
@@ -86,9 +91,14 @@ async def get_history_tasks(
             
             # 如果有结果图片，添加结果信息
             if task.result_image_url:
+                filtered_urls, filtered_filenames = filter_result_strings(
+                    task.type,
+                    task.result_image_url,
+                    task.result_filename,
+                )
                 formatted_task["resultImage"] = {
-                    "url": task.result_image_url,
-                    "filename": task.result_filename,
+                    "url": ",".join(filtered_urls) if filtered_urls else task.result_image_url,
+                    "filename": ",".join(filtered_filenames) if filtered_filenames else task.result_filename,
                     "size": task.result_file_size,
                     "dimensions": task.result_dimensions
                 }
@@ -153,6 +163,29 @@ async def get_task_detail(
         if not task:
             raise HTTPException(status_code=404, detail="任务不存在")
         
+        result_image_payload = None
+        if task.result_image_url:
+            filtered_urls, filtered_filenames = filter_result_strings(
+                task.type,
+                task.result_image_url,
+                task.result_filename,
+            )
+            filename_value = (
+                ",".join(filtered_filenames) if filtered_filenames else task.result_filename
+            )
+            first_filename = (
+                filtered_filenames[0]
+                if filtered_filenames and filtered_filenames[0]
+                else task.result_filename
+            )
+            result_image_payload = {
+                "url": ",".join(filtered_urls) if filtered_urls else task.result_image_url,
+                "filename": filename_value,
+                "size": task.result_file_size,
+                "format": first_filename.split(".")[-1].lower() if first_filename else None,
+                "dimensions": task.result_dimensions
+            }
+
         return SuccessResponse(
             data={
                 "taskId": task.task_id,
@@ -167,13 +200,7 @@ async def get_task_detail(
                     "dimensions": task.original_dimensions,
                     "uploadedAt": _to_beijing_isoformat(task.created_at)
                 },
-                "resultImage": {
-                    "url": task.result_image_url,
-                    "filename": task.result_filename,
-                    "size": task.result_file_size,
-                    "format": task.result_filename.split('.')[-1].lower() if task.result_filename else None,
-                    "dimensions": task.result_dimensions
-                } if task.result_image_url else None,
+                "resultImage": result_image_payload,
                 "options": task.options,
                 "metadata": task.extra_metadata,
                 "creditsUsed": to_float(task.credits_used),
@@ -220,25 +247,32 @@ async def download_task_file(
         if file_type == "original":
             if not task.original_image_url:
                 raise HTTPException(status_code=404, detail="原图文件不存在")
-            
-            file_url = task.original_image_url
-            filename = task.original_filename
+            file_urls = [task.original_image_url]
+            filenames = [task.original_filename]
         elif file_type == "result":
             if not task.result_image_url:
                 raise HTTPException(status_code=404, detail="结果文件不存在")
-            
-            file_url = task.result_image_url
-            filename = task.result_filename
+            raw_urls = split_and_clean_csv(task.result_image_url)
+            raw_filenames = split_and_clean_csv(task.result_filename)
+            filtered_urls, filtered_filenames = filter_result_lists(
+                task.type,
+                raw_urls,
+                raw_filenames,
+            )
+            if not filtered_urls:
+                raise HTTPException(status_code=404, detail="结果文件不存在")
+            file_urls = filtered_urls
+            if filtered_filenames:
+                filenames = filtered_filenames
+            else:
+                fallback_name = task.result_filename or "result.png"
+                filenames = [fallback_name] * len(filtered_urls)
         else:
             raise HTTPException(status_code=400, detail="无效的文件类型")
         
         # 增加下载次数
         task.increment_download_count()
         db.commit()
-        
-        # 检查是否有多个文件（逗号分隔）
-        file_urls = file_url.split(',')
-        filenames = filename.split(',')
         
         from app.services.file_service import FileService
         file_service = FileService()
@@ -250,14 +284,14 @@ async def download_task_file(
             
             with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_file:
                 with zipfile.ZipFile(temp_file.name, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-                    for i, (url, fname) in enumerate(zip(file_urls, filenames)):
-                        url = url.strip()
-                        fname = fname.strip()
-                        file_path = file_service.get_file_path(url)
+                    for url, fname in zip(file_urls, filenames):
+                        clean_url = url.strip()
+                        clean_fname = fname.strip()
+                        file_path = file_service.get_file_path(clean_url)
                         
                         if os.path.exists(file_path):
                             # 添加文件到ZIP，使用原始文件名
-                            zip_file.write(file_path, fname)
+                            zip_file.write(file_path, clean_fname or os.path.basename(file_path))
                 
                 download_name = build_download_filename(None, "zip")
                 return FileResponse(
@@ -267,12 +301,12 @@ async def download_task_file(
                 )
         else:
             # 单个文件
-            file_path = file_service.get_file_path(file_url)
+            file_path = file_service.get_file_path(file_urls[0])
             
             if not os.path.exists(file_path):
                 raise HTTPException(status_code=404, detail="文件不存在")
             
-            download_name = build_download_filename(filename)
+            download_name = build_download_filename(filenames[0])
             if download_name == "tuyun":
                 download_name = build_download_filename(file_path)
 
