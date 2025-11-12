@@ -356,6 +356,7 @@ export default function Home() {
         clearInterval(currentPoller);
         pollingRef.current = null;
         setCurrentTaskId(null);
+        setHistoryRefreshToken((token) => token + 1);
       }
     },
     [hydrateAccount, accessToken],
@@ -460,6 +461,7 @@ export default function Home() {
       .then((response) => {
         const task = response.data;
         setCurrentTaskId(task.taskId);
+        setHistoryRefreshToken((token) => token + 1);
 
         const poller = setInterval(() => {
           getProcessingStatus(task.taskId, accessToken)
