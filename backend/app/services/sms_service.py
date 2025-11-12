@@ -35,7 +35,6 @@ class SMSService:
                 sign_name=self.sign_name,
                 template_code=self.template_code,
                 region_id=self.region_id,
-                duplicate_policy_minutes=self.code_valid_minutes,
             )
     
     def generate_verification_code(self) -> str:

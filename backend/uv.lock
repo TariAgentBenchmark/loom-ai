@@ -167,8 +167,8 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/a0/87/1d7019d23891897cb076b2f7e3c81ab3c2ba91de3bb067196f675d60d34c/alibabacloud-credentials-api-1.0.0.tar.gz", hash = "sha256:8c340038d904f0218d7214a8f4088c31912bfcf279af2cbc7d9be4897a97dd2f", size = 2330 }
 
 [[package]]
-name = "alibabacloud-dypnsapi20170525"
-version = "2.0.0"
+name = "alibabacloud-dysmsapi20170525"
+version = "4.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "alibabacloud-endpoint-util" },
@@ -176,9 +176,9 @@ dependencies = [
     { name = "alibabacloud-tea-openapi" },
     { name = "alibabacloud-tea-util" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d6/9e/955d69a85b3b9e6675a141f9df779d883bd5b62c14bfe455d3a5c666d013/alibabacloud_dypnsapi20170525-2.0.0.tar.gz", hash = "sha256:30a9259a4172c9dfbdd4eb1c94a8c1e002903c3cd621985ebef0469b6e5dc7a0", size = 24038 }
+sdist = { url = "https://files.pythonhosted.org/packages/61/d4/f0ba44105ff31c55ed77efd6c12150bc568d3bf9cacbb5986418e9404a0c/alibabacloud_dysmsapi20170525-4.2.0.tar.gz", hash = "sha256:933045e6f9cf48d60ff297be1857a32949b48e4a116722259f49be0927e5489e", size = 74887 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/57/74/e6b05f16495071367eb2181a0cf6fd588485bc96662a3038803f17bda911/alibabacloud_dypnsapi20170525-2.0.0-py3-none-any.whl", hash = "sha256:59fe474f2356e65c453ef4b235bd0fbf2827f2971196fbcbb8bb2769610507dd", size = 22797 },
+    { url = "https://files.pythonhosted.org/packages/9a/14/4dfc0a3ff3d0a2b062464d5417bd372945994f1faf56ee45724021611855/alibabacloud_dysmsapi20170525-4.2.0-py3-none-any.whl", hash = "sha256:06708d9f75dc9da390cd6dc327f3c739b2dc6924787dc62e1bfe946eca17cf63", size = 74209 },
 ]
 
 [[package]]
@@ -975,7 +975,7 @@ dependencies = [
     { name = "aiofiles" },
     { name = "alembic" },
     { name = "alibabacloud-credentials" },
-    { name = "alibabacloud-dypnsapi20170525" },
+    { name = "alibabacloud-dysmsapi20170525" },
     { name = "alibabacloud-tea-openapi" },
     { name = "alibabacloud-tea-util" },
     { name = "boto3" },
@@ -1006,7 +1006,7 @@ requires-dist = [
     { name = "aiofiles", specifier = ">=23.2.1" },
     { name = "alembic", specifier = ">=1.13.0" },
     { name = "alibabacloud-credentials", specifier = ">=0.3.4" },
-    { name = "alibabacloud-dypnsapi20170525", specifier = ">=1.0.4" },
+    { name = "alibabacloud-dysmsapi20170525", specifier = ">=2.0.0" },
     { name = "alibabacloud-tea-openapi", specifier = ">=0.3.10" },
     { name = "alibabacloud-tea-util", specifier = ">=0.3.11" },
     { name = "boto3", specifier = ">=1.34.0" },

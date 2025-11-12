@@ -140,8 +140,8 @@ class Settings(BaseSettings):
             "ALIBABA_CLOUD_ACCESS_KEY_SECRET",
         ),
     )
-    sms_sign_name: str = "LoomAI"
-    sms_template_code: str = "SMS_123456789"
+    sms_sign_name: str = "广州阳羚科技"
+    sms_template_code: str = "SMS_498205525"
     sms_region: str = "cn-hangzhou"
     sms_mock_enabled: bool = False
     sms_code_valid_minutes: int = 5
