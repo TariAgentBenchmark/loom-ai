@@ -66,6 +66,12 @@ class Settings(BaseSettings):
     runninghub_workflow_id_positioning: str = ""
     runninghub_positioning_node_id: str = "78"
     runninghub_positioning_field_name: str = "image"
+    runninghub_workflow_id_rh_double_1480: str = ""
+    runninghub_rh_double_1480_node_id: str = "130,183"
+    runninghub_rh_double_1480_field_name: str = "image"
+    runninghub_workflow_id_rh_double_1800: str = ""
+    runninghub_rh_double_1800_node_id: str = "130,183"
+    runninghub_rh_double_1800_field_name: str = "image"
     runninghub_poll_interval_seconds: int = 5
     runninghub_poll_timeout_seconds: int = 600
 

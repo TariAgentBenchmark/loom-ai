@@ -192,6 +192,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   const [showImagePreview, setShowImagePreview] = useState(false);
   const [processedImagePreview, setProcessedImagePreview] = useState<{url: string, filename: string} | null>(null);
   const [isDownloadingResult, setIsDownloadingResult] = useState(false);
+  const [selectedResultIndex, setSelectedResultIndex] = useState(0);
   const isPromptReady = method !== 'prompt_edit' || Boolean(promptInstruction?.trim());
   const isActionDisabled = !hasUploadedImage || isProcessing || !isPromptReady;
   const [serviceCredits, setServiceCredits] = useState<number | null>(null);
@@ -385,6 +386,10 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
       isMounted = false;
     };
   }, [method, accessToken]);
+
+  useEffect(() => {
+    setSelectedResultIndex(0);
+  }, [processedImage, method, patternType]);
 
   const handlePromptTemplateSelect = (template: string) => {
     if (onPromptInstructionChange) {
@@ -1007,9 +1012,94 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
             ) : processedImage ? (
               <div className="text-center w-full h-full flex flex-col items-center justify-center">
                 {(() => {
-                  const imageUrls = processedImage.split(',');
+                  const imageUrls = processedImage
+                    .split(',')
+                    .map((value) => value.trim())
+                    .filter(Boolean);
+                  const useGeneralGallery =
+                    method === 'extract_pattern' &&
+                    patternType === 'general' &&
+                    imageUrls.length > 0;
+
+                  if (useGeneralGallery) {
+                    const galleryUrls = imageUrls.slice(0, 5);
+                    const safeIndex = Math.min(
+                      Math.max(selectedResultIndex, 0),
+                      galleryUrls.length - 1
+                    );
+                    const activeUrl = galleryUrls[safeIndex];
+
+                    return (
+                      <div className="flex flex-col md:flex-row gap-4 md:gap-6 w-full max-w-5xl">
+                        <div className="flex md:flex-col gap-2 md:w-36 w-full md:flex-none overflow-x-auto md:overflow-visible">
+                          {galleryUrls.map((url, index) => {
+                            const isActive = index === safeIndex;
+                            return (
+                              <button
+                                key={url + index}
+                                type="button"
+                                onClick={() => setSelectedResultIndex(index)}
+                                className={`flex flex-col items-center rounded-lg border px-2 py-2 text-xs md:text-sm transition ${
+                                  isActive
+                                    ? 'border-blue-500 bg-blue-50 shadow-sm'
+                                    : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                                }`}
+                                title={`查看图 ${index + 1}`}
+                              >
+                                <div className="w-20 h-28 md:w-24 md:h-32 rounded-md overflow-hidden border border-dashed border-gray-200 bg-white flex items-center justify-center mb-1">
+                                  <img
+                                    src={resolveFileUrl(url)}
+                                    alt={`图 ${index + 1} 缩略图`}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                                <span className="font-medium text-gray-700">图 {index + 1}</span>
+                                <span className="text-[10px] text-gray-400">缩略图</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <div className="flex-1 flex flex-col items-center gap-4">
+                          <div className="relative group w-full flex justify-center">
+                            <img
+                              src={resolveFileUrl(activeUrl)}
+                              alt={`处理结果图 ${safeIndex + 1}`}
+                              className="max-w-full max-h-[65vh] w-auto h-auto object-contain rounded-xl border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+                              onClick={() => handleProcessedImagePreview(activeUrl, safeIndex)}
+                            />
+                            <button
+                              onClick={() => handleProcessedImagePreview(activeUrl, safeIndex)}
+                              className="absolute top-2 right-2 p-2 bg-black bg-opacity-50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-opacity-70"
+                              title="放大查看"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                          </div>
+                          <div className="flex flex-wrap items-center justify-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadSingleImage(activeUrl, safeIndex)}
+                              disabled={isDownloadingResult}
+                              className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 disabled:bg-green-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
+                            >
+                              {isDownloadingResult ? '下载中…' : `下载图 ${safeIndex + 1}`}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleBatchDownload}
+                              disabled={isDownloadingResult}
+                              className="inline-flex items-center justify-center bg-blue-500 hover:bg-blue-600 disabled:bg-blue-400 text-white px-5 py-2 rounded-lg text-sm font-medium transition shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
+                            >
+                              {isDownloadingResult ? '下载中…' : '下载全部结果'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
                   if (imageUrls.length > 1) {
-                    // 多张图片，使用网格布局
                     return (
                       <>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 md:mb-6 w-full max-w-4xl">
@@ -1017,13 +1107,13 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                             <div key={index} className="flex flex-col items-center">
                               <div className="relative group">
                                 <img
-                                  src={resolveFileUrl(url.trim())}
+                                  src={resolveFileUrl(url)}
                                   alt={`Processed ${index + 1}`}
                                   className="max-w-full max-h-[40vh] w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-lg mb-2 cursor-pointer hover:shadow-xl transition-shadow"
-                                  onClick={() => handleProcessedImagePreview(url.trim(), index)}
+                                  onClick={() => handleProcessedImagePreview(url, index)}
                                 />
                                 <button
-                                  onClick={() => handleProcessedImagePreview(url.trim(), index)}
+                                  onClick={() => handleProcessedImagePreview(url, index)}
                                   className="absolute top-2 right-2 p-2 bg-black bg-opacity-50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-opacity-70"
                                   title="放大查看"
                                 >
@@ -1032,7 +1122,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                               </div>
                               <button
                                 type="button"
-                                onClick={() => handleDownloadSingleImage(url.trim(), index)}
+                                onClick={() => handleDownloadSingleImage(url, index)}
                                 disabled={isDownloadingResult}
                                 className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 disabled:bg-green-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
                               >
@@ -1051,76 +1141,76 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                         </button>
                       </>
                     );
-                  } else {
-                    // 单张图片
-                    return (
-                      <>
-                        <div className="relative group mb-4 md:mb-6">
-                          {(() => {
-                            const resolvedUrl = resolveFileUrl(processedImage);
-                            console.log('ProcessingPage: Displaying processed image', {
-                              originalUrl: processedImage,
-                              resolvedUrl,
-                              isSvg: processedImage.toLowerCase().includes('.svg')
-                            });
-                            
-                            // 检查是否是SVG文件
-                            if (processedImage.toLowerCase().includes('.svg')) {
-                              console.log('ProcessingPage: Detected SVG file, using special handling');
-                              return (
-                                <div
-                                  className="max-w-full max-h-[60vh] md:max-h-[80vh] w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow overflow-hidden"
-                                  onClick={() => handleProcessedImagePreview(processedImage)}
-                                >
-                                  <object
-                                    data={resolvedUrl}
-                                    type="image/svg+xml"
-                                    className="w-full h-full"
-                                    style={{ maxHeight: '60vh', maxWidth: '100%' }}
-                                    onLoad={() => console.log('ProcessingPage: SVG loaded successfully')}
-                                    onError={(e) => console.error('ProcessingPage: SVG failed to load', e)}
-                                  >
-                                    <img
-                                      src={resolvedUrl}
-                                      alt="Processed"
-                                      className="w-full h-full object-contain"
-                                      onError={(e) => console.error('ProcessingPage: Fallback img also failed', e)}
-                                    />
-                                  </object>
-                                </div>
-                              );
-                            }
-                            
-                            return (
-                              <img
-                                src={resolvedUrl}
-                                alt="Processed"
-                                className="max-w-full max-h-[60vh] md:max-h-[80vh] w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
-                                onClick={() => handleProcessedImagePreview(processedImage)}
-                                onLoad={() => console.log('ProcessingPage: Image loaded successfully')}
-                                onError={(e) => console.error('ProcessingPage: Image failed to load', e)}
-                              />
-                            );
-                          })()}
-                          <button
-                            onClick={() => handleProcessedImagePreview(processedImage)}
-                            className="absolute top-2 right-2 p-2 bg-black bg-opacity-50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-opacity-70"
-                            title="放大查看"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={handleDownloadProcessedResult}
-                          disabled={isDownloadingResult}
-                          className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 disabled:bg-green-400 text-white px-6 py-2 md:px-8 md:py-3 rounded-lg md:rounded-xl font-medium transition shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
-                        >
-                          {isDownloadingResult ? '下载中…' : '下载结果'}
-                        </button>
-                      </>
-                    );
                   }
+
+                  // 单张图片
+                  return (
+                    <>
+                      <div className="relative group mb-4 md:mb-6">
+                        {(() => {
+                          const resolvedUrl = resolveFileUrl(processedImage);
+                          console.log('ProcessingPage: Displaying processed image', {
+                            originalUrl: processedImage,
+                            resolvedUrl,
+                            isSvg: processedImage.toLowerCase().includes('.svg')
+                          });
+                          
+                          // 检查是否是SVG文件
+                          if (processedImage.toLowerCase().includes('.svg')) {
+                            console.log('ProcessingPage: Detected SVG file, using special handling');
+                            return (
+                              <div
+                                className="max-w-full max-h-[60vh] md:max-h-[80vh] w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow overflow-hidden"
+                                onClick={() => handleProcessedImagePreview(processedImage)}
+                              >
+                                <object
+                                  data={resolvedUrl}
+                                  type="image/svg+xml"
+                                  className="w-full h-full"
+                                  style={{ maxHeight: '60vh', maxWidth: '100%' }}
+                                  onLoad={() => console.log('ProcessingPage: SVG loaded successfully')}
+                                  onError={(e) => console.error('ProcessingPage: SVG failed to load', e)}
+                                >
+                                  <img
+                                    src={resolvedUrl}
+                                    alt="Processed"
+                                    className="w-full h-full object-contain"
+                                    onError={(e) => console.error('ProcessingPage: Fallback img also failed', e)}
+                                  />
+                                </object>
+                              </div>
+                            );
+                          }
+                          
+                          return (
+                            <img
+                              src={resolvedUrl}
+                              alt="Processed"
+                              className="max-w-full max-h-[60vh] md:max-h-[80vh] w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+                              onClick={() => handleProcessedImagePreview(processedImage)}
+                              onLoad={() => console.log('ProcessingPage: Image loaded successfully')}
+                              onError={(e) => console.error('ProcessingPage: Image failed to load', e)}
+                            />
+                          );
+                        })()}
+                        <button
+                          onClick={() => handleProcessedImagePreview(processedImage)}
+                          className="absolute top-2 right-2 p-2 bg-black bg-opacity-50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-opacity-70"
+                          title="放大查看"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleDownloadProcessedResult}
+                        disabled={isDownloadingResult}
+                        className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 disabled:bg-green-400 text-white px-6 py-2 md:px-8 md:py-3 rounded-lg md:rounded-xl font-medium transition shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
+                      >
+                        {isDownloadingResult ? '下载中…' : '下载结果'}
+                      </button>
+                    </>
+                  );
                 })()}
               </div>
             ) : (

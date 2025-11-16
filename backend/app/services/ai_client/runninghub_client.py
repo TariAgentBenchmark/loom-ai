@@ -28,9 +28,24 @@ class RunningHubClient:
         self.poll_interval = max(1, settings.runninghub_poll_interval_seconds)
         self.poll_timeout = max(self.poll_interval, settings.runninghub_poll_timeout_seconds)
 
-    def _ensure_configured(self) -> None:
-        if not self.api_key or not self.workflow_id:
-            raise Exception("RunningHub API尚未配置，请设置API_KEY和workflowId环境变量")
+    def _ensure_configured(self, workflow_id: Optional[str] = None) -> str:
+        if not self.api_key:
+            raise Exception("RunningHub API尚未配置，请设置API_KEY环境变量")
+
+        resolved_workflow_id = (workflow_id or self.workflow_id or "").strip()
+        if not resolved_workflow_id:
+            raise Exception("RunningHub工作流尚未配置，请设置workflowId环境变量")
+
+        return resolved_workflow_id
+
+    def _parse_node_ids(self, raw_node_ids: Optional[str]) -> List[str]:
+        if not raw_node_ids:
+            raise Exception("RunningHub未配置nodeId")
+
+        nodes = [node.strip() for node in str(raw_node_ids).split(",") if node.strip()]
+        if not nodes:
+            raise Exception("RunningHub nodeId配置格式无效")
+        return nodes
 
     async def run_positioning_workflow(
         self,
@@ -39,22 +54,69 @@ class RunningHubClient:
     ) -> str:
         """Run the positioning workflow and return comma separated result URLs."""
 
-        self._ensure_configured()
+        workflow_id = self._ensure_configured()
         options = options or {}
         filename = options.get("original_filename") or "positioning.png"
 
         uploaded_name = await self._upload_file(image_bytes, filename)
+        node_ids = self._parse_node_ids(self.image_node_id)
+        field_name = (options.get("field_name") or self.image_field_name).strip()
+        if not field_name:
+            raise Exception("RunningHub缺少字段配置 field_name")
+
         node_info_list = [
             {
-                "nodeId": str(self.image_node_id),
-                "fieldName": self.image_field_name,
+                "nodeId": str(node_id),
+                "fieldName": field_name,
                 "fieldValue": uploaded_name,
             }
+            for node_id in node_ids
         ]
 
-        task_id = await self._submit_task(node_info_list)
+        task_id = await self._submit_task(node_info_list, workflow_id)
         result_urls = await self._poll_task(task_id)
         return ",".join(result_urls)
+
+    async def run_workflow_with_custom_nodes(
+        self,
+        image_bytes: bytes,
+        workflow_id: Optional[str],
+        node_ids: Optional[str],
+        field_name: Optional[str],
+        options: Optional[Dict[str, Any]] = None,
+    ) -> List[str]:
+        """
+        Run a configurable RunningHub workflow and return list of result URLs.
+
+        Args:
+            image_bytes: 待处理图片字节
+            workflow_id: RunningHub工作流ID
+            node_ids: 节点ID，支持以逗号分隔多个
+            field_name: 节点字段名称
+            options: 额外参数（目前用于读取原始文件名）
+        """
+
+        resolved_workflow_id = self._ensure_configured(workflow_id)
+        resolved_node_ids = self._parse_node_ids(node_ids or self.image_node_id)
+        resolved_field_name = (field_name or self.image_field_name).strip()
+        if not resolved_field_name:
+            raise Exception("RunningHub缺少字段配置 field_name")
+
+        options = options or {}
+        filename = options.get("original_filename") or "runninghub.png"
+
+        uploaded_name = await self._upload_file(image_bytes, filename)
+        node_info_list = [
+            {
+                "nodeId": str(node_id),
+                "fieldName": resolved_field_name,
+                "fieldValue": uploaded_name,
+            }
+            for node_id in resolved_node_ids
+        ]
+
+        task_id = await self._submit_task(node_info_list, resolved_workflow_id)
+        return await self._poll_task(task_id)
 
     async def _upload_file(self, image_bytes: bytes, filename: str) -> str:
         url = f"{self.base_url}/task/openapi/upload"
@@ -76,11 +138,11 @@ class RunningHubClient:
             raise Exception("RunningHub上传响应缺少fileName")
         return file_name
 
-    async def _submit_task(self, node_info_list: List[Dict[str, Any]]) -> str:
+    async def _submit_task(self, node_info_list: List[Dict[str, Any]], workflow_id: str) -> str:
         url = f"{self.base_url}/task/openapi/create"
         payload = {
             "apiKey": self.api_key,
-            "workflowId": self.workflow_id,
+            "workflowId": workflow_id,
             "nodeInfoList": node_info_list,
         }
 
