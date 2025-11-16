@@ -1021,6 +1021,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                     patternType === 'general' &&
                     imageUrls.length > 0;
 
+                  const shouldOffsetPreview = Boolean(successMessage && !errorMessage);
                   if (useGeneralGallery) {
                     const galleryUrls = imageUrls.slice(0, 5);
                     const safeIndex = Math.min(
@@ -1030,8 +1031,12 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                     const activeUrl = galleryUrls[safeIndex];
 
                     return (
-                      <div className="flex flex-col md:flex-row gap-4 md:gap-6 w-full max-w-5xl">
-                        <div className="flex md:flex-col gap-2 md:w-36 w-full md:flex-none overflow-x-auto md:overflow-visible">
+                      <div
+                        className={`flex flex-col md:flex-row gap-4 md:gap-6 w-full max-w-5xl ${
+                          shouldOffsetPreview ? 'mt-4 md:mt-6' : ''
+                        }`}
+                      >
+                        <div className="flex md:flex-col gap-3 md:w-32 w-full md:flex-none overflow-x-auto md:overflow-visible">
                           {galleryUrls.map((url, index) => {
                             const isActive = index === safeIndex;
                             return (
@@ -1046,7 +1051,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                                 }`}
                                 title={`查看图 ${index + 1}`}
                               >
-                                <div className="w-20 h-28 md:w-24 md:h-32 rounded-md overflow-hidden border border-dashed border-gray-200 bg-white flex items-center justify-center mb-1">
+                                <div className="w-16 h-24 md:w-20 md:h-28 rounded-md overflow-hidden border border-dashed border-gray-200 bg-white flex items-center justify-center mb-1">
                                   <img
                                     src={resolveFileUrl(url)}
                                     alt={`图 ${index + 1} 缩略图`}
@@ -1054,18 +1059,17 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                                   />
                                 </div>
                                 <span className="font-medium text-gray-700">图 {index + 1}</span>
-                                <span className="text-[10px] text-gray-400">缩略图</span>
                               </button>
                             );
                           })}
                         </div>
 
-                        <div className="flex-1 flex flex-col items-center gap-4">
+                        <div className="flex-1 flex flex-col items-center justify-center gap-4">
                           <div className="relative group w-full flex justify-center">
                             <img
                               src={resolveFileUrl(activeUrl)}
                               alt={`处理结果图 ${safeIndex + 1}`}
-                              className="max-w-full max-h-[65vh] w-auto h-auto object-contain rounded-xl border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+                              className="max-w-[95%] max-h-[75vh] w-auto h-auto object-contain rounded-xl border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
                               onClick={() => handleProcessedImagePreview(activeUrl, safeIndex)}
                             />
                             <button
