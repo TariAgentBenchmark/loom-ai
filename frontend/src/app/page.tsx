@@ -545,6 +545,12 @@ export default function Home() {
           patternType={patternType}
           onPatternTypeChange={(value) => {
             setPatternType(value);
+            if (currentPage === 'extract_pattern') {
+              setProcessedImage(null);
+              setCurrentTaskId(null);
+              setErrorMessage('');
+              setSuccessMessage('');
+            }
             // 当从通用模式切换到其他模式时，清除分辨率设置
             if (value !== 'general') {
               setAspectRatio('');
