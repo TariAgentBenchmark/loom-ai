@@ -246,7 +246,9 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   const isSeamlessLoop = method === 'seamless_loop';
   const isExpandImage = method === 'expand_image';
   const seamFitValue = Math.max(0, Math.min(1, seamFit));
-  const uploadZoneClasses = `border-2 border-dashed rounded-lg md:rounded-xl p-4 md:p-8 text-center transition cursor-pointer flex items-center justify-center ${
+  const uploadZoneClasses = `border-2 border-dashed rounded-lg md:rounded-xl p-4 md:p-8 text-center transition flex items-center justify-center ${
+    isProcessing ? 'cursor-not-allowed opacity-60 pointer-events-none' : 'cursor-pointer'
+  } ${
     isSeamlessLoop
       ? 'border-blue-300 hover:border-blue-400 bg-blue-50/70 min-h-[220px] md:min-h-[260px]'
       : isExpandImage
@@ -602,7 +604,14 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
               className={uploadZoneClasses}
               onDragOver={onDragOver}
               onDrop={onDrop}
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => {
+                if (isProcessing) {
+                  return;
+                }
+                fileInputRef.current?.click();
+              }}
+              role="button"
+              aria-disabled={isProcessing}
             >
               {imagePreview ? (
                 isExpandImage ? (
@@ -647,6 +656,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
               accept="image/*"
               onChange={onFileInputChange}
               className="hidden"
+              disabled={isProcessing}
             />
           </div>
 

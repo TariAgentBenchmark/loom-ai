@@ -67,6 +67,52 @@ const AUTH_DEMO_CREDENTIALS = {
 };
 
 const POLLING_INTERVAL_MS = 3000;
+const ACTIVE_TASK_STORAGE_KEY = 'loomai:active-processing-task';
+
+type PersistedProcessingTaskEntry = {
+  taskId: string;
+  userId: string;
+  createdAt: string;
+};
+
+type PersistedProcessingTaskMap = Partial<Record<ProcessingMethod, PersistedProcessingTaskEntry>>;
+
+type MethodViewState = {
+  processedImage: string | null;
+  successMessage: string;
+  errorMessage: string;
+};
+
+const readPersistedProcessingTasks = (): PersistedProcessingTaskMap => {
+  if (typeof window === 'undefined') {
+    return {};
+  }
+  const raw = window.localStorage.getItem(ACTIVE_TASK_STORAGE_KEY);
+  if (!raw) {
+    return {};
+  }
+  try {
+    return JSON.parse(raw) as PersistedProcessingTaskMap;
+  } catch (error) {
+    console.warn('无法解析缓存的任务状态，已清理', error);
+    window.localStorage.removeItem(ACTIVE_TASK_STORAGE_KEY);
+    return {};
+  }
+};
+
+const persistProcessingTasks = (tasks: PersistedProcessingTaskMap) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  window.localStorage.setItem(ACTIVE_TASK_STORAGE_KEY, JSON.stringify(tasks));
+};
+
+const clearPersistedProcessingTasks = () => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  window.localStorage.removeItem(ACTIVE_TASK_STORAGE_KEY);
+};
 
 export default function Home() {
   const [authState, setAuthState] = useState(createLoggedOutState());
@@ -78,8 +124,6 @@ export default function Home() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
-  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -100,13 +144,99 @@ export default function Home() {
   const [seamDirection, setSeamDirection] = useState<number>(0);
   const [seamFit, setSeamFit] = useState<number>(0.5);
   const [historyRefreshToken, setHistoryRefreshToken] = useState(0);
+  const [activeTasks, setActiveTasks] = useState<Partial<Record<ProcessingMethod, PersistedProcessingTaskEntry>>>(
+    {},
+  );
 
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const methodUiStateRef = useRef<Record<ProcessingMethod, MethodViewState>>({});
+  const pollingRefs = useRef<Record<string, ReturnType<typeof setInterval>>>({});
+  const hasLoadedPersistedTasksRef = useRef(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const rememberMeRef = useRef(false);
 
   const isLoggedIn = isAuthenticated(authState);
   const accessToken = isLoggedIn ? authState.accessToken : null;
+  const authenticatedUserId = authState.status === 'authenticated' ? authState.user.userId : null;
+  const currentMethod = currentPage === 'home' ? null : currentPage;
+  const currentMethodTask = currentMethod ? activeTasks[currentMethod] : undefined;
+  const isCurrentMethodProcessing = Boolean(currentMethodTask);
+  const currentTaskId = currentMethodTask?.taskId ?? null;
+  const applyStoredMethodUiState = useCallback((method: ProcessingMethod) => {
+    const stored = methodUiStateRef.current[method];
+    setProcessedImage(stored?.processedImage ?? null);
+    setSuccessMessage(stored?.successMessage ?? '');
+    setErrorMessage(stored?.errorMessage ?? '');
+  }, []);
+
+  const clearTaskPolling = useCallback((taskId: string) => {
+    const poller = pollingRefs.current[taskId];
+    if (poller) {
+      clearInterval(poller);
+      delete pollingRefs.current[taskId];
+    }
+  }, []);
+
+  const clearAllPolling = useCallback(() => {
+    Object.values(pollingRefs.current).forEach((poller) => {
+      clearInterval(poller);
+    });
+    pollingRefs.current = {};
+  }, []);
+
+  const updateActiveTasks = useCallback(
+    (updater: (prev: PersistedProcessingTaskMap) => PersistedProcessingTaskMap) => {
+      setActiveTasks((prev) => {
+        const next = updater(prev);
+        persistProcessingTasks(next);
+        return next;
+      });
+    },
+    [],
+  );
+
+  const updateMethodUiState = useCallback(
+    (method: ProcessingMethod, partial: Partial<MethodViewState>) => {
+      const previous = methodUiStateRef.current[method] ?? {
+        processedImage: null,
+        successMessage: '',
+        errorMessage: '',
+      };
+      const next: MethodViewState = {
+        processedImage:
+          partial.processedImage !== undefined ? partial.processedImage : previous.processedImage,
+        successMessage:
+          partial.successMessage !== undefined ? partial.successMessage : previous.successMessage,
+        errorMessage:
+          partial.errorMessage !== undefined ? partial.errorMessage : previous.errorMessage,
+      };
+      methodUiStateRef.current[method] = next;
+
+      if (currentMethod === method) {
+        if (partial.processedImage !== undefined) {
+          setProcessedImage(partial.processedImage);
+        }
+        if (partial.successMessage !== undefined) {
+          setSuccessMessage(partial.successMessage);
+        }
+        if (partial.errorMessage !== undefined) {
+          setErrorMessage(partial.errorMessage);
+        }
+      }
+    },
+    [currentMethod],
+  );
+
+  useEffect(() => {
+    if (!currentMethod) {
+      return;
+    }
+    methodUiStateRef.current[currentMethod] = {
+      processedImage,
+      successMessage,
+      errorMessage,
+    };
+  }, [currentMethod, processedImage, successMessage, errorMessage]);
 
   const hydrateAccount = useCallback(
     async (token: string) => {
@@ -186,13 +316,6 @@ export default function Home() {
         rememberMeRef.current = false;
       });
   }, [hydrateAccount]);
-
-  const clearPolling = useCallback(() => {
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
-    }
-  }, []);
 
   const authenticateAndLoad = useCallback(
     async (credentials: { identifier: string; password: string; rememberMe: boolean }) => {
@@ -299,6 +422,14 @@ export default function Home() {
   );
 
   const handleImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    if (currentPage !== 'home' && isCurrentMethodProcessing) {
+      setErrorMessage('当前任务正在处理中，请等待完成后再上传新图片');
+      if (event.target) {
+        event.target.value = '';
+      }
+      return;
+    }
+
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -316,6 +447,10 @@ export default function Home() {
 
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
+    if (currentPage !== 'home' && isCurrentMethodProcessing) {
+      setErrorMessage('当前任务正在处理中，请等待完成后再上传新图片');
+      return;
+    }
     const file = event.dataTransfer.files[0];
     if (file && file.type.startsWith('image/')) {
       setUploadedImage(file);
@@ -330,37 +465,132 @@ export default function Home() {
   const handleStatusResponse = useCallback(
     (
       statusResponse: ApiSuccessResponse<ProcessingStatusData>,
-      currentPoller: ReturnType<typeof setInterval>,
+      taskId: string,
+      method: ProcessingMethod,
     ) => {
       const statusData = statusResponse.data;
 
       if (statusData.status === 'completed' && statusData.result?.processedImage) {
-        setCurrentTaskId(statusData.taskId);
-        setProcessedImage(statusData.result.processedImage);
-        setIsProcessing(false);
-        clearInterval(currentPoller);
-        pollingRef.current = null;
-        setSuccessMessage('处理完成，可以下载结果');
+        updateMethodUiState(method, {
+          processedImage: statusData.result.processedImage,
+          successMessage: '处理完成，可以下载结果',
+          errorMessage: '',
+        });
         setHistoryRefreshToken((token) => token + 1);
         if (accessToken) {
           hydrateAccount(accessToken).catch(() => {
             /* 静默忽略刷新错误 */
           });
         }
+        clearTaskPolling(taskId);
+        updateActiveTasks((prev) => {
+          const next = { ...prev };
+          delete next[method];
+          return next;
+        });
         return;
       }
 
       if (statusData.status === 'failed') {
-        setErrorMessage('服务器火爆，重试一下。');
-        setIsProcessing(false);
-        clearInterval(currentPoller);
-        pollingRef.current = null;
-        setCurrentTaskId(null);
+        updateMethodUiState(method, {
+          errorMessage: '服务器火爆，重试一下。',
+          successMessage: '',
+        });
         setHistoryRefreshToken((token) => token + 1);
+        clearTaskPolling(taskId);
+        updateActiveTasks((prev) => {
+          const next = { ...prev };
+          delete next[method];
+          return next;
+        });
       }
     },
-    [hydrateAccount, accessToken],
+    [hydrateAccount, accessToken, clearTaskPolling, updateActiveTasks, updateMethodUiState],
   );
+
+  const startStatusPolling = useCallback(
+    (taskId: string, method: ProcessingMethod) => {
+      if (!accessToken) {
+        return;
+      }
+
+      clearTaskPolling(taskId);
+
+      const poller = setInterval(() => {
+        getProcessingStatus(taskId, accessToken)
+          .then((statusResponse) => handleStatusResponse(statusResponse, taskId, method))
+          .catch((error) => {
+            const message = error?.message ?? '无法获取任务状态，请稍后重试';
+            updateMethodUiState(method, {
+              errorMessage: message,
+              successMessage: '',
+            });
+            clearTaskPolling(taskId);
+            updateActiveTasks((prev) => {
+              const next = { ...prev };
+              delete next[method];
+              return next;
+            });
+          });
+      }, POLLING_INTERVAL_MS);
+
+      pollingRefs.current[taskId] = poller;
+
+      getProcessingStatus(taskId, accessToken)
+        .then((statusResponse) => handleStatusResponse(statusResponse, taskId, method))
+        .catch((error) => {
+          const message = error?.message ?? '无法获取任务状态，请稍后重试';
+          updateMethodUiState(method, {
+            errorMessage: message,
+            successMessage: '',
+          });
+          clearTaskPolling(taskId);
+          updateActiveTasks((prev) => {
+            const next = { ...prev };
+            delete next[method];
+            return next;
+          });
+        });
+    },
+    [accessToken, clearTaskPolling, handleStatusResponse, updateActiveTasks, updateMethodUiState],
+  );
+
+  useEffect(() => {
+    if (!authenticatedUserId || !accessToken || hasLoadedPersistedTasksRef.current) {
+      return;
+    }
+
+    hasLoadedPersistedTasksRef.current = true;
+    const persistedTasks = readPersistedProcessingTasks();
+    const userTasks = Object.entries(persistedTasks).reduce<PersistedProcessingTaskMap>(
+      (acc, [methodKey, entry]) => {
+        if (entry?.userId === authenticatedUserId) {
+          acc[methodKey as ProcessingMethod] = entry;
+        }
+        return acc;
+      },
+      {},
+    );
+
+    if (Object.keys(userTasks).length === 0) {
+      return;
+    }
+
+    setActiveTasks(userTasks);
+    persistProcessingTasks(userTasks);
+
+    Object.entries(userTasks).forEach(([methodKey, entry]) => {
+      if (entry) {
+        startStatusPolling(entry.taskId, methodKey as ProcessingMethod);
+      }
+    });
+
+    if (currentPage === 'home' && Object.keys(userTasks).length === 1) {
+      const [singleMethod] = Object.keys(userTasks) as ProcessingMethod[];
+      setCurrentPage(singleMethod);
+      applyStoredMethodUiState(singleMethod);
+    }
+  }, [authenticatedUserId, accessToken, currentPage, startStatusPolling, applyStoredMethodUiState]);
 
   const handleProcessImage = () => {
     if (!accessToken) {
@@ -378,6 +608,11 @@ export default function Home() {
       return;
     }
 
+    if (currentPage !== 'home' && isCurrentMethodProcessing) {
+      setErrorMessage('当前任务正在处理中，请等待完成后再上传新图片');
+      return;
+    }
+
     let trimmedInstruction = '';
     if (currentPage === 'prompt_edit') {
       trimmedInstruction = promptInstruction.trim();
@@ -387,14 +622,13 @@ export default function Home() {
       }
     }
 
-    clearPolling();
-    setIsProcessing(true);
     setErrorMessage('');
     setSuccessMessage('');
     setProcessedImage(null);
 
+    const processingMethod = currentPage as ProcessingMethod;
     const payload: ProcessingRequestPayload = {
-      method: currentPage,
+      method: processingMethod,
       image: uploadedImage,
       accessToken,
     };
@@ -455,30 +689,24 @@ export default function Home() {
       payload.seamFit = Number(seamFit.toFixed(2));
     }
 
-    setCurrentTaskId(null);
-
     createProcessingTask(payload)
       .then((response) => {
         const task = response.data;
-        setCurrentTaskId(task.taskId);
         setHistoryRefreshToken((token) => token + 1);
-
-        const poller = setInterval(() => {
-          getProcessingStatus(task.taskId, accessToken)
-            .then((statusResponse) => handleStatusResponse(statusResponse, poller))
-            .catch((error) => {
-              setErrorMessage(error?.message ?? '无法获取任务状态，请稍后重试');
-              setIsProcessing(false);
-              clearInterval(poller);
-              pollingRef.current = null;
-            });
-        }, POLLING_INTERVAL_MS);
-
-        pollingRef.current = poller;
+        if (authenticatedUserId) {
+          updateActiveTasks((prev) => ({
+            ...prev,
+            [processingMethod]: {
+              taskId: task.taskId,
+              userId: authenticatedUserId,
+              createdAt: task.createdAt ?? new Date().toISOString(),
+            },
+          }));
+        }
+        startStatusPolling(task.taskId, processingMethod);
       })
       .catch((error: Error) => {
         setErrorMessage(error.message ?? '任务创建失败');
-        setIsProcessing(false);
       });
   };
 
@@ -515,12 +743,10 @@ export default function Home() {
           imagePreview={imagePreview}
           processedImage={processedImage}
           currentTaskId={currentTaskId || undefined}
-          isProcessing={isProcessing}
+          isProcessing={isCurrentMethodProcessing}
           hasUploadedImage={Boolean(uploadedImage)}
           onBack={() => {
-            clearPolling();
             setCurrentPage('home');
-            setCurrentTaskId(null);
             setPromptInstruction('');
             setPatternType('general1');
             setUpscaleEngine('meitu_v2');
@@ -547,7 +773,6 @@ export default function Home() {
             setPatternType(value);
             if (currentPage === 'extract_pattern') {
               setProcessedImage(null);
-              setCurrentTaskId(null);
               setErrorMessage('');
               setSuccessMessage('');
             }
@@ -580,14 +805,9 @@ export default function Home() {
               return;
             }
             setCurrentPage(method);
-            setProcessedImage(null);
-            setCurrentTaskId(null);
-            setErrorMessage('');
-            setSuccessMessage('');
+            applyStoredMethodUiState(method);
             setImagePreview(null);
             setUploadedImage(null);
-            setIsProcessing(false);
-            clearPolling();
             if (method === 'prompt_edit') {
               setPromptInstruction('');
             }
@@ -606,7 +826,14 @@ export default function Home() {
           }}
           onOpenPricingModal={() => setShowPricingModal(true)}
           onLogout={() => {
-            clearPolling();
+            clearAllPolling();
+            clearPersistedProcessingTasks();
+            setActiveTasks({});
+            methodUiStateRef.current = {};
+            hasLoadedPersistedTasksRef.current = false;
+            setProcessedImage(null);
+            setSuccessMessage('');
+            setErrorMessage('');
             clearPersistedSession();
             setAuthState(createLoggedOutState());
             setAccountProfile(undefined);
