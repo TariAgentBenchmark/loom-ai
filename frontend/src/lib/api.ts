@@ -598,7 +598,7 @@ export const createProcessingTask = (payload: ProcessingRequestPayload) => {
   }
 
   if (method === "extract_pattern") {
-    formData.append("pattern_type", patternType ?? "general");
+    formData.append("pattern_type", patternType ?? "general2");
   }
 
   if (method === "upscale" && upscaleEngine) {

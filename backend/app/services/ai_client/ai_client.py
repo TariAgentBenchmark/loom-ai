@@ -278,7 +278,14 @@ class AIClient:
     ) -> str:
         """AI提取花型，并按需进行高清增强"""
         options = options or {}
-        pattern_type = (options.get("pattern_type") or "general").strip().lower()
+        pattern_type_raw = (options.get("pattern_type") or "general_2").strip().lower()
+        normalized_pattern_type = pattern_type_raw.replace("-", "_")
+        if normalized_pattern_type == "general":
+            pattern_type = "general_2"
+        elif normalized_pattern_type.startswith("general") and normalized_pattern_type[-1].isdigit():
+            pattern_type = f"general_{normalized_pattern_type[-1]}"
+        else:
+            pattern_type = normalized_pattern_type
 
         if pattern_type == "positioning":
             return await self.runninghub_client.run_positioning_workflow(
@@ -346,15 +353,26 @@ class AIClient:
 
         final_result_pool = enhanced_urls or result_urls
 
-        # 仅通用模式需要拼接额外的RunningHub结果
-        if pattern_type != "general":
+        general_pattern_types = {"general_1", "general_2"}
+
+        # 非通用模式直接返回高清增强后的结果
+        if pattern_type not in general_pattern_types:
             return ",".join(final_result_pool)
 
         if not final_result_pool:
             raise Exception("AI提取花型失败：通用模式未获得结果")
 
-        ordered_results: List[str] = [final_result_pool[0]]
+        # 通用2：输出首张高清增强结果
+        if pattern_type == "general_2":
+            logger.info(
+                "General-2 pattern output prepared with %s base urls",
+                len(final_result_pool),
+            )
+            return final_result_pool[0]
 
+        # 通用1：运行RunningHub工作流，获取其余4张结果
+        ordered_results: List[str] = []
+        max_general1_results = 4
         runninghub_workflows = [
             {
                 "workflow_id": settings.runninghub_workflow_id_rh_double_1480,
@@ -410,7 +428,7 @@ class AIClient:
                     cleaned = rh_url.strip()
                     if cleaned:
                         ordered_results.append(cleaned)
-                        if len(ordered_results) >= 5:
+                        if len(ordered_results) >= max_general1_results:
                             break
             except Exception as exc:
                 logger.warning(
@@ -419,22 +437,23 @@ class AIClient:
                     str(exc),
                 )
             finally:
-                if len(ordered_results) >= 5:
+                if len(ordered_results) >= max_general1_results:
                     break
 
-        # 如果RunningHub结果不足5张，补充通用模型的其余图片
-        if len(ordered_results) < 5 and len(final_result_pool) > 1:
+        # 如果RunningHub结果不足4张，补充通用模型的其余图片（优先使用后四张）
+        if len(ordered_results) < max_general1_results:
             logger.debug(
                 "RunningHub results insufficient (%s). Backfilling from base pool.",
                 len(ordered_results),
             )
-            for extra_url in final_result_pool[1:]:
+            fallback_pool = final_result_pool[1:] if len(final_result_pool) > 1 else final_result_pool[:1]
+            for extra_url in fallback_pool:
                 ordered_results.append(extra_url)
-                if len(ordered_results) >= 5:
+                if len(ordered_results) >= max_general1_results:
                     break
 
         logger.info(
-            "Final general pattern output prepared: %s urls",
+            "Final general-1 pattern output prepared: %s urls",
             len(ordered_results),
         )
 
