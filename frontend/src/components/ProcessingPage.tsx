@@ -201,12 +201,12 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     {
       value: 'meitu_v2',
       label: '通用1',
-      description: '调用美图超清V2，追求稳定还原与高保真，适合模糊或噪点较多的图片。',
+      description: '基础高清模式，追求稳定还原与高保真，适合模糊或噪点较多的图片。',
     },
     {
       value: 'runninghub_vr2',
       label: '通用2',
-      description: '调用RunningHub VR2完美放大工作流，突出细节与纹理锐度，适合较高清的原图。',
+      description: '锐化高清模式，突出细节与纹理锐度，适合较高清的原图。',
     },
   ];
   const selectedUpscaleOption =
@@ -871,7 +871,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                 <h4 className="text-sm md:text-base font-semibold text-gray-900">花型类型</h4>
               </div>
               <select
-                value={patternType || 'general2'}
+                value={patternType || 'general1'}
                 onChange={(event) => onPatternTypeChange?.(event.target.value)}
                 className="w-full rounded-lg md:rounded-xl border border-gray-200 px-3 py-2 md:px-4 md:py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
               >
@@ -880,7 +880,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                 <option value="positioning">线条/矢量</option>
                 <option value="fine">烫画/胸前花</option>
               </select>
-              <p className="text-xs text-gray-500 mt-2">通用1生成多张RunningHub结果，通用2专注首张高清图；选择不同类型将使用对应工作流。</p>
+              <p className="text-xs text-gray-500 mt-2">通用1生成多张候选结果，通用2专注首张高清图；选择不同类型将使用对应工作流。</p>
             </div>
           )}
 

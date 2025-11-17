@@ -103,11 +103,11 @@ export const processingMethodInfo: Record<ProcessingMethod, ProcessingMethodInfo
   },
   upscale: {
     title: 'AI高清',
-    description: '提供美图超清V2与RunningHub VR2两种高清工作流，保持图片细节并增强纹理。',
+    description: '提供双引擎高清工作流，保持图片细节并增强纹理。',
     icon: '/optimized/AI布纹去噪.webp',
     examples: [
       '上传需要放大的图片',
-      '在通用1（美图）与通用2（RunningHub VR2）之间选择算法',
+      '在通用1与通用2之间选择算法',
       'AI智能分析并放大图片',
       '保持原始清晰度和细节',
       '生成高质量高清图片',

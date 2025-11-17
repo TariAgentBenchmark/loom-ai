@@ -678,7 +678,7 @@ const HomeView: React.FC<HomeViewProps> = ({
                 </div>
                 <h4 className="text-lg md:text-xl font-bold text-gray-900 mb-2 md:mb-3">AI高清</h4>
                 <p className="text-sm text-gray-600 leading-relaxed">
-                  双引擎高清放大，通用1使用美图超清V2，通用2调用RunningHub VR2完美放大，兼顾模糊图与高清素材。
+                  双引擎高清放大，通用1注重稳定还原，通用2强化锐度与纹理，兼顾模糊图与高清素材。
                 </p>
               </div>
               <div className="mt-auto bg-gradient-to-r from-green-500 to-emerald-500 text-white py-2 px-4 md:py-3 md:px-6 rounded-lg md:rounded-xl text-center font-medium hover:from-green-600 hover:to-emerald-600 transition-all">
