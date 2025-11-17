@@ -87,7 +87,7 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState<PageState>('home');
   const [promptInstruction, setPromptInstruction] = useState<string>('');
   const [patternType, setPatternType] = useState<string>('general');
-  const [upscaleEngine, setUpscaleEngine] = useState<'meitu_v2'>('meitu_v2');
+  const [upscaleEngine, setUpscaleEngine] = useState<'meitu_v2' | 'runninghub_vr2'>('meitu_v2');
   const [aspectRatio, setAspectRatio] = useState<string>('');
   const [expandRatio, setExpandRatio] = useState<string>('original');
   const [expandEdges, setExpandEdges] = useState<ExpandEdgesState>({

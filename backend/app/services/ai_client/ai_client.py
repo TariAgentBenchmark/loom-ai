@@ -529,7 +529,7 @@ class AIClient:
         """AI智能去水印（使用Dewatermark.ai API）"""
         return await self.dewatermark_client.remove_watermark(image_bytes, options)
 
-    # 无损放大相关方法
+    # AI高清放大相关方法
     async def upscale_image(
         self,
         image_url: str,
@@ -539,22 +539,30 @@ class AIClient:
         options: Optional[Dict[str, Any]] = None,
         image_bytes: Optional[bytes] = None,
     ) -> str:
-        """无损放大图片，支持多种引擎"""
+        """AI高清放大图片，支持多种引擎"""
         options = options or {}
         engine = (options.get("engine") or "meitu_v2").strip().lower()
 
         # 准备可供第三方访问的图片URL
-        public_url, _ = await self._prepare_image_for_external_api(
+        public_url, prepared_bytes = await self._prepare_image_for_external_api(
             image_url=image_url,
             image_bytes=image_bytes,
             purpose="upscale",
         )
+        resolved_bytes = image_bytes or prepared_bytes
 
         if engine == "meitu_v2":
             return await self._upscale_with_meitu_v2(
                 public_url,
                 scale_factor=scale_factor,
                 options=options,
+            )
+
+        if engine == "runninghub_vr2":
+            return await self._upscale_with_runninghub_vr2(
+                public_url,
+                options=options,
+                image_bytes=resolved_bytes,
             )
 
         # 默认使用Liblib引擎（创造力+N）
@@ -597,6 +605,18 @@ class AIClient:
             return public_url, image_bytes
 
         return image_url, image_bytes
+
+    async def _ensure_image_bytes(
+        self,
+        image_url: str,
+        image_bytes: Optional[bytes],
+    ) -> bytes:
+        """确保能够获取图片字节数据"""
+        if image_bytes:
+            return image_bytes
+        if not image_url:
+            raise Exception("无法获取待处理图片")
+        return await self._download_image_from_url(image_url)
 
     async def _prepare_image_for_jimeng(self, image_bytes: bytes, temp_prefix: str) -> str:
         """上传图片到OSS供即梦API使用，必要时回退到本地存储"""
@@ -795,7 +815,7 @@ class AIClient:
 
         except Exception as exc:
             logger.error("Liblib AI upscale failed: %s", str(exc))
-            raise Exception(f"AI无损放大失败: {str(exc)}")
+            raise Exception(f"AI高清放大失败: {str(exc)}")
 
     async def _upscale_with_meitu_v2(
         self,
@@ -812,6 +832,35 @@ class AIClient:
         except Exception as exc:
             logger.error("Meitu AI 超清V2失败: %s", str(exc))
             raise Exception(f"美图AI超清失败: {str(exc)}")
+
+    async def _upscale_with_runninghub_vr2(
+        self,
+        image_url: str,
+        options: Dict[str, Any],
+        image_bytes: Optional[bytes],
+    ) -> str:
+        try:
+            resolved_bytes = await self._ensure_image_bytes(image_url, image_bytes)
+            rh_options = dict(options or {})
+            if not rh_options.get("original_filename"):
+                rh_options["original_filename"] = "upscale_vr2.png"
+
+            result_urls = await self.runninghub_client.run_workflow_with_custom_nodes(
+                image_bytes=resolved_bytes,
+                workflow_id=settings.runninghub_workflow_id_vr2,
+                node_ids=settings.runninghub_vr2_node_id,
+                field_name=settings.runninghub_vr2_field_name,
+                options=rh_options,
+            )
+
+            cleaned_urls = [url.strip() for url in result_urls if url and url.strip()]
+            if not cleaned_urls:
+                raise Exception("RunningHub VR2未返回结果图片")
+
+            return ",".join(cleaned_urls)
+        except Exception as exc:
+            logger.error("RunningHub VR2 upscale failed: %s", str(exc))
+            raise Exception(f"AI高清放大失败: {str(exc)}")
 
     # 即梦特效相关方法
     async def convert_flat_to_3d(

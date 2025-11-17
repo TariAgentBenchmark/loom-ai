@@ -456,7 +456,7 @@ async def upscale_image(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """AI无损放大"""
+    """AI高清"""
     try:
         # 记录上传文件大小
         file_size = 0
@@ -468,7 +468,8 @@ async def upscale_image(
         
         # 构建选项
         engine_value = (engine or "meitu_v2").strip().lower()
-        if engine_value not in {"meitu_v2"}:
+        allowed_engines = {"meitu_v2", "runninghub_vr2"}
+        if engine_value not in allowed_engines:
             engine_value = "meitu_v2"
         options = {
             "scale_factor": scale_factor,
@@ -497,7 +498,7 @@ async def upscale_image(
                 "creditsUsed": _display_credits(task),
                 "createdAt": task.created_at
             },
-            message="无损放大任务创建成功"
+            message="AI高清任务创建成功"
         )
         
     except Exception as e:

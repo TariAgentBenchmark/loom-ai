@@ -102,15 +102,15 @@ export const processingMethodInfo: Record<ProcessingMethod, ProcessingMethodInfo
     ],
   },
   upscale: {
-    title: 'AI无损放大',
-    description: '使用AI技术对图片进行无损放大，最高支持8K分辨率，保持图片清晰度和细节。',
+    title: 'AI高清',
+    description: '提供美图超清V2与RunningHub VR2两种高清工作流，保持图片细节并增强纹理。',
     icon: '/optimized/AI布纹去噪.webp',
     examples: [
       '上传需要放大的图片',
-      '选择放大倍数或自定义尺寸',
+      '在通用1（美图）与通用2（RunningHub VR2）之间选择算法',
       'AI智能分析并放大图片',
       '保持原始清晰度和细节',
-      '生成高质量放大图片',
+      '生成高质量高清图片',
     ],
   },
   expand_image: {

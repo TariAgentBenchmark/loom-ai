@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class LiblibUpscaleAPI:
-    """Liblib AI无损放大API客户端"""
+    """Liblib AI高清放大API客户端"""
     
     def __init__(self, access_key: str, secret_key: str, base_url: str = None):
         self.access_key = access_key

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-测试美图API无损放大功能
+测试美图API高清放大功能
 """
 import asyncio
 import io
@@ -16,8 +16,8 @@ from app.services.file_service import save_uploaded_file
 
 
 async def test_meitu_upscale():
-    """测试美图API无损放大功能"""
-    print("开始测试美图API无损放大功能...")
+    """测试美图API高清放大功能"""
+    print("开始测试美图API高清放大功能...")
     
     # 检查环境变量是否设置
     if not settings.meitu_api_key or not settings.meitu_api_secret:
@@ -62,7 +62,7 @@ async def test_meitu_upscale():
         return True
         
     except Exception as e:
-        print(f"无损放大测试失败: {str(e)}")
+        print(f"AI高清放大测试失败: {str(e)}")
         return False
 
 

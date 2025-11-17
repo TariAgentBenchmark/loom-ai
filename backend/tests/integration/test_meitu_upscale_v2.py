@@ -1,5 +1,5 @@
 """
-测试美图AI超清V2无损放大功能
+测试美图AI超清V2高清放大功能
 """
 import asyncio
 import os
@@ -26,7 +26,7 @@ async def test_upscale_v2():
     test_image_url = "https://wheeai.meitudata.com/static/666162c4139073547bhMUcLeee3093.jpeg"
     
     print("=" * 50)
-    print("测试美图AI超清V2无损放大")
+    print("测试美图AI超清V2高清放大")
     print("=" * 50)
     print(f"\n使用测试图片: {test_image_url}")
     print("注意：如果使用本地图片，需要配置OSS才能正常工作\n")

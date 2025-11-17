@@ -557,7 +557,7 @@ export interface ProcessingRequestPayload {
   instruction?: string;
   model?: "new" | "original";
   patternType?: string;
-  upscaleEngine?: 'meitu_v2';
+  upscaleEngine?: 'meitu_v2' | 'runninghub_vr2';
   aspectRatio?: string;
   expandRatio?: string;
   expandTop?: number;

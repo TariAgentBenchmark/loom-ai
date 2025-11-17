@@ -219,9 +219,9 @@ SERVICE_PRICES = [
     },
     {
         "service_id": "upscale",
-        "service_name": "高清放大",
+        "service_name": "AI高清",
         "service_key": "upscale",
-        "description": "AI无损放大",
+        "description": "AI高清",
         "price_credits": 0.9
     },
     {

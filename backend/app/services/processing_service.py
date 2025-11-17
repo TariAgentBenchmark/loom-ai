@@ -49,7 +49,7 @@ class ProcessingService:
             TaskType.DENOISE.value: 120,
             TaskType.EMBROIDERY.value: 200,  # 处理时间更长
             TaskType.FLAT_TO_3D.value: 210,
-            TaskType.UPSCALE.value: 180,  # 无损放大
+            TaskType.UPSCALE.value: 180,  # 高清放大
             TaskType.EXPAND.value: 180,
             TaskType.SEAMLESS_LOOP.value: 210,
         }

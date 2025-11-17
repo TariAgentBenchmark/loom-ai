@@ -11,7 +11,7 @@
 
 ### 美图API测试脚本
 - `test_meitu_api.py` - 美图去水印功能测试
-- `test_meitu_upscale.py` - 美图无损放大功能测试
+- `test_meitu_upscale.py` - 美图高清放大功能测试
 
 ## 运行测试
 

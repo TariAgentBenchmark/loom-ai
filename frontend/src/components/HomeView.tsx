@@ -674,11 +674,11 @@ const HomeView: React.FC<HomeViewProps> = ({
             >
               <div className="text-center mb-4 md:mb-6 flex-1">
                 <div className="flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-xl md:rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg mx-auto mb-3 md:mb-4 group-hover:shadow-xl transition-all">
-                  <img src="/optimized/AI布纹去噪.webp" alt="无损放大" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
+                  <img src="/optimized/AI布纹去噪.webp" alt="AI高清" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
                 </div>
-                <h4 className="text-lg md:text-xl font-bold text-gray-900 mb-2 md:mb-3">AI无损放大</h4>
+                <h4 className="text-lg md:text-xl font-bold text-gray-900 mb-2 md:mb-3">AI高清</h4>
                 <p className="text-sm text-gray-600 leading-relaxed">
-                  使用AI技术对图片进行无损放大，最高支持8K分辨率，保持图片清晰度和细节，适合印刷和展示。
+                  双引擎高清放大，通用1使用美图超清V2，通用2调用RunningHub VR2完美放大，兼顾模糊图与高清素材。
                 </p>
               </div>
               <div className="mt-auto bg-gradient-to-r from-green-500 to-emerald-500 text-white py-2 px-4 md:py-3 md:px-6 rounded-lg md:rounded-xl text-center font-medium hover:from-green-600 hover:to-emerald-600 transition-all">

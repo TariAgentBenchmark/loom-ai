@@ -133,8 +133,8 @@ interface ProcessingPageProps {
   onPromptInstructionChange?: (value: string) => void;
   patternType?: string;
   onPatternTypeChange?: (value: string) => void;
-  upscaleEngine?: 'meitu_v2';
-  onUpscaleEngineChange?: (value: 'meitu_v2') => void;
+  upscaleEngine?: 'meitu_v2' | 'runninghub_vr2';
+  onUpscaleEngineChange?: (value: 'meitu_v2' | 'runninghub_vr2') => void;
   aspectRatio?: string;
   onAspectRatioChange?: (value: string) => void;
   expandRatio?: string;
@@ -197,13 +197,20 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   const isActionDisabled = !hasUploadedImage || isProcessing || !isPromptReady;
   const [serviceCredits, setServiceCredits] = useState<number | null>(null);
   const [isLoadingServiceCost, setIsLoadingServiceCost] = useState(true);
-  const upscaleOptions: { value: 'meitu_v2'; label: string; description: string }[] = [
+  const upscaleOptions: { value: 'meitu_v2' | 'runninghub_vr2'; label: string; description: string }[] = [
     {
       value: 'meitu_v2',
-      label: '通用',
-      description: '超清V2模式，追求稳定还原与高保真，适合对原图还原度要求高的场景。',
+      label: '通用1（适合模糊图片）',
+      description: '调用美图超清V2，追求稳定还原与高保真，适合模糊或噪点较多的图片。',
+    },
+    {
+      value: 'runninghub_vr2',
+      label: '通用2（适合较清晰图片）',
+      description: '调用RunningHub VR2完美放大工作流，突出细节与纹理锐度，适合较高清的原图。',
     },
   ];
+  const selectedUpscaleOption =
+    upscaleOptions.find((option) => option.value === (upscaleEngine || 'meitu_v2')) ?? upscaleOptions[0];
   const expandRatioOptions: { value: string; label: string }[] = [
     { value: 'original', label: '原图' },
     { value: '1:1', label: '1:1' },
@@ -879,30 +886,18 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
           {method === 'upscale' && (
             <div className="mb-4 md:mb-6">
               <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2">高清算法</h4>
-              <div className="space-y-2">
-                {upscaleOptions.map((option) => {
-                  const isActive = (upscaleEngine || 'meitu_v2') === option.value;
-                  return (
-                    <button
-                      type="button"
-                      key={option.value}
-                      onClick={() => onUpscaleEngineChange?.(option.value)}
-                      className={`w-full text-left border rounded-lg md:rounded-xl px-3 py-2 md:px-4 md:py-3 transition-all ${
-                        isActive
-                          ? 'border-blue-500 bg-blue-50 shadow-sm'
-                          : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/60'
-                      }`}
-                    >
-                      <p className={`text-sm md:text-base font-semibold ${isActive ? 'text-blue-600' : 'text-gray-800'}`}>
-                        {option.label}
-                      </p>
-                      <p className="text-xs md:text-sm text-gray-500 mt-1 leading-snug">
-                        {option.description}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
+              <select
+                value={upscaleEngine || 'meitu_v2'}
+                onChange={(event) => onUpscaleEngineChange?.(event.target.value as 'meitu_v2' | 'runninghub_vr2')}
+                className="w-full rounded-lg md:rounded-xl border border-gray-200 px-3 py-2 md:px-4 md:py-3 text-sm md:text-base text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+              >
+                {upscaleOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs md:text-sm text-gray-500 mt-2 leading-snug">{selectedUpscaleOption.description}</p>
             </div>
           )}
 
