@@ -511,8 +511,23 @@ export default function Home() {
       }
 
       if (statusData.status === 'failed') {
+        const fallbackMessage = '服务器火爆，重试一下。';
+        const backendMessage = statusData.error?.message?.trim();
+        const errorCode = statusData.error?.code?.trim();
+        const genericCodes = ['P006'];
+        const genericKeywords = ['服务器火爆', '服务器内部错误'];
+        const hasGenericKeyword = backendMessage
+          ? genericKeywords.some((keyword) => backendMessage.includes(keyword))
+          : false;
+        const shouldUseFallback =
+          !backendMessage ||
+          (errorCode ? genericCodes.includes(errorCode) : false) ||
+          hasGenericKeyword;
+        const resolvedErrorMessage =
+          shouldUseFallback || !backendMessage ? fallbackMessage : backendMessage;
+
         updateMethodUiState(method, {
-          errorMessage: '服务器火爆，重试一下。',
+          errorMessage: resolvedErrorMessage,
           successMessage: '',
         });
         setHistoryRefreshToken((token) => token + 1);

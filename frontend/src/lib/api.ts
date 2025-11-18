@@ -103,11 +103,12 @@ const ensureSuccess = async (response: Response, isProcessingRequest = false) =>
   const statusText = response.statusText ? ` ${response.statusText}` : "";
   const fallbackMessage = `请求失败：${response.status}${statusText}`;
   const parsed = await parseErrorBody(response);
+  const parsedMessages = [parsed.primary, parsed.secondary]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .map((value) => value.trim());
 
-  const creditErrorMessages = [parsed.primary, parsed.secondary].filter(
-    (value): value is string =>
-      typeof value === "string" &&
-      (value.includes("积分不足") || value.includes("积分余额不足")),
+  const creditErrorMessages = parsedMessages.filter(
+    (value) => value.includes("积分不足") || value.includes("积分余额不足"),
   );
 
   if (response.status === 403 && creditErrorMessages.length > 0) {
@@ -116,14 +117,18 @@ const ensureSuccess = async (response: Response, isProcessingRequest = false) =>
     );
   }
 
-  // For processing requests, always show the generic message
+  // For processing requests, try to use backend-provided messages unless they are generic fallbacks
   if (isProcessingRequest) {
-    return Promise.reject(new Error("服务器火爆，重试一下。"));
+    const genericKeywords = ["服务器火爆", "服务器内部错误"];
+    const backendMessage = parsedMessages.find(
+      (message) => !genericKeywords.some((keyword) => message.includes(keyword)),
+    );
+
+    return Promise.reject(new Error(backendMessage ?? "服务器火爆，重试一下。"));
   }
 
   const messageParts = [
-    parsed.primary,
-    parsed.secondary,
+    ...parsedMessages,
     fallbackMessage,
   ].filter((value, index, list): value is string => Boolean(value) && list.indexOf(value) === index);
 
