@@ -94,15 +94,22 @@ const HomeView: React.FC<HomeViewProps> = ({
   );
   const monthlyLabel = formatNumber(accountSummary?.monthlyProcessed, isLoggedIn ? '0' : '--');
   const totalLabel = formatNumber(accountSummary?.totalProcessed, isLoggedIn ? '0' : '--');
-  const monthlyUsagePercent = isLoggedIn ? creditBalance?.monthlyUsagePercent ?? 0 : 35;
+  const monthlyQuotaValue = creditBalance?.monthlyQuota ?? 0;
+  const monthlySpentValue = creditBalance?.monthlySpent ?? 0;
+  const hasMonthlyQuota = monthlyQuotaValue > 0;
+  const calculatedUsagePercent = hasMonthlyQuota
+    ? (monthlySpentValue / monthlyQuotaValue) * 100
+    : creditBalance?.monthlyUsagePercent ?? 0;
+  const monthlyUsagePercent = isLoggedIn ? calculatedUsagePercent : 35;
+  const normalizedUsagePercent = Math.min(100, Math.max(0, monthlyUsagePercent));
   const monthlyUsageLabel = formatNumber(
-    creditBalance?.monthlyUsagePercent,
-    isLoggedIn ? '0.0' : '35.0',
-    1,
+    monthlyUsagePercent,
+    isLoggedIn ? '0.00' : '35.00',
+    2,
   );
   const monthlySpentLabel = formatNumber(creditBalance?.monthlySpent, isLoggedIn ? '0.00' : '--', 2);
   const monthlyQuotaLabel = formatNumber(creditBalance?.monthlyQuota, isLoggedIn ? '0' : '--');
-  const progressWidth = `${Math.min(100, Math.max(0, monthlyUsagePercent))}%`;
+  const progressWidth = `${normalizedUsagePercent}%`;
   const monthlyUsageText = isLoggedIn
     ? creditBalance
       ? `本月已使用 ${monthlyUsageLabel}%（${monthlySpentLabel} / ${monthlyQuotaLabel} 积分）`
