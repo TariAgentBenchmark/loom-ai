@@ -9,9 +9,18 @@ interface LoginModalProps {
   onClose: () => void;
   onSubmit: (payload: { identifier: string; password: string; rememberMe: boolean }) => Promise<void>;
   onSwitchToRegister?: () => void;
+  onForgotPassword?: () => void;
 }
 
-const LoginModal: React.FC<LoginModalProps> = ({ isOpen, isSubmitting, errorMessage, onClose, onSubmit, onSwitchToRegister }) => {
+const LoginModal: React.FC<LoginModalProps> = ({
+  isOpen,
+  isSubmitting,
+  errorMessage,
+  onClose,
+  onSubmit,
+  onSwitchToRegister,
+  onForgotPassword,
+}) => {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
@@ -88,16 +97,29 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, isSubmitting, errorMess
             />
           </div>
 
-          <label className="flex items-center space-x-2 text-sm text-gray-600">
-            <input
-              type="checkbox"
-              checked={rememberMe}
-              onChange={(event) => setRememberMe(event.target.checked)}
-              className="rounded border-gray-300"
-              disabled={isSubmitting}
-            />
-            <span>记住我</span>
-          </label>
+          <div className="flex items-center justify-between text-sm text-gray-600">
+            <label className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(event) => setRememberMe(event.target.checked)}
+                className="rounded border-gray-300"
+                disabled={isSubmitting}
+              />
+              <span>记住我</span>
+            </label>
+
+            {onForgotPassword && (
+              <button
+                type="button"
+                onClick={onForgotPassword}
+                className="text-blue-600 hover:text-blue-700"
+                disabled={isSubmitting}
+              >
+                忘记密码？
+              </button>
+            )}
+          </div>
 
           {(localError || errorMessage) && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 sm:px-4 text-xs text-red-600">
@@ -131,5 +153,4 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, isSubmitting, errorMess
 };
 
 export default LoginModal;
-
 

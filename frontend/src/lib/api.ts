@@ -389,6 +389,17 @@ export interface VerifyPhoneCodePayload {
   code: string;
 }
 
+export interface SendPasswordResetCodePayload {
+  phone: string;
+}
+
+export interface ResetPasswordByPhonePayload {
+  phone: string;
+  code: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
 export interface SendVerificationCodeResult {
   message: string;
   expires_in: number;
@@ -1223,4 +1234,21 @@ export const verifyPhoneCode = (payload: VerifyPhoneCodePayload) =>
   postJson<null, { phone: string; code: string }>(
     "/auth/verify-phone-code",
     payload,
+  );
+
+export const sendPasswordResetCode = (payload: SendPasswordResetCodePayload) =>
+  postJson<{ message: string; expires_in: number }, { phone: string }>(
+    "/auth/send-password-reset-code",
+    payload,
+  );
+
+export const resetPasswordByPhone = (payload: ResetPasswordByPhonePayload) =>
+  postJson<null, { phone: string; code: string; new_password: string; confirm_password: string }>(
+    "/auth/reset-password-by-phone",
+    {
+      phone: payload.phone,
+      code: payload.code,
+      new_password: payload.newPassword,
+      confirm_password: payload.confirmPassword,
+    },
   );

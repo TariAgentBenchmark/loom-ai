@@ -14,6 +14,7 @@ import PricingModal from '../components/PricingModal';
 import ProcessingPage from '../components/ProcessingPage';
 import LoginModal from '../components/LoginModal';
 import RegisterModal from '../components/RegisterModal';
+import ForgotPasswordModal from '../components/ForgotPasswordModal';
 import { ProcessingMethod } from '../lib/processing';
 import {
   authenticate,
@@ -39,6 +40,9 @@ import {
   register,
   RegisterPayload,
   RegisterResult,
+  sendPasswordResetCode,
+  resetPasswordByPhone,
+  ResetPasswordByPhonePayload,
 } from '../lib/api';
 import {
   clearAuthTokens,
@@ -125,6 +129,7 @@ export default function Home() {
   const [registerError, setRegisterError] = useState<string>('');
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
@@ -419,6 +424,20 @@ export default function Home() {
       }
     },
     [hydrateAccount],
+  );
+
+  const requestPasswordResetCode = useCallback(
+    async (phone: string) => {
+      await sendPasswordResetCode({ phone });
+    },
+    [],
+  );
+
+  const resetPasswordViaPhone = useCallback(
+    async (payload: ResetPasswordByPhonePayload) => {
+      await resetPasswordByPhone(payload);
+    },
+    [],
   );
 
   const handleImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
@@ -884,6 +903,15 @@ export default function Home() {
           setShowRegisterModal(true);
           setAuthError('');
         }}
+        onForgotPassword={() => {
+          if (authState.status === 'authenticating') {
+            return;
+          }
+          setShowLoginModal(false);
+          setShowRegisterModal(false);
+          setShowForgotPasswordModal(true);
+          setAuthError('');
+        }}
       />
 
       <RegisterModal
@@ -902,6 +930,19 @@ export default function Home() {
           setShowRegisterModal(false);
           setShowLoginModal(true);
           setRegisterError('');
+        }}
+      />
+
+      <ForgotPasswordModal
+        isOpen={showForgotPasswordModal}
+        onClose={() => setShowForgotPasswordModal(false)}
+        onSendCode={requestPasswordResetCode}
+        onSubmit={async (payload) => {
+          await resetPasswordViaPhone(payload);
+        }}
+        onSwitchToLogin={() => {
+          setShowLoginModal(true);
+          setAuthError('');
         }}
       />
     </div>

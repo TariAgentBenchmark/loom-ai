@@ -9,6 +9,7 @@ from app.models.user import User
 from app.api.dependencies import get_current_user
 from app.services.auth_service import AuthService
 from app.schemas.common import SuccessResponse
+from app.services.sms_service import SMSService
 
 router = APIRouter()
 auth_service = AuthService()
@@ -57,6 +58,17 @@ class SendVerificationCode(BaseModel):
 class VerifyPhoneCode(BaseModel):
     phone: str
     code: str
+
+
+class SendPasswordResetCode(BaseModel):
+    phone: str
+
+
+class ResetPasswordByPhone(BaseModel):
+    phone: str
+    code: str
+    new_password: str
+    confirm_password: str
 
 
 @router.post("/register")
@@ -370,8 +382,6 @@ async def send_verification_code(
 ):
     """发送手机验证码"""
     try:
-        from app.services.sms_service import SMSService
-        
         # 查找用户
         user = db.query(User).filter(User.phone == request_data.phone).first()
         if user:
@@ -412,8 +422,6 @@ async def verify_phone_code(
 ):
     """验证手机验证码"""
     try:
-        from app.services.sms_service import SMSService
-        
         # 查找用户
         user = db.query(User).filter(User.phone == request_data.phone).first()
         sms_service = SMSService()
@@ -438,6 +446,87 @@ async def verify_phone_code(
             message="手机验证成功"
         )
         
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/send-password-reset-code")
+async def send_password_reset_code(
+    request_data: SendPasswordResetCode,
+    db: Session = Depends(get_db)
+):
+    """发送密码重置验证码"""
+    try:
+        sms_service = SMSService()
+        user = db.query(User).filter(User.phone == request_data.phone).first()
+
+        if not user:
+            # 避免泄露用户信息，即使手机号不存在也返回成功
+            return SuccessResponse(
+                data={
+                    "message": "如果手机号已注册，我们已发送验证码",
+                    "expires_in": sms_service.code_valid_minutes * 60
+                },
+                message="验证码发送成功"
+            )
+
+        can_send, message = sms_service.can_send_sms(user)
+        if not can_send:
+            raise HTTPException(status_code=429, detail=message)
+
+        code = sms_service.create_verification_record(user, db)
+        success = sms_service.send_verification_sms(request_data.phone, code)
+
+        if not success:
+            raise HTTPException(status_code=500, detail="短信发送失败")
+
+        return SuccessResponse(
+            data={
+                "message": "验证码已发送",
+                "expires_in": sms_service.code_valid_minutes * 60
+            },
+            message="验证码发送成功"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/reset-password-by-phone")
+async def reset_password_by_phone(
+    request_data: ResetPasswordByPhone,
+    db: Session = Depends(get_db)
+):
+    """通过手机验证码重置密码"""
+    try:
+        if request_data.new_password != request_data.confirm_password:
+            raise HTTPException(status_code=400, detail="密码确认不一致")
+
+        if len(request_data.new_password) < 8:
+            raise HTTPException(status_code=400, detail="密码长度至少8位")
+
+        user = db.query(User).filter(User.phone == request_data.phone).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="手机号未注册")
+
+        sms_service = SMSService()
+        if not sms_service.verify_code(user, request_data.code, db):
+            raise HTTPException(status_code=400, detail="验证码错误或已过期")
+
+        user.hashed_password = auth_service.get_password_hash(request_data.new_password)
+        user.reset_token = None
+        user.reset_token_expires = None
+        db.commit()
+
+        return SuccessResponse(
+            data=None,
+            message="密码重置成功"
+        )
+
     except HTTPException:
         raise
     except Exception as e:
