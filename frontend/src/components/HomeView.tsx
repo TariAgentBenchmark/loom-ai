@@ -94,27 +94,10 @@ const HomeView: React.FC<HomeViewProps> = ({
   );
   const monthlyLabel = formatNumber(accountSummary?.monthlyProcessed, isLoggedIn ? '0' : '--');
   const totalLabel = formatNumber(accountSummary?.totalProcessed, isLoggedIn ? '0' : '--');
-  const monthlyQuotaValue = creditBalance?.monthlyQuota ?? 0;
-  const monthlySpentValue = creditBalance?.monthlySpent ?? 0;
-  const hasMonthlyQuota = monthlyQuotaValue > 0;
-  const calculatedUsagePercent = hasMonthlyQuota
-    ? (monthlySpentValue / monthlyQuotaValue) * 100
-    : creditBalance?.monthlyUsagePercent ?? 0;
-  const monthlyUsagePercent = isLoggedIn ? calculatedUsagePercent : 35;
-  const normalizedUsagePercent = Math.min(100, Math.max(0, monthlyUsagePercent));
-  const monthlyUsageLabel = formatNumber(
-    monthlyUsagePercent,
-    isLoggedIn ? '0.00' : '35.00',
-    2,
-  );
   const monthlySpentLabel = formatNumber(creditBalance?.monthlySpent, isLoggedIn ? '0.00' : '--', 2);
-  const monthlyQuotaLabel = formatNumber(creditBalance?.monthlyQuota, isLoggedIn ? '0' : '--');
-  const progressWidth = `${normalizedUsagePercent}%`;
   const monthlyUsageText = isLoggedIn
-    ? creditBalance
-      ? `本月已使用 ${monthlyUsageLabel}%（${monthlySpentLabel} / ${monthlyQuotaLabel} 积分）`
-      : `本月已使用 ${monthlyUsageLabel}%`
-    : '本月已使用 35%';
+    ? `本月已使用 ${monthlySpentLabel} 积分`
+    : '登录后可查看本月积分使用情况';
 
   const handleLogout = () => {
     if (onLogout) {
@@ -388,12 +371,6 @@ const HomeView: React.FC<HomeViewProps> = ({
                       <span className="text-xs text-gray-600">剩余积分</span>
                       <span className="text-base font-bold text-blue-600">{creditsLabel}</span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-gradient-to-r from-blue-500 to-indigo-500 h-2 rounded-full"
-                        style={{ width: progressWidth }}
-                      ></div>
-                    </div>
                     <div className="text-xs text-gray-500 mt-1">{monthlyUsageText}</div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -475,12 +452,6 @@ const HomeView: React.FC<HomeViewProps> = ({
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs md:text-sm text-gray-600">剩余积分</span>
                   <span className="text-base md:text-lg font-bold text-blue-600">{creditsLabel}</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-gradient-to-r from-blue-500 to-indigo-500 h-2 rounded-full"
-                    style={{ width: progressWidth }}
-                  ></div>
                 </div>
                 <div className="text-xs text-gray-500 mt-1">{monthlyUsageText}</div>
               </div>
