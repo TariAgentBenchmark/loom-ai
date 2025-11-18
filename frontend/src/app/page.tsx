@@ -83,6 +83,8 @@ type MethodViewState = {
   errorMessage: string;
 };
 
+type MethodUiStateMap = Partial<Record<ProcessingMethod, MethodViewState>>;
+
 const readPersistedProcessingTasks = (): PersistedProcessingTaskMap => {
   if (typeof window === 'undefined') {
     return {};
@@ -144,11 +146,9 @@ export default function Home() {
   const [seamDirection, setSeamDirection] = useState<number>(0);
   const [seamFit, setSeamFit] = useState<number>(0.5);
   const [historyRefreshToken, setHistoryRefreshToken] = useState(0);
-  const [activeTasks, setActiveTasks] = useState<Partial<Record<ProcessingMethod, PersistedProcessingTaskEntry>>>(
-    {},
-  );
+  const [activeTasks, setActiveTasks] = useState<PersistedProcessingTaskMap>({});
 
-  const methodUiStateRef = useRef<Record<ProcessingMethod, MethodViewState>>({});
+  const methodUiStateRef = useRef<MethodUiStateMap>({});
   const pollingRefs = useRef<Record<string, ReturnType<typeof setInterval>>>({});
   const hasLoadedPersistedTasksRef = useRef(false);
 
@@ -422,7 +422,7 @@ export default function Home() {
   );
 
   const handleImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
-    if (currentPage !== 'home' && isCurrentMethodProcessing) {
+    if (isCurrentMethodProcessing) {
       setErrorMessage('当前任务正在处理中，请等待完成后再上传新图片');
       if (event.target) {
         event.target.value = '';
@@ -447,7 +447,7 @@ export default function Home() {
 
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    if (currentPage !== 'home' && isCurrentMethodProcessing) {
+    if (isCurrentMethodProcessing) {
       setErrorMessage('当前任务正在处理中，请等待完成后再上传新图片');
       return;
     }
@@ -608,7 +608,7 @@ export default function Home() {
       return;
     }
 
-    if (currentPage !== 'home' && isCurrentMethodProcessing) {
+    if (isCurrentMethodProcessing) {
       setErrorMessage('当前任务正在处理中，请等待完成后再上传新图片');
       return;
     }

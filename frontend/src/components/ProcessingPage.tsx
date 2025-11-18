@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { History, Eye } from 'lucide-react';
 import { ProcessingMethod, getProcessingMethodInfo, canAdjustResolution } from '../lib/processing';
 import { resolveFileUrl, HistoryTask, getServiceCost, downloadProcessingResult, getPublicServicePrices } from '../lib/api';
@@ -10,6 +10,19 @@ import ProcessedImagePreview from './ProcessedImagePreview';
 import ExpandPreviewFrame from './ExpandPreviewFrame';
 
 type ExpandEdgeKey = 'top' | 'bottom' | 'left' | 'right';
+
+const EDGE_MIN = 0;
+const EDGE_MAX_VALUES: Record<ExpandEdgeKey, number> = {
+  top: 0.5,
+  bottom: 0.5,
+  left: 1,
+  right: 1,
+};
+const EDGE_STEP = 0.01;
+const EDGE_LARGE_STEP = 0.1;
+
+const clampEdgeValue = (edge: ExpandEdgeKey, value: number) =>
+  Math.max(EDGE_MIN, Math.min(EDGE_MAX_VALUES[edge], value));
 
 const formatCredits = (value: number) => {
   if (Number.isInteger(value)) {
@@ -220,7 +233,10 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     { value: '9:16', label: '9:16' },
   ];
   const effectiveExpandRatio = expandRatio ?? 'original';
-  const edgeValues = expandEdges ?? { top: '0.00', bottom: '0.00', left: '0.00', right: '0.00' };
+  const edgeValues = useMemo(
+    () => expandEdges ?? { top: '0.00', bottom: '0.00', left: '0.00', right: '0.00' },
+    [expandEdges],
+  );
   const expandPromptValue = expandPrompt ?? '';
   const expandEdgeItems: { key: ExpandEdgeKey; label: string }[] = [
     { key: 'top', label: '上' },
@@ -228,15 +244,6 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     { key: 'left', label: '左' },
     { key: 'right', label: '右' },
   ];
-  const EDGE_MIN = 0;
-  const EDGE_MAX_VALUES: Record<ExpandEdgeKey, number> = {
-    top: 0.5,
-    bottom: 0.5,
-    left: 1,
-    right: 1,
-  };
-  const EDGE_STEP = 0.01;
-  const EDGE_LARGE_STEP = 0.1;
   const [computedPresetEdges, setComputedPresetEdges] = useState<Record<ExpandEdgeKey, string> | null>(null);
   const seamDirectionOptions: { value: number; label: string }[] = [
     { value: 0, label: '四周拼接' },
@@ -281,9 +288,6 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     onExpandRatioChange?.(value);
     resetManualEdges();
   };
-  const clampEdgeValue = (edge: ExpandEdgeKey, value: number) =>
-    Math.max(EDGE_MIN, Math.min(EDGE_MAX_VALUES[edge], value));
-
   const formatEdgeValue = (edge: ExpandEdgeKey, value: number) => clampEdgeValue(edge, value).toFixed(2);
 
   const parseEdgeValue = (edge: ExpandEdgeKey) => {
