@@ -48,7 +48,6 @@ class LakalaApiClient:
         app_id: Optional[str] = None,
         serial_no: Optional[str] = None,
         merchant_no: Optional[str] = None,
-        term_no: Optional[str] = None,
         private_key_path: Optional[str] = None,
         response_certificate_path: Optional[str] = None,
         notify_certificate_path: Optional[str] = None,
@@ -62,8 +61,8 @@ class LakalaApiClient:
         self.app_id = app_id or settings.lakala_app_id
         self.serial_no = serial_no or settings.lakala_serial_no
         self.merchant_no = merchant_no or settings.lakala_merchant_no
-        self.term_no = term_no or settings.lakala_term_no
         self.timeout = timeout or settings.lakala_default_timeout
+        self.skip_signature_verification = settings.lakala_skip_signature_verification
 
         self._private_key = self._load_private_key(
             private_key_path or settings.lakala_private_key_path
@@ -166,29 +165,92 @@ class LakalaApiClient:
                 headers=headers,
             )
         except requests.RequestException as exc:
+            self._log_api_failure(
+                "request failed",
+                url=url,
+                payload=body_str,
+                response_text=None,
+                error=exc,
+            )
             raise LakalaAPIError(f"Lakala API request failed: {exc}") from exc
 
         try:
             response.raise_for_status()
         except requests.HTTPError as exc:
+            self._log_api_failure(
+                f"HTTP error {response.status_code}",
+                url=url,
+                payload=body_str,
+                response_text=response.text,
+                error=exc,
+            )
             raise LakalaAPIError(
                 f"Lakala API HTTP error {response.status_code}: {response.text}"
             ) from exc
 
         body_text = response.text
-        verification = self._extract_verification_headers(response)
-        if not self._verify_signature(
-            verification.signature,
-            self._response_signature_plaintext(verification, body_text).encode(
-                "utf-8"
-            ),
-            certificate=self._response_certificate,
-        ):
-            raise LakalaAPIError("Lakala API signature verification failed")
+        verification: Optional[LakalaResponseVerification] = None
+        try:
+            verification = self._extract_verification_headers(response)
+        except LakalaAPIError as exc:
+            if self.skip_signature_verification:
+                self.logger.warning(
+                    "Skipping Lakala response signature verification because headers are missing: %s. URL: %s Payload: %s Response: %s",
+                    exc,
+                    url,
+                    body_str,
+                    body_text,
+                )
+            else:
+                self._log_api_failure(
+                    "missing verification headers",
+                    url=url,
+                    payload=body_str,
+                    response_text=body_text,
+                )
+                raise
+
+        if verification:
+            signature_plaintext = self._response_signature_plaintext(
+                verification,
+                body_text,
+            ).encode("utf-8")
+            signature_valid = self._verify_signature(
+                verification.signature,
+                signature_plaintext,
+                certificate=self._response_certificate,
+                log_failure=not self.skip_signature_verification,
+            )
+            if not signature_valid:
+                if self.skip_signature_verification:
+                    self.logger.warning(
+                        "Skipping Lakala response signature verification failure (serial: %s). URL: %s Payload: %s Response: %s",
+                        verification.serial_no,
+                        url,
+                        body_str,
+                        body_text,
+                    )
+                else:
+                    self._log_api_failure(
+                        "signature verification failed",
+                        url=url,
+                        payload=body_str,
+                        response_text=body_text,
+                    )
+                    raise LakalaAPIError("Lakala API signature verification failed")
+        elif not self.skip_signature_verification:
+            raise LakalaAPIError("Lakala API response verification headers missing")
 
         try:
             data = response.json()
         except json.JSONDecodeError as exc:
+            self._log_api_failure(
+                "returned invalid JSON",
+                url=url,
+                payload=body_str,
+                response_text=body_text,
+                error=exc,
+            )
             raise LakalaAPIError(f"Lakala API returned invalid JSON: {body_text}") from exc
 
         return data
@@ -196,7 +258,6 @@ class LakalaApiClient:
     def _build_standard_payload(self, req_data: Dict[str, Any]) -> Dict[str, Any]:
         merged_data = {k: v for k, v in (req_data or {}).items()}
         merged_data.setdefault("merchant_no", self.merchant_no)
-        merged_data.setdefault("term_no", self.term_no)
 
         return self._build_payload_wrapper(merged_data)
 
@@ -239,6 +300,7 @@ class LakalaApiClient:
         message: bytes,
         *,
         certificate: x509.Certificate,
+        log_failure: bool = True,
     ) -> bool:
         try:
             certificate.public_key().verify(
@@ -249,7 +311,8 @@ class LakalaApiClient:
             )
             return True
         except Exception as exc:  # noqa: BLE001
-            self.logger.error("Lakala signature verification failed: %s", exc)
+            if log_failure:
+                self.logger.error("Lakala signature verification failed: %s", exc)
             return False
 
     @staticmethod
@@ -333,3 +396,32 @@ class LakalaApiClient:
     @classmethod
     def _generate_nonce(cls, length: int = 32) -> str:
         return "".join(secrets.choice(cls._NONCE_CHARSET) for _ in range(length))
+
+    def _log_api_failure(
+        self,
+        reason: str,
+        *,
+        url: str,
+        payload: str,
+        response_text: Optional[str],
+        error: Optional[BaseException] = None,
+    ) -> None:
+        """Log request/response details to help diagnose Lakala API errors."""
+        response_value = response_text if response_text is not None else "<no response body>"
+        if error:
+            self.logger.error(
+                "Lakala API %s. URL: %s Payload: %s Response: %s Error: %s",
+                reason,
+                url,
+                payload,
+                response_value,
+                error,
+            )
+        else:
+            self.logger.error(
+                "Lakala API %s. URL: %s Payload: %s Response: %s",
+                reason,
+                url,
+                payload,
+                response_value,
+            )

@@ -126,6 +126,7 @@ class Settings(BaseSettings):
     lakala_notify_certificate_path: Optional[str] = "./assets/OP00000003_cert.cer"
     lakala_sm4_key: Optional[str] = "LHo55AjrT4aDhAIBZhb5KQ=="
     lakala_default_timeout: int = 10
+    lakala_skip_signature_verification: bool = False
 
     # 基础URL配置
     base_url: str = "http://localhost:8000"

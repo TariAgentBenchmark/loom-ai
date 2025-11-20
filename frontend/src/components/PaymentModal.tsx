@@ -46,7 +46,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 }) => {
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('idle');
   const [resultMessage, setResultMessage] = useState<string>('');
-  const [responseData, setResponseData] = useState<any>(null);
+  const [counterUrl, setCounterUrl] = useState<string | null>(null);
   const [tradeNo, setTradeNo] = useState(generateTradeNo());
   const [paymentChannel, setPaymentChannel] = useState<PaymentChannel>('WECHAT');
 
@@ -58,6 +58,16 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   const selectedChannelLabel =
     CHANNEL_OPTIONS.find((item) => item.key === paymentChannel)?.label ?? '';
 
+  const openCounterInNewTab = useCallback((url: string): boolean => {
+    const newWindow = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!newWindow) {
+      return false;
+    }
+    newWindow.opener = null;
+    newWindow.focus();
+    return true;
+  }, []);
+
   const createCounterOrder = useCallback(async () => {
     if (!accessToken) {
       setPaymentStatus('failed');
@@ -67,7 +77,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
     setPaymentStatus('processing');
     setResultMessage('');
-    setResponseData(null);
+    setCounterUrl(null);
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -99,7 +109,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
       const raw = await response.json().catch(() => ({}));
       const payload = unwrapLakalaPayload(raw);
-      setResponseData(payload);
 
       if (!response.ok) {
         throw new Error(
@@ -123,14 +132,19 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         return;
       }
 
+      setCounterUrl(counterUrlValue);
       setPaymentStatus('redirecting');
-      setResultMessage(`正在跳转到${selectedChannelLabel}收银台...`);
-      
-      // 自动重定向到收银台
-      setTimeout(() => {
-        window.location.href = counterUrlValue;
-      }, 1000);
-      
+      setResultMessage(`即将在新标签页打开${selectedChannelLabel}收银台...`);
+
+      const opened = openCounterInNewTab(counterUrlValue);
+      if (!opened) {
+        setPaymentStatus('failed');
+        setResultMessage(
+          '浏览器阻止了弹出窗口，请允许后重试或手动在新标签页打开收银台。'
+        );
+      } else {
+        setResultMessage(`已在新标签页打开${selectedChannelLabel}收银台，请完成支付。`);
+      }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : '创建支付订单失败，请稍后再试';
@@ -140,6 +154,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   }, [
     accessToken,
     amountInFen,
+    openCounterInNewTab,
     packageInfo.packageId,
     packageInfo.packageName,
     paymentChannel,
@@ -253,13 +268,27 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
               </div>
             )}
 
-            {responseData && (
-              <div className="rounded-lg bg-gray-50 p-3 text-xs text-gray-600 max-h-60 overflow-auto">
-                <div className="font-semibold text-gray-800 mb-1">拉卡拉返回</div>
-                <pre className="whitespace-pre-wrap break-all">
-                  {JSON.stringify(responseData, null, 2)}
-                </pre>
-              </div>
+            {counterUrl && paymentStatus !== 'processing' && (
+              <button
+                type="button"
+                onClick={() => {
+                  const opened = openCounterInNewTab(counterUrl);
+                  if (!opened) {
+                    setPaymentStatus('failed');
+                    setResultMessage(
+                      '浏览器仍然阻止了弹出窗口，请检查浏览器设置或复制链接手动打开。'
+                    );
+                  } else {
+                    setPaymentStatus('redirecting');
+                    setResultMessage(
+                      `已在新标签页打开${selectedChannelLabel}收银台，请完成支付。`
+                    );
+                  }
+                }}
+                className="w-full rounded-lg border border-blue-200 bg-white py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 transition"
+              >
+                在新标签页打开收银台
+              </button>
             )}
           </div>
         </div>
