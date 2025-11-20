@@ -174,7 +174,8 @@ async def lakala_counter_notify(
     nonce = request.headers.get("Lklapi-Nonce")
     signature = request.headers.get("Lklapi-Signature")
 
-    if not all([timestamp, nonce, signature]):
+    headers_present = all([timestamp, nonce, signature])
+    if not headers_present and not settings.lakala_skip_signature_verification:
         logger.error(
             "Missing Lakala notify headers. timestamp=%s nonce=%s signature_present=%s body=%s",
             timestamp,
@@ -184,19 +185,27 @@ async def lakala_counter_notify(
         )
         raise HTTPException(status_code=400, detail="Missing Lakala headers")
 
-    client = LakalaApiClient()
-    if not client.verify_async_notify(
-        timestamp=timestamp,
-        nonce=nonce,
-        body=body_text,
-        signature=signature,
-    ):
-        logger.error(
-            "Lakala notify signature verification failed. headers=%s body=%s",
-            dict(request.headers),
+    if headers_present:
+        client = LakalaApiClient()
+        if not client.verify_async_notify(
+            timestamp=timestamp,
+            nonce=nonce,
+            body=body_text,
+            signature=signature,
+        ):
+            logger.error(
+                "Lakala notify signature verification failed. headers=%s body=%s",
+                dict(request.headers),
+                body_text,
+            )
+            if not settings.lakala_skip_signature_verification:
+                raise HTTPException(status_code=400, detail="Invalid Lakala signature")
+            logger.warning("Skipping Lakala notify signature verification failure due to config.")
+    else:
+        logger.warning(
+            "Skipping Lakala notify signature verification because headers are missing and skip flag is enabled. body=%s",
             body_text,
         )
-        raise HTTPException(status_code=400, detail="Invalid Lakala signature")
 
     try:
         payload = await request.json()
