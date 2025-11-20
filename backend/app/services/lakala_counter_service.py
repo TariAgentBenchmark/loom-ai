@@ -57,7 +57,7 @@ class LakalaCounterService:
         """
         # Set default expiry time (current time + 1 hour)
         if not order_efficient_time:
-            expiry_time = datetime.now() + timedelta(hours=1)
+            expiry_time = datetime.now() + timedelta(hours=9)
             order_efficient_time = expiry_time.strftime("%Y%m%d%H%M%S")
         
         # Prepare request data
