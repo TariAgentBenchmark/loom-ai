@@ -14,6 +14,7 @@ from app.schemas.common import SuccessResponse
 from app.services.payment_service import PaymentService
 from app.services.lakala_api import LakalaApiClient, LakalaAPIError
 from app.services.membership_service import MembershipService
+from app.core.config import settings
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -71,18 +72,30 @@ async def create_counter_order(
     payload: CreateCounterOrderRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    request: Request = None,
 ):
     """Create payment order in Lakala Aggregated Payment Gateway."""
 
     payment_service = PaymentService()
 
     try:
+        notify_url = (
+            payload.notify_url
+            or f"{settings.base_url.rstrip('/')}/api/v1/payment/lakala/counter/notify"
+        )
+        # 兼容旧前端的路径，强制改到新回调地址
+        if "/api/payment/notify" in notify_url:
+            notify_url = notify_url.replace(
+                "/api/payment/notify", "/api/v1/payment/lakala/counter/notify"
+            )
+        callback_url = payload.callback_url or f"{settings.base_url.rstrip('/')}/payment/success"
+
         result = await payment_service.create_lakala_counter_order(
             out_order_no=payload.out_order_no,
             total_amount=payload.total_amount,
             order_info=payload.order_info,
-            notify_url=payload.notify_url,
-            callback_url=payload.callback_url,
+            notify_url=notify_url,
+            callback_url=callback_url,
             payment_method=payload.payment_method,
             vpos_id=payload.vpos_id,
             channel_id=payload.channel_id,
