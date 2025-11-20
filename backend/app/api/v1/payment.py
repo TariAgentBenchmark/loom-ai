@@ -282,6 +282,10 @@ def _ensure_local_order_record(
             order.package_name = payload.order_info
         if not order.expires_at:
             order.expires_at = datetime.utcnow() + timedelta(minutes=5)
+        if not order.payment_method:
+            order.payment_method = PaymentMethod.LAKALA_COUNTER.value
+        if not order.package_type:
+            order.package_type = PackageType.MEMBERSHIP.value
     else:
         order = Order(
             order_id=payload.out_order_no,
@@ -291,6 +295,7 @@ def _ensure_local_order_record(
             package_type=PackageType.MEMBERSHIP.value,
             original_amount=payload.total_amount,
             final_amount=payload.total_amount,
+            payment_method=PaymentMethod.LAKALA_COUNTER.value,
             status=OrderStatus.PENDING.value,
             expires_at=datetime.utcnow() + timedelta(minutes=5),
             credits_amount=package.total_credits if package else None,
