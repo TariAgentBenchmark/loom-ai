@@ -1,6 +1,7 @@
 """会员服务"""
 
 import uuid
+import json
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Dict, Any, Optional, List
@@ -262,14 +263,17 @@ class MembershipService:
             source=CreditSource.PURCHASE.value,
             description=f"购买 {package.name}",
             related_order_id=order_id,
-            details={
-                "package_id": package.package_id,
-                "package_name": package.name,
-                "price_yuan": package.price_yuan,
-                "bonus_credits": package.bonus_credits,
-                "total_credits": package.total_credits,
-                "payment_method": payment_method
-            }
+            details=json.dumps(
+                {
+                    "package_id": package.package_id,
+                    "package_name": package.name,
+                    "price_yuan": package.price_yuan,
+                    "bonus_credits": package.bonus_credits,
+                    "total_credits": package.total_credits,
+                    "payment_method": payment_method,
+                },
+                ensure_ascii=False,
+            ),
         )
 
         db.add(transaction)
@@ -352,12 +356,15 @@ class MembershipService:
             source=CreditSource.REFUND.value,
             description=f"套餐退款: {package.name}",
             related_order_id=user_membership.order_id,
-            details={
-                "refund_amount_yuan": refund_amount_yuan,
-                "refund_reason": reason,
-                "original_purchase_amount": user_membership.purchase_amount_yuan,
-                "deduction_rate": package.refund_deduction_rate
-            }
+            details=json.dumps(
+                {
+                    "refund_amount_yuan": refund_amount_yuan,
+                    "refund_reason": reason,
+                    "original_purchase_amount": user_membership.purchase_amount_yuan,
+                    "deduction_rate": package.refund_deduction_rate,
+                },
+                ensure_ascii=False,
+            ),
         )
 
         db.add(transaction)
@@ -417,10 +424,13 @@ class MembershipService:
             balance_after=to_decimal(user.credits or 0),
             source=CreditSource.REGISTRATION.value,
             description="新用户注册福利",
-            details={
-                "bonus_type": "new_user",
-                "bonus_credits": bonus_config.bonus_credits
-            }
+            details=json.dumps(
+                {
+                    "bonus_type": "new_user",
+                    "bonus_credits": bonus_config.bonus_credits,
+                },
+                ensure_ascii=False,
+            ),
         )
 
         db.add(transaction)
