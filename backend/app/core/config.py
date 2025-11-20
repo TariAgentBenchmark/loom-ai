@@ -113,7 +113,7 @@ class Settings(BaseSettings):
     alipay_public_key: str = ""
     alipay_sandbox: bool = True
 
-    # 拉卡拉单笔交易API（Micropay）配置
+    # 拉卡拉聚合收银台配置
     lakala_api_base_url: str = "https://test.wsmsd.cn/sit"
     lakala_api_schema: str = "LKLAPI-SHA256withRSA"
     lakala_api_version: str = "3.0"

@@ -81,11 +81,32 @@ class LakalaApiClient:
     # ------------------------------------------------------------------
     # Public helpers
     # ------------------------------------------------------------------
-    def micropay(self, req_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Call the `/api/v3/labs/trans/micropay` endpoint."""
+    def create_counter_order(self, req_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Create payment order in Aggregated Payment Gateway.
+        Endpoint: /api/v3/ccss/counter/order/special_create
+        """
 
         payload = self._build_standard_payload(req_data)
-        return self._request("/api/v3/labs/trans/micropay", payload)
+        return self._request("/api/v3/ccss/counter/order/special_create", payload)
+
+    def query_counter_order(self, req_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Query payment order status.
+        Endpoint: /api/v3/ccss/counter/order/query
+        """
+
+        payload = self._build_standard_payload(req_data)
+        return self._request("/api/v3/ccss/counter/order/query", payload)
+
+    def close_counter_order(self, req_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Close payment order.
+        Endpoint: /api/v3/ccss/counter/order/close
+        """
+
+        payload = self._build_standard_payload(req_data)
+        return self._request("/api/v3/ccss/counter/order/close", payload)
 
     def call(
         self,

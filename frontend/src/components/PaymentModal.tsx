@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 
 interface PaymentModalProps {
   packageInfo: {
@@ -14,10 +14,29 @@ interface PaymentModalProps {
   accessToken?: string;
 }
 
-type PaymentStatus = 'idle' | 'processing' | 'success' | 'failed';
+type PaymentStatus = 'idle' | 'processing' | 'redirecting' | 'success' | 'failed';
+type PaymentChannel = 'ALIPAY' | 'WECHAT';
+
+const CHANNEL_OPTIONS: Array<{ key: PaymentChannel; label: string }> = [
+  { key: 'WECHAT', label: '微信支付' },
+  { key: 'ALIPAY', label: '支付宝' },
+];
 
 const generateTradeNo = () =>
   `WEB${Date.now()}${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+
+const unwrapLakalaPayload = (payload: any) => payload?.data ?? payload;
+
+const extractCounterUrl = (payload: any): string | null => {
+  if (!payload) return null;
+  const respData = payload?.resp_data ?? payload?.respData ?? payload;
+  const counterUrl = respData?.counter_url;
+  
+  if (typeof counterUrl === 'string' && counterUrl.trim().length > 0) {
+    return counterUrl.trim();
+  }
+  return null;
+};
 
 const PaymentModal: React.FC<PaymentModalProps> = ({
   packageInfo,
@@ -25,20 +44,24 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   onPaymentSuccess,
   accessToken,
 }) => {
-  const [authCode, setAuthCode] = useState('135178236713755038');
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('idle');
   const [resultMessage, setResultMessage] = useState<string>('');
   const [responseData, setResponseData] = useState<any>(null);
   const [tradeNo, setTradeNo] = useState(generateTradeNo());
+  const [paymentChannel, setPaymentChannel] = useState<PaymentChannel>('WECHAT');
 
   const amountInFen = useMemo(
     () => Math.round(packageInfo.priceYuan * 100),
     [packageInfo.priceYuan]
   );
 
-  const handleMicropay = async () => {
-    if (!authCode.trim()) {
-      alert('请输入拉卡拉扫码枪获得的付款码（auth_code）');
+  const selectedChannelLabel =
+    CHANNEL_OPTIONS.find((item) => item.key === paymentChannel)?.label ?? '';
+
+  const createCounterOrder = useCallback(async () => {
+    if (!accessToken) {
+      setPaymentStatus('failed');
+      setResultMessage('登录状态已失效，请重新登录后再试');
       return;
     }
 
@@ -56,51 +79,83 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     const freshTradeNo = generateTradeNo();
     setTradeNo(freshTradeNo);
 
-    const reqData = {
-      out_trade_no: freshTradeNo,
+    const requestData = {
       out_order_no: `${freshTradeNo}_${packageInfo.packageId}`,
-      auth_code: authCode.trim(),
-      total_amount: String(amountInFen),
-      location_info: {
-        request_ip:
-          typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1',
-        location: '+37.123456789,-121.123456789',
-      },
+      total_amount: amountInFen,
+      order_info: `购买${packageInfo.packageName}`,
+      notify_url: `${window.location.origin}/api/payment/notify`,
+      callback_url: `${window.location.origin}/payment/success`,
+      payment_method: paymentChannel,
+      support_refund: 1,
+      support_repeat_pay: 1,
     };
 
     try {
-      const response = await fetch('/api/v1/payment/lakala/micropay', {
+      const response = await fetch('/api/v1/payment/lakala/counter/create', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ req_data: reqData }),
+        body: JSON.stringify(requestData),
       });
 
-      const data = await response.json().catch(() => ({}));
-      setResponseData(data);
+      const raw = await response.json().catch(() => ({}));
+      const payload = unwrapLakalaPayload(raw);
+      setResponseData(payload);
 
       if (!response.ok) {
-        throw new Error(data.detail || data.message || '请求失败');
+        throw new Error(
+          raw.detail || payload?.msg || payload?.message || '请求失败'
+        );
       }
 
-      const code = (data.code || '').toString().toUpperCase();
-      if (code === 'SUCCESS' || code === '000000') {
-        setPaymentStatus('success');
-        setResultMessage('支付成功，积分已到账。');
-        onPaymentSuccess();
-      } else {
+      const code = (payload?.code || payload?.resp_code || '')
+        .toString()
+        .toUpperCase();
+      if (code && code !== 'SUCCESS' && code !== '000000') {
         setPaymentStatus('failed');
-        setResultMessage(data.msg || '支付失败，请重试');
+        setResultMessage(payload?.msg || '创建支付订单失败，请稍后重试');
+        return;
       }
+
+      const counterUrlValue = extractCounterUrl(payload);
+      if (!counterUrlValue) {
+        setPaymentStatus('failed');
+        setResultMessage('拉卡拉返回结果中缺少收银台地址');
+        return;
+      }
+
+      setPaymentStatus('redirecting');
+      setResultMessage(`正在跳转到${selectedChannelLabel}收银台...`);
+      
+      // 自动重定向到收银台
+      setTimeout(() => {
+        window.location.href = counterUrlValue;
+      }, 1000);
+      
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : '支付失败，请重试';
+        error instanceof Error ? error.message : '创建支付订单失败，请稍后再试';
       setPaymentStatus('failed');
       setResultMessage(message);
     }
+  }, [
+    accessToken,
+    amountInFen,
+    packageInfo.packageId,
+    packageInfo.packageName,
+    paymentChannel,
+    selectedChannelLabel,
+  ]);
+
+  const handleChannelChange = (channel: PaymentChannel) => {
+    setPaymentChannel(channel);
+  };
+
+  const handleCreateOrder = () => {
+    void createCounterOrder();
   };
 
   const formatPrice = (value: number) => `¥${value.toLocaleString()}`;
-
+  
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
@@ -121,28 +176,68 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           </div>
 
           <div className="space-y-4">
-            <label className="block text-sm font-medium text-gray-700">
-              付款码（auth_code）
-              <input
-                type="text"
-                value={authCode}
-                onChange={(e) => setAuthCode(e.target.value)}
-                placeholder="请扫描顾客付款码后填写"
-                className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 focus:border-blue-500 focus:outline-none"
-              />
-            </label>
-
-            <div className="text-xs text-gray-500">
-              当前订单号：{tradeNo}
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">选择支付方式</p>
+              <div className="grid grid-cols-2 gap-3">
+                {CHANNEL_OPTIONS.map((channel) => (
+                  <button
+                    key={channel.key}
+                    type="button"
+                    onClick={() => handleChannelChange(channel.key)}
+                    className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                      paymentChannel === channel.key
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 text-gray-600 hover:border-blue-200'
+                    }`}
+                  >
+                    {channel.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <button
-              onClick={handleMicropay}
-              disabled={paymentStatus === 'processing'}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white py-3 rounded-lg font-medium transition"
-            >
-              {paymentStatus === 'processing' ? '支付处理中...' : '立即发起支付'}
-            </button>
+            <div className="flex items-center justify-between text-xs text-gray-500">
+              <span>当前订单号：{tradeNo}</span>
+            </div>
+
+            {paymentStatus === 'idle' && (
+              <div className="rounded-2xl border border-dashed border-blue-200 bg-blue-50/60 p-6 text-center">
+                <div className="mx-auto flex h-32 w-32 items-center justify-center rounded-xl bg-white p-3 shadow-inner mb-4">
+                  <svg className="w-16 h-16 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+                <p className="text-sm font-semibold text-gray-800 mb-2">
+                  选择{selectedChannelLabel}支付
+                </p>
+                <p className="text-xs text-gray-500 mb-4">
+                  点击下方按钮进入收银台完成支付
+                </p>
+                <button
+                  onClick={handleCreateOrder}
+                  disabled={paymentStatus !== 'idle'}
+                  className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition"
+                >
+                  {paymentStatus !== 'idle' ? '创建订单中...' : `前往${selectedChannelLabel}收银台`}
+                </button>
+              </div>
+            )}
+
+            {paymentStatus === 'processing' && (
+              <div className="rounded-2xl border border-dashed border-blue-200 bg-blue-50/60 p-6 text-center">
+                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                <p className="text-sm font-semibold text-gray-800">正在创建支付订单...</p>
+                <p className="text-xs text-gray-500 mt-1">请稍候</p>
+              </div>
+            )}
+
+            {paymentStatus === 'redirecting' && (
+              <div className="rounded-2xl border border-dashed border-green-200 bg-green-50/60 p-6 text-center">
+                <div className="animate-pulse rounded-full h-16 w-16 bg-green-500 mx-auto mb-4"></div>
+                <p className="text-sm font-semibold text-gray-800">正在跳转到收银台...</p>
+                <p className="text-xs text-gray-500 mt-1">请稍候，即将自动跳转</p>
+              </div>
+            )}
 
             {resultMessage && (
               <div

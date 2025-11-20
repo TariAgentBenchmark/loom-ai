@@ -78,6 +78,7 @@ services:
       - SMS_REGION=${SMS_REGION:-cn-hangzhou}
       - SMS_CODE_VALID_MINUTES=${SMS_CODE_VALID_MINUTES:-5}
       - SMS_MOCK_ENABLED=${SMS_MOCK_ENABLED:-false}
+      # 拉卡拉聚合收银台配置
       - LAKALA_API_BASE_URL=${LAKALA_API_BASE_URL:-https://test.wsmsd.cn/sit}
       - LAKALA_API_SCHEMA=${LAKALA_API_SCHEMA:-LKLAPI-SHA256withRSA}
       - LAKALA_API_VERSION=${LAKALA_API_VERSION:-3.0}

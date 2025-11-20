@@ -30,27 +30,103 @@ async def get_packages(
     )
 
 
-class LakalaMicropayRequest(BaseModel):
-    """Generic wrapper for Lakala Micropay req_data payload."""
+class CreateCounterOrderRequest(BaseModel):
+    """Request model for creating counter payment order."""
 
-    req_data: Dict[str, Any]
+    out_order_no: str
+    total_amount: int
+    order_info: str
+    notify_url: Optional[str] = None
+    callback_url: Optional[str] = None
+    payment_method: Optional[str] = "ALIPAY"
+    vpos_id: Optional[str] = None
+    channel_id: Optional[str] = None
+    order_efficient_time: Optional[str] = None
+    support_cancel: Optional[int] = 0
+    support_refund: Optional[int] = 1
+    support_repeat_pay: Optional[int] = 1
 
 
-@router.post("/lakala/micropay")
-async def lakala_micropay(
-    payload: LakalaMicropayRequest,
+class QueryOrderRequest(BaseModel):
+    """Request model for querying order status."""
+
+    out_order_no: str
+
+
+class CloseOrderRequest(BaseModel):
+    """Request model for closing order."""
+
+    out_order_no: str
+
+
+@router.post("/lakala/counter/create")
+async def create_counter_order(
+    payload: CreateCounterOrderRequest,
     current_user: User = Depends(get_current_user),
 ):
-    """Call the Lakala Micropay API with the provided req_data structure."""
+    """Create payment order in Lakala Aggregated Payment Gateway."""
 
     payment_service = PaymentService()
 
     try:
-        result = await payment_service.create_lakala_micropay(payload.req_data)
+        result = await payment_service.create_lakala_counter_order(
+            out_order_no=payload.out_order_no,
+            total_amount=payload.total_amount,
+            order_info=payload.order_info,
+            notify_url=payload.notify_url,
+            callback_url=payload.callback_url,
+            payment_method=payload.payment_method,
+            vpos_id=payload.vpos_id,
+            channel_id=payload.channel_id,
+            order_efficient_time=payload.order_efficient_time,
+            support_cancel=payload.support_cancel,
+            support_refund=payload.support_refund,
+            support_repeat_pay=payload.support_repeat_pay,
+        )
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return SuccessResponse(
         data=result,
-        message="拉卡拉 Micropay 请求成功",
+        message="聚合收银台订单创建成功",
+    )
+
+
+@router.post("/lakala/counter/query")
+async def query_counter_order(
+    payload: QueryOrderRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Query payment order status."""
+
+    payment_service = PaymentService()
+
+    try:
+        result = await payment_service.query_lakala_order_status(payload.out_order_no)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return SuccessResponse(
+        data=result,
+        message="订单状态查询成功",
+    )
+
+
+@router.post("/lakala/counter/close")
+async def close_counter_order(
+    payload: CloseOrderRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Close payment order."""
+
+    payment_service = PaymentService()
+
+    try:
+        result = await payment_service.close_lakala_order(payload.out_order_no)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return SuccessResponse(
+        data=result,
+        message="订单关闭成功",
     )
