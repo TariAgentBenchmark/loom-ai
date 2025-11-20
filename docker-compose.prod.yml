@@ -8,3 +8,9 @@ services:
   frontend:
     environment:
       - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-https://tuyunai.cn/api/v1}
+
+  backend:
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/data:/app/data
+      - ./assets_prod:/app/assets

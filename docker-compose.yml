@@ -94,6 +94,7 @@ services:
     volumes:
       - ./backend/uploads:/app/uploads
       - ./backend/data:/app/data
+      - ./assets:/app/assets
     depends_on:
       redis:
         condition: service_healthy
