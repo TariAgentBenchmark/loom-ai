@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
-export default function PaymentSuccessPage() {
+function SuccessContent() {
   const searchParams = useSearchParams();
   const orderNo = searchParams.get('order_no');
   const amount = searchParams.get('amount');
@@ -59,5 +60,13 @@ export default function PaymentSuccessPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function PaymentSuccessPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-slate-600">加载中...</div>}>
+      <SuccessContent />
+    </Suspense>
   );
 }
