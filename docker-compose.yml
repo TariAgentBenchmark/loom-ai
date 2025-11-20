@@ -91,6 +91,7 @@ services:
       - LAKALA_NOTIFY_CERTIFICATE_PATH=${LAKALA_NOTIFY_CERTIFICATE_PATH:-./assets/OP00000003_cert.cer}
       - LAKALA_SM4_KEY=${LAKALA_SM4_KEY:-LHo55AjrT4aDhAIBZhb5KQ==}
       - LAKALA_DEFAULT_TIMEOUT=${LAKALA_DEFAULT_TIMEOUT:-10}
+      - LAKALA_SKIP_SIGNATURE_VERIFICATION=${LAKALA_SKIP_SIGNATURE_VERIFICATION:-false}
     volumes:
       - ./backend/uploads:/app/uploads
       - ./backend/data:/app/data
