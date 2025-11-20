@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
+import logging
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Any, Dict, Optional
@@ -8,8 +9,10 @@ from app.models.user import User
 from app.api.dependencies import get_current_user
 from app.schemas.common import SuccessResponse
 from app.services.payment_service import PaymentService
+from app.services.lakala_api import LakalaApiClient, LakalaAPIError
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/packages")
@@ -130,3 +133,51 @@ async def close_counter_order(
         data=result,
         message="订单关闭成功",
     )
+
+
+@router.post("/lakala/counter/notify")
+async def lakala_counter_notify(request: Request):
+    """Handle Lakala asynchronous counter payment notifications."""
+
+    raw_body = await request.body()
+    body_text = raw_body.decode("utf-8")
+
+    timestamp = request.headers.get("Lklapi-Timestamp")
+    nonce = request.headers.get("Lklapi-Nonce")
+    signature = request.headers.get("Lklapi-Signature")
+
+    if not all([timestamp, nonce, signature]):
+        logger.error(
+            "Missing Lakala notify headers. timestamp=%s nonce=%s signature_present=%s body=%s",
+            timestamp,
+            nonce,
+            bool(signature),
+            body_text,
+        )
+        raise HTTPException(status_code=400, detail="Missing Lakala headers")
+
+    client = LakalaApiClient()
+    if not client.verify_async_notify(
+        timestamp=timestamp,
+        nonce=nonce,
+        body=body_text,
+        signature=signature,
+    ):
+        logger.error(
+            "Lakala notify signature verification failed. headers=%s body=%s",
+            dict(request.headers),
+            body_text,
+        )
+        raise HTTPException(status_code=400, detail="Invalid Lakala signature")
+
+    try:
+        payload = await request.json()
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Invalid Lakala notify JSON: %s error=%s", body_text, exc)
+        raise HTTPException(status_code=400, detail="Invalid JSON") from exc
+
+    logger.info("Received Lakala notify: %s", payload)
+
+    # TODO: tie this notification to local order records and credit the user.
+    # For now we only acknowledge success to avoid Lakala retries failing.
+    return {"code": "SUCCESS", "msg": "ok"}
