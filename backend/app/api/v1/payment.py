@@ -265,7 +265,10 @@ async def lakala_counter_notify(
 
 def _parse_package_id(out_order_no: str) -> Optional[str]:
     parts = out_order_no.split("_")
-    return parts[-1] if len(parts) > 1 else None
+    if len(parts) <= 1:
+        return None
+    # 支付单号格式: <prefix>_<package_id>，而 package_id 可能包含下划线
+    return "_".join(parts[1:])
 
 
 def _ensure_local_order_record(
