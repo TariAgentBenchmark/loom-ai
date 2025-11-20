@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -6,10 +7,13 @@ from typing import Any, Dict, Optional
 
 from app.core.database import get_db
 from app.models.user import User
+from app.models.payment import Order, OrderStatus, PaymentMethod, PackageType
+from app.models.membership_package import MembershipPackage
 from app.api.dependencies import get_current_user
 from app.schemas.common import SuccessResponse
 from app.services.payment_service import PaymentService
 from app.services.lakala_api import LakalaApiClient, LakalaAPIError
+from app.services.membership_service import MembershipService
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -66,6 +70,7 @@ class CloseOrderRequest(BaseModel):
 async def create_counter_order(
     payload: CreateCounterOrderRequest,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """Create payment order in Lakala Aggregated Payment Gateway."""
 
@@ -86,6 +91,13 @@ async def create_counter_order(
             support_refund=payload.support_refund,
             support_repeat_pay=payload.support_repeat_pay,
         )
+
+        _ensure_local_order_record(
+            db=db,
+            user=current_user,
+            payload=payload,
+        )
+
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -136,7 +148,10 @@ async def close_counter_order(
 
 
 @router.post("/lakala/counter/notify")
-async def lakala_counter_notify(request: Request):
+async def lakala_counter_notify(
+    request: Request,
+    db: Session = Depends(get_db),
+):
     """Handle Lakala asynchronous counter payment notifications."""
 
     raw_body = await request.body()
@@ -178,6 +193,99 @@ async def lakala_counter_notify(request: Request):
 
     logger.info("Received Lakala notify: %s", payload)
 
-    # TODO: tie this notification to local order records and credit the user.
-    # For now we only acknowledge success to avoid Lakala retries failing.
+    notify_data = payload.get("resp_data") or payload.get("respData") or payload
+    out_order_no = (
+        notify_data.get("out_order_no")
+        or notify_data.get("outOrderNo")
+        or notify_data.get("order_no")
+        or notify_data.get("orderNo")
+    )
+    pay_order_no = notify_data.get("pay_order_no") or notify_data.get("payOrderNo")
+
+    if not out_order_no:
+        logger.error("Lakala notify missing out_order_no: %s", notify_data)
+        return {"code": "FAIL", "msg": "missing out_order_no"}
+
+    order: Order | None = (
+        db.query(Order).filter(Order.order_id == out_order_no).order_by(Order.id.desc()).first()
+    )
+    if not order:
+        logger.error("Lakala notify for unknown order: %s", out_order_no)
+        return {"code": "FAIL", "msg": "order not found"}
+
+    if order.status == OrderStatus.PAID.value:
+        return {"code": "SUCCESS", "msg": "already processed"}
+
+    # 完成积分入账
+    membership_service = MembershipService()
+    try:
+        await membership_service.purchase_package(
+            db=db,
+            user_id=order.user_id,
+            package_id=order.package_id,
+            payment_method=PaymentMethod.LAKALA_COUNTER.value,
+            order_id=order.order_id,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Failed to credit order %s: %s", out_order_no, exc)
+        return {"code": "FAIL", "msg": "credit failed"}
+
+    order.status = OrderStatus.PAID.value
+    order.transaction_id = pay_order_no or order.transaction_id
+    order.paid_at = datetime.utcnow()
+    meta = order.extra_metadata or {}
+    meta["lakala_notify"] = notify_data
+    order.extra_metadata = meta
+    db.commit()
+
     return {"code": "SUCCESS", "msg": "ok"}
+
+
+def _parse_package_id(out_order_no: str) -> Optional[str]:
+    parts = out_order_no.split("_")
+    return parts[-1] if len(parts) > 1 else None
+
+
+def _ensure_local_order_record(
+    *,
+    db: Session,
+    user: User,
+    payload: CreateCounterOrderRequest,
+) -> None:
+    package_id = _parse_package_id(payload.out_order_no) or ""
+    package: MembershipPackage | None = None
+    if package_id:
+        package = (
+            db.query(MembershipPackage)
+            .filter(MembershipPackage.package_id == package_id)
+            .first()
+        )
+
+    order = db.query(Order).filter(Order.order_id == payload.out_order_no).first()
+    if order:
+        order.original_amount = payload.total_amount
+        order.final_amount = payload.total_amount
+        if not order.package_name:
+            order.package_name = payload.order_info
+        if not order.expires_at:
+            order.expires_at = datetime.utcnow() + timedelta(minutes=5)
+    else:
+        order = Order(
+            order_id=payload.out_order_no,
+            user_id=user.id,
+            package_id=(package.package_id if package else package_id),
+            package_name=package.name if package else payload.order_info,
+            package_type=PackageType.MEMBERSHIP.value,
+            original_amount=payload.total_amount,
+            final_amount=payload.total_amount,
+            status=OrderStatus.PENDING.value,
+            expires_at=datetime.utcnow() + timedelta(minutes=5),
+            credits_amount=package.total_credits if package else None,
+            extra_metadata={
+                "payment_method": PaymentMethod.LAKALA_COUNTER.value,
+                "total_amount": payload.total_amount,
+            },
+        )
+        db.add(order)
+
+    db.commit()

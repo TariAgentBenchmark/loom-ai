@@ -52,7 +52,7 @@ function SuccessContent() {
             返回首页
           </Link>
           <Link
-            href="/profile"
+            href="/"
             className="flex-1 inline-flex items-center justify-center rounded-lg border border-slate-200 text-slate-700 px-4 py-3 text-sm font-medium hover:bg-slate-50 transition"
           >
             查看账户

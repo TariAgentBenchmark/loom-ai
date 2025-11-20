@@ -93,7 +93,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       out_order_no: `${freshTradeNo}_${packageInfo.packageId}`,
       total_amount: amountInFen,
       order_info: `购买${packageInfo.packageName}`,
-      notify_url: `${window.location.origin}/api/payment/notify`,
+      notify_url: `${window.location.origin}/api/v1/payment/lakala/counter/notify`,
       callback_url: `${window.location.origin}/payment/success`,
       payment_method: paymentChannel,
       support_refund: 1,
