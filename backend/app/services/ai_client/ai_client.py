@@ -293,6 +293,87 @@ class AIClient:
                 options,
             )
 
+        # 通用1：直接使用RunningHub工作流生成四张结果，不再走Gemini/美图
+        if pattern_type == "general_1":
+            ordered_results: List[str] = []
+            max_general1_results = 4
+            runninghub_workflows = [
+                {
+                    "workflow_id": settings.runninghub_workflow_id_rh_double_1480,
+                    "node_ids": settings.runninghub_rh_double_1480_node_id,
+                    "field_name": settings.runninghub_rh_double_1480_field_name,
+                    "label": "RH双图1480",
+                },
+                {
+                    "workflow_id": settings.runninghub_workflow_id_rh_double_1800,
+                    "node_ids": settings.runninghub_rh_double_1800_node_id,
+                    "field_name": settings.runninghub_rh_double_1800_field_name,
+                    "label": "RH双图1800",
+                },
+            ]
+
+            runninghub_tasks: List[Tuple[Dict[str, Any], asyncio.Task]] = []
+            for workflow in runninghub_workflows:
+                workflow_id = (workflow.get("workflow_id") or "").strip()
+                if not workflow_id:
+                    logger.debug(
+                        "Skipping RunningHub workflow %s: workflow_id not configured",
+                        workflow["label"],
+                    )
+                    continue
+
+                logger.info(
+                    "Submitting RunningHub workflow %s (%s) with nodes=%s",
+                    workflow["label"],
+                    workflow_id,
+                    workflow.get("node_ids"),
+                )
+
+                task = asyncio.create_task(
+                    self.runninghub_client.run_workflow_with_custom_nodes(
+                        image_bytes=image_bytes,
+                        workflow_id=workflow_id,
+                        node_ids=workflow.get("node_ids"),
+                        field_name=workflow.get("field_name"),
+                        options=options,
+                    )
+                )
+                runninghub_tasks.append((workflow, task))
+
+            for workflow, task in runninghub_tasks:
+                try:
+                    rh_results = await task
+                    logger.info(
+                        "RunningHub workflow %s returned %s urls",
+                        workflow["label"],
+                        len(rh_results),
+                    )
+                    for rh_url in rh_results:
+                        cleaned = rh_url.strip()
+                        if cleaned:
+                            ordered_results.append(cleaned)
+                            if len(ordered_results) >= max_general1_results:
+                                break
+                except Exception as exc:
+                    logger.warning(
+                        "RunningHub workflow %s failed: %s",
+                        workflow["label"],
+                        str(exc),
+                    )
+                finally:
+                    if len(ordered_results) >= max_general1_results:
+                        break
+
+            if not ordered_results:
+                raise Exception("AI提取花型失败：通用1未获得结果")
+
+            logger.info(
+                "Final general-1 pattern output prepared (RunningHub only): %s urls",
+                len(ordered_results),
+            )
+
+            return ",".join(ordered_results)
+
         raw_result = await self.image_utils.extract_pattern(image_bytes, options)
         if not raw_result:
             raise Exception("AI提取花型失败：未获得结果")
@@ -307,20 +388,30 @@ class AIClient:
 
         async def _enhance_url(url: str) -> List[str]:
             try:
-                # 通用模式：调用美图高清模型增强
-                meitu_options = {
-                    "engine": "meitu_v2",
-                    "sr_num": 4,
-                    "task": options.get("task", "/v1/Ultra_High_Definition_V2/478332"),
-                    "task_type": options.get("task_type", "formula"),
-                    "sync_timeout": options.get("sync_timeout", 30),
-                    "rsp_media_type": options.get("rsp_media_type", "url"),
-                }
-                enhanced = await self.upscale_image(
-                    url,
-                    scale_factor=4,
-                    options=meitu_options,
-                )
+                # 通用模式：调用高清模型增强
+                if pattern_type == "general_2":
+                    # 通用2改为使用RunningHub VR2完美放大工作流
+                    vr2_options = dict(options or {})
+                    vr2_options["engine"] = "runninghub_vr2"
+                    enhanced = await self.upscale_image(
+                        url,
+                        scale_factor=4,
+                        options=vr2_options,
+                    )
+                else:
+                    meitu_options = {
+                        "engine": "meitu_v2",
+                        "sr_num": 4,
+                        "task": options.get("task", "/v1/Ultra_High_Definition_V2/478332"),
+                        "task_type": options.get("task_type", "formula"),
+                        "sync_timeout": options.get("sync_timeout", 30),
+                        "rsp_media_type": options.get("rsp_media_type", "url"),
+                    }
+                    enhanced = await self.upscale_image(
+                        url,
+                        scale_factor=4,
+                        options=meitu_options,
+                    )
                 return [item.strip() for item in enhanced.split(",") if item.strip()]
             except Exception as exc:
                 logger.warning(
@@ -353,7 +444,7 @@ class AIClient:
 
         final_result_pool = enhanced_urls or result_urls
 
-        general_pattern_types = {"general_1", "general_2"}
+        general_pattern_types = {"general_2"}
 
         # 非通用模式直接返回高清增强后的结果
         if pattern_type not in general_pattern_types:
@@ -369,95 +460,6 @@ class AIClient:
                 len(final_result_pool),
             )
             return final_result_pool[0]
-
-        # 通用1：运行RunningHub工作流，获取其余4张结果
-        ordered_results: List[str] = []
-        max_general1_results = 4
-        runninghub_workflows = [
-            {
-                "workflow_id": settings.runninghub_workflow_id_rh_double_1480,
-                "node_ids": settings.runninghub_rh_double_1480_node_id,
-                "field_name": settings.runninghub_rh_double_1480_field_name,
-                "label": "RH双图1480",
-            },
-            {
-                "workflow_id": settings.runninghub_workflow_id_rh_double_1800,
-                "node_ids": settings.runninghub_rh_double_1800_node_id,
-                "field_name": settings.runninghub_rh_double_1800_field_name,
-                "label": "RH双图1800",
-            },
-        ]
-
-        runninghub_tasks: List[Tuple[Dict[str, Any], asyncio.Task]] = []
-        for workflow in runninghub_workflows:
-            workflow_id = (workflow.get("workflow_id") or "").strip()
-            if not workflow_id:
-                logger.debug(
-                    "Skipping RunningHub workflow %s: workflow_id not configured",
-                    workflow["label"],
-                )
-                continue
-
-            logger.info(
-                "Submitting RunningHub workflow %s (%s) with nodes=%s",
-                workflow["label"],
-                workflow_id,
-                workflow.get("node_ids"),
-            )
-
-            task = asyncio.create_task(
-                self.runninghub_client.run_workflow_with_custom_nodes(
-                    image_bytes=image_bytes,
-                    workflow_id=workflow_id,
-                    node_ids=workflow.get("node_ids"),
-                    field_name=workflow.get("field_name"),
-                    options=options,
-                )
-            )
-            runninghub_tasks.append((workflow, task))
-
-        for workflow, task in runninghub_tasks:
-            try:
-                rh_results = await task
-                logger.info(
-                    "RunningHub workflow %s returned %s urls",
-                    workflow["label"],
-                    len(rh_results),
-                )
-                for rh_url in rh_results:
-                    cleaned = rh_url.strip()
-                    if cleaned:
-                        ordered_results.append(cleaned)
-                        if len(ordered_results) >= max_general1_results:
-                            break
-            except Exception as exc:
-                logger.warning(
-                    "RunningHub workflow %s failed: %s",
-                    workflow["label"],
-                    str(exc),
-                )
-            finally:
-                if len(ordered_results) >= max_general1_results:
-                    break
-
-        # 如果RunningHub结果不足4张，补充通用模型的其余图片（优先使用后四张）
-        if len(ordered_results) < max_general1_results:
-            logger.debug(
-                "RunningHub results insufficient (%s). Backfilling from base pool.",
-                len(ordered_results),
-            )
-            fallback_pool = final_result_pool[1:] if len(final_result_pool) > 1 else final_result_pool[:1]
-            for extra_url in fallback_pool:
-                ordered_results.append(extra_url)
-                if len(ordered_results) >= max_general1_results:
-                    break
-
-        logger.info(
-            "Final general-1 pattern output prepared: %s urls",
-            len(ordered_results),
-        )
-
-        return ",".join(ordered_results)
 
     async def denoise_image(
         self,
