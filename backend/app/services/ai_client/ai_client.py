@@ -299,16 +299,28 @@ class AIClient:
             max_general1_results = 4
             runninghub_workflows = [
                 {
-                    "workflow_id": settings.runninghub_workflow_id_rh_double_1480,
-                    "node_ids": settings.runninghub_rh_double_1480_node_id,
-                    "field_name": settings.runninghub_rh_double_1480_field_name,
-                    "label": "RH双图1480",
+                    "workflow_id": settings.runninghub_workflow_id_extract_general1_1,
+                    "node_ids": settings.runninghub_extract_general1_node_id_1,
+                    "field_name": settings.runninghub_extract_general1_field_name_1,
+                    "label": "提取花型-通用1-工作流1",
                 },
                 {
-                    "workflow_id": settings.runninghub_workflow_id_rh_double_1800,
-                    "node_ids": settings.runninghub_rh_double_1800_node_id,
-                    "field_name": settings.runninghub_rh_double_1800_field_name,
-                    "label": "RH双图1800",
+                    "workflow_id": settings.runninghub_workflow_id_extract_general1_2,
+                    "node_ids": settings.runninghub_extract_general1_node_id_2,
+                    "field_name": settings.runninghub_extract_general1_field_name_2,
+                    "label": "提取花型-通用1-工作流2",
+                },
+                {
+                    "workflow_id": settings.runninghub_workflow_id_extract_general1_3,
+                    "node_ids": settings.runninghub_extract_general1_node_id_3,
+                    "field_name": settings.runninghub_extract_general1_field_name_3,
+                    "label": "提取花型-通用1-工作流3",
+                },
+                {
+                    "workflow_id": settings.runninghub_workflow_id_extract_general1_4,
+                    "node_ids": settings.runninghub_extract_general1_node_id_4,
+                    "field_name": settings.runninghub_extract_general1_field_name_4,
+                    "label": "提取花型-通用1-工作流4",
                 },
             ]
 
