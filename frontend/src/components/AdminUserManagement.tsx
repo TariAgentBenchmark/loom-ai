@@ -104,7 +104,7 @@ const AdminUserManagement: React.FC = () => {
           ...(overrides ?? activeFilters),
         });
         setUsers(response.data.users);
-        const p = response.data.pagination || {};
+        const p: any = response.data.pagination || {};
         const resolvedLimit = p.limit ?? pagination.limit;
         const resolvedTotal = p.total ?? users.length;
         const resolvedTotalPages =
@@ -123,7 +123,7 @@ const AdminUserManagement: React.FC = () => {
         setLoading(false);
       }
     },
-    [accessToken, activeFilters, pagination.limit]
+    [accessToken, activeFilters, pagination.limit, users.length]
   );
 
   useEffect(() => {
