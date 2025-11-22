@@ -104,7 +104,19 @@ const AdminUserManagement: React.FC = () => {
           ...(overrides ?? activeFilters),
         });
         setUsers(response.data.users);
-        setPagination(response.data.pagination);
+        const p = response.data.pagination || {};
+        const resolvedLimit = p.limit ?? pagination.limit;
+        const resolvedTotal = p.total ?? users.length;
+        const resolvedTotalPages =
+          p.total_pages ??
+          p.totalPages ??
+          (resolvedLimit > 0 ? Math.ceil(resolvedTotal / resolvedLimit) : 0);
+        setPagination({
+          page: p.page ?? page,
+          limit: resolvedLimit,
+          total: resolvedTotal,
+          totalPages: resolvedTotalPages,
+        });
       } catch (err) {
         setError(err instanceof Error ? err.message : "获取用户列表失败");
       } finally {
