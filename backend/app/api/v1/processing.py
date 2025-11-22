@@ -34,7 +34,7 @@ def _handle_processing_error(exc: Exception):
     """统一处理创建任务阶段的错误，补充积分不足提示。"""
     msg = str(exc)
     if "积分不足" in msg:
-        raise HTTPException(status_code=402, detail="积分不足，请充值后再试")
+        raise HTTPException(status_code=400, detail="积分不足，请充值后再试")
     raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
 
 

@@ -127,7 +127,7 @@ class AdminServicePriceUpdateRequest(BaseModel):
 class AdminOrderResponse(BaseModel):
     orderId: str
     userId: str
-    userEmail: str
+    userEmail: Optional[str] = None
     packageId: str
     packageName: str
     packageType: str
@@ -1075,7 +1075,7 @@ async def get_all_orders(
             order_list.append(AdminOrderResponse(
                 orderId=order.order_id,
                 userId=order.user.user_id,
-                userEmail=order.user.email,
+                userEmail=order.user.email or None,
                 packageId=order.package_id,
                 packageName=order.package_name,
                 packageType=order.package_type,
@@ -1163,7 +1163,7 @@ async def get_order_detail(
         order_detail = AdminOrderResponse(
             orderId=order.order_id,
             userId=order.user.user_id,
-            userEmail=order.user.email,
+            userEmail=order.user.email or None,
             packageId=order.package_id,
             packageName=order.package_name,
             packageType=order.package_type,
