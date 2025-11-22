@@ -1,4 +1,5 @@
 import logging
+import asyncio
 import os
 import uuid
 from typing import Any, Dict, List, Optional
@@ -20,6 +21,52 @@ class ImageProcessingUtils:
         self.gpt4o_client = GPT4oClient()
         self.apyi_gemini_client = ApyiGeminiClient()
         self.apyi_openai_client = ApyiOpenAIClient()
+
+    async def _process_image_with_retry(
+        self,
+        image_bytes: bytes,
+        prompt: str,
+        mime_type: str = "image/png",
+        aspect_ratio: Optional[str] = None,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        max_retries: int = 3,
+    ) -> str:
+        """
+        调用Gemini生成图片，带重试。三次均无法解析出图片URL才抛出异常。
+        """
+        last_error: Optional[Exception] = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                result = await self.apyi_gemini_client.process_image(
+                    image_bytes,
+                    prompt,
+                    mime_type,
+                    aspect_ratio=aspect_ratio,
+                    width=width,
+                    height=height,
+                )
+                url = self.apyi_gemini_client._extract_image_url(result)
+                if url:
+                    return url
+                last_error = Exception("Gemini返回缺少图片URL")
+                logger.warning(
+                    "Gemini response missing image url (attempt %s/%s): %s",
+                    attempt,
+                    max_retries,
+                    result,
+                )
+            except Exception as exc:
+                last_error = exc
+                logger.warning(
+                    "Gemini call failed (attempt %s/%s): %s",
+                    attempt,
+                    max_retries,
+                    str(exc),
+                )
+            await asyncio.sleep(0.2)
+
+        raise Exception(f"Gemini调用失败: {last_error}")
     
     async def seamless_pattern_conversion(
         self,
@@ -29,8 +76,11 @@ class ImageProcessingUtils:
         """AI四方连续转换"""
         prompt = """生成图片：基于这张图片，生成一个新的四方连续循环图案，适合大面积印花使用，图案可无缝拼接。请生成高质量的图片。"""
 
-        result = await self.apyi_gemini_client.process_image(image_bytes, prompt, "image/png")
-        return self.apyi_gemini_client._extract_image_url(result)
+        return await self._process_image_with_retry(
+            image_bytes,
+            prompt,
+            "image/png",
+        )
 
     async def prompt_edit_image(
         self,
@@ -71,7 +121,7 @@ class ImageProcessingUtils:
         width = options.get("width")
         height = options.get("height")
 
-        result = await self.apyi_gemini_client.process_image(
+        return await self._process_image_with_retry(
             image_bytes,
             prompt,
             "image/png",
@@ -79,7 +129,6 @@ class ImageProcessingUtils:
             width=width,
             height=height
         )
-        return self.apyi_gemini_client._extract_image_url(result)
 
     async def extract_pattern(
         self,
@@ -188,7 +237,7 @@ class ImageProcessingUtils:
         width = options.get("width")
         height = options.get("height")
 
-        result = await self.apyi_gemini_client.process_image(
+        return await self._process_image_with_retry(
             image_bytes,
             prompt,
             "image/png",
@@ -196,4 +245,3 @@ class ImageProcessingUtils:
             width=width,
             height=height
         )
-        return self.apyi_gemini_client._extract_image_url(result)
