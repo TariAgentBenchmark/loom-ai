@@ -1,6 +1,12 @@
 """初始套餐配置数据"""
 
-from app.models.membership_package import MembershipPackage, ServicePrice, NewUserBonus, PackageCategory, RefundPolicy
+from app.models.membership_package import (
+    MembershipPackage,
+    ServicePrice,
+    NewUserBonus,
+    PackageCategory,
+    RefundPolicy,
+)
 
 
 # 会员套餐配置
@@ -16,13 +22,8 @@ MEMBERSHIP_PACKAGES = [
         "total_credits": 3400,
         "refund_policy": RefundPolicy.REFUNDABLE.value,
         "refund_deduction_rate": 0.2,  # 退款扣除20%
-        "privileges": [
-            "额外赠送400积分",
-            "畅享全站功能",
-            "积分永不过期",
-            "会员可退款"
-        ],
-        "sort_order": 1
+        "privileges": ["额外赠送400积分", "畅享全站功能", "积分永不过期", "会员可退款"],
+        "sort_order": 1,
     },
     {
         "package_id": "membership_6000",
@@ -34,13 +35,8 @@ MEMBERSHIP_PACKAGES = [
         "total_credits": 6900,
         "refund_policy": RefundPolicy.REFUNDABLE.value,
         "refund_deduction_rate": 0.2,
-        "privileges": [
-            "额外赠送900积分",
-            "畅享全站功能",
-            "积分永不过期",
-            "会员可退款"
-        ],
-        "sort_order": 2
+        "privileges": ["额外赠送900积分", "畅享全站功能", "积分永不过期", "会员可退款"],
+        "sort_order": 2,
     },
     {
         "package_id": "membership_10000",
@@ -56,11 +52,11 @@ MEMBERSHIP_PACKAGES = [
             "额外赠送2000积分",
             "畅享全站功能",
             "积分永不过期",
-            "会员可退款"
+            "会员可退款",
         ],
         "popular": True,
         "recommended": True,
-        "sort_order": 3
+        "sort_order": 3,
     },
     {
         "package_id": "membership_15000",
@@ -76,9 +72,9 @@ MEMBERSHIP_PACKAGES = [
             "额外赠送3000积分",
             "畅享全站功能",
             "积分永不过期",
-            "会员可退款"
+            "会员可退款",
         ],
-        "sort_order": 4
+        "sort_order": 4,
     },
 ]
 
@@ -95,12 +91,8 @@ DISCOUNT_PACKAGES = [
         "total_credits": 30,
         "refund_policy": RefundPolicy.NON_REFUNDABLE.value,
         "refund_deduction_rate": 0.0,
-        "privileges": [
-            "畅享全站功能",
-            "积分永不过期",
-            "优惠套餐不可退款"
-        ],
-        "sort_order": 5
+        "privileges": ["畅享全站功能", "积分永不过期", "优惠套餐不可退款"],
+        "sort_order": 5,
     },
     {
         "package_id": "discount_100",
@@ -116,9 +108,9 @@ DISCOUNT_PACKAGES = [
             "额外赠送10积分",
             "畅享全站功能",
             "积分永不过期",
-            "优惠套餐不可退款"
+            "优惠套餐不可退款",
         ],
-        "sort_order": 6
+        "sort_order": 6,
     },
     {
         "package_id": "discount_300",
@@ -134,10 +126,10 @@ DISCOUNT_PACKAGES = [
             "额外赠送30积分",
             "畅享全站功能",
             "积分永不过期",
-            "优惠套餐不可退款"
+            "优惠套餐不可退款",
         ],
         "popular": True,
-        "sort_order": 7
+        "sort_order": 7,
     },
     {
         "package_id": "discount_500",
@@ -153,9 +145,9 @@ DISCOUNT_PACKAGES = [
             "额外赠送50积分",
             "畅享全站功能",
             "积分永不过期",
-            "优惠套餐不可退款"
+            "优惠套餐不可退款",
         ],
-        "sort_order": 8
+        "sort_order": 8,
     },
 ]
 
@@ -166,80 +158,124 @@ SERVICE_PRICES = [
         "service_name": "四方连续转换",
         "service_key": "seamless",
         "description": "AI四方连续转换",
-        "price_credits": 1.2
+        "price_credits": 1.2,
     },
     {
         "service_id": "prompt_edit",
         "service_name": "用嘴改图",
         "service_key": "prompt_edit",
         "description": "AI用嘴改图",
-        "price_credits": 0.5
+        "price_credits": 0.5,
     },
     {
         "service_id": "embroidery",
         "service_name": "刺绣",
         "service_key": "embroidery",
         "description": "AI刺绣",
-        "price_credits": 0.7
+        "price_credits": 0.7,
     },
     {
         "service_id": "flat_to_3d",
         "service_name": "平面转3D",
         "service_key": "flat_to_3d",
         "description": "AI平面转3D",
-        "price_credits": 1.5
+        "price_credits": 1.5,
     },
     {
         "service_id": "extract_pattern",
         "service_name": "提取花型",
         "service_key": "extract_pattern",
         "description": "AI提取花型",
-        "price_credits": 1.5
+        "price_credits": 1.5,
+    },
+    {
+        "service_id": "extract_pattern_general_1",
+        "service_name": "提取花型-通用1",
+        "service_key": "extract_pattern_general_1",
+        "description": "AI提取花型（通用1，多结果）",
+        "price_credits": 1.5,
+    },
+    {
+        "service_id": "extract_pattern_general_2",
+        "service_name": "提取花型-通用2",
+        "service_key": "extract_pattern_general_2",
+        "description": "AI提取花型（通用2，首图高清）",
+        "price_credits": 1.5,
+    },
+    {
+        "service_id": "extract_pattern_positioning",
+        "service_name": "提取花型-线条/矢量",
+        "service_key": "extract_pattern_positioning",
+        "description": "AI提取花型（线条/矢量）",
+        "price_credits": 1.5,
+    },
+    {
+        "service_id": "extract_pattern_fine",
+        "service_name": "提取花型-烫画/胸前花",
+        "service_key": "extract_pattern_fine",
+        "description": "AI提取花型（烫画/胸前花，多图）",
+        "price_credits": 1.5,
     },
     {
         "service_id": "watermark_removal",
         "service_name": "去水印",
         "service_key": "watermark_removal",
         "description": "AI去水印",
-        "price_credits": 0.9
+        "price_credits": 0.9,
     },
     {
         "service_id": "noise_removal",
         "service_name": "布纹降噪",
         "service_key": "noise_removal",
         "description": "AI布纹去噪",
-        "price_credits": 0.5
+        "price_credits": 0.5,
     },
     {
         "service_id": "style",
         "service_name": "转矢量",
         "service_key": "style",
         "description": "AI矢量化",
-        "price_credits": 2.5
+        "price_credits": 2.5,
     },
     {
         "service_id": "upscale",
         "service_name": "AI高清",
         "service_key": "upscale",
         "description": "AI高清",
-        "price_credits": 0.9
+        "price_credits": 0.9,
+    },
+    {
+        "service_id": "upscale_meitu_v2",
+        "service_name": "AI高清-美图v2",
+        "service_key": "upscale_meitu_v2",
+        "description": "AI高清（美图v2算法）",
+        "price_credits": 0.9,
+    },
+    {
+        "service_id": "upscale_runninghub_vr2",
+        "service_name": "AI高清-通用2",
+        "service_key": "upscale_runninghub_vr2",
+        "description": "AI高清（通用2算法）",
+        "price_credits": 0.9,
     },
     {
         "service_id": "expand_image",
         "service_name": "扩图",
         "service_key": "expand_image",
         "description": "AI扩图",
-        "price_credits": 1.0
+        "price_credits": 1.0,
     },
     {
         "service_id": "seamless_loop",
         "service_name": "接循环",
         "service_key": "seamless_loop",
         "description": "AI接循环",
-        "price_credits": 1.0
+        "price_credits": 1.0,
     },
 ]
 
+# 新用户福利配置
+NEW_USER_BONUS = {"bonus_credits": 10, "active": True}
 # 新用户福利配置
 NEW_USER_BONUS = {
     "bonus_credits": 10,

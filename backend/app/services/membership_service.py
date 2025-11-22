@@ -1,18 +1,28 @@
 """会员服务"""
 
-import uuid
 import json
+import uuid
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Dict, Any, Optional, List
-from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, func
+from typing import Any, Dict, List, Optional
 
-from app.models.user import User
-from app.models.membership_package import MembershipPackage, ServicePrice, UserMembership, NewUserBonus
-from app.models.credit import CreditTransaction, CreditSource
-from app.data.initial_packages import get_all_packages, get_service_prices, get_new_user_bonus
-from app.services.credit_math import to_decimal, to_float, multiply
+from sqlalchemy import and_, func, or_
+from sqlalchemy.orm import Session
+
+from app.data.initial_packages import (
+    get_all_packages,
+    get_new_user_bonus,
+    get_service_prices,
+)
+from app.models.credit import CreditSource, CreditTransaction
+from app.models.membership_package import (
+    MembershipPackage,
+    NewUserBonus,
+    ServicePrice,
+    UserMembership,
+)
+from app.services.credit_math import multiply, to_decimal, to_float
+from app.services.service_pricing import resolve_pricing_key
 
 
 class MembershipService:
@@ -28,8 +38,12 @@ class MembershipService:
             "description": service.description,
             "price_credits": to_float(service.price_credits),
             "active": service.active,
-            "created_at": service.created_at.isoformat() if service.created_at else None,
-            "updated_at": service.updated_at.isoformat() if service.updated_at else None,
+            "created_at": service.created_at.isoformat()
+            if service.created_at
+            else None,
+            "updated_at": service.updated_at.isoformat()
+            if service.updated_at
+            else None,
         }
 
     def _ensure_service_prices_seeded(
@@ -43,7 +57,9 @@ class MembershipService:
         """
         base_configs = get_service_prices()
         if target_service_key:
-            base_configs = [cfg for cfg in base_configs if cfg["service_key"] == target_service_key]
+            base_configs = [
+                cfg for cfg in base_configs if cfg["service_key"] == target_service_key
+            ]
 
         if not base_configs:
             return
@@ -55,7 +71,9 @@ class MembershipService:
             .all()
         )
         existing_keys = {row[0] for row in existing_rows}
-        missing_configs = [cfg for cfg in base_configs if cfg["service_key"] not in existing_keys]
+        missing_configs = [
+            cfg for cfg in base_configs if cfg["service_key"] not in existing_keys
+        ]
 
         if not missing_configs:
             return
@@ -89,7 +107,9 @@ class MembershipService:
 
         db.commit()
 
-    async def get_all_packages(self, db: Session, category: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def get_all_packages(
+        self, db: Session, category: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """获取所有套餐"""
         query = db.query(MembershipPackage).filter(MembershipPackage.active == True)
 
@@ -100,29 +120,33 @@ class MembershipService:
 
         result = []
         for package in packages:
-            result.append({
-                "id": package.id,
-                "package_id": package.package_id,
-                "name": package.name,
-                "category": package.category,
-                "description": package.description,
-                "price_yuan": package.price_yuan,
-                "bonus_credits": package.bonus_credits,
-                "total_credits": package.total_credits,
-                "refund_policy": package.refund_policy,
-                "refund_deduction_rate": package.refund_deduction_rate,
-                "privileges": package.privileges or [],
-                "popular": package.popular,
-                "recommended": package.recommended,
-                "sort_order": package.sort_order,
-                "credits_per_yuan": package.credits_per_yuan,
-                "is_refundable": package.is_refundable,
-                "refund_amount_yuan": package.refund_amount_yuan
-            })
+            result.append(
+                {
+                    "id": package.id,
+                    "package_id": package.package_id,
+                    "name": package.name,
+                    "category": package.category,
+                    "description": package.description,
+                    "price_yuan": package.price_yuan,
+                    "bonus_credits": package.bonus_credits,
+                    "total_credits": package.total_credits,
+                    "refund_policy": package.refund_policy,
+                    "refund_deduction_rate": package.refund_deduction_rate,
+                    "privileges": package.privileges or [],
+                    "popular": package.popular,
+                    "recommended": package.recommended,
+                    "sort_order": package.sort_order,
+                    "credits_per_yuan": package.credits_per_yuan,
+                    "is_refundable": package.is_refundable,
+                    "refund_amount_yuan": package.refund_amount_yuan,
+                }
+            )
 
         return result
 
-    async def get_service_prices(self, db: Session, include_inactive: bool = False) -> List[Dict[str, Any]]:
+    async def get_service_prices(
+        self, db: Session, include_inactive: bool = False
+    ) -> List[Dict[str, Any]]:
         """获取所有服务价格"""
         self._ensure_service_prices_seeded(db)
 
@@ -137,12 +161,15 @@ class MembershipService:
         """获取特定服务价格"""
         self._ensure_service_prices_seeded(db, service_key)
 
-        service = db.query(ServicePrice).filter(
-            and_(
-                ServicePrice.service_key == service_key,
-                ServicePrice.active == True
+        service = (
+            db.query(ServicePrice)
+            .filter(
+                and_(
+                    ServicePrice.service_key == service_key, ServicePrice.active == True
+                )
             )
-        ).first()
+            .first()
+        )
 
         return to_decimal(service.price_credits) if service else None
 
@@ -154,12 +181,14 @@ class MembershipService:
         *,
         service_name: Optional[str] = None,
         description: Optional[str] = None,
-        active: Optional[bool] = None
+        active: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """更新服务价格及相关元数据"""
-        service = db.query(ServicePrice).filter(
-            ServicePrice.service_key == service_key
-        ).first()
+        service = (
+            db.query(ServicePrice)
+            .filter(ServicePrice.service_key == service_key)
+            .first()
+        )
 
         if not service:
             raise ValueError("SERVICE_NOT_FOUND")
@@ -173,32 +202,23 @@ class MembershipService:
             if new_price != current_price:
                 changes["price_credits"] = {
                     "old": to_float(current_price),
-                    "new": to_float(new_price)
+                    "new": to_float(new_price),
                 }
                 service.price_credits = new_price
                 updated = True
 
         if service_name is not None and service.service_name != service_name:
-            changes["service_name"] = {
-                "old": service.service_name,
-                "new": service_name
-            }
+            changes["service_name"] = {"old": service.service_name, "new": service_name}
             service.service_name = service_name
             updated = True
 
         if description is not None and service.description != description:
-            changes["description"] = {
-                "old": service.description,
-                "new": description
-            }
+            changes["description"] = {"old": service.description, "new": description}
             service.description = description
             updated = True
 
         if active is not None and service.active != active:
-            changes["active"] = {
-                "old": service.active,
-                "new": active
-            }
+            changes["active"] = {"old": service.active, "new": active}
             service.active = active
             updated = True
 
@@ -209,7 +229,7 @@ class MembershipService:
         return {
             "service": self._serialize_service_price(service),
             "changes": changes,
-            "updated": updated
+            "updated": updated,
         }
 
     async def purchase_package(
@@ -218,7 +238,7 @@ class MembershipService:
         user_id: int,
         package_id: str,
         payment_method: str,
-        order_id: str
+        order_id: str,
     ) -> Dict[str, Any]:
         """购买套餐"""
 
@@ -228,12 +248,16 @@ class MembershipService:
             raise Exception("用户不存在")
 
         # 获取套餐
-        package = db.query(MembershipPackage).filter(
-            and_(
-                MembershipPackage.package_id == package_id,
-                MembershipPackage.active == True
+        package = (
+            db.query(MembershipPackage)
+            .filter(
+                and_(
+                    MembershipPackage.package_id == package_id,
+                    MembershipPackage.active == True,
+                )
             )
-        ).first()
+            .first()
+        )
 
         if not package:
             raise Exception("套餐不存在或已下架")
@@ -245,7 +269,7 @@ class MembershipService:
             purchase_amount_yuan=package.price_yuan,
             total_credits_received=package.total_credits,
             order_id=order_id,
-            activated_at=datetime.utcnow()
+            activated_at=datetime.utcnow(),
         )
 
         db.add(user_membership)
@@ -288,26 +312,26 @@ class MembershipService:
                 "name": package.name,
                 "price_yuan": package.price_yuan,
                 "bonus_credits": package.bonus_credits,
-                "total_credits": package.total_credits
-            }
+                "total_credits": package.total_credits,
+            },
         }
 
     async def refund_package(
-        self,
-        db: Session,
-        user_id: int,
-        user_membership_id: int,
-        reason: str
+        self, db: Session, user_id: int, user_membership_id: int, reason: str
     ) -> Dict[str, Any]:
         """退款套餐"""
 
         # 获取用户会员记录
-        user_membership = db.query(UserMembership).filter(
-            and_(
-                UserMembership.id == user_membership_id,
-                UserMembership.user_id == user_id
+        user_membership = (
+            db.query(UserMembership)
+            .filter(
+                and_(
+                    UserMembership.id == user_membership_id,
+                    UserMembership.user_id == user_id,
+                )
             )
-        ).first()
+            .first()
+        )
 
         if not user_membership:
             raise Exception("会员记录不存在")
@@ -316,9 +340,11 @@ class MembershipService:
             raise Exception("该会员记录已退款")
 
         # 获取套餐信息
-        package = db.query(MembershipPackage).filter(
-            MembershipPackage.package_id == user_membership.package_id
-        ).first()
+        package = (
+            db.query(MembershipPackage)
+            .filter(MembershipPackage.package_id == user_membership.package_id)
+            .first()
+        )
 
         if not package:
             raise Exception("套餐信息不存在")
@@ -339,7 +365,9 @@ class MembershipService:
         user = db.query(User).filter(User.id == user_id).first()
 
         # 扣除积分（只扣除实际支付金额对应的积分，赠送积分不扣除）
-        credits_to_deduct = to_decimal(user_membership.purchase_amount_yuan)  # 1元=1积分
+        credits_to_deduct = to_decimal(
+            user_membership.purchase_amount_yuan
+        )  # 1元=1积分
 
         if not user.can_afford(credits_to_deduct):
             raise Exception("用户积分不足，无法完成退款")
@@ -375,42 +403,39 @@ class MembershipService:
             "refund_amount_yuan": refund_amount_yuan,
             "credits_deducted": to_float(credits_to_deduct),
             "new_balance": to_float(user.credits),
-            "refund_reason": reason
+            "refund_reason": reason,
         }
 
     async def apply_new_user_bonus(self, db: Session, user_id: int) -> Dict[str, Any]:
         """应用新用户福利"""
 
         # 检查是否已经领取过福利
-        existing_bonus = db.query(CreditTransaction).filter(
-            and_(
-                CreditTransaction.user_id == user_id,
-                CreditTransaction.source == CreditSource.REGISTRATION.value
+        existing_bonus = (
+            db.query(CreditTransaction)
+            .filter(
+                and_(
+                    CreditTransaction.user_id == user_id,
+                    CreditTransaction.source == CreditSource.REGISTRATION.value,
+                )
             )
-        ).first()
+            .first()
+        )
 
         if existing_bonus:
-            return {
-                "success": False,
-                "message": "已经领取过新用户福利"
-            }
+            return {"success": False, "message": "已经领取过新用户福利"}
 
         # 获取新用户福利配置
-        bonus_config = db.query(NewUserBonus).filter(NewUserBonus.active == True).first()
+        bonus_config = (
+            db.query(NewUserBonus).filter(NewUserBonus.active == True).first()
+        )
 
         if not bonus_config:
-            return {
-                "success": False,
-                "message": "新用户福利未配置"
-            }
+            return {"success": False, "message": "新用户福利未配置"}
 
         # 获取用户
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
-            return {
-                "success": False,
-                "message": "用户不存在"
-            }
+            return {"success": False, "message": "用户不存在"}
 
         # 增加用户积分
         user.add_credits(to_decimal(bonus_config.bonus_credits))
@@ -440,48 +465,75 @@ class MembershipService:
             "success": True,
             "bonus_credits": bonus_config.bonus_credits,
             "new_balance": to_float(user.credits),
-            "message": "新用户福利已发放"
+            "message": "新用户福利已发放",
         }
 
-    async def get_user_memberships(self, db: Session, user_id: int) -> List[Dict[str, Any]]:
+    async def get_user_memberships(
+        self, db: Session, user_id: int
+    ) -> List[Dict[str, Any]]:
         """获取用户会员记录"""
-        memberships = db.query(UserMembership).filter(
-            UserMembership.user_id == user_id
-        ).order_by(UserMembership.purchased_at.desc()).all()
+        memberships = (
+            db.query(UserMembership)
+            .filter(UserMembership.user_id == user_id)
+            .order_by(UserMembership.purchased_at.desc())
+            .all()
+        )
 
         result = []
         for membership in memberships:
-            package = db.query(MembershipPackage).filter(
-                MembershipPackage.package_id == membership.package_id
-            ).first()
+            package = (
+                db.query(MembershipPackage)
+                .filter(MembershipPackage.package_id == membership.package_id)
+                .first()
+            )
 
-            result.append({
-                "id": membership.id,
-                "package_id": membership.package_id,
-                "package_name": package.name if package else "未知套餐",
-                "purchase_amount_yuan": membership.purchase_amount_yuan,
-                "total_credits_received": membership.total_credits_received,
-                "is_active": membership.is_active,
-                "purchased_at": membership.purchased_at,
-                "activated_at": membership.activated_at,
-                "expires_at": membership.expires_at,
-                "is_refunded": membership.is_refunded,
-                "refund_amount_yuan": membership.refund_amount_yuan,
-                "refund_reason": membership.refund_reason,
-                "order_id": membership.order_id
-            })
+            result.append(
+                {
+                    "id": membership.id,
+                    "package_id": membership.package_id,
+                    "package_name": package.name if package else "未知套餐",
+                    "purchase_amount_yuan": membership.purchase_amount_yuan,
+                    "total_credits_received": membership.total_credits_received,
+                    "is_active": membership.is_active,
+                    "purchased_at": membership.purchased_at,
+                    "activated_at": membership.activated_at,
+                    "expires_at": membership.expires_at,
+                    "is_refunded": membership.is_refunded,
+                    "refund_amount_yuan": membership.refund_amount_yuan,
+                    "refund_reason": membership.refund_reason,
+                    "order_id": membership.order_id,
+                }
+            )
 
         return result
 
-    async def calculate_service_cost(self, db: Session, service_key: str, quantity: int = 1) -> Optional[Decimal]:
-        """计算服务成本"""
-        price = await self.get_service_price(db, service_key)
+    async def calculate_service_cost(
+        self,
+        db: Session,
+        service_key: str,
+        quantity: int = 1,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> Optional[Decimal]:
+        """计算服务成本，支持基于选项的变体计价"""
+        pricing_key = resolve_pricing_key(service_key, options)
+
+        price = await self.get_service_price(db, pricing_key)
+        if price is None and pricing_key != service_key:
+            price = await self.get_service_price(db, service_key)
+
         if price is None:
             return None
 
         return multiply(price, quantity)
 
-    async def can_afford_service(self, db: Session, user_id: int, service_key: str, quantity: int = 1) -> bool:
+    async def can_afford_service(
+        self,
+        db: Session,
+        user_id: int,
+        service_key: str,
+        quantity: int = 1,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> bool:
         """检查用户是否能支付服务费用"""
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
@@ -491,7 +543,7 @@ class MembershipService:
         if user.is_admin:
             return True
 
-        cost = await self.calculate_service_cost(db, service_key, quantity)
+        cost = await self.calculate_service_cost(db, service_key, quantity, options)
         if cost is None:
             return False
 
@@ -503,7 +555,8 @@ class MembershipService:
         user_id: int,
         service_key: str,
         task_id: str,
-        quantity: int = 1
+        quantity: int = 1,
+        options: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """扣除服务费用"""
         user = db.query(User).filter(User.id == user_id).first()
@@ -514,7 +567,7 @@ class MembershipService:
         if user.is_admin:
             return True
 
-        cost = await self.calculate_service_cost(db, service_key, quantity)
+        cost = await self.calculate_service_cost(db, service_key, quantity, options)
         if cost is None:
             return False
 
@@ -525,7 +578,11 @@ class MembershipService:
         user.deduct_credits(cost)
 
         # 记录积分交易
-        service = db.query(ServicePrice).filter(ServicePrice.service_key == service_key).first()
+        service = (
+            db.query(ServicePrice)
+            .filter(ServicePrice.service_key == service_key)
+            .first()
+        )
         service_name = service.service_name if service else service_key
 
         transaction = CreditTransaction(
@@ -542,8 +599,8 @@ class MembershipService:
                 "service_name": service_name,
                 "quantity": quantity,
                 "unit_price": to_float(cost / quantity),
-                "total_cost": to_float(cost)
-            }
+                "total_cost": to_float(cost),
+            },
         )
 
         db.add(transaction)

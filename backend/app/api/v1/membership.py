@@ -1,14 +1,15 @@
 """会员API"""
 
+from typing import Any, Dict, List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List, Dict, Any
 
-from app.core.database import get_db
 from app.api.dependencies import get_current_user
+from app.core.database import get_db
 from app.models.user import User
-from app.services.membership_service import MembershipService
 from app.services.credit_math import to_float
+from app.services.membership_service import MembershipService
 
 router = APIRouter()
 
@@ -17,7 +18,7 @@ router = APIRouter()
 async def get_packages(
     category: str = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """获取套餐列表"""
     service = MembershipService()
@@ -26,10 +27,7 @@ async def get_packages(
 
 
 @router.get("/public/packages", response_model=List[Dict[str, Any]])
-async def get_public_packages(
-    category: str = None,
-    db: Session = Depends(get_db)
-):
+async def get_public_packages(category: str = None, db: Session = Depends(get_db)):
     """获取公开套餐列表（无需认证）"""
     service = MembershipService()
     packages = await service.get_all_packages(db, category)
@@ -37,9 +35,7 @@ async def get_public_packages(
 
 
 @router.get("/public/services", response_model=List[Dict[str, Any]])
-async def get_public_services(
-    db: Session = Depends(get_db)
-):
+async def get_public_services(db: Session = Depends(get_db)):
     """获取公开服务价格（无需认证）"""
     service = MembershipService()
     services = await service.get_service_prices(db)
@@ -48,8 +44,7 @@ async def get_public_services(
 
 @router.get("/services", response_model=List[Dict[str, Any]])
 async def get_services(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """获取服务价格列表"""
     service = MembershipService()
@@ -61,7 +56,7 @@ async def get_services(
 async def purchase_package(
     request: Dict[str, Any],
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """购买套餐"""
     package_id = request.get("package_id")
@@ -70,14 +65,12 @@ async def purchase_package(
 
     if not package_id:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="缺少套餐ID"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="缺少套餐ID"
         )
 
     if not order_id:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="缺少订单ID"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="缺少订单ID"
         )
 
     service = MembershipService()
@@ -87,21 +80,18 @@ async def purchase_package(
             user_id=current_user.id,
             package_id=package_id,
             payment_method=payment_method,
-            order_id=order_id
+            order_id=order_id,
         )
         return result
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.post("/refund")
 async def refund_package(
     request: Dict[str, Any],
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """退款套餐"""
     user_membership_id = request.get("user_membership_id")
@@ -109,8 +99,7 @@ async def refund_package(
 
     if not user_membership_id:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="缺少会员记录ID"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="缺少会员记录ID"
         )
 
     service = MembershipService()
@@ -119,20 +108,16 @@ async def refund_package(
             db=db,
             user_id=current_user.id,
             user_membership_id=user_membership_id,
-            reason=reason
+            reason=reason,
         )
         return result
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.post("/new-user-bonus")
 async def apply_new_user_bonus(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """申请新用户福利"""
     service = MembershipService()
@@ -140,8 +125,7 @@ async def apply_new_user_bonus(
 
     if not result["success"]:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=result["message"]
+            status_code=status.HTTP_400_BAD_REQUEST, detail=result["message"]
         )
 
     return result
@@ -149,8 +133,7 @@ async def apply_new_user_bonus(
 
 @router.get("/my-memberships", response_model=List[Dict[str, Any]])
 async def get_my_memberships(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """获取我的会员记录"""
     service = MembershipService()
@@ -162,24 +145,29 @@ async def get_my_memberships(
 async def get_service_cost(
     service_key: str,
     quantity: int = 1,
+    pattern_type: str = None,
+    upscale_engine: str = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """获取服务成本"""
     service = MembershipService()
-    cost = await service.calculate_service_cost(db, service_key, quantity)
+    options = {}
+    if pattern_type:
+        options["pattern_type"] = pattern_type
+    if upscale_engine:
+        options["engine"] = upscale_engine
+
+    cost = await service.calculate_service_cost(db, service_key, quantity, options)
 
     if cost is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="服务不存在"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="服务不存在")
 
     return {
         "service_key": service_key,
         "quantity": quantity,
         "total_cost": to_float(cost),
-        "unit_cost": to_float(cost / quantity) if quantity > 0 else 0
+        "unit_cost": to_float(cost / quantity) if quantity > 0 else 0,
     }
 
 
@@ -187,34 +175,42 @@ async def get_service_cost(
 async def can_afford_service(
     service_key: str,
     quantity: int = 1,
+    pattern_type: str = None,
+    upscale_engine: str = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """检查是否能支付服务费用"""
     service = MembershipService()
-    can_afford = await service.can_afford_service(db, current_user.id, service_key, quantity)
+    options = {}
+    if pattern_type:
+        options["pattern_type"] = pattern_type
+    if upscale_engine:
+        options["engine"] = upscale_engine
 
-    cost = await service.calculate_service_cost(db, service_key, quantity)
+    can_afford = await service.can_afford_service(
+        db, current_user.id, service_key, quantity, options
+    )
+
+    cost = await service.calculate_service_cost(db, service_key, quantity, options)
 
     return {
         "can_afford": can_afford,
         "service_key": service_key,
         "quantity": quantity,
         "required_credits": to_float(cost) if cost is not None else None,
-        "current_credits": to_float(current_user.credits)
+        "current_credits": to_float(current_user.credits),
     }
 
 
 @router.post("/initialize-packages")
 async def initialize_packages(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """初始化套餐数据（管理员专用）"""
     if not current_user.is_admin:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="需要管理员权限"
+            status_code=status.HTTP_403_FORBIDDEN, detail="需要管理员权限"
         )
 
     service = MembershipService()

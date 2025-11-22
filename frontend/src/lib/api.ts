@@ -1,21 +1,22 @@
 import { ProcessingMethod } from "./processing";
 import { getStoredRefreshToken, updateAuthTokens } from "./tokenManager";
 
-const DEFAULT_API_BASE_URL = typeof window !== "undefined"
-  ? `${window.location.origin}/api/v1`
-  : "http://localhost:8000/v1";
+const DEFAULT_API_BASE_URL =
+  typeof window !== "undefined"
+    ? `${window.location.origin}/api/v1`
+    : "http://localhost:8000/v1";
 
 const resolveApiBaseUrl = () => {
   const envUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
   if (envUrl) {
     return envUrl.replace(/\/$/, "");
   }
-  
+
   // 在浏览器环境中，使用当前域名 + /api/v1
   if (typeof window !== "undefined") {
     return `${window.location.origin}/api/v1`;
   }
-  
+
   // 在服务端渲染时，使用 localhost（仅用于 SSR）
   return "http://localhost:8000/v1";
 };
@@ -63,12 +64,17 @@ const parseErrorBody = async (
         payload.error?.code,
         payload.detail,
         payload.error?.detail,
-      ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+      ].filter(
+        (value): value is string =>
+          typeof value === "string" && value.trim().length > 0,
+      );
 
       if (candidates.length > 0) {
         return {
           primary: candidates[0],
-          secondary: candidates.find((candidate) => candidate !== candidates[0]),
+          secondary: candidates.find(
+            (candidate) => candidate !== candidates[0],
+          ),
         };
       }
     } catch {
@@ -80,7 +86,8 @@ const parseErrorBody = async (
     const rawText = await response.clone().text();
     const cleaned = rawText.replace(/\s+/g, " ").trim();
     if (cleaned) {
-      const truncated = cleaned.length > 300 ? `${cleaned.slice(0, 300)}…` : cleaned;
+      const truncated =
+        cleaned.length > 300 ? `${cleaned.slice(0, 300)}…` : cleaned;
       return { secondary: truncated };
     }
   } catch {
@@ -90,7 +97,10 @@ const parseErrorBody = async (
   return {};
 };
 
-const ensureSuccess = async (response: Response, isProcessingRequest = false) => {
+const ensureSuccess = async (
+  response: Response,
+  isProcessingRequest = false,
+) => {
   if (response.ok) {
     return response;
   }
@@ -104,7 +114,10 @@ const ensureSuccess = async (response: Response, isProcessingRequest = false) =>
   const fallbackMessage = `请求失败：${response.status}${statusText}`;
   const parsed = await parseErrorBody(response);
   const parsedMessages = [parsed.primary, parsed.secondary]
-    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .filter(
+      (value): value is string =>
+        typeof value === "string" && value.trim().length > 0,
+    )
     .map((value) => value.trim());
 
   const creditErrorMessages = parsedMessages.filter(
@@ -121,16 +134,19 @@ const ensureSuccess = async (response: Response, isProcessingRequest = false) =>
   if (isProcessingRequest) {
     const genericKeywords = ["服务器火爆", "服务器内部错误"];
     const backendMessage = parsedMessages.find(
-      (message) => !genericKeywords.some((keyword) => message.includes(keyword)),
+      (message) =>
+        !genericKeywords.some((keyword) => message.includes(keyword)),
     );
 
-    return Promise.reject(new Error(backendMessage ?? "服务器火爆，重试一下。"));
+    return Promise.reject(
+      new Error(backendMessage ?? "服务器火爆，重试一下。"),
+    );
   }
 
-  const messageParts = [
-    ...parsedMessages,
-    fallbackMessage,
-  ].filter((value, index, list): value is string => Boolean(value) && list.indexOf(value) === index);
+  const messageParts = [...parsedMessages, fallbackMessage].filter(
+    (value, index, list): value is string =>
+      Boolean(value) && list.indexOf(value) === index,
+  );
 
   // Improve error message for common cases
   let errorMessage = messageParts.join(" - ");
@@ -141,7 +157,10 @@ const ensureSuccess = async (response: Response, isProcessingRequest = false) =>
   return Promise.reject(new Error(errorMessage));
 };
 
-const withAuthHeader = (headers: HeadersInit | undefined, accessToken: string | undefined) => {
+const withAuthHeader = (
+  headers: HeadersInit | undefined,
+  accessToken: string | undefined,
+) => {
   if (!accessToken) {
     return headers;
   }
@@ -191,30 +210,41 @@ const postJson = async <TData, TBody = unknown>(
   accessToken?: string,
   init?: RequestInit,
 ) => {
-  console.log('postJson: Making request to', `${API_BASE_URL}${path}`, 'with body', body);
+  console.log(
+    "postJson: Making request to",
+    `${API_BASE_URL}${path}`,
+    "with body",
+    body,
+  );
   try {
-    const response = await performAuthenticatedRequest(
-      (token) => {
-        const url = `${API_BASE_URL}${path}`;
-        const options = {
-          method: "POST",
-          headers: withAuthHeader({ "Content-Type": "application/json" }, token),
-          body: JSON.stringify(body),
-          ...init,
-        };
-        console.log('postJson: Fetch options', { url, headers: options.headers, method: options.method });
-        return fetch(url, options);
-      },
-      accessToken,
-    );
+    const response = await performAuthenticatedRequest((token) => {
+      const url = `${API_BASE_URL}${path}`;
+      const options = {
+        method: "POST",
+        headers: withAuthHeader({ "Content-Type": "application/json" }, token),
+        body: JSON.stringify(body),
+        ...init,
+      };
+      console.log("postJson: Fetch options", {
+        url,
+        headers: options.headers,
+        method: options.method,
+      });
+      return fetch(url, options);
+    }, accessToken);
 
-    console.log('postJson: Response status', response.status, response.statusText);
+    console.log(
+      "postJson: Response status",
+      response.status,
+      response.statusText,
+    );
     const ensured = await ensureSuccess(response);
     return jsonResponse<ApiSuccessResponse<TData>>(ensured);
   } catch (err) {
-    const message = (err instanceof Error && err.message === 'Failed to fetch')
-      ? '网络连接异常或被浏览器拦截，请稍后重试'
-      : (err as Error)?.message ?? '请求失败';
+    const message =
+      err instanceof Error && err.message === "Failed to fetch"
+        ? "网络连接异常或被浏览器拦截，请稍后重试"
+        : ((err as Error)?.message ?? "请求失败");
     throw new Error(message);
   }
 };
@@ -225,30 +255,41 @@ const putJson = async <TData, TBody = unknown>(
   accessToken?: string,
   init?: RequestInit,
 ) => {
-  console.log('putJson: Making request to', `${API_BASE_URL}${path}`, 'with body', body);
+  console.log(
+    "putJson: Making request to",
+    `${API_BASE_URL}${path}`,
+    "with body",
+    body,
+  );
   try {
-    const response = await performAuthenticatedRequest(
-      (token) => {
-        const url = `${API_BASE_URL}${path}`;
-        const options = {
-          method: "PUT",
-          headers: withAuthHeader({ "Content-Type": "application/json" }, token),
-          body: JSON.stringify(body),
-          ...init,
-        };
-        console.log('putJson: Fetch options', { url, headers: options.headers, method: options.method });
-        return fetch(url, options);
-      },
-      accessToken,
-    );
+    const response = await performAuthenticatedRequest((token) => {
+      const url = `${API_BASE_URL}${path}`;
+      const options = {
+        method: "PUT",
+        headers: withAuthHeader({ "Content-Type": "application/json" }, token),
+        body: JSON.stringify(body),
+        ...init,
+      };
+      console.log("putJson: Fetch options", {
+        url,
+        headers: options.headers,
+        method: options.method,
+      });
+      return fetch(url, options);
+    }, accessToken);
 
-    console.log('putJson: Response status', response.status, response.statusText);
+    console.log(
+      "putJson: Response status",
+      response.status,
+      response.statusText,
+    );
     const ensured = await ensureSuccess(response);
     return jsonResponse<ApiSuccessResponse<TData>>(ensured);
   } catch (err) {
-    const message = (err instanceof Error && err.message === 'Failed to fetch')
-      ? '网络连接异常或被浏览器拦截，请稍后重试'
-      : (err as Error)?.message ?? '请求失败';
+    const message =
+      err instanceof Error && err.message === "Failed to fetch"
+        ? "网络连接异常或被浏览器拦截，请稍后重试"
+        : ((err as Error)?.message ?? "请求失败");
     throw new Error(message);
   }
 };
@@ -262,7 +303,7 @@ const postFormData = async <TData>(
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 120000); // 120秒超时
-    
+
     const response = await performAuthenticatedRequest(
       (token) =>
         fetch(`${API_BASE_URL}${path}`, {
@@ -278,18 +319,19 @@ const postFormData = async <TData>(
     const ensured = await ensureSuccess(response, isProcessingRequest);
     return jsonResponse<ApiSuccessResponse<TData>>(ensured);
   } catch (err) {
-    let message = '请求失败';
-    
+    let message = "请求失败";
+
     if (err instanceof Error) {
-      if (err.name === 'AbortError') {
-        message = '请求超时，图片处理时间较长，请稍后在历史记录中查看结果';
-      } else if (err.message === 'Failed to fetch') {
-        message = '网络连接异常，请检查网络后重试。如任务已创建，请在历史记录中查看';
+      if (err.name === "AbortError") {
+        message = "请求超时，图片处理时间较长，请稍后在历史记录中查看结果";
+      } else if (err.message === "Failed to fetch") {
+        message =
+          "网络连接异常，请检查网络后重试。如任务已创建，请在历史记录中查看";
       } else {
         message = err.message;
       }
     }
-    
+
     throw new Error(message);
   }
 };
@@ -308,9 +350,10 @@ const getJson = async <TData>(path: string, accessToken: string) => {
     const ensured = await ensureSuccess(response);
     return jsonResponse<ApiSuccessResponse<TData>>(ensured);
   } catch (err) {
-    const message = (err instanceof Error && err.message === 'Failed to fetch')
-      ? '网络连接异常或被浏览器拦截，请稍后重试'
-      : (err as Error)?.message ?? '请求失败';
+    const message =
+      err instanceof Error && err.message === "Failed to fetch"
+        ? "网络连接异常或被浏览器拦截，请稍后重试"
+        : ((err as Error)?.message ?? "请求失败");
     throw new Error(message);
   }
 };
@@ -325,7 +368,10 @@ const deleteJson = async <TData, TBody = undefined>(
       (token) =>
         fetch(`${API_BASE_URL}${path}`, {
           method: "DELETE",
-          headers: withAuthHeader(body ? { "Content-Type": "application/json" } : undefined, token),
+          headers: withAuthHeader(
+            body ? { "Content-Type": "application/json" } : undefined,
+            token,
+          ),
           body: body ? JSON.stringify(body) : undefined,
         }),
       accessToken,
@@ -334,9 +380,10 @@ const deleteJson = async <TData, TBody = undefined>(
     const ensured = await ensureSuccess(response);
     return jsonResponse<ApiSuccessResponse<TData>>(ensured);
   } catch (err) {
-    const message = (err instanceof Error && err.message === 'Failed to fetch')
-      ? '网络连接异常或被浏览器拦截，请稍后重试'
-      : (err as Error)?.message ?? '请求失败';
+    const message =
+      err instanceof Error && err.message === "Failed to fetch"
+        ? "网络连接异常或被浏览器拦截，请稍后重试"
+        : ((err as Error)?.message ?? "请求失败");
     throw new Error(message);
   }
 };
@@ -372,17 +419,17 @@ export interface ApiErrorResponse {
 }
 
 export interface LoginPayload {
-  identifier: string;  // Can be either email or phone
+  identifier: string; // Can be either email or phone
   password: string;
   rememberMe?: boolean;
 }
 
 export interface RegisterPayload {
-  phone: string;  // Now required
+  phone: string; // Now required
   password: string;
   confirmPassword: string;
   nickname?: string;
-  email?: string;  // Now optional
+  email?: string; // Now optional
 }
 
 export interface SendVerificationCodePayload {
@@ -434,8 +481,8 @@ export interface RefreshTokenResult {
 
 export interface AuthenticatedUser {
   userId: string;
-  phone: string;  // Added phone field
-  email?: string;  // Made email optional
+  phone: string; // Added phone field
+  email?: string; // Made email optional
   nickname?: string;
   credits?: number;
   avatar?: string;
@@ -443,8 +490,8 @@ export interface AuthenticatedUser {
 
 export interface UserProfile {
   userId: string;
-  phone: string;  // Made phone required
-  email?: string;  // Made email optional
+  phone: string; // Made phone required
+  email?: string; // Made email optional
   nickname?: string;
   avatar?: string;
   credits?: number;
@@ -499,6 +546,11 @@ export interface ServiceCostResponse {
   unit_cost: number;
 }
 
+export interface ServiceCostQueryOptions {
+  patternType?: string;
+  upscaleEngine?: string;
+}
+
 export interface ServicePriceItem {
   id: number;
   service_id: string;
@@ -524,27 +576,36 @@ export interface CreditBalanceResponse {
 }
 
 export const login = (payload: LoginPayload) =>
-  postJson<LoginResult, { identifier: string; password: string; remember_me: boolean }>(
-    "/auth/login",
-    {
-      identifier: payload.identifier,
-      password: payload.password,
-      remember_me: Boolean(payload.rememberMe),
-    },
-  );
+  postJson<
+    LoginResult,
+    { identifier: string; password: string; remember_me: boolean }
+  >("/auth/login", {
+    identifier: payload.identifier,
+    password: payload.password,
+    remember_me: Boolean(payload.rememberMe),
+  });
 
 export const register = (payload: RegisterPayload) => {
-  console.log('api.ts: register function called with', { phone: payload.phone, passwordLength: payload.password.length });
-  return postJson<RegisterResult, { phone: string; password: string; confirm_password: string; nickname?: string; email?: string }>(
-    "/auth/register",
+  console.log("api.ts: register function called with", {
+    phone: payload.phone,
+    passwordLength: payload.password.length,
+  });
+  return postJson<
+    RegisterResult,
     {
-      phone: payload.phone,
-      password: payload.password,
-      confirm_password: payload.confirmPassword,
-      nickname: payload.nickname,
-      email: payload.email,
-    },
-  );
+      phone: string;
+      password: string;
+      confirm_password: string;
+      nickname?: string;
+      email?: string;
+    }
+  >("/auth/register", {
+    phone: payload.phone,
+    password: payload.password,
+    confirm_password: payload.confirmPassword,
+    nickname: payload.nickname,
+    email: payload.email,
+  });
 };
 
 export async function refreshToken(
@@ -559,9 +620,10 @@ export async function refreshToken(
     const ensured = await ensureSuccess(response);
     return jsonResponse<ApiSuccessResponse<RefreshTokenResult>>(ensured);
   } catch (err) {
-    const message = (err instanceof Error && err.message === 'Failed to fetch')
-      ? '网络异常，无法刷新会话，请重新登录'
-      : (err as Error)?.message ?? '刷新令牌失败';
+    const message =
+      err instanceof Error && err.message === "Failed to fetch"
+        ? "网络异常，无法刷新会话，请重新登录"
+        : ((err as Error)?.message ?? "刷新令牌失败");
     throw new Error(message);
   }
 }
@@ -573,8 +635,8 @@ export interface ProcessingRequestPayload {
   instruction?: string;
   model?: "new" | "original";
   patternType?: string;
-  patternQuality?: 'standard' | '4k';
-  upscaleEngine?: 'meitu_v2' | 'runninghub_vr2';
+  patternQuality?: "standard" | "4k";
+  upscaleEngine?: "meitu_v2" | "runninghub_vr2";
   aspectRatio?: string;
   expandRatio?: string;
   expandTop?: number;
@@ -646,8 +708,11 @@ export const createProcessingTask = (payload: ProcessingRequestPayload) => {
 
   if (method === "seamless_loop") {
     const safeDirection =
-      typeof seamDirection === "number" && Number.isFinite(seamDirection) ? seamDirection : 0;
-    const safeFit = typeof seamFit === "number" && Number.isFinite(seamFit) ? seamFit : 0.5;
+      typeof seamDirection === "number" && Number.isFinite(seamDirection)
+        ? seamDirection
+        : 0;
+    const safeFit =
+      typeof seamFit === "number" && Number.isFinite(seamFit) ? seamFit : 0.5;
 
     formData.append("direction", safeDirection.toString());
     formData.append("fit", safeFit.toString());
@@ -678,7 +743,14 @@ export const downloadProcessingResult = async (
 
   const contentDisposition = ensured.headers.get("content-disposition") ?? "";
   const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
-  const defaultExtension = format === "jpg" ? "jpg" : format === "svg" ? "svg" : format === "zip" ? "zip" : "png";
+  const defaultExtension =
+    format === "jpg"
+      ? "jpg"
+      : format === "svg"
+        ? "svg"
+        : format === "zip"
+          ? "zip"
+          : "png";
   const filename = filenameMatch?.[1] ?? `tuyun.${defaultExtension}`;
 
   return { blob, filename };
@@ -688,11 +760,19 @@ export const getServiceCost = async (
   serviceKey: string,
   accessToken: string,
   quantity = 1,
+  options?: ServiceCostQueryOptions,
 ) => {
   const params = new URLSearchParams({
     service_key: serviceKey,
     quantity: Math.max(1, quantity).toString(),
   });
+
+  if (options?.patternType) {
+    params.append("pattern_type", options.patternType);
+  }
+  if (options?.upscaleEngine) {
+    params.append("upscale_engine", options.upscaleEngine);
+  }
 
   try {
     const response = await performAuthenticatedRequest(
@@ -707,9 +787,10 @@ export const getServiceCost = async (
     const ensured = await ensureSuccess(response);
     return jsonResponse<ServiceCostResponse>(ensured);
   } catch (err) {
-    const message = (err instanceof Error && err.message === 'Failed to fetch')
-      ? '网络连接异常或被浏览器拦截，请稍后重试'
-      : (err as Error)?.message ?? '请求失败';
+    const message =
+      err instanceof Error && err.message === "Failed to fetch"
+        ? "网络连接异常或被浏览器拦截，请稍后重试"
+        : ((err as Error)?.message ?? "请求失败");
     throw new Error(message);
   }
 };
@@ -723,15 +804,16 @@ export const getPublicServicePrices = async () => {
     const ensured = await ensureSuccess(response);
     return jsonResponse<ApiSuccessResponse<ServicePriceItem[]>>(ensured);
   } catch (err) {
-    const message = (err instanceof Error && err.message === 'Failed to fetch')
-      ? '网络连接异常或被浏览器拦截，请稍后重试'
-      : (err as Error)?.message ?? '请求失败';
+    const message =
+      err instanceof Error && err.message === "Failed to fetch"
+        ? "网络连接异常或被浏览器拦截，请稍后重试"
+        : ((err as Error)?.message ?? "请求失败");
     throw new Error(message);
   }
 };
 
 export const getCreditBalance = (accessToken: string) =>
-  getJson<CreditBalanceResponse>('/credits/balance', accessToken);
+  getJson<CreditBalanceResponse>("/credits/balance", accessToken);
 
 export const getApiBaseUrl = () => API_BASE_URL;
 
@@ -739,7 +821,7 @@ export const getApiOrigin = () => API_ORIGIN;
 
 export const resolveFileUrl = (path: string | null | undefined) => {
   if (!path) {
-    return path ?? '';
+    return path ?? "";
   }
 
   if (/^(https?:|data:|blob:)/i.test(path)) {
@@ -750,20 +832,20 @@ export const resolveFileUrl = (path: string | null | undefined) => {
     return path;
   }
 
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   const resolvedUrl = `${API_ORIGIN}${normalizedPath}`;
-  
+
   // 添加日志来调试SVG文件URL解析
-  if (path.toLowerCase().includes('.svg')) {
-    console.log('resolveFileUrl: SVG file URL resolution', {
+  if (path.toLowerCase().includes(".svg")) {
+    console.log("resolveFileUrl: SVG file URL resolution", {
       originalPath: path,
       normalizedPath,
       API_ORIGIN,
       resolvedUrl,
-      isSvg: true
+      isSvg: true,
     });
   }
-  
+
   return resolvedUrl;
 };
 
@@ -829,17 +911,17 @@ export const getHistoryTasks = (
     status?: string;
     page?: number;
     limit?: number;
-  }
+  },
 ) => {
   const params = new URLSearchParams();
-  if (options?.type) params.append('type', options.type);
-  if (options?.status) params.append('status', options.status);
-  if (options?.page) params.append('page', options.page.toString());
-  if (options?.limit) params.append('limit', options.limit.toString());
-  
+  if (options?.type) params.append("type", options.type);
+  if (options?.status) params.append("status", options.status);
+  if (options?.page) params.append("page", options.page.toString());
+  if (options?.limit) params.append("limit", options.limit.toString());
+
   const query = params.toString();
-  const path = `/history/tasks${query ? `?${query}` : ''}`;
-  
+  const path = `/history/tasks${query ? `?${query}` : ""}`;
+
   return getJson<HistoryResponse>(path, accessToken);
 };
 
@@ -849,7 +931,7 @@ export const getTaskDetail = (taskId: string, accessToken: string) =>
 export const downloadTaskFile = async (
   taskId: string,
   accessToken: string,
-  fileType: "original" | "result" = "result"
+  fileType: "original" | "result" = "result",
 ): Promise<DownloadResult> => {
   const response = await fetch(
     `${API_BASE_URL}/history/tasks/${taskId}/download?file_type=${fileType}`,
@@ -864,7 +946,9 @@ export const downloadTaskFile = async (
 
   const contentDisposition = ensured.headers.get("content-disposition") ?? "";
   const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
-  const filename = filenameMatch?.[1] ?? `${taskId}.${fileType === "original" ? "jpg" : "png"}`;
+  const filename =
+    filenameMatch?.[1] ??
+    `${taskId}.${fileType === "original" ? "jpg" : "png"}`;
 
   return { blob, filename };
 };
@@ -960,7 +1044,6 @@ export interface AdminOrdersResponse {
 
 export interface AdminOrderDetail extends AdminOrder {}
 
-
 export interface AdminDashboardStats {
   users: {
     total: number;
@@ -1025,7 +1108,7 @@ export interface AdminServicePriceUpdateResult {
 export const adminLogin = (identifier: string, password: string) =>
   postJson<LoginResult, { identifier: string; password: string }>(
     "/auth/admin/login",
-    { identifier, password }
+    { identifier, password },
   );
 
 export const adminGetUsers = (
@@ -1038,20 +1121,24 @@ export const adminGetUsers = (
     email_filter?: string;
     sort_by?: string;
     sort_order?: string;
-  }
+  },
 ) => {
   const params = new URLSearchParams();
-  if (options?.page) params.append('page', options.page.toString());
-  if (options?.page_size) params.append('page_size', options.page_size.toString());
-  if (options?.status_filter) params.append('status_filter', options.status_filter);
-  if (options?.membership_filter) params.append('membership_filter', options.membership_filter);
-  if (options?.email_filter) params.append('email_filter', options.email_filter);
-  if (options?.sort_by) params.append('sort_by', options.sort_by);
-  if (options?.sort_order) params.append('sort_order', options.sort_order);
-  
+  if (options?.page) params.append("page", options.page.toString());
+  if (options?.page_size)
+    params.append("page_size", options.page_size.toString());
+  if (options?.status_filter)
+    params.append("status_filter", options.status_filter);
+  if (options?.membership_filter)
+    params.append("membership_filter", options.membership_filter);
+  if (options?.email_filter)
+    params.append("email_filter", options.email_filter);
+  if (options?.sort_by) params.append("sort_by", options.sort_by);
+  if (options?.sort_order) params.append("sort_order", options.sort_order);
+
   const query = params.toString();
-  const path = `/admin/users${query ? `?${query}` : ''}`;
-  
+  const path = `/admin/users${query ? `?${query}` : ""}`;
+
   return getJson<AdminUsersResponse>(path, accessToken);
 };
 
@@ -1069,7 +1156,7 @@ export interface AdminCreateUserPayload {
 
 export const adminCreateUser = (
   payload: AdminCreateUserPayload,
-  accessToken: string
+  accessToken: string,
 ) =>
   postJson<AdminUser, AdminCreateUserPayload>(
     "/admin/users",
@@ -1081,21 +1168,20 @@ export const adminCreateUser = (
       initialCredits: payload.initialCredits ?? 0,
       isAdmin: Boolean(payload.isAdmin),
     },
-    accessToken
+    accessToken,
   );
 
 export const adminUpdateUserStatus = (
   userId: string,
   status: string,
   reason: string,
-  accessToken: string
+  accessToken: string,
 ) =>
   postJson<any, { status: string; reason: string }>(
     `/admin/users/${userId}/status`,
     { status, reason },
-    accessToken
+    accessToken,
   );
-
 
 export interface AdminDeleteUserPayload {
   reason?: string;
@@ -1104,12 +1190,12 @@ export interface AdminDeleteUserPayload {
 export const adminDeleteUser = (
   userId: string,
   accessToken: string,
-  payload?: AdminDeleteUserPayload
+  payload?: AdminDeleteUserPayload,
 ) =>
   deleteJson<{ userId: string; deletedAt: string }, AdminDeleteUserPayload>(
     `/admin/users/${userId}`,
     accessToken,
-    payload
+    payload,
   );
 
 export const adminGetUserTransactions = (
@@ -1122,19 +1208,22 @@ export const adminGetUserTransactions = (
     source_filter?: string;
     start_date?: string;
     end_date?: string;
-  }
+  },
 ) => {
   const params = new URLSearchParams();
-  if (options?.page) params.append('page', options.page.toString());
-  if (options?.page_size) params.append('page_size', options.page_size.toString());
-  if (options?.transaction_type) params.append('transaction_type', options.transaction_type);
-  if (options?.source_filter) params.append('source_filter', options.source_filter);
-  if (options?.start_date) params.append('start_date', options.start_date);
-  if (options?.end_date) params.append('end_date', options.end_date);
-  
+  if (options?.page) params.append("page", options.page.toString());
+  if (options?.page_size)
+    params.append("page_size", options.page_size.toString());
+  if (options?.transaction_type)
+    params.append("transaction_type", options.transaction_type);
+  if (options?.source_filter)
+    params.append("source_filter", options.source_filter);
+  if (options?.start_date) params.append("start_date", options.start_date);
+  if (options?.end_date) params.append("end_date", options.end_date);
+
   const query = params.toString();
-  const path = `/admin/users/${userId}/transactions${query ? `?${query}` : ''}`;
-  
+  const path = `/admin/users/${userId}/transactions${query ? `?${query}` : ""}`;
+
   return getJson<AdminCreditTransactionsResponse>(path, accessToken);
 };
 
@@ -1143,12 +1232,12 @@ export const adminAdjustUserCredits = (
   amount: number,
   reason: string,
   sendNotification: boolean,
-  accessToken: string
+  accessToken: string,
 ) =>
   postJson<any, { amount: number; reason: string; sendNotification: boolean }>(
     `/admin/users/${userId}/credits/adjust`,
     { amount, reason, sendNotification },
-    accessToken
+    accessToken,
   );
 
 export const adminGetOrders = (
@@ -1161,20 +1250,23 @@ export const adminGetOrders = (
     package_type_filter?: string;
     start_date?: string;
     end_date?: string;
-  }
+  },
 ) => {
   const params = new URLSearchParams();
-  if (options?.page) params.append('page', options.page.toString());
-  if (options?.page_size) params.append('page_size', options.page_size.toString());
-  if (options?.status_filter) params.append('status_filter', options.status_filter);
-  if (options?.user_filter) params.append('user_filter', options.user_filter);
-  if (options?.package_type_filter) params.append('package_type_filter', options.package_type_filter);
-  if (options?.start_date) params.append('start_date', options.start_date);
-  if (options?.end_date) params.append('end_date', options.end_date);
-  
+  if (options?.page) params.append("page", options.page.toString());
+  if (options?.page_size)
+    params.append("page_size", options.page_size.toString());
+  if (options?.status_filter)
+    params.append("status_filter", options.status_filter);
+  if (options?.user_filter) params.append("user_filter", options.user_filter);
+  if (options?.package_type_filter)
+    params.append("package_type_filter", options.package_type_filter);
+  if (options?.start_date) params.append("start_date", options.start_date);
+  if (options?.end_date) params.append("end_date", options.end_date);
+
   const query = params.toString();
-  const path = `/admin/orders${query ? `?${query}` : ''}`;
-  
+  const path = `/admin/orders${query ? `?${query}` : ""}`;
+
   return getJson<AdminOrdersResponse>(path, accessToken);
 };
 
@@ -1186,17 +1278,17 @@ export const adminUpdateOrderStatus = (
   status: string,
   reason: string,
   adminNotes: string,
-  accessToken: string
+  accessToken: string,
 ) =>
   postJson<any, { status: string; reason: string; adminNotes: string }>(
     `/admin/orders/${orderId}/status`,
     { status, reason, adminNotes },
-    accessToken
+    accessToken,
   );
 
 export const adminGetServicePrices = (
   accessToken: string,
-  includeInactive = true
+  includeInactive = true,
 ) => {
   const params = new URLSearchParams();
   if (includeInactive) {
@@ -1217,19 +1309,17 @@ export const adminUpdateServicePrice = (
     description?: string;
     active?: boolean;
   },
-  accessToken: string
+  accessToken: string,
 ) =>
-  putJson<AdminServicePriceUpdateResult, {
-    priceCredits: number;
-    serviceName?: string;
-    description?: string;
-    active?: boolean;
-  }>(
-    `/admin/service-prices/${serviceKey}`,
-    payload,
-    accessToken
-  );
-
+  putJson<
+    AdminServicePriceUpdateResult,
+    {
+      priceCredits: number;
+      serviceName?: string;
+      description?: string;
+      active?: boolean;
+    }
+  >(`/admin/service-prices/${serviceKey}`, payload, accessToken);
 
 export const adminGetDashboardStats = (accessToken: string) =>
   getJson<AdminDashboardStats>("/admin/dashboard/stats", accessToken);
@@ -1253,12 +1343,17 @@ export const sendPasswordResetCode = (payload: SendPasswordResetCodePayload) =>
   );
 
 export const resetPasswordByPhone = (payload: ResetPasswordByPhonePayload) =>
-  postJson<null, { phone: string; code: string; new_password: string; confirm_password: string }>(
-    "/auth/reset-password-by-phone",
+  postJson<
+    null,
     {
-      phone: payload.phone,
-      code: payload.code,
-      new_password: payload.newPassword,
-      confirm_password: payload.confirmPassword,
-    },
-  );
+      phone: string;
+      code: string;
+      new_password: string;
+      confirm_password: string;
+    }
+  >("/auth/reset-password-by-phone", {
+    phone: payload.phone,
+    code: payload.code,
+    new_password: payload.newPassword,
+    confirm_password: payload.confirmPassword,
+  });
