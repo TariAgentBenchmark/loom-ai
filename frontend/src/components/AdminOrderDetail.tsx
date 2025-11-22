@@ -119,7 +119,7 @@ const AdminOrderDetail: React.FC = () => {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString("zh-CN");
+    return new Date(dateString).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
   };
 
   if (loading) {
