@@ -146,6 +146,8 @@ interface ProcessingPageProps {
   onPromptInstructionChange?: (value: string) => void;
   patternType?: string;
   onPatternTypeChange?: (value: string) => void;
+  patternQuality?: 'standard' | '4k';
+  onPatternQualityChange?: (value: 'standard' | '4k') => void;
   upscaleEngine?: 'meitu_v2' | 'runninghub_vr2';
   onUpscaleEngineChange?: (value: 'meitu_v2' | 'runninghub_vr2') => void;
   aspectRatio?: string;
@@ -184,6 +186,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   onPromptInstructionChange,
   patternType,
   onPatternTypeChange,
+  patternQuality,
+  onPatternQualityChange,
   upscaleEngine,
   onUpscaleEngineChange,
   aspectRatio,
@@ -222,6 +226,17 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
       description: '锐化高清模式，突出细节与纹理锐度，适合较高清的原图。',
     },
   ];
+  const patternQualityOptions: { value: 'standard' | '4k'; label: string }[] = [
+    {
+      value: 'standard',
+      label: '普通',
+    },
+    {
+      value: '4k',
+      label: '4K',
+    },
+  ];
+  const effectivePatternQuality = patternQuality ?? 'standard';
   const selectedUpscaleOption =
     upscaleOptions.find((option) => option.value === (upscaleEngine || 'meitu_v2')) ?? upscaleOptions[0];
   const expandRatioOptions: { value: string; label: string }[] = [
@@ -895,6 +910,33 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                 <option value="fine">烫画/胸前花</option>
               </select>
               <p className="text-xs text-gray-500 mt-2">通用1生成多张候选结果，通用2专注首张高清图；选择不同类型将使用对应工作流。</p>
+            </div>
+          )}
+
+          {method === 'extract_pattern' && patternType === 'general2' && (
+            <div className="mb-4 md:mb-6">
+              <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2">清晰度模式</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {patternQualityOptions.map((option) => {
+                  const isActive = effectivePatternQuality === option.value;
+                  return (
+                    <button
+                      type="button"
+                      key={option.value}
+                      onClick={() => onPatternQualityChange?.(option.value)}
+                      className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-all ${
+                        isActive
+                          ? 'border-blue-500 bg-blue-50 shadow-sm'
+                          : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/60'
+                      }`}
+                    >
+                      <span className="text-sm md:text-base font-semibold text-gray-900 flex items-center gap-2">
+                        {option.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 

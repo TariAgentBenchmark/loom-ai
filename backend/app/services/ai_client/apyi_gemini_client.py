@@ -102,6 +102,71 @@ class ApyiGeminiClient(BaseAIClient):
 
         return await self._make_request("POST", endpoint, data)
 
+    async def generate_image_preview(
+        self,
+        image_bytes: bytes,
+        prompt: str,
+        mime_type: str = "image/png",
+        aspect_ratio: Optional[str] = None,
+        resolution: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        使用Apyi的 Gemini-3-Pro-Image-Preview 生成高分辨率图片。
+
+        Args:
+            image_bytes: 图片字节数据
+            prompt: 生成提示词
+            mime_type: 图片MIME类型
+            aspect_ratio: 可选的宽高比
+            resolution: 可选分辨率（1K/2K/4K）
+        """
+        endpoint = "/v1beta/models/gemini-3-pro-image-preview:generateContent"
+        image_base64 = self._image_to_base64(image_bytes, "PNG" if mime_type == "image/png" else "JPEG")
+
+        data: Dict[str, Any] = {
+            "contents": [
+                {
+                    "parts": [
+                        {"text": prompt},
+                        {
+                            "inline_data": {
+                                "mime_type": mime_type,
+                                "data": image_base64
+                            }
+                        }
+                    ]
+                }
+            ],
+            "generationConfig": {
+                "responseModalities": ["IMAGE"]
+            }
+        }
+
+        image_config: Dict[str, Any] = {}
+        if aspect_ratio:
+            if aspect_ratio not in self.SUPPORTED_ASPECT_RATIOS:
+                logger.warning("不支持的宽高比: %s，使用默认设置", aspect_ratio)
+            else:
+                image_config["aspectRatio"] = aspect_ratio
+
+        if resolution:
+            normalized_resolution = resolution.upper()
+            if normalized_resolution in {"1K", "2K", "4K"}:
+                image_config["image_size"] = normalized_resolution
+            else:
+                logger.warning("不支持的分辨率: %s，跳过自定义分辨率", resolution)
+
+        if image_config:
+            data["generationConfig"]["imageConfig"] = image_config
+
+        logger.info(
+            "Processing image with Gemini-3-Pro preview: aspect_ratio=%s, resolution=%s",
+            image_config.get("aspectRatio"),
+            image_config.get("image_size"),
+        )
+
+        return await self._make_request("POST", endpoint, data)
+
     def validate_aspect_ratio(self, aspect_ratio: str) -> bool:
         """验证宽高比是否支持"""
         return aspect_ratio in self.SUPPORTED_ASPECT_RATIOS

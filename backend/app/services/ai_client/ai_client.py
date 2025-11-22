@@ -286,6 +286,8 @@ class AIClient:
             pattern_type = f"general_{normalized_pattern_type[-1]}"
         else:
             pattern_type = normalized_pattern_type
+        quality_mode = (options.get("quality") or "standard").strip().lower()
+        use_4k_preview = pattern_type == "general_2" and quality_mode == "4k"
 
         if pattern_type == "positioning":
             return await self.runninghub_client.run_positioning_workflow(
@@ -397,6 +399,13 @@ class AIClient:
         result_urls = [url.strip() for url in raw_result.split(",") if url.strip()]
         if not result_urls:
             raise Exception("AI提取花型失败：结果URL无效")
+
+        if use_4k_preview:
+            logger.info(
+                "General-2 pattern requested 4K preview model; skipping secondary enhancement. urls=%s",
+                len(result_urls),
+            )
+            return result_urls[0]
 
         async def _enhance_url(url: str) -> List[str]:
             try:

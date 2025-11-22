@@ -140,7 +140,15 @@ class ImageProcessingUtils:
         注意：当pattern_type为"fine"（烫画/胸前花）时，返回的字符串是逗号分隔的多个URL
         """
         options = options or {}
-        pattern_type = options.get("pattern_type", "general")
+        pattern_type_raw = (options.get("pattern_type") or "general").strip().lower()
+        normalized_pattern_type = pattern_type_raw.replace("-", "_")
+        if normalized_pattern_type == "general":
+            pattern_type = "general_2"
+        elif normalized_pattern_type.startswith("general") and normalized_pattern_type[-1].isdigit():
+            pattern_type = f"general_{normalized_pattern_type[-1]}"
+        else:
+            pattern_type = normalized_pattern_type
+        quality_mode = (options.get("quality") or "standard").strip().lower()
         
         # 根据不同的花型类型使用不同的提示词
         if pattern_type == "positioning":
@@ -210,14 +218,23 @@ class ImageProcessingUtils:
             # 返回逗号分隔的URL字符串
             return ",".join(image_urls)
         else:
-            result = await self.apyi_gemini_client.process_image(
-                image_bytes,
-                prompt,
-                "image/png",
-                aspect_ratio=aspect_ratio,
-                width=width,
-                height=height
-            )
+            if pattern_type == "general_2" and quality_mode == "4k":
+                result = await self.apyi_gemini_client.generate_image_preview(
+                    image_bytes,
+                    prompt,
+                    "image/png",
+                    aspect_ratio=aspect_ratio,
+                    resolution="4K",
+                )
+            else:
+                result = await self.apyi_gemini_client.process_image(
+                    image_bytes,
+                    prompt,
+                    "image/png",
+                    aspect_ratio=aspect_ratio,
+                    width=width,
+                    height=height
+                )
             return self.apyi_gemini_client._extract_image_url(result)
 
     async def denoise_image(

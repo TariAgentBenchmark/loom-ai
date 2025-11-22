@@ -573,6 +573,7 @@ export interface ProcessingRequestPayload {
   instruction?: string;
   model?: "new" | "original";
   patternType?: string;
+  patternQuality?: 'standard' | '4k';
   upscaleEngine?: 'meitu_v2' | 'runninghub_vr2';
   aspectRatio?: string;
   expandRatio?: string;
@@ -593,6 +594,7 @@ export const createProcessingTask = (payload: ProcessingRequestPayload) => {
     instruction,
     model,
     patternType,
+    patternQuality,
     upscaleEngine,
     aspectRatio,
     expandRatio,
@@ -615,6 +617,9 @@ export const createProcessingTask = (payload: ProcessingRequestPayload) => {
 
   if (method === "extract_pattern") {
     formData.append("pattern_type", patternType ?? "general1");
+    if (patternQuality) {
+      formData.append("quality", patternQuality);
+    }
   }
 
   if (method === "upscale" && upscaleEngine) {

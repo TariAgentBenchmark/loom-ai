@@ -184,6 +184,7 @@ async def vectorize_image(
 async def extract_pattern(
     image: UploadFile = File(...),
     pattern_type: str = Form("general_2"),
+    quality: Optional[str] = Form("standard"),
     aspect_ratio: Optional[str] = Form(None),
     width: Optional[int] = Form(None),
     height: Optional[int] = Form(None),
@@ -207,7 +208,7 @@ async def extract_pattern(
         logger.info(f"[{request_id}] File uploaded - Size: {file_size / 1024 / 1024:.2f} MB, Type: {pattern_type}")
         
         # 构建选项
-        options = {"pattern_type": pattern_type}
+        options = {"pattern_type": pattern_type, "quality": quality}
 
         # 添加分辨率参数
         if aspect_ratio:

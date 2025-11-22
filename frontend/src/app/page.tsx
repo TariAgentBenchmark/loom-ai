@@ -138,6 +138,7 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState<PageState>('home');
   const [promptInstruction, setPromptInstruction] = useState<string>('');
   const [patternType, setPatternType] = useState<string>('general1');
+  const [patternQuality, setPatternQuality] = useState<'standard' | '4k'>('standard');
   const [upscaleEngine, setUpscaleEngine] = useState<'meitu_v2' | 'runninghub_vr2'>('meitu_v2');
   const [aspectRatio, setAspectRatio] = useState<string>('');
   const [expandRatio, setExpandRatio] = useState<string>('original');
@@ -188,6 +189,12 @@ export default function Home() {
     });
     pollingRefs.current = {};
   }, []);
+
+  useEffect(() => {
+    if (patternType !== 'general2') {
+      setPatternQuality('standard');
+    }
+  }, [patternType]);
 
   const updateActiveTasks = useCallback(
     (updater: (prev: PersistedProcessingTaskMap) => PersistedProcessingTaskMap) => {
@@ -673,6 +680,7 @@ export default function Home() {
 
     if (currentPage === 'extract_pattern') {
       payload.patternType = patternType;
+      payload.patternQuality = patternQuality;
     }
 
     if (currentPage === 'upscale') {
@@ -783,6 +791,7 @@ export default function Home() {
             setCurrentPage('home');
             setPromptInstruction('');
             setPatternType('general1');
+            setPatternQuality('standard');
             setUpscaleEngine('meitu_v2');
             setAspectRatio('');
             setExpandRatio('original');
@@ -803,6 +812,7 @@ export default function Home() {
           promptInstruction={promptInstruction}
           onPromptInstructionChange={setPromptInstruction}
           patternType={patternType}
+          patternQuality={patternQuality}
           onPatternTypeChange={(value) => {
             setPatternType(value);
             if (currentPage === 'extract_pattern') {
@@ -813,8 +823,10 @@ export default function Home() {
             // 当从通用模式切换到其他模式时，清除分辨率设置
             if (value !== 'general2') {
               setAspectRatio('');
+              setPatternQuality('standard');
             }
           }}
+          onPatternQualityChange={setPatternQuality}
           upscaleEngine={upscaleEngine}
           onUpscaleEngineChange={setUpscaleEngine}
           aspectRatio={aspectRatio}
