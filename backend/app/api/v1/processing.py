@@ -30,6 +30,14 @@ def _display_credits(task) -> float:
     return to_float(task.credits_used)
 
 
+def _handle_processing_error(exc: Exception):
+    """统一处理创建任务阶段的错误，补充积分不足提示。"""
+    msg = str(exc)
+    if "积分不足" in msg:
+        raise HTTPException(status_code=402, detail="积分不足，请充值后再试")
+    raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
+
+
 @router.post("/seamless")
 async def seamless_pattern_conversion(
     image: UploadFile = File(...),
@@ -68,7 +76,7 @@ async def seamless_pattern_conversion(
         )
         
     except Exception as e:
-        raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
+        _handle_processing_error(e)
 
 
 @router.post("/prompt-edit")
@@ -131,7 +139,7 @@ async def prompt_edit_image(
         )
 
     except Exception as e:
-        raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
+        _handle_processing_error(e)
 
 
 @router.post("/vectorize")
@@ -170,7 +178,7 @@ async def vectorize_image(
         )
         
     except Exception as e:
-        raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
+        _handle_processing_error(e)
 
 @router.post("/extract-pattern")
 async def extract_pattern(
@@ -236,7 +244,7 @@ async def extract_pattern(
     except Exception as e:
         elapsed = time.time() - start_time
         logger.error(f"[{request_id}] Extract pattern failed - Time: {elapsed:.2f}s, Error: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
+        _handle_processing_error(e)
 
 
 @router.post("/remove-watermark")
@@ -275,7 +283,7 @@ async def remove_watermark(
         )
         
     except Exception as e:
-        raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
+        _handle_processing_error(e)
 
 
 @router.post("/denoise")
@@ -329,7 +337,7 @@ async def denoise_image(
         )
         
     except Exception as e:
-        raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
+        _handle_processing_error(e)
 
 
 @router.post("/embroidery")
@@ -390,7 +398,7 @@ async def enhance_embroidery(
         )
         
     except Exception as e:
-        raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
+        _handle_processing_error(e)
 
 
 @router.post("/flat-to-3d")
@@ -443,7 +451,7 @@ async def convert_flat_to_3d(
         )
 
     except Exception as e:
-        raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
+        _handle_processing_error(e)
 
 
 @router.post("/upscale")
@@ -502,7 +510,7 @@ async def upscale_image(
         )
         
     except Exception as e:
-        raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
+        _handle_processing_error(e)
 
 
 @router.post("/expand-image")
@@ -558,7 +566,7 @@ async def expand_image(
         )
 
     except Exception as e:
-        raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
+        _handle_processing_error(e)
 
 
 @router.post("/seamless-loop")
@@ -614,7 +622,7 @@ async def seamless_loop(
         )
 
     except Exception as e:
-        raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
+        _handle_processing_error(e)
 
 
 @router.get("/status/{task_id}")
@@ -871,7 +879,7 @@ async def estimate_credits(
         )
         
     except Exception as e:
-        raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
+        _handle_processing_error(e)
 
 
 @router.post("/batch-download")
