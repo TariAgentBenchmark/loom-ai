@@ -105,17 +105,19 @@ const AdminUserManagement: React.FC = () => {
         });
         setUsers(response.data.users);
         const p: any = response.data.pagination || {};
-        const resolvedLimit = p.limit ?? pagination.limit;
-        const resolvedTotal = p.total ?? users.length;
-        const resolvedTotalPages =
-          p.total_pages ??
-          p.totalPages ??
-          (resolvedLimit > 0 ? Math.ceil(resolvedTotal / resolvedLimit) : 0);
-        setPagination({
-          page: p.page ?? page,
-          limit: resolvedLimit,
-          total: resolvedTotal,
-          totalPages: resolvedTotalPages,
+        setPagination((prev) => {
+          const resolvedLimit = p.limit ?? prev.limit;
+          const resolvedTotal = p.total ?? prev.total ?? 0;
+          const resolvedTotalPages =
+            p.total_pages ??
+            p.totalPages ??
+            (resolvedLimit > 0 ? Math.ceil(resolvedTotal / resolvedLimit) : 0);
+          return {
+            page: p.page ?? page,
+            limit: resolvedLimit,
+            total: resolvedTotal,
+            totalPages: resolvedTotalPages,
+          };
         });
       } catch (err) {
         setError(err instanceof Error ? err.message : "获取用户列表失败");
@@ -123,7 +125,7 @@ const AdminUserManagement: React.FC = () => {
         setLoading(false);
       }
     },
-    [accessToken, activeFilters, pagination.limit, users.length]
+    [accessToken, activeFilters, pagination.limit]
   );
 
   useEffect(() => {
