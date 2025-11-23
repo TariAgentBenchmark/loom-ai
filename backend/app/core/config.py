@@ -75,6 +75,9 @@ class Settings(BaseSettings):
     runninghub_workflow_id_rh_double_1800: str = ""
     runninghub_rh_double_1800_node_id: str = "130,183"
     runninghub_rh_double_1800_field_name: str = "image"
+    runninghub_workflow_id_consistent_dewatermark: str = ""
+    runninghub_consistent_dewatermark_node_id: str = "166"
+    runninghub_consistent_dewatermark_field_name: str = "image"
     # 提取花型通用1 专用工作流（返回单张）
     runninghub_workflow_id_extract_general1_1: str = ""
     runninghub_extract_general1_node_id_1: str = ""

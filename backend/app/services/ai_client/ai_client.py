@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.config import settings
 from app.services.ai_client.base_client import BaseAIClient
-from app.services.ai_client.dewatermark_client import DewatermarkClient
 from app.services.ai_client.gemini_client import GeminiClient
 from app.services.ai_client.apyi_gemini_client import ApyiGeminiClient
 from app.services.ai_client.apyi_openai_client import ApyiOpenAIClient
@@ -35,7 +34,6 @@ class AIClient:
         self.jimeng_client = JimengClient()
         self.vectorizer_client = VectorizerClient()
         self.a8_vectorizer_client = A8VectorizerClient()
-        self.dewatermark_client = DewatermarkClient()
         self.meitu_client = MeituClient()
         self.image_utils = ImageProcessingUtils()
         self.base_client_utils = BaseAIClient()
@@ -568,8 +566,39 @@ class AIClient:
         image_bytes: bytes,
         options: Optional[Dict[str, Any]] = None,
     ) -> str:
-        """AI智能去水印（使用Dewatermark.ai API）"""
-        return await self.dewatermark_client.remove_watermark(image_bytes, options)
+        """AI智能去水印（RunningHub一致性去水印工作流）"""
+        try:
+            workflow_id = (settings.runninghub_workflow_id_consistent_dewatermark or "").strip()
+            node_ids = settings.runninghub_consistent_dewatermark_node_id
+            field_name = (settings.runninghub_consistent_dewatermark_field_name or "").strip()
+
+            if not workflow_id:
+                raise Exception("未配置RunningHub一致性去水印workflowId")
+            if not node_ids:
+                raise Exception("未配置RunningHub一致性去水印nodeId")
+            if not field_name:
+                raise Exception("未配置RunningHub一致性去水印fieldName")
+
+            rh_options = dict(options or {})
+            if not rh_options.get("original_filename"):
+                rh_options["original_filename"] = "remove_watermark.png"
+
+            result_urls = await self.runninghub_client.run_workflow_with_custom_nodes(
+                image_bytes=image_bytes,
+                workflow_id=workflow_id,
+                node_ids=node_ids,
+                field_name=field_name,
+                options=rh_options,
+            )
+
+            cleaned_urls = [url.strip() for url in result_urls if url and url.strip()]
+            if not cleaned_urls:
+                raise Exception("RunningHub一致性去水印未返回结果图片")
+
+            return ",".join(cleaned_urls)
+        except Exception as exc:
+            logger.error("RunningHub一致性去水印失败: %s", str(exc))
+            raise Exception(f"智能去水印失败: {str(exc)}")
 
     # AI高清放大相关方法
     async def upscale_image(
