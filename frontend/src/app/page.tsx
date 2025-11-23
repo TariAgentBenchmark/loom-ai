@@ -134,6 +134,8 @@ export default function Home() {
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [secondaryImage, setSecondaryImage] = useState<File | null>(null);
+  const [secondaryImagePreview, setSecondaryImagePreview] = useState<string | null>(null);
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [currentPage, setCurrentPage] = useState<PageState>('home');
   const [promptInstruction, setPromptInstruction] = useState<string>('');
@@ -159,6 +161,7 @@ export default function Home() {
   const hasLoadedPersistedTasksRef = useRef(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const secondaryFileInputRef = useRef<HTMLInputElement>(null);
   const rememberMeRef = useRef(false);
 
   const isLoggedIn = isAuthenticated(authState);
@@ -447,7 +450,28 @@ export default function Home() {
     [],
   );
 
-  const handleImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
+  const applyFileSelection = (file: File, slot: 'primary' | 'secondary' = 'primary') => {
+    if (slot === 'primary') {
+      setUploadedImage(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setSecondaryImage(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setSecondaryImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleImageUpload = (
+    event: ChangeEvent<HTMLInputElement>,
+    slot: 'primary' | 'secondary' = 'primary',
+  ) => {
     if (isCurrentMethodProcessing) {
       setErrorMessage('当前任务正在处理中，请等待完成后再上传新图片');
       if (event.target) {
@@ -459,19 +483,14 @@ export default function Home() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setUploadedImage(file);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setImagePreview(e.target?.result as string);
-    };
-    reader.readAsDataURL(file);
+    applyFileSelection(file, slot);
   };
 
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
   };
 
-  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
+  const handleDrop = (event: DragEvent<HTMLDivElement>, slot: 'primary' | 'secondary' = 'primary') => {
     event.preventDefault();
     if (isCurrentMethodProcessing) {
       setErrorMessage('当前任务正在处理中，请等待完成后再上传新图片');
@@ -479,12 +498,7 @@ export default function Home() {
     }
     const file = event.dataTransfer.files[0];
     if (file && file.type.startsWith('image/')) {
-      setUploadedImage(file);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
+      applyFileSelection(file, slot);
     }
   };
 
@@ -676,6 +690,9 @@ export default function Home() {
 
     if (currentPage === 'prompt_edit') {
       payload.instruction = trimmedInstruction;
+      if (secondaryImage) {
+        payload.image2 = secondaryImage;
+      }
     }
 
     if (currentPage === 'extract_pattern') {
@@ -783,6 +800,7 @@ export default function Home() {
         <ProcessingPage
           method={currentPage}
           imagePreview={imagePreview}
+          secondaryImagePreview={secondaryImagePreview}
           processedImage={processedImage}
           currentTaskId={currentTaskId || undefined}
           isProcessing={isCurrentMethodProcessing}
@@ -799,13 +817,24 @@ export default function Home() {
             setExpandPrompt('');
             setSeamDirection(0);
             setSeamFit(0.5);
+            setErrorMessage('');
+            setSuccessMessage('');
+            setProcessedImage(null);
+            setImagePreview(null);
+            setUploadedImage(null);
+            setSecondaryImage(null);
+            setSecondaryImagePreview(null);
           }}
           onOpenPricingModal={() => setShowPricingModal(true)}
           onProcessImage={handleProcessImage}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
           fileInputRef={fileInputRef}
+          secondaryFileInputRef={secondaryFileInputRef}
           onFileInputChange={handleImageUpload}
+          onSecondaryFileInputChange={(event) => handleImageUpload(event, 'secondary')}
+          onSecondaryDragOver={handleDragOver}
+          onSecondaryDrop={(event) => handleDrop(event, 'secondary')}
           errorMessage={errorMessage}
           successMessage={successMessage}
           accessToken={accessToken || undefined}
@@ -854,6 +883,8 @@ export default function Home() {
             applyStoredMethodUiState(method);
             setImagePreview(null);
             setUploadedImage(null);
+            setSecondaryImage(null);
+            setSecondaryImagePreview(null);
             if (method === 'prompt_edit') {
               setPromptInstruction('');
             }

@@ -82,6 +82,7 @@ async def seamless_pattern_conversion(
 @router.post("/prompt-edit")
 async def prompt_edit_image(
     image: UploadFile = File(...),
+    image2: UploadFile = File(None),
     instruction: str = Form(...),
     model: str = Form("new"),
     aspect_ratio: Optional[str] = Form(None),
@@ -96,9 +97,16 @@ async def prompt_edit_image(
         file_size = 0
         image_bytes = await image.read()
         file_size = len(image_bytes)
+        secondary_bytes = await image2.read() if image2 else None
         import logging
         logger = logging.getLogger(__name__)
         logger.info(f"Uploaded file size: {file_size / 1024 / 1024:.2f} MB, filename: {image.filename}")
+        if image2:
+            logger.info(
+                "Uploaded secondary file size: %.2f MB, filename: %s",
+                (len(secondary_bytes) if secondary_bytes else 0) / 1024 / 1024,
+                image2.filename,
+            )
 
         instruction_value = instruction.strip()
         if not instruction_value:
@@ -124,7 +132,9 @@ async def prompt_edit_image(
             task_type="prompt_edit",
             image_bytes=image_bytes,
             original_filename=image.filename,
-            options=options
+            options=options,
+            image_bytes_secondary=secondary_bytes,
+            secondary_filename=image2.filename if image2 else None,
         )
 
         return SuccessResponse(

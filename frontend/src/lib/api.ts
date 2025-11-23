@@ -631,6 +631,7 @@ export async function refreshToken(
 export interface ProcessingRequestPayload {
   method: ProcessingMethod;
   image: File;
+  image2?: File;
   accessToken: string;
   instruction?: string;
   model?: "new" | "original";
@@ -652,6 +653,7 @@ export const createProcessingTask = (payload: ProcessingRequestPayload) => {
   const {
     method,
     image,
+    image2,
     accessToken,
     instruction,
     model,
@@ -671,6 +673,9 @@ export const createProcessingTask = (payload: ProcessingRequestPayload) => {
 
   const formData = new FormData();
   formData.append("image", image);
+  if (method === "prompt_edit" && image2) {
+    formData.append("image2", image2);
+  }
 
   if (method === "prompt_edit") {
     formData.append("instruction", instruction ?? "");

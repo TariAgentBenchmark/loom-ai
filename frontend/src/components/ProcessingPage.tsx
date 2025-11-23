@@ -171,6 +171,7 @@ const CloudLoader: React.FC<CloudLoaderProps> = ({
 interface ProcessingPageProps {
   method: ProcessingMethod;
   imagePreview: string | null;
+  secondaryImagePreview?: string | null;
   processedImage: string | null;
   currentTaskId?: string;
   isProcessing: boolean;
@@ -181,7 +182,11 @@ interface ProcessingPageProps {
   onDragOver: (event: React.DragEvent<HTMLDivElement>) => void;
   onDrop: (event: React.DragEvent<HTMLDivElement>) => void;
   fileInputRef: React.RefObject<HTMLInputElement>;
+  secondaryFileInputRef?: React.RefObject<HTMLInputElement>;
   onFileInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onSecondaryFileInputChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onSecondaryDragOver?: (event: React.DragEvent<HTMLDivElement>) => void;
+  onSecondaryDrop?: (event: React.DragEvent<HTMLDivElement>) => void;
   errorMessage?: string;
   successMessage?: string;
   accessToken?: string;
@@ -211,6 +216,7 @@ interface ProcessingPageProps {
 const ProcessingPage: React.FC<ProcessingPageProps> = ({
   method,
   imagePreview,
+  secondaryImagePreview,
   processedImage,
   currentTaskId,
   isProcessing,
@@ -221,7 +227,11 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   onDragOver,
   onDrop,
   fileInputRef,
+  secondaryFileInputRef,
   onFileInputChange,
+  onSecondaryFileInputChange,
+  onSecondaryDragOver,
+  onSecondaryDrop,
   errorMessage,
   successMessage,
   accessToken,
@@ -342,6 +352,13 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
         ? "border-gray-300 hover:border-blue-400 bg-white min-h-[210px] md:min-h-[260px]"
         : "border-gray-300 hover:border-blue-400 min-h-[150px] md:min-h-[200px]"
   }`;
+  const promptUploadBase = `border-2 border-dashed rounded-lg md:rounded-xl p-4 md:p-6 text-center transition flex items-center justify-center min-h-[170px] md:min-h-[200px] ${
+    isProcessing
+      ? "cursor-not-allowed opacity-60 pointer-events-none"
+      : "cursor-pointer"
+  }`;
+  const promptPrimaryClasses = `${promptUploadBase} border-gray-300 hover:border-blue-400 bg-white`;
+  const promptSecondaryClasses = `${promptUploadBase} border-amber-300 hover:border-amber-400 bg-amber-50/60`;
 
   useEffect(() => {
     if (effectiveExpandRatio === "original") {
@@ -710,69 +727,159 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
             <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-3 md:mb-4">
               上传图片
             </h3>
-            <div
-              className={uploadZoneClasses}
-              onDragOver={onDragOver}
-              onDrop={onDrop}
-              onClick={() => {
-                if (isProcessing) {
-                  return;
-                }
-                fileInputRef.current?.click();
-              }}
-              role="button"
-              aria-disabled={isProcessing}
-            >
-              {imagePreview ? (
-                isExpandImage ? (
-                  <ExpandPreviewFrame
-                    imageUrl={imagePreview}
-                    ratio={effectiveExpandRatio}
-                    edges={edgeValues}
-                    onNormalizedEdgesChange={handleNormalizedEdgesChange}
-                  />
+            {method === "prompt_edit" ? (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
+                <div
+                  className={promptPrimaryClasses}
+                  onDragOver={onDragOver}
+                  onDrop={onDrop}
+                  onClick={() => {
+                    if (isProcessing) return;
+                    fileInputRef.current?.click();
+                  }}
+                  role="button"
+                  aria-disabled={isProcessing}
+                >
+                  {imagePreview ? (
+                    <div className="space-y-2 md:space-y-4">
+                      <img
+                        src={resolveFileUrl(imagePreview)}
+                        alt="Preview"
+                        className="mx-auto max-h-28 md:max-h-32 rounded-lg border border-gray-200"
+                      />
+                      <p className="text-xs md:text-sm text-gray-500">
+                        点击或拖拽图片到此处上传
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 md:space-y-3">
+                      <div className="mx-auto flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg md:rounded-xl bg-gray-100 text-gray-400">
+                        ⬆
+                      </div>
+                      <div>
+                        <p className="text-sm md:text-base font-semibold text-gray-800">
+                          上传图片1
+                        </p>
+                        <p className="text-xs md:text-sm text-gray-500">
+                          支持 JPG、PNG 等格式
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div
+                  className={promptSecondaryClasses}
+                  onDragOver={onSecondaryDragOver || onDragOver}
+                  onDrop={onSecondaryDrop || onDrop}
+                  onClick={() => {
+                    if (isProcessing) return;
+                    secondaryFileInputRef?.current?.click();
+                  }}
+                  role="button"
+                  aria-disabled={isProcessing}
+                >
+                  {secondaryImagePreview ? (
+                    <div className="space-y-2 md:space-y-4">
+                      <img
+                        src={resolveFileUrl(secondaryImagePreview)}
+                        alt="Preview"
+                        className="mx-auto max-h-28 md:max-h-32 rounded-lg border border-amber-200"
+                      />
+                      <p className="text-xs md:text-sm text-amber-700">
+                        可选：点击或拖拽替换第二张图
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 md:space-y-3">
+                      <div className="mx-auto flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg md:rounded-xl bg-amber-100 text-amber-500">
+                        ⬆
+                      </div>
+                      <div>
+                        <p className="text-sm md:text-base font-semibold text-gray-800">
+                          上传图片2（可选）
+                        </p>
+                        <p className="text-xs md:text-sm text-gray-600">
+                          支持 JPG、PNG 等格式
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div
+                className={uploadZoneClasses}
+                onDragOver={onDragOver}
+                onDrop={onDrop}
+                onClick={() => {
+                  if (isProcessing) {
+                    return;
+                  }
+                  fileInputRef.current?.click();
+                }}
+                role="button"
+                aria-disabled={isProcessing}
+              >
+                {imagePreview ? (
+                  isExpandImage ? (
+                    <ExpandPreviewFrame
+                      imageUrl={imagePreview}
+                      ratio={effectiveExpandRatio}
+                      edges={edgeValues}
+                      onNormalizedEdgesChange={handleNormalizedEdgesChange}
+                    />
+                  ) : (
+                    <div className="space-y-2 md:space-y-4">
+                      <img
+                        src={resolveFileUrl(imagePreview)}
+                        alt="Preview"
+                        className="mx-auto max-h-24 md:max-h-32 rounded-lg border border-gray-200"
+                      />
+                      <p className="text-xs md:text-sm text-gray-500">
+                        拖拽图片或点击上传
+                      </p>
+                    </div>
+                  )
+                ) : isSeamlessLoop ? (
+                  <div className="flex flex-col items-center gap-2 md:gap-3">
+                    <span className="text-4xl md:text-5xl font-semibold text-blue-500">
+                      +
+                    </span>
+                    <p className="text-sm md:text-base font-medium text-gray-700">
+                      点击上传图片
+                    </p>
+                    <p className="text-xs md:text-sm text-gray-500">
+                      支持 JPG/PNG，建议尺寸 ≥ 1024px
+                    </p>
+                  </div>
                 ) : (
                   <div className="space-y-2 md:space-y-4">
-                    <img
-                      src={resolveFileUrl(imagePreview)}
-                      alt="Preview"
-                      className="mx-auto max-h-24 md:max-h-32 rounded-lg border border-gray-200"
-                    />
-                    <p className="text-xs md:text-sm text-gray-500">
-                      拖拽图片或点击上传
-                    </p>
+                    <div className="mx-auto flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg md:rounded-xl bg-gray-100 text-gray-400">
+                      ⬆
+                    </div>
+                    <div>
+                      <p className="text-sm md:text-base font-medium text-gray-700">
+                        拖拽图片或点击上传
+                      </p>
+                    </div>
                   </div>
-                )
-              ) : isSeamlessLoop ? (
-                <div className="flex flex-col items-center gap-2 md:gap-3">
-                  <span className="text-4xl md:text-5xl font-semibold text-blue-500">
-                    +
-                  </span>
-                  <p className="text-sm md:text-base font-medium text-gray-700">
-                    点击上传图片
-                  </p>
-                  <p className="text-xs md:text-sm text-gray-500">
-                    支持 JPG/PNG，建议尺寸 ≥ 1024px
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2 md:space-y-4">
-                  <div className="mx-auto flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg md:rounded-xl bg-gray-100 text-gray-400">
-                    ⬆
-                  </div>
-                  <div>
-                    <p className="text-sm md:text-base font-medium text-gray-700">
-                      拖拽图片或点击上传
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
             <input
               ref={fileInputRef}
               type="file"
               accept="image/*"
               onChange={onFileInputChange}
+              className="hidden"
+              disabled={isProcessing}
+            />
+            <input
+              ref={secondaryFileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={onSecondaryFileInputChange}
               className="hidden"
               disabled={isProcessing}
             />

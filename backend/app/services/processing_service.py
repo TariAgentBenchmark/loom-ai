@@ -75,6 +75,8 @@ class ProcessingService:
         image_bytes: bytes,
         original_filename: str,
         options: Dict[str, Any] = None,
+        image_bytes_secondary: Optional[bytes] = None,
+        secondary_filename: Optional[str] = None,
     ) -> Task:
         """创建处理任务"""
 
@@ -90,6 +92,24 @@ class ProcessingService:
         # 获取图片信息
         image_info = await self.file_service.get_image_info(image_bytes)
         options = dict(options or {})
+
+        # 保存第二张图片（可选）
+        secondary_url: Optional[str] = None
+        if image_bytes_secondary:
+            secondary_url = await self.file_service.save_upload_file(
+                image_bytes_secondary,
+                secondary_filename or f"secondary_{original_filename}",
+                "originals",
+                purpose="general",
+            )
+            try:
+                secondary_info = await self.file_service.get_image_info(
+                    image_bytes_secondary
+                )
+                options["secondary_image_info"] = secondary_info
+            except Exception as exc:
+                logger.warning("获取第二张图片信息失败: %s", exc)
+            options["secondary_image_url"] = secondary_url
 
         # 计算所需积分
         service_key = self._resolve_service_key(task_type)
@@ -161,6 +181,16 @@ class ProcessingService:
             task_options = dict(task.options or {})
             if task.original_filename:
                 task_options.setdefault("original_filename", task.original_filename)
+            secondary_image_bytes: Optional[bytes] = None
+            secondary_url = task_options.get("secondary_image_url")
+            if secondary_url:
+                try:
+                    secondary_image_bytes = await self.file_service.read_file(
+                        secondary_url
+                    )
+                except Exception as exc:
+                    logger.warning("读取第二张图片失败: %s", exc)
+                    secondary_image_bytes = None
 
             try:
                 if task.type == TaskType.SEAMLESS.value:
@@ -168,6 +198,8 @@ class ProcessingService:
                         image_bytes, task_options
                     )
                 elif task.type == TaskType.PROMPT_EDIT.value:
+                    if secondary_image_bytes:
+                        task_options["secondary_image_bytes"] = secondary_image_bytes
                     result_url = await ai_client.prompt_edit_image(
                         image_bytes, task_options
                     )

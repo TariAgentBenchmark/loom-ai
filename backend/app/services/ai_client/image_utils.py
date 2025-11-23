@@ -121,14 +121,44 @@ class ImageProcessingUtils:
         width = options.get("width")
         height = options.get("height")
 
-        return await self._process_image_with_retry(
-            image_bytes,
-            prompt,
-            "image/png",
-            aspect_ratio=aspect_ratio,
-            width=width,
-            height=height
-        )
+        secondary_image_bytes = options.get("secondary_image_bytes")
+        image_list: List[bytes] = [image_bytes]
+        if isinstance(secondary_image_bytes, (bytes, bytearray)):
+            image_list.append(bytes(secondary_image_bytes))
+
+        last_error: Optional[Exception] = None
+        max_retries = 3
+        for attempt in range(1, max_retries + 1):
+            try:
+                result = await self.apyi_gemini_client.generate_image_preview_multi(
+                    image_list,
+                    prompt,
+                    "image/png",
+                    aspect_ratio=aspect_ratio,
+                    width=width,
+                    height=height,
+                )
+                url = self.apyi_gemini_client._extract_image_url(result)
+                if url:
+                    return url
+                last_error = Exception("Gemini返回缺少图片URL")
+                logger.warning(
+                    "Gemini 3 preview response missing image url (attempt %s/%s): %s",
+                    attempt,
+                    max_retries,
+                    result,
+                )
+            except Exception as exc:
+                last_error = exc
+                logger.warning(
+                    "Gemini 3 preview call failed (attempt %s/%s): %s",
+                    attempt,
+                    max_retries,
+                    str(exc),
+                )
+            await asyncio.sleep(0.3)
+
+        raise Exception(f"Gemini调用失败: {last_error}")
 
     async def extract_pattern(
         self,
