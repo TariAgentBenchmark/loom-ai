@@ -20,6 +20,7 @@ import {
   Crown,
   Plus,
 } from "lucide-react";
+import { formatDateTime } from "../lib/datetime";
 
 interface FilterOptions {
   status_filter: string;
@@ -172,10 +173,6 @@ const AdminUserManagement: React.FC = () => {
     );
   };
 
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
-  };
 
   const resetCreateForm = () => {
     setCreateForm({
@@ -505,10 +502,10 @@ const AdminUserManagement: React.FC = () => {
                     {user.credits.toLocaleString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDate(user.createdAt)}
+                    {formatDateTime(user.createdAt)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {user.lastLoginAt ? formatDate(user.lastLoginAt) : "从未登录"}
+                    {user.lastLoginAt ? formatDateTime(user.lastLoginAt) : "从未登录"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end space-x-2">

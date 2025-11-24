@@ -23,6 +23,7 @@ import {
   XCircle,
   AlertCircle,
 } from "lucide-react";
+import { formatDateTime } from "../lib/datetime";
 
 interface FilterOptions {
   status_filter: string;
@@ -149,10 +150,6 @@ const AdminOrderManagement: React.FC = () => {
       currency: "CNY",
       minimumFractionDigits: 0,
     }).format(amount / 100); // Convert from cents to yuan
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
   };
 
   if (loading && orders.length === 0) {
@@ -381,7 +378,7 @@ const AdminOrderManagement: React.FC = () => {
                     {getStatusBadge(order.status)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDate(order.createdAt)}
+                    {formatDateTime(order.createdAt)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end space-x-2">

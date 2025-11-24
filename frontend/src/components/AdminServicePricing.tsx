@@ -8,6 +8,7 @@ import {
   AdminServicePrice,
 } from "../lib/api";
 import { useAdminAccessToken } from "../contexts/AdminAuthContext";
+import { formatDateTime } from "../lib/datetime";
 
 interface EditFormState {
   serviceName: string;
@@ -29,13 +30,6 @@ const formatCredits = (value: number) => {
   }
   const formatted = value.toFixed(2).replace(/\.00$/, "");
   return formatted.replace(/(\.\d*[1-9])0$/, "$1");
-};
-
-const formatDateTime = (value?: string | null) => {
-  if (!value) return "--";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString();
 };
 
 const AdminServicePricing: React.FC = () => {

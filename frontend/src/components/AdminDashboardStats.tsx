@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { adminGetDashboardStats, type AdminDashboardStats } from "../lib/api";
 import { useAdminAccessToken } from "../contexts/AdminAuthContext";
 import { ArrowUpRight, RefreshCcw, ShoppingBag, Target, Users } from "lucide-react";
+import { formatDateTime } from "../lib/datetime";
 
 const formatCurrencyFromCents = (amount: number) =>
   new Intl.NumberFormat("zh-CN", {
@@ -301,7 +302,7 @@ const AdminDashboardStats: React.FC = () => {
   snapshot.recentActivity
     .filter((activity) => activity.type === "order" && activity.status === "paid")
     .forEach((activity) => {
-      const day = new Date(activity.timestamp).toLocaleDateString("zh-CN", {
+      const day = formatDateTime(activity.timestamp, {
         month: "2-digit",
         day: "2-digit",
       });

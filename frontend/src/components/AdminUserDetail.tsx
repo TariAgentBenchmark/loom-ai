@@ -29,6 +29,7 @@ import {
   UserX,
   History,
 } from "lucide-react";
+import { formatDateTime } from "../lib/datetime";
 
 const AdminUserDetail: React.FC = () => {
   const params = useParams();
@@ -145,11 +146,6 @@ const AdminUserDetail: React.FC = () => {
         {config.label}
       </span>
     );
-  };
-
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
   };
 
   if (loading) {
@@ -290,7 +286,7 @@ const AdminUserDetail: React.FC = () => {
               <Calendar className="h-8 w-8 text-green-500" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">注册时间</p>
-                <p className="text-sm text-gray-900">{formatDate(user.createdAt)}</p>
+                <p className="text-sm text-gray-900">{formatDateTime(user.createdAt)}</p>
               </div>
             </div>
           </div>
@@ -301,7 +297,7 @@ const AdminUserDetail: React.FC = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">最后登录</p>
                 <p className="text-sm text-gray-900">
-                  {user.lastLoginAt ? formatDate(user.lastLoginAt) : "从未登录"}
+                  {user.lastLoginAt ? formatDateTime(user.lastLoginAt) : "从未登录"}
                 </p>
               </div>
             </div>
@@ -365,7 +361,7 @@ const AdminUserDetail: React.FC = () => {
                       {transaction.source}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(transaction.createdAt)}
+                      {formatDateTime(transaction.createdAt)}
                     </td>
                   </tr>
                 ))}

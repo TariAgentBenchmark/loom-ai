@@ -24,6 +24,7 @@ import {
   AlertCircle,
   DollarSign,
 } from "lucide-react";
+import { formatDateTime } from "../lib/datetime";
 
 const AdminOrderDetail: React.FC = () => {
   const params = useParams();
@@ -116,10 +117,6 @@ const AdminOrderDetail: React.FC = () => {
       currency: "CNY",
       minimumFractionDigits: 0,
     }).format(amount / 100); // Convert from cents to yuan
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
   };
 
   if (loading) {
@@ -271,18 +268,18 @@ const AdminOrderDetail: React.FC = () => {
           <div className="space-y-4">
             <div>
               <p className="text-sm font-medium text-gray-500">创建时间</p>
-              <p className="text-sm text-gray-900">{formatDate(order.createdAt)}</p>
+              <p className="text-sm text-gray-900">{formatDateTime(order.createdAt)}</p>
             </div>
             {order.paidAt && (
               <div>
                 <p className="text-sm font-medium text-gray-500">支付时间</p>
-                <p className="text-sm text-gray-900">{formatDate(order.paidAt)}</p>
+                <p className="text-sm text-gray-900">{formatDateTime(order.paidAt)}</p>
               </div>
             )}
             {order.expiresAt && (
               <div>
                 <p className="text-sm font-medium text-gray-500">过期时间</p>
-                <p className="text-sm text-gray-900">{formatDate(order.expiresAt)}</p>
+                <p className="text-sm text-gray-900">{formatDateTime(order.expiresAt)}</p>
               </div>
             )}
           </div>
