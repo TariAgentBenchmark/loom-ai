@@ -37,19 +37,38 @@ class FileService:
             self._oss_service = oss_service
         return self._oss_service
     
-    def should_use_oss(self, purpose: str = "general") -> bool:
+    def should_use_oss(self) -> bool:
         """判断是否应该使用OSS存储"""
-        # 如果OSS未配置，使用本地存储
-        if not self.oss_service.is_configured():
+        return self.oss_service.is_configured()
+
+    def is_oss_url(self, file_url: str) -> bool:
+        """检查URL是否指向当前配置的OSS桶"""
+        if not self.oss_service.is_configured() or not file_url.startswith("http"):
             return False
-        
-        # 根据用途决定是否使用OSS
-        # 主要毛线刺绣增强功能需要使用OSS以获取公开URL
-        if purpose == "jimeng":
-            return True
-        
-        # 可以根据其他条件扩展此逻辑
-        return False
+        endpoint_host = self.oss_service.endpoint.replace("https://", "").replace("http://", "")
+        bucket_domain = self.oss_service.bucket_domain
+        default_domain = f"{self.oss_service.bucket_name}.{endpoint_host}"
+        return (
+            (bucket_domain and file_url.startswith(f"https://{bucket_domain}/"))
+            or file_url.startswith(f"https://{default_domain}/")
+        )
+
+    def extract_oss_object_key(self, file_url: str) -> Optional[str]:
+        """从OSS URL中提取对象键"""
+        if not self.is_oss_url(file_url):
+            return None
+        endpoint_host = self.oss_service.endpoint.replace("https://", "").replace("http://", "")
+        default_domain = f"{self.oss_service.bucket_name}.{endpoint_host}"
+        if self.oss_service.bucket_domain and file_url.startswith(f"https://{self.oss_service.bucket_domain}/"):
+            return file_url.replace(f"https://{self.oss_service.bucket_domain}/", "")
+        return file_url.replace(f"https://{default_domain}/", "")
+
+    async def generate_presigned_url_for_full_url(self, file_url: str, expiration: Optional[int] = None) -> Optional[str]:
+        """针对OSS完整URL生成预签名地址"""
+        object_key = self.extract_oss_object_key(file_url)
+        if not object_key:
+            return None
+        return await self.oss_service.generate_presigned_url(object_key, expiration)
 
     def validate_file(self, file_bytes: bytes, filename: str) -> Dict[str, Any]:
         """验证文件"""
@@ -99,19 +118,18 @@ class FileService:
         # 验证文件
         file_info = self.validate_file(file_bytes, filename)
         
-        # 根据用途决定存储方式
-        if self.should_use_oss(purpose):
-            # 使用OSS存储
+        # 优先使用OSS存储
+        if self.should_use_oss():
             try:
                 oss_result = await self.oss_service.upload_file(
                     file_bytes,
                     filename,
                     prefix=subfolder
                 )
-                logger.info(f"文件已上传到OSS: {oss_result['url']}")
+                logger.info("文件已上传到OSS: %s", oss_result["url"])
                 return oss_result["url"]
             except Exception as e:
-                logger.error(f"OSS上传失败，回退到本地存储: {str(e)}")
+                logger.error("OSS上传失败，回退到本地存储: %s", str(e))
                 # 如果OSS上传失败，继续使用本地存储
         
         original_format = (file_info.get("format") or "").upper()
@@ -177,34 +195,22 @@ class FileService:
             async with aiofiles.open(file_path, "rb") as f:
                 return await f.read()
         
-        elif file_url.startswith("http"):
-            # 远程文件
-            # 检查是否是OSS文件
-            if self.oss_service.is_configured() and (
-                file_url.endswith(f".{self.oss_service.endpoint.replace('https://', '')}/") or
-                (self.oss_service.bucket_domain and file_url.startswith(f"https://{self.oss_service.bucket_domain}/"))
-            ):
-                # 从OSS读取文件
+        if file_url.startswith("http"):
+            # OSS文件
+            object_key = self.extract_oss_object_key(file_url)
+            if object_key and self.oss_service.bucket:
                 try:
-                    # 从URL中提取对象键
-                    if self.oss_service.bucket_domain and file_url.startswith(f"https://{self.oss_service.bucket_domain}/"):
-                        object_key = file_url.replace(f"https://{self.oss_service.bucket_domain}/", "")
-                    else:
-                        object_key = file_url.replace(f"https://{self.oss_service.bucket_name}.{self.oss_service.endpoint.replace('https://', '')}/", "")
-                    
-                    # 从OSS下载文件
                     result = self.oss_service.bucket.get_object(object_key)
                     return result.read()
                 except Exception as e:
-                    logger.error(f"从OSS读取文件失败: {str(e)}")
+                    logger.error("从OSS读取文件失败: %s", str(e))
                     # 如果OSS读取失败，尝试直接下载
                     return await self.download_from_url(file_url)
-            else:
-                # 直接下载远程文件
-                return await self.download_from_url(file_url)
+
+            # 其他远程文件
+            return await self.download_from_url(file_url)
         
-        else:
-            raise Exception("无效的文件URL")
+        raise Exception("无效的文件URL")
 
     async def download_from_url(self, url: str) -> bytes:
         """从URL下载文件"""
@@ -231,12 +237,9 @@ class FileService:
             elif file_url.startswith("http") and self.oss_service.is_configured():
                 # 删除OSS文件
                 try:
-                    # 从URL中提取对象键
-                    if self.oss_service.bucket_domain and file_url.startswith(f"https://{self.oss_service.bucket_domain}/"):
-                        object_key = file_url.replace(f"https://{self.oss_service.bucket_domain}/", "")
-                    else:
-                        object_key = file_url.replace(f"https://{self.oss_service.bucket_name}.{self.oss_service.endpoint.replace('https://', '')}/", "")
-                    
+                    object_key = self.extract_oss_object_key(file_url)
+                    if not object_key:
+                        return False
                     return await self.oss_service.delete_file(object_key)
                 except Exception as e:
                     logger.error(f"删除OSS文件失败: {str(e)}")

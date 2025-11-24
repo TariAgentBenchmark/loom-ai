@@ -1,12 +1,11 @@
 import logging
-import os
 import uuid
 from io import BytesIO
 from typing import Any, Dict, Optional
 
 import httpx
-
 from app.core.config import settings
+from app.services.file_service import FileService
 
 logger = logging.getLogger(__name__)
 
@@ -67,27 +66,16 @@ class VectorizerClient:
                 )
                 response.raise_for_status()
 
-                # 保存结果为SVG文件
+                # 保存结果为SVG文件，默认走OSS
                 filename = f"vectorized_{uuid.uuid4().hex[:8]}.svg"
-                file_path = f"{settings.upload_path}/results/{filename}"
-
-                # 确保目录存在
-                os.makedirs(os.path.dirname(file_path), exist_ok=True)
-
-                # 保存文件
-                with open(file_path, "wb") as f:
-                    f.write(response.content)
-
-                # 验证文件是否保存成功
-                if os.path.exists(file_path):
-                    file_size = os.path.getsize(file_path)
-                    logger.info(f"SVG file saved successfully: {file_path}, size: {file_size} bytes")
-                else:
-                    logger.error(f"Failed to save SVG file: {file_path}")
-                    raise Exception("保存SVG文件失败")
-
-                # 返回文件URL格式，让处理服务可以访问
-                return f"/files/results/{filename}"
+                file_service = FileService()
+                saved_url = await file_service.save_upload_file(
+                    response.content,
+                    filename,
+                    subfolder="results",
+                )
+                logger.info("SVG file saved to storage: %s", saved_url)
+                return saved_url
 
         except Exception as e:
             logger.error(f"Vectorize image failed: {str(e)}")

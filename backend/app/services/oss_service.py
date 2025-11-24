@@ -52,6 +52,12 @@ class OSSService:
         # 添加日期前缀以便管理
         date_prefix = datetime.now().strftime("%Y/%m/%d")
         return f"{prefix}/{date_prefix}/{unique_filename}"
+
+    def _build_file_url(self, object_key: str) -> str:
+        """根据对象键构建访问URL"""
+        if self.bucket_domain:
+            return f"https://{self.bucket_domain}/{object_key}"
+        return f"https://{self.bucket_name}.{self.endpoint.replace('https://', '').replace('http://', '')}/{object_key}"
     
     async def upload_file(
         self, 
@@ -105,12 +111,7 @@ class OSSService:
                 raise Exception(f"OSS上传失败，状态码: {result.status}")
             
             # 生成访问URL
-            if self.bucket_domain:
-                # 使用自定义域名
-                file_url = f"https://{self.bucket_domain}/{object_key}"
-            else:
-                # 使用默认域名
-                file_url = f"https://{self.bucket_name}.{self.endpoint.replace('https://', '')}/{object_key}"
+            file_url = self._build_file_url(object_key)
             
             logger.info(f"文件上传到OSS成功: {object_key}")
             logger.info(f"生成的OSS URL: {file_url}")
@@ -129,6 +130,47 @@ class OSSService:
         except Exception as e:
             logger.error(f"上传文件到OSS时发生错误: {str(e)}")
             raise Exception(f"上传文件失败: {str(e)}")
+
+    def upload_file_sync(
+        self,
+        file_bytes: bytes,
+        filename: str,
+        prefix: str = "uploads",
+        content_type: Optional[str] = None,
+    ) -> Optional[str]:
+        """
+        同步上传文件到OSS，适用于非async上下文
+        Returns: 文件URL或None（未配置/上传失败）
+        """
+        if not self.is_configured():
+            return None
+        try:
+            object_key = self._generate_object_key(filename, prefix)
+            if not content_type:
+                ext = filename.lower().split('.')[-1] if '.' in filename else ''
+                content_type_map = {
+                    'jpg': 'image/jpeg',
+                    'jpeg': 'image/jpeg',
+                    'png': 'image/png',
+                    'gif': 'image/gif',
+                    'bmp': 'image/bmp',
+                    'webp': 'image/webp',
+                    'svg': 'image/svg+xml'
+                }
+                content_type = content_type_map.get(ext, 'application/octet-stream')
+
+            result = self.bucket.put_object(
+                object_key,
+                file_bytes,
+                headers={'Content-Type': content_type},
+            )
+            if result.status != 200:
+                logger.warning("同步OSS上传失败，状态码: %s", result.status)
+                return None
+            return self._build_file_url(object_key)
+        except Exception as exc:
+            logger.error("同步OSS上传异常: %s", exc)
+            return None
     
     async def upload_image_for_jimeng(self, image_bytes: bytes, filename: str) -> str:
         """

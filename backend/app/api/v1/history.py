@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from typing import Optional
 from datetime import timezone, timedelta
@@ -278,7 +278,7 @@ async def download_task_file(
         file_service = FileService()
         
         if len(file_urls) > 1:
-            # 多个文件，返回ZIP压缩包
+            # 多个文件，返回ZIP压缩包（OSS文件会先下载到临时目录）
             import zipfile
             import tempfile
             
@@ -287,11 +287,19 @@ async def download_task_file(
                     for url, fname in zip(file_urls, filenames):
                         clean_url = url.strip()
                         clean_fname = fname.strip()
-                        file_path = file_service.get_file_path(clean_url)
-                        
-                        if os.path.exists(file_path):
-                            # 添加文件到ZIP，使用原始文件名
-                            zip_file.write(file_path, clean_fname or os.path.basename(file_path))
+
+                        if clean_url.startswith("/files/"):
+                            file_path = file_service.get_file_path(clean_url)
+                            if os.path.exists(file_path):
+                                zip_file.write(file_path, clean_fname or os.path.basename(file_path))
+                        else:
+                            # 下载到临时文件后再压缩
+                            content = await file_service.read_file(clean_url)
+                            temp_inner = tempfile.NamedTemporaryFile(delete=False)
+                            temp_inner.write(content)
+                            temp_inner.flush()
+                            temp_inner.close()
+                            zip_file.write(temp_inner.name, clean_fname or os.path.basename(clean_url))
                 
                 download_name = build_download_filename(None, "zip")
                 return FileResponse(
@@ -300,8 +308,15 @@ async def download_task_file(
                     media_type="application/zip"
                 )
         else:
-            # 单个文件
-            file_path = file_service.get_file_path(file_urls[0])
+            # 单个文件：OSS直接跳转预签名，本地则返回文件
+            single_url = file_urls[0]
+            
+            if file_service.is_oss_url(single_url):
+                presigned = await file_service.generate_presigned_url_for_full_url(single_url)
+                redirect_url = presigned or single_url
+                return RedirectResponse(url=redirect_url, status_code=307)
+
+            file_path = file_service.get_file_path(single_url)
             
             if not os.path.exists(file_path):
                 raise HTTPException(status_code=404, detail="文件不存在")

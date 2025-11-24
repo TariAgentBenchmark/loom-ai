@@ -293,6 +293,20 @@ class ProcessingService:
                             result_bytes = await self.file_service.read_file(
                                 single_result_url
                             )
+                        elif self.file_service.is_oss_url(single_result_url):
+                            # 已经在当前OSS，直接使用
+                            final_url = single_result_url
+                            filename = single_result_url.split("/")[-1]
+                            info = await self.file_service.oss_service.get_file_info(
+                                self.file_service.extract_oss_object_key(single_result_url)
+                            )
+                            if info and info.get("size") is not None:
+                                result_bytes = b""
+                                total_size += info["size"]
+                            else:
+                                result_bytes = await self.file_service.download_from_url(
+                                    single_result_url
+                                )
                         else:
                             # 远程URL，下载文件
                             result_bytes = await self.file_service.download_from_url(
@@ -314,6 +328,20 @@ class ProcessingService:
                             result_bytes = await self.file_service.read_file(
                                 single_result_url
                             )
+                        elif self.file_service.is_oss_url(single_result_url):
+                            # 已经在当前OSS，直接使用
+                            final_url = single_result_url
+                            filename = single_result_url.split("/")[-1]
+                            info = await self.file_service.oss_service.get_file_info(
+                                self.file_service.extract_oss_object_key(single_result_url)
+                            )
+                            if info and info.get("size") is not None:
+                                result_bytes = b""
+                                total_size += info["size"]
+                            else:
+                                result_bytes = await self.file_service.download_from_url(
+                                    single_result_url
+                                )
                         else:
                             # 远程URL，下载文件
                             result_bytes = await self.file_service.download_from_url(
@@ -327,7 +355,8 @@ class ProcessingService:
 
                     final_result_urls.append(final_url)
                     result_filenames.append(filename)
-                    total_size += len(result_bytes)
+                    if result_bytes:
+                        total_size += len(result_bytes)
 
                 # 合并结果URL和文件名
                 final_result_url = ",".join(final_result_urls)

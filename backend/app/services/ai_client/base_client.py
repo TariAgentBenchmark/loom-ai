@@ -11,6 +11,7 @@ import httpx
 from PIL import Image
 
 from app.core.config import settings
+from app.services.oss_service import oss_service
 
 logger = logging.getLogger(__name__)
 
@@ -521,11 +522,23 @@ class BaseAIClient:
                 image = image.convert("RGBA")
 
             filename = f"{prefix}_{uuid.uuid4().hex[:8]}.png"
-            file_path = f"{settings.upload_path}/results/{filename}"
+            buffer = BytesIO()
+            image.save(buffer, format="PNG")
+            png_bytes = buffer.getvalue()
+            # 优先上传到OSS（如果已配置）
+            oss_url = oss_service.upload_file_sync(
+                png_bytes,
+                filename,
+                prefix="results",
+                content_type="image/png",
+            )
+            if oss_url:
+                return oss_url
 
+            # 回退到本地存储
+            file_path = f"{settings.upload_path}/results/{filename}"
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
             image.save(file_path, format="PNG")
-
             return f"/files/results/{filename}"
         except Exception as exc:
             logger.error("Failed to persist image bytes: %s", str(exc))

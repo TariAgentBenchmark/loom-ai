@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 import time
 import uuid
 from typing import Optional, Dict, Any
@@ -8,7 +7,7 @@ from typing import Optional, Dict, Any
 import httpx
 import urllib3
 
-from app.core.config import settings
+from app.services.file_service import FileService
 
 # 禁用SSL警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -110,29 +109,15 @@ class A8VectorizerClient:
             if response.status_code != 200:
                 raise Exception("服务异常，联系管理员")
 
-            # 保存文件
-            if save_path is None:
-                filename = f"vectorized_{uuid.uuid4().hex[:8]}.{fmt}"
-                save_path = f"{settings.upload_path}/results/{filename}"
-
-            # 确保目录存在
-            os.makedirs(os.path.dirname(save_path), exist_ok=True)
-
-            # 保存文件
-            with open(save_path, 'wb') as f:
-                f.write(response.content)
-
-            # 验证文件是否保存成功
-            if os.path.exists(save_path):
-                file_size = os.path.getsize(save_path)
-                logger.info(f"Vector file saved successfully: {save_path}, size: {file_size} bytes")
-
-                # 返回文件URL格式，让处理服务可以访问
-                relative_path = save_path.replace(settings.upload_path, '').lstrip('/')
-                return f"/files/{relative_path}"
-            else:
-                logger.error(f"Failed to save vector file: {save_path}")
-                raise Exception("保存矢量文件失败")
+            filename = f"vectorized_{uuid.uuid4().hex[:8]}.{fmt}"
+            file_service = FileService()
+            saved_url = await file_service.save_upload_file(
+                response.content,
+                filename,
+                subfolder="results",
+            )
+            logger.info("Vector file saved to storage: %s", saved_url)
+            return saved_url
 
         except Exception as e:
             logger.error(f"Vectorize image failed: {str(e)}")
