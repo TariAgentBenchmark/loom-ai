@@ -1144,7 +1144,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
             <div className="mb-4 md:mb-6">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="text-sm md:text-base font-semibold text-gray-900">
-                  花型类型
+                  模型
                 </h4>
               </div>
               <select
