@@ -1224,14 +1224,14 @@ async def update_order_status(
         # 如果标记为已支付，记录支付时间
         if status_update.status == OrderStatus.PAID.value and old_status != OrderStatus.PAID.value:
             order.paid_at = datetime.utcnow()
-            
-            # 如果是套餐订单，需要添加相应的积分或延长会员
-            if order.package_type == PackageType.CREDITS.value and order.credits_amount:
+
+            # 如果是积分套餐或之前遗留的未标记套餐，但携带积分数量，则加积分
+            if order.credits_amount and order.credits_amount > 0:
                 user = db.query(User).filter(User.id == order.user_id).first()
                 if user:
-                    user.add_credits(order.credits_amount)
-                    
-                    # 记录积分交易
+                    # 补充订单的套餐类型标记，方便后续统计
+                    if not order.package_type:
+                        order.package_type = PackageType.CREDITS.value
                     from app.services.credit_service import CreditService
                     credit_service = CreditService()
                     await credit_service.add_credits_from_purchase(
@@ -1241,7 +1241,8 @@ async def update_order_status(
                         order_id=order.order_id,
                         package_name=order.package_name
                     )
-            
+
+            # 会员套餐处理
             elif order.package_type == PackageType.MEMBERSHIP.value and order.membership_duration:
                 user = db.query(User).filter(User.id == order.user_id).first()
                 if user:

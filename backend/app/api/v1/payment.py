@@ -325,6 +325,16 @@ def _ensure_local_order_record(
             .first()
         )
 
+    # 根据套餐类别确定订单类型与积分
+    package_type = PackageType.MEMBERSHIP.value
+    package_credits: int | None = None
+    if package:
+        if package.category == PackageCategory.DISCOUNT.value:
+            package_type = PackageType.CREDITS.value
+            package_credits = package.total_credits
+        else:
+            package_type = PackageType.MEMBERSHIP.value
+
     order = db.query(Order).filter(Order.order_id == payload.out_order_no).first()
     if order:
         order.original_amount = payload.total_amount
@@ -336,20 +346,22 @@ def _ensure_local_order_record(
         if not order.payment_method:
             order.payment_method = PaymentMethod.LAKALA_COUNTER.value
         if not order.package_type:
-            order.package_type = PackageType.MEMBERSHIP.value
+            order.package_type = package_type
+        if not order.credits_amount and package_credits:
+            order.credits_amount = package_credits
     else:
         order = Order(
             order_id=payload.out_order_no,
             user_id=user.id,
             package_id=(package.package_id if package else package_id),
             package_name=package.name if package else payload.order_info,
-            package_type=PackageType.MEMBERSHIP.value,
+            package_type=package_type,
             original_amount=payload.total_amount,
             final_amount=payload.total_amount,
             payment_method=PaymentMethod.LAKALA_COUNTER.value,
             status=OrderStatus.PENDING.value,
             expires_at=datetime.utcnow() + timedelta(minutes=5),
-            credits_amount=package.total_credits if package else None,
+            credits_amount=package_credits,
             extra_metadata={
                 "payment_method": PaymentMethod.LAKALA_COUNTER.value,
                 "total_amount": payload.total_amount,
