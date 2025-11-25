@@ -293,13 +293,9 @@ async def download_task_file(
                             if os.path.exists(file_path):
                                 zip_file.write(file_path, clean_fname or os.path.basename(file_path))
                         else:
-                            # 下载到临时文件后再压缩
+                            # 远程文件直接以字节写入 ZIP，避免创建遗留临时文件
                             content = await file_service.read_file(clean_url)
-                            temp_inner = tempfile.NamedTemporaryFile(delete=False)
-                            temp_inner.write(content)
-                            temp_inner.flush()
-                            temp_inner.close()
-                            zip_file.write(temp_inner.name, clean_fname or os.path.basename(clean_url))
+                            zip_file.writestr(clean_fname or os.path.basename(clean_url), content)
                 
                 download_name = build_download_filename(None, "zip")
                 return FileResponse(
