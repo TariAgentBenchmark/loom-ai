@@ -18,6 +18,7 @@ from app.api.decorators import admin_required, admin_route
 from app.schemas.common import SuccessResponse, PaginationMeta
 from app.services.auth_service import AuthService
 from app.services.credit_math import to_decimal, to_float
+from app.services.credit_service import CreditService
 from app.services.membership_service import MembershipService
 
 router = APIRouter()
@@ -836,6 +837,41 @@ async def get_user_credit_transactions(
         user = db.query(User).filter(User.user_id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="用户不存在")
+
+        # 补齐缺失的积分交易记录（早期订单可能未写入流水）
+        paid_orders = (
+            db.query(Order)
+            .filter(
+                Order.user_id == user.id,
+                Order.status == OrderStatus.PAID.value,
+                Order.credits_amount.isnot(None),
+                Order.credits_amount > 0,
+            )
+            .all()
+        )
+        if paid_orders:
+            existing_order_txns = {
+                oid
+                for (oid,) in db.query(CreditTransaction.related_order_id)
+                .filter(
+                    CreditTransaction.user_id == user.id,
+                    CreditTransaction.related_order_id.isnot(None),
+                )
+                .all()
+                if oid
+            }
+            credit_service = CreditService()
+            for order in paid_orders:
+                if order.order_id in existing_order_txns:
+                    continue
+                await credit_service.record_transaction(
+                    db=db,
+                    user_id=user.id,
+                    amount=order.credits_amount,
+                    source=CreditSource.PURCHASE.value,
+                    description=f"购买 {order.package_name or order.package_id or '套餐'} (补记)",
+                    related_order_id=order.order_id,
+                )
         
         query = db.query(CreditTransaction).filter(CreditTransaction.user_id == user.id)
         
