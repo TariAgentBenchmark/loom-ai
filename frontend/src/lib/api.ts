@@ -1338,7 +1338,7 @@ export const adminUpdateOrderStatus = (
   adminNotes: string,
   accessToken: string,
 ) =>
-  postJson<any, { status: string; reason: string; adminNotes: string }>(
+  putJson<any, { status: string; reason: string; adminNotes: string }>(
     `/admin/orders/${orderId}/status`,
     { status, reason, adminNotes },
     accessToken,
