@@ -69,8 +69,25 @@ const AdminOrderManagement: React.FC = () => {
         page_size: pagination.limit,
         ...filters,
       });
-      setOrders(response.data.orders);
-      setPagination(response.data.pagination);
+      setOrders(response.data.orders ?? []);
+
+      // 后端分页字段为 snake_case，这里兼容两种写法，避免缺少 totalPages 导致渲染报错
+      const p: any = response.data.pagination || {};
+      setPagination((prev) => {
+        const resolvedLimit = p.limit ?? prev.limit;
+        const resolvedTotal = p.total ?? prev.total ?? 0;
+        const resolvedTotalPages =
+          p.total_pages ??
+          p.totalPages ??
+          (resolvedLimit > 0 ? Math.ceil(resolvedTotal / resolvedLimit) : 0);
+
+        return {
+          page: p.page ?? page,
+          limit: resolvedLimit,
+          total: resolvedTotal,
+          totalPages: resolvedTotalPages,
+        };
+      });
       setSummary(response.data.summary);
     } catch (err) {
       setError(err instanceof Error ? err.message : "获取订单列表失败");
