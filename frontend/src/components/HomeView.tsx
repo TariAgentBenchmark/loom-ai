@@ -30,6 +30,7 @@ type AccountSummary = {
 interface HomeViewProps {
   onSelectMethod: (method: ProcessingMethod) => void;
   onOpenPricingModal: () => void;
+  onOpenCreditHistory: () => void;
   onLogout?: () => void;
   onLogin: () => void;
   onRegister?: () => void;
@@ -69,6 +70,7 @@ const membershipLabel = (membershipType: MembershipTag) => {
 const HomeView: React.FC<HomeViewProps> = ({
   onSelectMethod,
   onOpenPricingModal,
+  onOpenCreditHistory,
   onLogout,
   onLogin,
   onRegister,
@@ -124,7 +126,12 @@ const HomeView: React.FC<HomeViewProps> = ({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element;
-      if (!target.closest('.notification-menu') && !target.closest('.user-menu')) {
+      if (
+        !target.closest('.notification-menu') &&
+        !target.closest('.notification-menu-panel') &&
+        !target.closest('.user-menu') &&
+        !target.closest('.user-menu-panel')
+      ) {
         setShowNotifications(false);
         setShowUserMenu(false);
       }
@@ -193,7 +200,7 @@ const HomeView: React.FC<HomeViewProps> = ({
                   
                   {/* 通知下拉菜单 */}
                   {showNotifications && (
-                    <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                    <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50 notification-menu-panel">
                       <div className="p-4 border-b border-gray-200">
                         <h3 className="text-lg font-semibold text-gray-900">通知</h3>
                       </div>
@@ -241,7 +248,7 @@ const HomeView: React.FC<HomeViewProps> = ({
                   
                   {/* 用户菜单下拉 */}
                   {showUserMenu && (
-                    <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50 user-menu-panel">
                       <div className="p-4 border-b border-gray-200">
                         <p className="text-sm font-medium text-gray-900">
                           {accountSummary?.nickname || '用户'}
@@ -275,12 +282,12 @@ const HomeView: React.FC<HomeViewProps> = ({
                           <button
                             onClick={() => {
                               setShowUserMenu(false);
-                              onOpenPricingModal();
+                              onOpenCreditHistory();
                             }}
                             className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
                           >
                             <Crown className="h-4 w-4" />
-                            <span>套餐充值</span>
+                            <span>充值消费记录</span>
                           </button>
                         )}
                         <hr className="my-2" />

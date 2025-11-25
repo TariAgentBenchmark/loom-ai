@@ -11,6 +11,7 @@ import {
 } from 'react';
 import HomeView from '../components/HomeView';
 import PricingModal from '../components/PricingModal';
+import CreditHistoryModal from '../components/CreditHistoryModal';
 import ProcessingPage from '../components/ProcessingPage';
 import LoginModal from '../components/LoginModal';
 import RegisterModal from '../components/RegisterModal';
@@ -137,6 +138,7 @@ export default function Home() {
   const [secondaryImage, setSecondaryImage] = useState<File | null>(null);
   const [secondaryImagePreview, setSecondaryImagePreview] = useState<string | null>(null);
   const [showPricingModal, setShowPricingModal] = useState(false);
+  const [showCreditHistoryModal, setShowCreditHistoryModal] = useState(false);
   const [currentPage, setCurrentPage] = useState<PageState>('home');
   const [promptInstruction, setPromptInstruction] = useState<string>('');
   const [patternType, setPatternType] = useState<string>('general1');
@@ -782,6 +784,14 @@ export default function Home() {
       />
     ) : null;
 
+  const renderCreditHistoryModal = () =>
+    showCreditHistoryModal ? (
+      <CreditHistoryModal
+        accessToken={accessToken || undefined}
+        onClose={() => setShowCreditHistoryModal(false)}
+      />
+    ) : null;
+
   const accountSummary = useMemo(() => toAccountSummary(accountProfile), [accountProfile]);
 
   const handleExpandEdgeChange = useCallback(
@@ -902,6 +912,7 @@ export default function Home() {
             }
           }}
           onOpenPricingModal={() => setShowPricingModal(true)}
+          onOpenCreditHistory={() => setShowCreditHistoryModal(true)}
           onLogout={() => {
             clearAllPolling();
             clearPersistedProcessingTasks();
@@ -943,6 +954,7 @@ export default function Home() {
       )}
 
       {renderPricingModal()}
+      {renderCreditHistoryModal()}
 
       <LoginModal
         isOpen={showLoginModal}

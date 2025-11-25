@@ -575,6 +575,36 @@ export interface CreditBalanceResponse {
   lastUpdated: string;
 }
 
+export interface CreditTransaction {
+  transactionId: string;
+  type: string;
+  amount: number;
+  balance: number;
+  description: string;
+  relatedTaskId?: string | null;
+  relatedOrderId?: string | null;
+  createdAt: string;
+}
+
+export interface CreditTransactionSummary {
+  totalEarned: number;
+  totalSpent: number;
+  netChange: number;
+  period: string;
+}
+
+export interface CreditTransactionsResponse {
+  transactions: CreditTransaction[];
+  summary: CreditTransactionSummary;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    total_pages?: number;
+    totalPages?: number;
+  };
+}
+
 export const login = (payload: LoginPayload) =>
   postJson<
     LoginResult,
@@ -819,6 +849,29 @@ export const getPublicServicePrices = async () => {
 
 export const getCreditBalance = (accessToken: string) =>
   getJson<CreditBalanceResponse>("/credits/balance", accessToken);
+
+export const getCreditTransactions = (
+  accessToken: string,
+  options?: {
+    type?: string;
+    start_date?: string;
+    end_date?: string;
+    page?: number;
+    limit?: number;
+  },
+) => {
+  const params = new URLSearchParams();
+  if (options?.type) params.append("type", options.type);
+  if (options?.start_date) params.append("start_date", options.start_date);
+  if (options?.end_date) params.append("end_date", options.end_date);
+  if (options?.page) params.append("page", options.page.toString());
+  if (options?.limit) params.append("limit", options.limit.toString());
+
+  const query = params.toString();
+  const path = `/credits/transactions${query ? `?${query}` : ""}`;
+
+  return getJson<CreditTransactionsResponse>(path, accessToken);
+};
 
 export const getApiBaseUrl = () => API_BASE_URL;
 
