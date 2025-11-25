@@ -1,0 +1,6 @@
+services:
+  backend:
+    image: ${REGISTRY:-crpi-lxfoqbwevmx9mc1q.cn-chengdu.personal.cr.aliyuncs.com}/${NAMESPACE:-tari_tech}/${BACKEND_IMAGE:-loomai-backend}:dev
+
+  frontend:
+    image: ${REGISTRY:-crpi-lxfoqbwevmx9mc1q.cn-chengdu.personal.cr.aliyuncs.com}/${NAMESPACE:-tari_tech}/${FRONTEND_IMAGE:-loomai}:dev

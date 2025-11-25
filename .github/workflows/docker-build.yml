@@ -3,9 +3,9 @@ name: Build and Push Docker Images
 # 触发条件
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
-    branches: [main]
+    branches: [main, dev]
   create:
     tags: ['v*']
   workflow_dispatch:
@@ -54,6 +54,10 @@ jobs:
             echo "frontend-tag=latest" >> $GITHUB_OUTPUT
             echo "backend-tag=latest" >> $GITHUB_OUTPUT
             echo "push-images=true" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/dev" ]]; then
+            echo "frontend-tag=dev" >> $GITHUB_OUTPUT
+            echo "backend-tag=dev" >> $GITHUB_OUTPUT
+            echo "push-images=true" >> $GITHUB_OUTPUT
           elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
             PR_NUMBER=${{ github.event.number }}
             echo "frontend-tag=dev-${PR_NUMBER}" >> $GITHUB_OUTPUT
@@ -79,7 +83,7 @@ jobs:
   build-frontend:
     runs-on: ubuntu-latest
     needs: determine-tags
-    if: needs.determine-tags.outputs.frontend-changed == 'true'
+    if: needs.determine-tags.outputs.frontend-changed == 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/dev') || (github.event_name == 'pull_request' && github.base_ref == 'dev')
     permissions:
       contents: read
       packages: write
@@ -127,7 +131,7 @@ jobs:
   build-backend:
     runs-on: ubuntu-latest
     needs: determine-tags
-    if: needs.determine-tags.outputs.backend-changed == 'true'
+    if: needs.determine-tags.outputs.backend-changed == 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/dev') || (github.event_name == 'pull_request' && github.base_ref == 'dev')
     permissions:
       contents: read
       packages: write
