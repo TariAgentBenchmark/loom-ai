@@ -13,6 +13,14 @@ from app.services.sign_meitu import Signer
 logger = logging.getLogger(__name__)
 
 
+def _summarize_result(result: Any) -> str:
+    """Return a compact, readable representation of Meitu responses for logging."""
+    try:
+        return json.dumps(result, ensure_ascii=False)
+    except Exception:
+        return str(result)
+
+
 class MeituClient:
     """美图API客户端"""
     
@@ -167,10 +175,13 @@ class MeituClient:
             raise Exception(f"美图AI超清V2网络错误: {str(exc)}")
 
         if result.get("code") != 0:
-            raise Exception(result.get("message") or f"美图AI超清V2返回错误码: {result.get('code')}")
+            summary = _summarize_result(result)
+            logger.error("Meitu AI超清V2返回非零code: %s", summary)
+            raise Exception(result.get("message") or f"美图AI超清V2返回错误码: {result.get('code')}；响应: {summary}")
 
         data = result.get("data") or {}
         status = data.get("status")
+        summary = _summarize_result(result)
 
         if status == 10:
             urls = data.get("result", {}).get("urls") or []
@@ -179,9 +190,12 @@ class MeituClient:
             return ",".join(urls)
 
         if status == 9:
-            raise Exception("美图AI超清V2处理超时，请稍后重试")
+            logger.error("Meitu AI超清V2处理超时: %s", summary)
+            raise Exception(f"美图AI超清V2处理超时，请稍后重试；响应: {summary}")
 
         if status == 2:
-            raise Exception(data.get("msg") or "美图AI超清V2处理失败")
+            logger.error("Meitu AI超清V2处理失败: %s", summary)
+            raise Exception(data.get("msg") or f"美图AI超清V2处理失败；响应: {summary}")
 
-        raise Exception(f"美图AI超清V2处理未完成，状态码: {status}")
+        logger.error("美图AI超清V2返回未知状态: %s", summary)
+        raise Exception(f"美图AI超清V2处理未完成，状态码: {status}；响应: {summary}")
