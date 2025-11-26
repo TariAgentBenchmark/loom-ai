@@ -176,7 +176,7 @@ class MeituClient:
 
         if result.get("code") != 0:
             summary = _summarize_result(result)
-            logger.error("Meitu AI超清V2返回非零code: %s", summary)
+            logger.error("Meitu AI超清V2返回非零code: %s | image_url=%s", summary, image_url)
             raise Exception(result.get("message") or f"美图AI超清V2返回错误码: {result.get('code')}；响应: {summary}")
 
         data = result.get("data") or {}
@@ -190,12 +190,12 @@ class MeituClient:
             return ",".join(urls)
 
         if status == 9:
-            logger.error("Meitu AI超清V2处理超时: %s", summary)
+            logger.error("Meitu AI超清V2处理超时: %s | image_url=%s", summary, image_url)
             raise Exception(f"美图AI超清V2处理超时，请稍后重试；响应: {summary}")
 
         if status == 2:
-            logger.error("Meitu AI超清V2处理失败: %s", summary)
+            logger.error("Meitu AI超清V2处理失败: %s | image_url=%s", summary, image_url)
             raise Exception(data.get("msg") or f"美图AI超清V2处理失败；响应: {summary}")
 
-        logger.error("美图AI超清V2返回未知状态: %s", summary)
+        logger.error("美图AI超清V2返回未知状态: %s | image_url=%s", summary, image_url)
         raise Exception(f"美图AI超清V2处理未完成，状态码: {status}；响应: {summary}")
