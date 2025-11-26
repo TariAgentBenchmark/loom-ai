@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse, RedirectResponse
-from sqlalchemy.orm import Session
+import logging
 from typing import Optional
 from datetime import timezone, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import os
+
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse, RedirectResponse
+from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.user import User
@@ -20,6 +22,7 @@ from app.utils.result_filter import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 try:
@@ -66,9 +69,21 @@ async def get_history_tasks(
         # 格式化任务数据
         formatted_tasks = []
         for task in tasks:
+            from app.services.file_service import FileService
+
+            file_service = FileService()
             credits_used_value = to_float(task.credits_used)
             if task.status == TaskStatus.FAILED.value:
                 credits_used_value = 0.0
+
+            original_image_url = task.original_image_url
+            if original_image_url and file_service.is_oss_url(original_image_url):
+                try:
+                    signed_original = await file_service.generate_presigned_url_for_full_url(original_image_url)
+                    if signed_original:
+                        original_image_url = signed_original
+                except Exception as exc:  # pragma: no cover - 防御性处理
+                    logger.warning("历史列表生成原图预签名失败: %s", exc)
 
             formatted_task = {
                 "taskId": task.task_id,
@@ -76,7 +91,7 @@ async def get_history_tasks(
                 "typeName": task.type_name,
                 "status": task.status,
                 "originalImage": {
-                    "url": task.original_image_url,
+                    "url": original_image_url,
                     "filename": task.original_filename,
                     "size": task.original_file_size,
                     "dimensions": task.original_dimensions
@@ -96,8 +111,21 @@ async def get_history_tasks(
                     task.result_image_url,
                     task.result_filename,
                 )
+                signed_urls = []
+                for url in filtered_urls:
+                    clean_url = url.strip()
+                    if file_service.is_oss_url(clean_url):
+                        try:
+                            signed_url = await file_service.generate_presigned_url_for_full_url(clean_url)
+                            signed_urls.append(signed_url or clean_url)
+                        except Exception as exc:  # pragma: no cover - 防御性处理
+                            logger.warning("历史列表生成结果预签名失败: %s", exc)
+                            signed_urls.append(clean_url)
+                    else:
+                        signed_urls.append(clean_url)
+
                 formatted_task["resultImage"] = {
-                    "url": ",".join(filtered_urls) if filtered_urls else task.result_image_url,
+                    "url": ",".join(signed_urls) if signed_urls else task.result_image_url,
                     "filename": ",".join(filtered_filenames) if filtered_filenames else task.result_filename,
                     "size": task.result_file_size,
                     "dimensions": task.result_dimensions
@@ -152,9 +180,12 @@ async def get_task_detail(
     task_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
-):
+    ):
     """获取任务详情"""
     try:
+        from app.services.file_service import FileService
+
+        file_service = FileService()
         task = db.query(Task).filter(
             Task.task_id == task_id,
             Task.user_id == current_user.id
@@ -170,6 +201,18 @@ async def get_task_detail(
                 task.result_image_url,
                 task.result_filename,
             )
+            signed_urls = []
+            for url in filtered_urls:
+                clean_url = url.strip()
+                if file_service.is_oss_url(clean_url):
+                    try:
+                        signed_url = await file_service.generate_presigned_url_for_full_url(clean_url)
+                        signed_urls.append(signed_url or clean_url)
+                    except Exception as exc:  # pragma: no cover - 防御性处理
+                        logger.warning("历史详情生成结果预签名失败: %s", exc)
+                        signed_urls.append(clean_url)
+                else:
+                    signed_urls.append(clean_url)
             filename_value = (
                 ",".join(filtered_filenames) if filtered_filenames else task.result_filename
             )
@@ -179,12 +222,21 @@ async def get_task_detail(
                 else task.result_filename
             )
             result_image_payload = {
-                "url": ",".join(filtered_urls) if filtered_urls else task.result_image_url,
+                "url": ",".join(signed_urls) if signed_urls else task.result_image_url,
                 "filename": filename_value,
                 "size": task.result_file_size,
                 "format": first_filename.split(".")[-1].lower() if first_filename else None,
                 "dimensions": task.result_dimensions
             }
+
+        original_image_url = task.original_image_url
+        if original_image_url and file_service.is_oss_url(original_image_url):
+            try:
+                signed_original = await file_service.generate_presigned_url_for_full_url(original_image_url)
+                if signed_original:
+                    original_image_url = signed_original
+            except Exception as exc:  # pragma: no cover - 防御性处理
+                logger.warning("历史详情生成原图预签名失败: %s", exc)
 
         return SuccessResponse(
             data={
@@ -193,7 +245,7 @@ async def get_task_detail(
                 "typeName": task.type_name,
                 "status": task.status,
                 "originalImage": {
-                    "url": task.original_image_url,
+                    "url": original_image_url,
                     "filename": task.original_filename,
                     "size": task.original_file_size,
                     "format": task.original_filename.split('.')[-1].lower(),
