@@ -18,6 +18,7 @@ from app.services.ai_client.meitu_client import MeituClient
 from app.services.ai_client.vectorizer_client import VectorizerClient
 from app.services.ai_client.a8_vectorizer_client import A8VectorizerClient
 from app.services.ai_client.runninghub_client import RunningHubClient
+from app.services.file_service import FileService
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,7 @@ class AIClient:
         self.base_client_utils = BaseAIClient()
         self.gqch_client = GQCHClient()
         self.runninghub_client = RunningHubClient()
+        self.file_service = FileService()
         
         # Liblib API配置
         self.liblib_client = LiblibUpscaleAPI(
@@ -674,6 +676,18 @@ class AIClient:
             public_url = await oss_service.upload_image_for_jimeng(image_bytes, temp_filename)
             logger.info("Uploaded image to OSS for %s: %s", purpose, public_url)
             return public_url, image_bytes
+
+        if image_url.startswith("http") and self.file_service.is_oss_url(image_url):
+            try:
+                presigned_url = await self.file_service.generate_presigned_url_for_full_url(
+                    image_url,
+                    expiration=settings.oss_expiration_time,
+                )
+                if presigned_url:
+                    logger.info("Generated presigned OSS URL for external API: %s", presigned_url)
+                    return presigned_url, image_bytes
+            except Exception as exc:
+                logger.warning("Failed to generate presigned OSS URL for %s: %s", image_url, exc)
 
         return image_url, image_bytes
 
