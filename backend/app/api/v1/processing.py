@@ -1,8 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session
-from typing import Optional
+import logging
 import os
+from io import BytesIO
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi.responses import FileResponse, StreamingResponse
+from sqlalchemy.orm import Session
 
 from app.utils.downloads import build_download_filename
 from app.utils.result_filter import (
@@ -21,6 +24,7 @@ from app.models.task import TaskStatus
 
 router = APIRouter()
 processing_service = ProcessingService()
+logger = logging.getLogger(__name__)
 
 
 def _display_credits(task) -> float:
@@ -648,6 +652,9 @@ async def get_task_status(
         
         if not task:
             raise HTTPException(status_code=404, detail="任务不存在")
+        from app.services.file_service import FileService
+
+        file_service = FileService()
         
         # 计算进度
         progress = 0
@@ -676,10 +683,31 @@ async def get_task_status(
                 task.result_image_url,
                 task.result_filename,
             )
-            processed_value = ",".join(filtered_urls) if filtered_urls else task.result_image_url
+            signed_urls = []
+            for url in filtered_urls:
+                clean_url = url.strip()
+                if file_service.is_oss_url(clean_url):
+                    try:
+                        signed_url = await file_service.generate_presigned_url_for_full_url(clean_url)
+                        signed_urls.append(signed_url or clean_url)
+                    except Exception as exc:  # pragma: no cover - 防御性处理
+                        logger.warning("生成预签名URL失败: %s", exc)
+                        signed_urls.append(clean_url)
+                else:
+                    signed_urls.append(clean_url)
+
+            processed_value = ",".join(signed_urls) if signed_urls else task.result_image_url
+            original_image_url = task.original_image_url
+            if original_image_url and file_service.is_oss_url(original_image_url):
+                try:
+                    signed_original = await file_service.generate_presigned_url_for_full_url(original_image_url)
+                    if signed_original:
+                        original_image_url = signed_original
+                except Exception as exc:  # pragma: no cover - 防御性处理
+                    logger.warning("原图预签名URL生成失败: %s", exc)
 
             response_data["result"] = {
-                "originalImage": task.original_image_url,
+                "originalImage": original_image_url,
                 "processedImage": processed_value,
                 "fileSize": task.result_file_size,
                 "dimensions": task.result_dimensions
@@ -747,14 +775,16 @@ async def download_result(
                 with zipfile.ZipFile(temp_file.name, 'w', zipfile.ZIP_DEFLATED) as zip_file:
                     for index, url in enumerate(filtered_urls):
                         clean_url = url.strip()
-                        file_path = file_service.get_file_path(clean_url)
-                        if os.path.exists(file_path):
-                            fname = None
-                            if filtered_filenames and index < len(filtered_filenames):
-                                fname = filtered_filenames[index].strip()
-                            if not fname:
-                                fname = os.path.basename(file_path)
-                            zip_file.write(file_path, fname)
+                        fname = None
+                        if filtered_filenames and index < len(filtered_filenames):
+                            fname = filtered_filenames[index].strip()
+                        if not fname:
+                            fname = os.path.basename(clean_url) or f"result_{index}.png"
+                        try:
+                            file_bytes = await file_service.read_file(clean_url)
+                            zip_file.writestr(fname, file_bytes)
+                        except Exception as exc:
+                            logger.warning("打包结果文件失败(%s): %s", clean_url, exc)
                 
                 download_name = build_download_filename(None, "zip")
                 return FileResponse(
@@ -764,20 +794,21 @@ async def download_result(
                 )
         else:
             # 单个文件
-            file_path = file_service.get_file_path(filtered_urls[0])
-            
-            if not os.path.exists(file_path):
-                raise HTTPException(status_code=404, detail="文件不存在")
-            
+            clean_url = filtered_urls[0].strip()
             filename_value = (filtered_filenames or [task.result_filename or "result.png"])[0]
             download_name = build_download_filename(filename_value)
-            if download_name == "tuyun":
-                download_name = build_download_filename(file_path)
+            try:
+                file_bytes = await file_service.read_file(clean_url)
+            except Exception:
+                raise HTTPException(status_code=404, detail="文件不存在")
 
-            return FileResponse(
-                path=file_path,
-                filename=download_name,
-                media_type="application/octet-stream"
+            headers = {
+                "Content-Disposition": f'attachment; filename="{download_name}"'
+            }
+            return StreamingResponse(
+                BytesIO(file_bytes),
+                headers=headers,
+                media_type="application/octet-stream",
             )
         
     except HTTPException:
