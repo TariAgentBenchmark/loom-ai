@@ -93,6 +93,19 @@ const HomeView: React.FC<HomeViewProps> = ({
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showWechatModal, setShowWechatModal] = useState(false);
   const contactPhone = '17680457204';
+  const copyPhoneToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(contactPhone);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = contactPhone;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+    alert('电话号码已复制');
+  };
   const creditsLabel = formatNumber(
     creditBalance?.credits ?? accountSummary?.credits,
     isLoggedIn ? '0.00' : '--',
@@ -448,20 +461,21 @@ const HomeView: React.FC<HomeViewProps> = ({
                       </div>
                       <div>
                         <div className="text-sm font-medium text-gray-900">电话</div>
-                        <div className="text-xs text-gray-600">{contactPhone}</div>
-                      </div>
-                    </div>
-                    <a
-                      href={`tel:${contactPhone}`}
-                      className="text-xs text-green-600 hover:text-green-700 font-semibold"
-                    >
-                      拨打
-                    </a>
+                    <div className="text-xs text-gray-600">{contactPhone}</div>
                   </div>
-                  <button
-                    onClick={() => {
-                      setShowWechatModal(true);
-                      setSidebarOpen(false);
+                </div>
+                <button
+                  type="button"
+                  onClick={copyPhoneToClipboard}
+                  className="text-xs text-green-600 hover:text-green-700 font-semibold"
+                >
+                  复制
+                </button>
+              </div>
+              <button
+                onClick={() => {
+                  setShowWechatModal(true);
+                  setSidebarOpen(false);
                     }}
                     className="w-full bg-green-500 hover:bg-green-600 text-white p-3 rounded-lg text-xs font-medium transition-all flex items-center justify-center space-x-2"
                   >
@@ -580,12 +594,13 @@ const HomeView: React.FC<HomeViewProps> = ({
                     <div className="text-xs md:text-sm text-gray-600">{contactPhone}</div>
                   </div>
                 </div>
-                <a
-                  href={`tel:${contactPhone}`}
+                <button
+                  type="button"
+                  onClick={copyPhoneToClipboard}
                   className="text-xs md:text-sm text-green-600 hover:text-green-700 font-semibold"
                 >
-                  拨打
-                </a>
+                  复制
+                </button>
               </div>
               <button
                 onClick={() => setShowWechatModal(true)}
