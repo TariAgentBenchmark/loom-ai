@@ -9,7 +9,7 @@ from app.core.database import get_db
 from app.models.user import User
 from app.models.credit import CreditTransaction, CreditSource
 from app.models.payment import Order, OrderStatus, PaymentMethod, PackageType
-from app.models.membership_package import MembershipPackage
+from app.models.membership_package import MembershipPackage, PackageCategory
 from app.api.dependencies import get_current_user
 from app.schemas.common import SuccessResponse
 from app.services.payment_service import PaymentService
