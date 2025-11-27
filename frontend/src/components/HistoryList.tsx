@@ -155,6 +155,23 @@ const HistoryList: React.FC<HistoryListProps> = ({
     });
   };
 
+  const getPreviewImage = (task: HistoryTask) => {
+    const firstResultUrl = task.resultImage?.url?.split(',')[0]?.trim();
+    const firstResultName = task.resultImage?.filename?.split(',')[0]?.trim();
+
+    if (firstResultUrl) {
+      return {
+        url: resolveFileUrl(firstResultUrl),
+        alt: firstResultName || `${task.typeName}结果图`,
+      };
+    }
+
+    return {
+      url: resolveFileUrl(task.originalImage.url),
+      alt: task.originalImage.filename,
+    };
+  };
+
   const handleDownload = async (task: HistoryTask) => {
     if (!task.resultImage) return;
 
@@ -441,11 +458,16 @@ const HistoryList: React.FC<HistoryListProps> = ({
               <div className="flex items-start space-x-3">
                 {/* 缩略图 */}
                 <div className="flex-shrink-0">
-                  <img
-                    src={resolveFileUrl(task.originalImage.url)}
-                    alt={task.originalImage.filename}
-                    className="w-12 h-12 object-cover rounded border border-gray-200"
-                  />
+                  {(() => {
+                    const preview = getPreviewImage(task);
+                    return (
+                      <img
+                        src={preview.url}
+                        alt={preview.alt}
+                        className="w-12 h-12 object-cover rounded border border-gray-200"
+                      />
+                    );
+                  })()}
                 </div>
 
                 {/* 任务信息 */}
