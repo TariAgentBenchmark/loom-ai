@@ -7,6 +7,7 @@ from PIL import Image
 from io import BytesIO
 import logging
 from datetime import datetime, timedelta
+from urllib.parse import urlparse
 
 from app.core.config import settings
 
@@ -45,23 +46,38 @@ class FileService:
         """检查URL是否指向当前配置的OSS桶"""
         if not self.oss_service.is_configured() or not file_url.startswith("http"):
             return False
+
+        parsed = urlparse(file_url)
+        host = parsed.netloc.lower()
         endpoint_host = self.oss_service.endpoint.replace("https://", "").replace("http://", "")
         bucket_domain = self.oss_service.bucket_domain
         default_domain = f"{self.oss_service.bucket_name}.{endpoint_host}"
-        return (
-            (bucket_domain and file_url.startswith(f"https://{bucket_domain}/"))
-            or file_url.startswith(f"https://{default_domain}/")
-        )
+        if bucket_domain and host == bucket_domain.lower():
+            return True
+        if host == default_domain.lower():
+            return True
+        # 容忍不同区域的OSS默认域名，只要桶名匹配即可
+        if self.oss_service.bucket_name and host.startswith(f"{self.oss_service.bucket_name.lower()}.") and "aliyuncs.com" in host:
+            return True
+        return False
 
     def extract_oss_object_key(self, file_url: str) -> Optional[str]:
         """从OSS URL中提取对象键"""
         if not self.is_oss_url(file_url):
             return None
+
+        parsed = urlparse(file_url)
+        host = parsed.netloc.lower()
+        path = parsed.path.lstrip("/")
         endpoint_host = self.oss_service.endpoint.replace("https://", "").replace("http://", "")
         default_domain = f"{self.oss_service.bucket_name}.{endpoint_host}"
-        if self.oss_service.bucket_domain and file_url.startswith(f"https://{self.oss_service.bucket_domain}/"):
-            return file_url.replace(f"https://{self.oss_service.bucket_domain}/", "")
-        return file_url.replace(f"https://{default_domain}/", "")
+        if self.oss_service.bucket_domain and host == self.oss_service.bucket_domain.lower():
+            return path
+        if host == default_domain.lower():
+            return path
+        if self.oss_service.bucket_name and host.startswith(f"{self.oss_service.bucket_name.lower()}.") and "aliyuncs.com" in host:
+            return path
+        return None
 
     async def generate_presigned_url_for_full_url(self, file_url: str, expiration: Optional[int] = None) -> Optional[str]:
         """针对OSS完整URL生成预签名地址"""
