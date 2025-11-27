@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { History, Eye } from "lucide-react";
+import { History, Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   ProcessingMethod,
   getProcessingMethodInfo,
@@ -312,6 +312,23 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     { value: "9:16", label: "9:16" },
   ];
   const effectiveExpandRatio = expandRatio ?? "original";
+  useEffect(() => {
+    // 新结果返回时重置预览索引
+    setSelectedResultIndex(0);
+  }, [processedImage]);
+
+  const handleNavigateResult = useCallback(
+    (direction: number, total: number) => {
+      if (total <= 1) return;
+      setSelectedResultIndex((prev) => {
+        const next = prev + direction;
+        if (next < 0) return total - 1;
+        if (next >= total) return 0;
+        return next;
+      });
+    },
+    [],
+  );
   const edgeValues = useMemo(
     () =>
       expandEdges ?? {
@@ -1427,6 +1444,32 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                             >
                               <Eye className="h-4 w-4" />
                             </button>
+                            {galleryUrls.length > 1 && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleNavigateResult(-1, galleryUrls.length);
+                                  }}
+                                  className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black bg-opacity-40 text-white hover:bg-opacity-70 transition"
+                                  title="上一张"
+                                >
+                                  <ChevronLeft className="h-5 w-5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleNavigateResult(1, galleryUrls.length);
+                                  }}
+                                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black bg-opacity-40 text-white hover:bg-opacity-70 transition"
+                                  title="下一张"
+                                >
+                                  <ChevronRight className="h-5 w-5" />
+                                </button>
+                              </>
+                            )}
                           </div>
                           <div className="flex flex-wrap items-center justify-center gap-3">
                             <button
@@ -1456,57 +1499,124 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                   }
 
                   if (imageUrls.length > 1) {
+                    const safeIndex = Math.min(
+                      Math.max(selectedResultIndex, 0),
+                      imageUrls.length - 1,
+                    );
+                    const activeUrl = imageUrls[safeIndex];
+
                     return (
-                      <>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 md:mb-6 w-full max-w-4xl">
-                          {imageUrls.map((url, index) => (
-                            <div
-                              key={index}
-                              className="flex flex-col items-center"
-                            >
-                              <div className="relative group">
-                                <img
-                                  src={resolveFileUrl(url)}
-                                  alt={`Processed ${index + 1}`}
-                                  className="max-w-full max-h-[40vh] w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-lg mb-2 cursor-pointer hover:shadow-xl transition-shadow"
-                                  onClick={() =>
-                                    handleProcessedImagePreview(url, index)
-                                  }
-                                />
-                                <button
-                                  onClick={() =>
-                                    handleProcessedImagePreview(url, index)
-                                  }
-                                  className="absolute top-2 right-2 p-2 bg-black bg-opacity-50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-opacity-70"
-                                  title="放大查看"
-                                >
-                                  <Eye className="h-4 w-4" />
-                                </button>
-                              </div>
+                      <div
+                        className={`flex flex-col md:flex-row gap-4 md:gap-6 w-full max-w-5xl ${
+                          shouldOffsetPreview ? "mt-4 md:mt-6" : ""
+                        }`}
+                      >
+                        <div className="flex md:flex-col gap-3 md:w-32 w-full md:flex-none overflow-x-auto md:overflow-visible">
+                          {imageUrls.map((url, index) => {
+                            const isActive = index === safeIndex;
+                            return (
                               <button
+                                key={url + index}
                                 type="button"
-                                onClick={() =>
-                                  handleDownloadSingleImage(url, index)
-                                }
-                                disabled={isDownloadingResult}
-                                className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 disabled:bg-green-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
+                                onClick={() => setSelectedResultIndex(index)}
+                                className={`flex flex-col items-center rounded-lg border px-2 py-2 text-xs md:text-sm transition ${
+                                  isActive
+                                    ? "border-blue-500 bg-blue-50 shadow-sm"
+                                    : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
+                                }`}
+                                title={`查看图 ${index + 1}`}
                               >
-                                {isDownloadingResult
-                                  ? "下载中…"
-                                  : `下载图片 ${index + 1}`}
+                                <div className="w-16 h-24 md:w-20 md:h-28 rounded-md overflow-hidden border border-dashed border-gray-200 bg-white flex items-center justify-center mb-1">
+                                  <img
+                                    src={resolveFileUrl(url)}
+                                    alt={`图 ${index + 1} 缩略图`}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                                <span className="font-medium text-gray-700">
+                                  图 {index + 1}
+                                </span>
                               </button>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
-                        <button
-                          type="button"
-                          onClick={handleBatchDownload}
-                          disabled={isDownloadingResult}
-                          className="inline-flex items-center justify-center bg-blue-500 hover:bg-blue-600 disabled:bg-blue-400 text-white px-6 py-2 md:px-8 md:py-3 rounded-lg md:rounded-xl font-medium transition shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
-                        >
-                          {isDownloadingResult ? "下载中…" : "批量下载全部"}
-                        </button>
-                      </>
+
+                        <div className="flex-1 flex flex-col items-center justify-center gap-4">
+                          <div className="relative group w-full flex justify-center">
+                            <img
+                              src={resolveFileUrl(activeUrl)}
+                              alt={`处理结果图 ${safeIndex + 1}`}
+                              className="max-w-[95%] max-h-[75vh] w-auto h-auto object-contain rounded-xl border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+                              onClick={() =>
+                                handleProcessedImagePreview(
+                                  activeUrl,
+                                  safeIndex,
+                                )
+                              }
+                            />
+                            <button
+                              onClick={() =>
+                                handleProcessedImagePreview(
+                                  activeUrl,
+                                  safeIndex,
+                                )
+                              }
+                              className="absolute top-2 right-2 p-2 bg-black bg-opacity-50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-opacity-70"
+                              title="放大查看"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            {imageUrls.length > 1 && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleNavigateResult(-1, imageUrls.length);
+                                  }}
+                                  className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black bg-opacity-40 text-white hover:bg-opacity-70 transition"
+                                  title="上一张"
+                                >
+                                  <ChevronLeft className="h-5 w-5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleNavigateResult(1, imageUrls.length);
+                                  }}
+                                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black bg-opacity-40 text-white hover:bg-opacity-70 transition"
+                                  title="下一张"
+                                >
+                                  <ChevronRight className="h-5 w-5" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap items-center justify-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleDownloadSingleImage(activeUrl, safeIndex)
+                              }
+                              disabled={isDownloadingResult}
+                              className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 disabled:bg-green-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
+                            >
+                              {isDownloadingResult
+                                ? "下载中…"
+                                : `下载图 ${safeIndex + 1}`}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleBatchDownload}
+                              disabled={isDownloadingResult}
+                              className="inline-flex items-center justify-center bg-blue-500 hover:bg-blue-600 disabled:bg-blue-400 text-white px-6 py-2 md:px-8 md:py-3 rounded-lg md:rounded-xl font-medium transition shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
+                            >
+                              {isDownloadingResult ? "下载中…" : "批量下载全部"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     );
                   }
 
