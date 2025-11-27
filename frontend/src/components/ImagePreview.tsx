@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import { X, Download, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
+import { X, Download, ZoomIn, ZoomOut, RotateCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { HistoryTask } from '../lib/api';
 import { resolveFileUrl } from '../lib/api';
 
@@ -200,6 +200,22 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
   const currentImageUrl = currentImage?.url;
 
   useEffect(() => {
+    // 切换任务或结果变化时重置索引
+    setCurrentResultIndex(0);
+  }, [task?.taskId, resultUrls.length]);
+
+  const handleNavigateResult = useCallback((direction: number) => {
+    if (!hasMultipleResults) return;
+    setShowOriginal(false);
+    setCurrentResultIndex(prev => {
+      const next = prev + direction;
+      if (next < 0) return resultUrls.length - 1;
+      if (next >= resultUrls.length) return 0;
+      return next;
+    });
+  }, [hasMultipleResults, resultUrls.length]);
+
+  useEffect(() => {
     if (!currentImageUrl) {
       setInitialScale(1);
       setScale(1);
@@ -258,27 +274,25 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
             {/* 多图片切换按钮 */}
             {hasMultipleResults && !showOriginal && (
               <div className="flex items-center space-x-1 border-r border-gray-600 pr-2 mr-2">
-                <button
-                  onClick={() => setCurrentResultIndex(prev => Math.max(0, prev - 1))}
-                  disabled={currentResultIndex === 0}
-                  className="p-1.5 md:p-2 text-white hover:bg-white hover:bg-opacity-20 rounded transition disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="上一张"
-                >
-                  ←
-                </button>
-                <span className="text-white text-xs md:text-sm px-2">
-                  {currentResultIndex + 1}/{resultUrls.length}
-                </span>
-                <button
-                  onClick={() => setCurrentResultIndex(prev => Math.min(resultUrls.length - 1, prev + 1))}
-                  disabled={currentResultIndex === resultUrls.length - 1}
-                  className="p-1.5 md:p-2 text-white hover:bg-white hover:bg-opacity-20 rounded transition disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="下一张"
-                >
-                  →
-                </button>
-              </div>
-            )}
+              <button
+                onClick={() => handleNavigateResult(-1)}
+                className="p-1.5 md:p-2 text-white hover:bg-white hover:bg-opacity-20 rounded transition"
+                title="上一张"
+              >
+                <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
+              </button>
+              <span className="text-white text-xs md:text-sm px-2">
+                {currentResultIndex + 1}/{resultUrls.length}
+              </span>
+              <button
+                onClick={() => handleNavigateResult(1)}
+                className="p-1.5 md:p-2 text-white hover:bg-white hover:bg-opacity-20 rounded transition"
+                title="下一张"
+              >
+                <ChevronRight className="h-4 w-4 md:h-5 md:w-5" />
+              </button>
+            </div>
+          )}
             
             <button
               onClick={handleZoomOut}
@@ -362,75 +376,98 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
           style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
         >
           {currentImage && (
-            <div
-              className="relative"
-              style={{
-                transform: `translate(${position.x}px, ${position.y}px) scale(${scale}) rotate(${rotation}deg)`,
-                transition: isDragging ? 'none' : 'transform 0.2s ease-in-out',
-                transformOrigin: 'center',
-              }}
-            >
-              {(() => {
-                const resolvedUrl = resolveFileUrl(currentImage.url);
-                console.log('ImagePreview: Displaying image', {
-                  originalUrl: currentImage.url,
-                  resolvedUrl,
-                  filename: currentImage.filename,
-                  isSvg: currentImage.filename.toLowerCase().includes('.svg') || currentImage.url.toLowerCase().includes('.svg')
-                });
-                
-                // 检查是否是SVG文件
-                if (currentImage.filename.toLowerCase().includes('.svg') || currentImage.url.toLowerCase().includes('.svg')) {
-                  console.log('ImagePreview: Detected SVG file, using special handling');
-                  return (
-                    <object
-                      ref={objectRef}
-                      data={resolvedUrl}
-                      type="image/svg+xml"
-                      className="w-full h-full"
-                      style={{ maxWidth: '100%', maxHeight: '100%' }}
-                      draggable={false}
-                      onLoad={handleImageLoad}
-                      onError={(e) => console.error('ImagePreview: SVG failed to load', e)}
-                    >
-                      <img
-                        src={resolvedUrl}
-                        alt={currentImage.filename}
-                        className="max-w-full max-h-full object-contain"
+            <div className="relative">
+              <div
+                className="relative"
+                style={{
+                  transform: `translate(${position.x}px, ${position.y}px) scale(${scale}) rotate(${rotation}deg)`,
+                  transition: isDragging ? 'none' : 'transform 0.2s ease-in-out',
+                  transformOrigin: 'center',
+                }}
+              >
+                {(() => {
+                  const resolvedUrl = resolveFileUrl(currentImage.url);
+                  console.log('ImagePreview: Displaying image', {
+                    originalUrl: currentImage.url,
+                    resolvedUrl,
+                    filename: currentImage.filename,
+                    isSvg: currentImage.filename.toLowerCase().includes('.svg') || currentImage.url.toLowerCase().includes('.svg')
+                  });
+                  
+                  // 检查是否是SVG文件
+                  if (currentImage.filename.toLowerCase().includes('.svg') || currentImage.url.toLowerCase().includes('.svg')) {
+                    console.log('ImagePreview: Detected SVG file, using special handling');
+                    return (
+                      <object
+                        ref={objectRef}
+                        data={resolvedUrl}
+                        type="image/svg+xml"
+                        className="w-full h-full"
+                        style={{ maxWidth: '100%', maxHeight: '100%' }}
                         draggable={false}
-                        onDragStart={(e) => e.preventDefault()}
-                        onError={(e) => console.error('ImagePreview: Fallback img also failed', e)}
-                      />
-                    </object>
+                        onLoad={handleImageLoad}
+                        onError={(e) => console.error('ImagePreview: SVG failed to load', e)}
+                      >
+                        <img
+                          src={resolvedUrl}
+                          alt={currentImage.filename}
+                          className="max-w-full max-h-full object-contain"
+                          draggable={false}
+                          onDragStart={(e) => e.preventDefault()}
+                          onError={(e) => console.error('ImagePreview: Fallback img also failed', e)}
+                        />
+                      </object>
+                    );
+                  }
+                  
+                  return (
+                    <img
+                      ref={imageRef}
+                      src={resolvedUrl}
+                      alt={currentImage.filename}
+                      className="max-w-full max-h-full object-contain"
+                      draggable={false}
+                      onDragStart={(e) => e.preventDefault()}
+                      onLoad={handleImageLoad}
+                      onError={(e) => console.error('ImagePreview: Image failed to load', e)}
+                    />
                   );
-                }
+                })()}
                 
-                return (
-                  <img
-                    ref={imageRef}
-                    src={resolvedUrl}
-                    alt={currentImage.filename}
-                    className="max-w-full max-h-full object-contain"
-                    draggable={false}
-                    onDragStart={(e) => e.preventDefault()}
-                    onLoad={handleImageLoad}
-                    onError={(e) => console.error('ImagePreview: Image failed to load', e)}
-                  />
-                );
-              })()}
-              
-              {/* 图片信息 */}
-              <div className="absolute bottom-2 left-2 md:bottom-4 md:left-4 bg-black bg-opacity-70 text-white p-2 md:p-3 rounded-lg text-xs md:text-sm max-w-[80%] md:max-w-none">
-                <div className="space-y-0.5 md:space-y-1">
-                  <div className="truncate">文件名: {currentImage.filename}</div>
-                  <div>大小: {(currentImage.size / 1024 / 1024).toFixed(2)} MB</div>
-                  {currentImage.dimensions && (
-                    <div>
-                      尺寸: {currentImage.dimensions.width} × {currentImage.dimensions.height}
-                    </div>
-                  )}
+                {/* 图片信息 */}
+                <div className="absolute bottom-2 left-2 md:bottom-4 md:left-4 bg-black bg-opacity-70 text-white p-2 md:p-3 rounded-lg text-xs md:text-sm max-w-[80%] md:max-w-none">
+                  <div className="space-y-0.5 md:space-y-1">
+                    <div className="truncate">文件名: {currentImage.filename}</div>
+                    <div>大小: {(currentImage.size / 1024 / 1024).toFixed(2)} MB</div>
+                    {currentImage.dimensions && (
+                      <div>
+                        尺寸: {currentImage.dimensions.width} × {currentImage.dimensions.height}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
+
+              {hasMultipleResults && !showOriginal && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleNavigateResult(-1)}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 p-2 md:p-3 rounded-full bg-black bg-opacity-50 text-white hover:bg-opacity-80 transition"
+                    title="上一张"
+                  >
+                    <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleNavigateResult(1)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 md:p-3 rounded-full bg-black bg-opacity-50 text-white hover:bg-opacity-80 transition"
+                    title="下一张"
+                  >
+                    <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
