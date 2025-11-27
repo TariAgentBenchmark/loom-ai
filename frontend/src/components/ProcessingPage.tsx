@@ -1533,45 +1533,25 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                               "ProcessingPage: Detected SVG file, using special handling",
                             );
                             return (
-                              <div
-                                className="max-w-full max-h-[60vh] md:max-h-[80vh] w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow overflow-hidden"
+                              <img
+                                src={resolvedUrl}
+                                alt="Processed"
+                                className="max-w-full max-h-[60vh] md:max-h-[80vh] w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
                                 onClick={() =>
                                   handleProcessedImagePreview(processedImage)
                                 }
-                              >
-                                <object
-                                  data={resolvedUrl}
-                                  type="image/svg+xml"
-                                  className="w-full h-full"
-                                  style={{
-                                    maxHeight: "60vh",
-                                    maxWidth: "100%",
-                                  }}
-                                  onLoad={() =>
-                                    console.log(
-                                      "ProcessingPage: SVG loaded successfully",
-                                    )
-                                  }
-                                  onError={(e) =>
-                                    console.error(
-                                      "ProcessingPage: SVG failed to load",
-                                      e,
-                                    )
-                                  }
-                                >
-                                  <img
-                                    src={resolvedUrl}
-                                    alt="Processed"
-                                    className="w-full h-full object-contain"
-                                    onError={(e) =>
-                                      console.error(
-                                        "ProcessingPage: Fallback img also failed",
-                                        e,
-                                      )
-                                    }
-                                  />
-                                </object>
-                              </div>
+                                onLoad={() =>
+                                  console.log(
+                                    "ProcessingPage: SVG loaded successfully (img fallback)",
+                                  )
+                                }
+                                onError={(e) =>
+                                  console.error(
+                                    "ProcessingPage: SVG failed to load (img fallback)",
+                                    e,
+                                  )
+                                }
+                              />
                             );
                           }
 
