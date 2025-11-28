@@ -366,7 +366,7 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
 
         {/* 图片显示区域 */}
         <div
-          className="flex-1 flex items-center justify-center overflow-hidden p-2 md:p-0"
+          className="flex-1 relative flex items-center justify-center overflow-hidden p-2 md:p-0"
           onWheel={handleWheel}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
@@ -447,28 +447,28 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
                   </div>
                 </div>
               </div>
-
-              {hasMultipleResults && !showOriginal && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => handleNavigateResult(-1)}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 p-2 md:p-3 rounded-full bg-black bg-opacity-50 text-white hover:bg-opacity-80 transition"
-                    title="上一张"
-                  >
-                    <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleNavigateResult(1)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 md:p-3 rounded-full bg-black bg-opacity-50 text-white hover:bg-opacity-80 transition"
-                    title="下一张"
-                  >
-                    <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
-                  </button>
-                </>
-              )}
             </div>
+          )}
+
+          {hasMultipleResults && !showOriginal && currentImage && (
+            <>
+              <button
+                type="button"
+                onClick={() => handleNavigateResult(-1)}
+                className="absolute left-4 top-1/2 -translate-y-1/2 p-2 md:p-3 rounded-full bg-black bg-opacity-50 text-white hover:bg-opacity-80 transition"
+                title="上一张"
+              >
+                <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
+              </button>
+              <button
+                type="button"
+                onClick={() => handleNavigateResult(1)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-2 md:p-3 rounded-full bg-black bg-opacity-50 text-white hover:bg-opacity-80 transition"
+                title="下一张"
+              >
+                <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
+              </button>
+            </>
           )}
         </div>
 
