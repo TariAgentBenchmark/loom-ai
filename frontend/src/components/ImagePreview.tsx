@@ -200,9 +200,10 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
   const currentImageUrl = currentImage?.url;
 
   useEffect(() => {
-    // 切换任务或结果变化时重置索引
+    // 切换任务或结果变化时重置索引，并默认展示结果图（有结果时）
     setCurrentResultIndex(0);
-  }, [task?.taskId, resultUrls.length]);
+    setShowOriginal(!task?.resultImage);
+  }, [task?.resultImage, task?.taskId, resultUrls.length]);
 
   const handleNavigateResult = useCallback((direction: number) => {
     if (!hasMultipleResults) return;
@@ -246,18 +247,7 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
             <h3 className="text-white text-sm md:font-medium truncate max-w-[120px] md:max-w-none">{task.typeName}</h3>
             <div className="flex items-center space-x-1 md:space-x-2">
               <button
-                onClick={() => setShowOriginal(!showOriginal)}
-                className={`px-2 py-1 md:px-3 rounded text-xs md:text-sm transition ${
-                  showOriginal
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
-                }`}
-                disabled={!hasResultImage}
-              >
-                原图
-              </button>
-              <button
-                onClick={() => setShowOriginal(!showOriginal)}
+                onClick={() => setShowOriginal(false)}
                 className={`px-2 py-1 md:px-3 rounded text-xs md:text-sm transition ${
                   !showOriginal
                     ? 'bg-blue-500 text-white'
@@ -266,6 +256,17 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
                 disabled={!hasResultImage}
               >
                 结果
+              </button>
+              <button
+                onClick={() => setShowOriginal(true)}
+                className={`px-2 py-1 md:px-3 rounded text-xs md:text-sm transition ${
+                  showOriginal
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                }`}
+                disabled={!hasResultImage}
+              >
+                原图
               </button>
             </div>
           </div>
