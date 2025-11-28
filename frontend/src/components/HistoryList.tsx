@@ -78,11 +78,17 @@ const HistoryList: React.FC<HistoryListProps> = ({
         limit: 10,
       });
 
+      const pagination = response.data.pagination || {};
+      const limit = pagination.limit ?? 10;
+      const total = pagination.total ?? response.data.tasks.length;
+      const computedTotalPages = pagination.totalPages ?? Math.max(1, Math.ceil(total / limit));
+      const currentPage = pagination.page ?? pageNum;
+
       setTasks(response.data.tasks);
-      setPage(pageNum);
-      setTotalPages(response.data.pagination.totalPages || 1);
-      setTotalCount(response.data.pagination.total || response.data.tasks.length);
-      setHasMore(pageNum < response.data.pagination.totalPages);
+      setPage(currentPage);
+      setTotalPages(computedTotalPages);
+      setTotalCount(total);
+      setHasMore(currentPage < computedTotalPages);
       if (reset) {
         setSelectedTasks(new Set());
         setSelectAll(false);
@@ -539,7 +545,7 @@ const HistoryList: React.FC<HistoryListProps> = ({
           </div>
         )}
 
-        {!loading && totalPages > 1 && (
+        {!loading && (totalPages > 1 || totalCount > 10 || hasMore) && (
           <div className="mt-2 flex items-center justify-between text-xs text-gray-600">
             <span>
               第 {page} / {totalPages} 页{totalCount ? ` · 共 ${totalCount} 条` : ''}
