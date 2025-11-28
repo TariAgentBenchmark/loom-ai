@@ -11,7 +11,6 @@ import {
   AlertTriangle,
   Menu,
   X,
-  Phone,
   MessageCircle,
 } from 'lucide-react';
 import { ProcessingMethod } from '../lib/processing';
@@ -92,20 +91,6 @@ const HomeView: React.FC<HomeViewProps> = ({
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showWechatModal, setShowWechatModal] = useState(false);
-  const contactPhone = '17680457204';
-  const copyPhoneToClipboard = async () => {
-    try {
-      await navigator.clipboard.writeText(contactPhone);
-    } catch {
-      const textarea = document.createElement('textarea');
-      textarea.value = contactPhone;
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
-    }
-    alert('电话号码已复制');
-  };
   const creditsLabel = formatNumber(
     creditBalance?.credits ?? accountSummary?.credits,
     isLoggedIn ? '0.00' : '--',
@@ -450,39 +435,19 @@ const HomeView: React.FC<HomeViewProps> = ({
 
               <section>
                 <h3 className="text-base font-bold text-gray-900 mb-3 flex items-center">
-                  <Phone className="h-4 w-4 text-green-500 mr-2" />
+                  <MessageCircle className="h-4 w-4 text-green-500 mr-2" />
                   联系方式
                 </h3>
-                <div className="space-y-3">
-                  <div className="bg-gray-50 rounded-lg p-3 flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-green-100 rounded-full">
-                        <Phone className="h-4 w-4 text-green-600" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">电话</div>
-                    <div className="text-xs text-gray-600">{contactPhone}</div>
-                  </div>
-                </div>
                 <button
-                  type="button"
-                  onClick={copyPhoneToClipboard}
-                  className="text-xs text-green-600 hover:text-green-700 font-semibold"
+                  onClick={() => {
+                    setShowWechatModal(true);
+                    setSidebarOpen(false);
+                  }}
+                  className="w-full bg-green-500 hover:bg-green-600 text-white p-3 rounded-lg text-xs font-medium transition-all flex items-center justify-center space-x-2"
                 >
-                  复制
+                  <MessageCircle className="h-4 w-4" />
+                  <span>微信扫码</span>
                 </button>
-              </div>
-              <button
-                onClick={() => {
-                  setShowWechatModal(true);
-                  setSidebarOpen(false);
-                    }}
-                    className="w-full bg-green-500 hover:bg-green-600 text-white p-3 rounded-lg text-xs font-medium transition-all flex items-center justify-center space-x-2"
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                    <span>微信扫码</span>
-                  </button>
-                </div>
               </section>
 
               {isLoggedIn && onLogout && (
@@ -580,36 +545,16 @@ const HomeView: React.FC<HomeViewProps> = ({
 
           <section className="mt-auto">
             <h3 className="text-base md:text-lg font-bold text-gray-900 mb-3 md:mb-4 flex items-center">
-              <Phone className="h-4 w-4 md:h-5 md:w-5 text-green-500 mr-2" />
+              <MessageCircle className="h-4 w-4 md:h-5 md:w-5 text-green-500 mr-2" />
               联系方式
             </h3>
-            <div className="space-y-3">
-              <div className="bg-gray-50 rounded-lg p-3 md:p-4 flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-green-100 rounded-full">
-                    <Phone className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
-                  </div>
-                  <div>
-                    <div className="text-sm md:text-base font-medium text-gray-900">电话</div>
-                    <div className="text-xs md:text-sm text-gray-600">{contactPhone}</div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={copyPhoneToClipboard}
-                  className="text-xs md:text-sm text-green-600 hover:text-green-700 font-semibold"
-                >
-                  复制
-                </button>
-              </div>
-              <button
-                onClick={() => setShowWechatModal(true)}
-                className="w-full bg-green-500 hover:bg-green-600 text-white p-3 md:p-3.5 rounded-lg text-xs md:text-sm font-medium transition-all flex items-center justify-center space-x-2 shadow-sm"
-              >
-                <MessageCircle className="h-4 w-4 md:h-5 md:w-5" />
-                <span>微信扫码</span>
-              </button>
-            </div>
+            <button
+              onClick={() => setShowWechatModal(true)}
+              className="w-full bg-green-500 hover:bg-green-600 text-white p-3 md:p-3.5 rounded-lg text-xs md:text-sm font-medium transition-all flex items-center justify-center space-x-2 shadow-sm"
+            >
+              <MessageCircle className="h-4 w-4 md:h-5 md:w-5" />
+              <span>微信扫码</span>
+            </button>
           </section>
         </aside>
 
