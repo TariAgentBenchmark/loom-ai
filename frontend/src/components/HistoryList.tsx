@@ -40,6 +40,8 @@ const HistoryList: React.FC<HistoryListProps> = ({
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
   const [showDownloadOptions, setShowDownloadOptions] = useState(false);
@@ -76,13 +78,15 @@ const HistoryList: React.FC<HistoryListProps> = ({
         limit: 10,
       });
 
-      if (reset) {
-        setTasks(response.data.tasks);
-      } else {
-        setTasks(prev => [...prev, ...response.data.tasks]);
-      }
-
+      setTasks(response.data.tasks);
+      setPage(pageNum);
+      setTotalPages(response.data.pagination.totalPages || 1);
+      setTotalCount(response.data.pagination.total || response.data.tasks.length);
       setHasMore(pageNum < response.data.pagination.totalPages);
+      if (reset) {
+        setSelectedTasks(new Set());
+        setSelectAll(false);
+      }
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : '获取历史记录失败');
@@ -96,12 +100,10 @@ const HistoryList: React.FC<HistoryListProps> = ({
     fetchTasks(1, true);
   }, [fetchTasks, refreshToken]);
 
-  const loadMore = () => {
-    if (!loading && hasMore) {
-      const nextPage = page + 1;
-      setPage(nextPage);
-      fetchTasks(nextPage, false);
-    }
+  const handlePageChange = (newPage: number) => {
+    if (loading) return;
+    if (newPage < 1 || newPage > totalPages) return;
+    fetchTasks(newPage, true);
   };
 
   const getStatusIcon = (status: string) => {
@@ -537,13 +539,38 @@ const HistoryList: React.FC<HistoryListProps> = ({
           </div>
         )}
 
-        {!loading && hasMore && tasks.length > 0 && (
-          <button
-            onClick={loadMore}
-            className="w-full py-2 text-center text-sm text-blue-500 hover:text-blue-600 transition"
-          >
-            加载更多
-          </button>
+        {!loading && totalPages > 1 && (
+          <div className="mt-2 flex items-center justify-between text-xs text-gray-600">
+            <span>
+              第 {page} / {totalPages} 页{totalCount ? ` · 共 ${totalCount} 条` : ''}
+            </span>
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={() => handlePageChange(page - 1)}
+                disabled={page === 1 || loading}
+                className={`px-3 py-1 rounded border text-sm ${
+                  page === 1 || loading
+                    ? 'border-gray-200 text-gray-400 cursor-not-allowed'
+                    : 'border-gray-300 text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                上一页
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePageChange(page + 1)}
+                disabled={!hasMore || loading || page === totalPages}
+                className={`px-3 py-1 rounded border text-sm ${
+                  !hasMore || loading || page === totalPages
+                    ? 'border-gray-200 text-gray-400 cursor-not-allowed'
+                    : 'border-gray-300 text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                下一页
+              </button>
+            </div>
+          </div>
         )}
       </div>
 
