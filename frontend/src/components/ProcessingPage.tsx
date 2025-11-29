@@ -549,8 +549,9 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   };
 
   const handleProcessedImagePreview = (url: string, index?: number) => {
-    // 从URL中提取文件扩展名
-    const urlParts = url.split("/");
+    // 从URL中提取文件扩展名，先去除查询参数
+    const cleanUrl = url.split("?")[0];
+    const urlParts = cleanUrl.split("/");
     const urlFilename = urlParts[urlParts.length - 1];
     const extensionMatch = urlFilename.match(/\.[^.]+$/);
     const extension = extensionMatch ? extensionMatch[0] : ".png";

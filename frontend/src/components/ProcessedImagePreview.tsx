@@ -116,14 +116,14 @@ const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({ image, on
     if (!container || !img) {
       return;
     }
-    
+
     // 对于SVG文件，使用不同的尺寸获取方式
     let width = 0, height = 0;
     if (img && img.naturalWidth && img.naturalHeight) {
       width = img.naturalWidth;
       height = img.naturalHeight;
     }
-    
+
     if (!width || !height) {
       // 如果无法获取尺寸，使用默认值
       width = 500;
@@ -252,38 +252,26 @@ const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({ image, on
                 filename: image.filename,
                 isSvg: image.filename.toLowerCase().includes('.svg') || image.url.toLowerCase().includes('.svg')
               });
-              
+
               const isSvg =
                 image.filename.toLowerCase().includes('.svg') ||
                 image.url.toLowerCase().includes('.svg');
 
               if (isSvg) {
-                console.log('ProcessedImagePreview: Detected SVG file, using <object>');
+                console.log('ProcessedImagePreview: Detected SVG file, using <img> tag');
                 return (
-                  <object
-                    ref={imageRef as unknown as React.RefObject<HTMLObjectElement>}
-                    data={resolvedUrl}
-                    type="image/svg+xml"
-                    className="max-w-full max-h-full object-contain"
-                    style={{ width: '100%', height: '100%', minHeight: '300px' }}
+                  <img
+                    ref={imageRef}
+                    src={resolvedUrl}
+                    alt={image.filename}
+                    className="w-auto h-auto max-w-full max-h-full object-contain"
                     draggable={false}
+                    onDragStart={(e) => e.preventDefault()}
                     onLoad={handleImageLoad}
                     onError={(e) =>
-                      console.error('ProcessedImagePreview: SVG failed to load (object)', e)
+                      console.error('ProcessedImagePreview: SVG failed to load', e)
                     }
-                  >
-                    <img
-                      src={resolvedUrl}
-                      alt={image.filename}
-                      className="max-w-full max-h-full object-contain"
-                      draggable={false}
-                      onDragStart={(e) => e.preventDefault()}
-                      onLoad={handleImageLoad}
-                      onError={(e) =>
-                        console.error('ProcessedImagePreview: SVG fallback img failed', e)
-                      }
-                    />
-                  </object>
+                  />
                 );
               }
 
