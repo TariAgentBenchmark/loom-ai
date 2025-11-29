@@ -31,6 +31,7 @@ class AdminUserResponse(BaseModel):
     userId: str
     email: Optional[str]
     nickname: Optional[str]
+    phone: Optional[str]
     credits: float
     membershipType: str
     status: str
@@ -129,6 +130,8 @@ class AdminOrderResponse(BaseModel):
     orderId: str
     userId: str
     userEmail: Optional[str] = None
+    userPhone: Optional[str] = None
+    userNickname: Optional[str] = None
     packageId: str
     packageName: str
     packageType: str
@@ -270,6 +273,7 @@ async def get_all_users(
                 userId=user.user_id,
                 email=user.email,
                 nickname=user.nickname,
+                phone=user.phone,
                 credits=to_float(user.credits),
                 membershipType=user.membership_type.value,
                 status=user.status.value,
@@ -331,6 +335,7 @@ async def get_user_detail(
             userId=user.user_id,
             email=user.email,
             nickname=user.nickname,
+            phone=user.phone,
             credits=to_float(user.credits),
             membershipType=user.membership_type.value,
             status=user.status.value,
@@ -419,6 +424,7 @@ async def create_user(
                 userId=user.user_id,
                 email=user.email,
                 nickname=user.nickname,
+                phone=user.phone,
                 credits=to_float(user.credits),
                 membershipType=user.membership_type.value,
                 status=user.status.value,
@@ -1112,6 +1118,8 @@ async def get_all_orders(
                 orderId=order.order_id,
                 userId=order.user.user_id,
                 userEmail=order.user.email or None,
+                userPhone=order.user.phone or None,
+                userNickname=order.user.nickname or None,
                 packageId=order.package_id,
                 packageName=order.package_name,
                 packageType=order.package_type,
@@ -1200,6 +1208,8 @@ async def get_order_detail(
             orderId=order.order_id,
             userId=order.user.user_id,
             userEmail=order.user.email or None,
+            userPhone=order.user.phone or None,
+            userNickname=order.user.nickname or None,
             packageId=order.package_id,
             packageName=order.package_name,
             packageType=order.package_type,

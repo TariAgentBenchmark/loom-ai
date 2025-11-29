@@ -7,6 +7,7 @@ export const createMockAdminUser = () => ({
   userId: 'admin_001',
   email: 'admin@test.com',
   nickname: 'Test Admin',
+  phone: '18800000000',
   credits: 999999,
   isAdmin: true,
 })
@@ -15,6 +16,7 @@ export const createMockNormalUser = () => ({
   userId: 'user_001',
   email: 'user@test.com',
   nickname: 'Test User',
+  phone: '18800000001',
   credits: 100,
   isAdmin: false,
 })
@@ -24,6 +26,7 @@ export const createMockUsersList = (count: number = 5) => {
     userId: `user_${String(i + 1).padStart(3, '0')}`,
     email: `user${i + 1}@test.com`,
     nickname: `Test User ${i + 1}`,
+    phone: `1880000${String(i + 1).padStart(4, '0')}`,
     credits: Math.floor(Math.random() * 1000),
     status: 'active',
     isAdmin: false,
@@ -37,6 +40,8 @@ export const createMockOrdersList = (count: number = 5) => {
     orderId: `order_${String(i + 1).padStart(3, '0')}`,
     userId: `user_${String(i + 1).padStart(3, '0')}`,
     userEmail: `user${i + 1}@test.com`,
+    userPhone: `1880000${String(i + 1).padStart(4, '0')}`,
+    userNickname: `用户${i + 1}`,
     packageId: `pkg_${String(i + 1).padStart(3, '0')}`,
     packageName: `Test Package ${i + 1}`,
     packageType: ['credits', 'membership'][Math.floor(Math.random() * 2)],

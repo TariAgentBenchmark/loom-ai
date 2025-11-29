@@ -376,8 +376,18 @@ const AdminOrderManagement: React.FC = () => {
                     <div className="text-sm text-gray-500">{order.paymentMethod}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{order.userEmail}</div>
-                    <div className="text-sm text-gray-500">{order.userId}</div>
+                    <div className="text-sm font-medium text-gray-900">
+                      {order.userNickname || order.userPhone || order.userEmail || order.userId || "未填写"}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      <span className="text-gray-600 mr-1">手机号</span>
+                      {order.userPhone || "未设置手机号"}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      <span className="text-gray-600 mr-1">邮箱</span>
+                      {order.userEmail || "未设置邮箱"}
+                    </div>
+                    <div className="text-xs text-gray-400">{order.userId}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{order.packageName}</div>

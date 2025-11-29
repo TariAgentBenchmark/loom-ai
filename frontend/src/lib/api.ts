@@ -1016,6 +1016,7 @@ export interface AdminUser {
   userId: string;
   email: string | null;
   nickname: string | null;
+   phone: string | null;
   credits: number;
   membershipType: string;
   status: string;
@@ -1069,7 +1070,9 @@ export interface AdminCreditTransactionsResponse {
 export interface AdminOrder {
   orderId: string;
   userId: string;
-  userEmail: string;
+  userEmail: string | null;
+  userPhone: string | null;
+  userNickname: string | null;
   packageId: string;
   packageName: string;
   packageType: string;

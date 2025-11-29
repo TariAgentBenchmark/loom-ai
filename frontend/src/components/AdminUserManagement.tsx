@@ -477,15 +477,22 @@ const AdminUserManagement: React.FC = () => {
                       <div className="flex-shrink-0 h-10 w-10">
                         <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
                           <span className="text-sm font-medium text-gray-600">
-                            {user.nickname?.charAt(0) || user.email?.charAt(0) || "U"}
+                            {user.nickname?.charAt(0) || user.email?.charAt(0) || user.phone?.charAt(0) || "U"}
                           </span>
                         </div>
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900">
-                          {user.nickname || "未设置昵称"}
+                          {user.nickname || user.phone || user.email || "未设置昵称"}
                         </div>
-                        <div className="text-sm text-gray-500">{user.email || "未设置邮箱"}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          <span className="text-gray-600 mr-1">手机号</span>
+                          {user.phone || "未设置手机号"}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          <span className="text-gray-600 mr-1">邮箱</span>
+                          {user.email || "未设置邮箱"}
+                        </div>
                         {user.isAdmin && (
                           <div className="flex items-center mt-1">
                             <Crown className="h-3 w-3 text-yellow-500 mr-1" />

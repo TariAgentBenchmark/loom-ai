@@ -253,12 +253,22 @@ const AdminOrderDetail: React.FC = () => {
           <h3 className="text-lg font-medium text-gray-900 mb-4">用户信息</h3>
           <div className="space-y-4">
             <div>
+              <p className="text-sm font-medium text-gray-500">用户名</p>
+              <p className="text-sm text-gray-900">
+                {order.userNickname || order.userPhone || order.userEmail || order.userId || "未填写"}
+              </p>
+            </div>
+            <div>
               <p className="text-sm font-medium text-gray-500">用户ID</p>
               <p className="text-sm text-gray-900">{order.userId}</p>
             </div>
             <div>
+              <p className="text-sm font-medium text-gray-500">手机号</p>
+              <p className="text-sm text-gray-900">{order.userPhone || "未设置手机号"}</p>
+            </div>
+            <div>
               <p className="text-sm font-medium text-gray-500">用户邮箱</p>
-              <p className="text-sm text-gray-900">{order.userEmail}</p>
+              <p className="text-sm text-gray-900">{order.userEmail || "未设置邮箱"}</p>
             </div>
           </div>
         </div>
