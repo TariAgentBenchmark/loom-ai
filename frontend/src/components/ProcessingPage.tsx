@@ -567,6 +567,24 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     setProcessedImagePreview(null);
   };
 
+  const handlePreviewNavigation = (direction: "prev" | "next") => {
+    if (!processedImage || !processedImagePreview) return;
+
+    const urls = processedImage
+      .split(",")
+      .map((u) => u.trim())
+      .filter(Boolean);
+    const currentIndex = urls.findIndex((u) => u === processedImagePreview.url);
+
+    if (currentIndex === -1) return;
+
+    const newIndex = direction === "prev" ? currentIndex - 1 : currentIndex + 1;
+
+    if (newIndex >= 0 && newIndex < urls.length) {
+      handleProcessedImagePreview(urls[newIndex], newIndex);
+    }
+  };
+
   const extractExtension = (value: string): string => {
     const sanitized = value.split(/[?#]/)[0] ?? value;
     const parts = sanitized.split(".");
@@ -1746,6 +1764,30 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
         <ProcessedImagePreview
           image={processedImagePreview}
           onClose={handleCloseProcessedImagePreview}
+          onPrev={() => handlePreviewNavigation("prev")}
+          onNext={() => handlePreviewNavigation("next")}
+          hasPrev={(() => {
+            if (!processedImage || !processedImagePreview) return false;
+            const urls = processedImage
+              .split(",")
+              .map((u) => u.trim())
+              .filter(Boolean);
+            const currentIndex = urls.findIndex(
+              (u) => u === processedImagePreview.url,
+            );
+            return currentIndex > 0;
+          })()}
+          hasNext={(() => {
+            if (!processedImage || !processedImagePreview) return false;
+            const urls = processedImage
+              .split(",")
+              .map((u) => u.trim())
+              .filter(Boolean);
+            const currentIndex = urls.findIndex(
+              (u) => u === processedImagePreview.url,
+            );
+            return currentIndex !== -1 && currentIndex < urls.length - 1;
+          })()}
         />
       )}
     </div>

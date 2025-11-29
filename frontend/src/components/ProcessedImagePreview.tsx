@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { X, Download, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
+import { X, Download, ZoomIn, ZoomOut, RotateCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { resolveFileUrl } from '../lib/api';
 
 interface ProcessedImagePreviewProps {
@@ -10,9 +10,20 @@ interface ProcessedImagePreviewProps {
     filename: string;
   } | null;
   onClose: () => void;
+  onPrev?: () => void;
+  onNext?: () => void;
+  hasPrev?: boolean;
+  hasNext?: boolean;
 }
 
-const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({ image, onClose }) => {
+const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({
+  image,
+  onClose,
+  onPrev,
+  onNext,
+  hasPrev = false,
+  hasNext = false
+}) => {
   const [scale, setScale] = useState(1);
   const [initialScale, setInitialScale] = useState(1);
   const [rotation, setRotation] = useState(0);
@@ -21,6 +32,24 @@ const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({ image, on
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const imageContainerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+
+  // 处理键盘导航
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!image) return;
+
+      if (e.key === 'ArrowLeft' && hasPrev && onPrev) {
+        onPrev();
+      } else if (e.key === 'ArrowRight' && hasNext && onNext) {
+        onNext();
+      } else if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [image, hasPrev, hasNext, onPrev, onNext, onClose]);
 
   // 处理触控板双指缩放和鼠标滚轮缩放
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -167,7 +196,7 @@ const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({ image, on
     <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">
       <div className="relative w-full h-full flex flex-col">
         {/* 顶部工具栏 */}
-        <div className="flex items-center justify-between p-3 md:p-4 bg-black bg-opacity-50">
+        <div className="flex items-center justify-between p-3 md:p-4 bg-black bg-opacity-50 z-10">
           <div className="flex items-center space-x-2 md:space-x-4">
             <h3 className="text-white text-sm md:font-medium truncate max-w-[200px] md:max-w-none">
               {image.filename}
@@ -227,7 +256,7 @@ const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({ image, on
 
         {/* 图片显示区域 */}
         <div
-          className="flex-1 flex items-center justify-center overflow-hidden p-2 md:p-0"
+          className="flex-1 flex items-center justify-center overflow-hidden p-2 md:p-0 relative"
           onWheel={handleWheel}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
@@ -236,6 +265,33 @@ const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({ image, on
           ref={imageContainerRef}
           style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
         >
+          {/* 导航按钮 */}
+          {hasPrev && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onPrev?.();
+              }}
+              className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all z-20"
+              title="上一张 (←)"
+            >
+              <ChevronLeft className="h-8 w-8" />
+            </button>
+          )}
+
+          {hasNext && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onNext?.();
+              }}
+              className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all z-20"
+              title="下一张 (→)"
+            >
+              <ChevronRight className="h-8 w-8" />
+            </button>
+          )}
+
           <div
             className="relative"
             style={{
