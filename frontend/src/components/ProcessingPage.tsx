@@ -1640,28 +1640,48 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                           // 检查是否是SVG文件
                           if (processedImage.toLowerCase().includes(".svg")) {
                             console.log(
-                              "ProcessingPage: Detected SVG file, using special handling",
+                              "ProcessingPage: Detected SVG file, using <object>",
                             );
                             return (
-                              <img
-                                src={resolvedUrl}
-                                alt="Processed"
-                                className="max-w-full max-h-[60vh] md:max-h-[80vh] w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+                              <object
+                                data={resolvedUrl}
+                                type="image/svg+xml"
+                                className="max-w-full max-h-[60vh] md:max-h-[80vh] w-auto h-auto rounded-lg border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
                                 onClick={() =>
                                   handleProcessedImagePreview(processedImage)
                                 }
                                 onLoad={() =>
                                   console.log(
-                                    "ProcessingPage: SVG loaded successfully (img fallback)",
+                                    "ProcessingPage: SVG loaded successfully (object)",
                                   )
                                 }
                                 onError={(e) =>
                                   console.error(
-                                    "ProcessingPage: SVG failed to load (img fallback)",
+                                    "ProcessingPage: SVG failed to load (object)",
                                     e,
                                   )
                                 }
-                              />
+                              >
+                                <img
+                                  src={resolvedUrl}
+                                  alt="Processed"
+                                  className="max-w-full max-h-[60vh] md:max-h-[80vh] w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+                                  onClick={() =>
+                                    handleProcessedImagePreview(processedImage)
+                                  }
+                                  onLoad={() =>
+                                    console.log(
+                                      "ProcessingPage: SVG loaded successfully (img fallback)",
+                                    )
+                                  }
+                                  onError={(e) =>
+                                    console.error(
+                                      "ProcessingPage: SVG failed to load (img fallback)",
+                                      e,
+                                    )
+                                  }
+                                />
+                              </object>
                             );
                           }
 
