@@ -157,6 +157,7 @@ export default function Home() {
   const [seamFit, setSeamFit] = useState<number>(0.5);
   const [historyRefreshToken, setHistoryRefreshToken] = useState(0);
   const [activeTasks, setActiveTasks] = useState<PersistedProcessingTaskMap>({});
+  const [isCreatingTask, setIsCreatingTask] = useState(false);
 
   const methodUiStateRef = useRef<MethodUiStateMap>({});
   const pollingRefs = useRef<Record<string, ReturnType<typeof setInterval>>>({});
@@ -383,7 +384,7 @@ export default function Home() {
         console.log('page.tsx: Calling register API');
         const registerResult = await register(credentials);
         console.log('page.tsx: Register API response', registerResult);
-        
+
         // After successful registration, automatically log in
         console.log('page.tsx: Calling authenticate API');
         const loginResult = await authenticate({
@@ -392,7 +393,7 @@ export default function Home() {
           rememberMe: true
         });
         console.log('page.tsx: Authenticate API response', loginResult);
-        
+
         rememberMeRef.current = true;
         setInitialAuthTokens(
           {
@@ -417,7 +418,7 @@ export default function Home() {
         setAuthState(createLoggedOutState());
         setAccountProfile(undefined);
         setCreditBalance(undefined);
-        
+
         // Handle specific registration errors
         const errorMessage = (error as Error)?.message;
         if (errorMessage?.includes("该手机号已被注册") || errorMessage?.includes("该邮箱已被注册")) {
@@ -429,7 +430,7 @@ export default function Home() {
         } else {
           setRegisterError('注册失败，请检查输入信息后重试');
         }
-        
+
         clearAuthTokens();
         rememberMeRef.current = false;
         throw error;
@@ -750,6 +751,7 @@ export default function Home() {
       payload.seamFit = Number(seamFit.toFixed(2));
     }
 
+    setIsCreatingTask(true);
     createProcessingTask(payload)
       .then((response) => {
         const task = response.data;
@@ -765,9 +767,11 @@ export default function Home() {
           }));
         }
         startStatusPolling(task.taskId, processingMethod);
+        setIsCreatingTask(false);
       })
       .catch((error: Error) => {
         setErrorMessage(error.message ?? '任务创建失败');
+        setIsCreatingTask(false);
       });
   };
 
@@ -813,7 +817,7 @@ export default function Home() {
           secondaryImagePreview={secondaryImagePreview}
           processedImage={processedImage}
           currentTaskId={currentTaskId || undefined}
-          isProcessing={isCurrentMethodProcessing}
+          isProcessing={isCurrentMethodProcessing || isCreatingTask}
           hasUploadedImage={Boolean(uploadedImage)}
           onBack={() => {
             setCurrentPage('home');
