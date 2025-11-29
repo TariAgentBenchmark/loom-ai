@@ -77,13 +77,8 @@ async def get_history_tasks(
                 credits_used_value = 0.0
 
             original_image_url = task.original_image_url
-            if original_image_url and file_service.is_oss_url(original_image_url):
-                try:
-                    signed_original = await file_service.generate_presigned_url_for_full_url(original_image_url)
-                    if signed_original:
-                        original_image_url = signed_original
-                except Exception as exc:  # pragma: no cover - 防御性处理
-                    logger.warning("历史列表生成原图预签名失败: %s", exc)
+            if original_image_url:
+                original_image_url = await file_service.ensure_accessible_url(original_image_url)
 
             formatted_task = {
                 "taskId": task.task_id,
@@ -114,15 +109,8 @@ async def get_history_tasks(
                 signed_urls = []
                 for url in filtered_urls:
                     clean_url = url.strip()
-                    if file_service.is_oss_url(clean_url):
-                        try:
-                            signed_url = await file_service.generate_presigned_url_for_full_url(clean_url)
-                            signed_urls.append(signed_url or clean_url)
-                        except Exception as exc:  # pragma: no cover - 防御性处理
-                            logger.warning("历史列表生成结果预签名失败: %s", exc)
-                            signed_urls.append(clean_url)
-                    else:
-                        signed_urls.append(clean_url)
+                    accessible_url = await file_service.ensure_accessible_url(clean_url)
+                    signed_urls.append(accessible_url or clean_url)
 
                 formatted_task["resultImage"] = {
                     "url": ",".join(signed_urls) if signed_urls else task.result_image_url,
@@ -204,15 +192,8 @@ async def get_task_detail(
             signed_urls = []
             for url in filtered_urls:
                 clean_url = url.strip()
-                if file_service.is_oss_url(clean_url):
-                    try:
-                        signed_url = await file_service.generate_presigned_url_for_full_url(clean_url)
-                        signed_urls.append(signed_url or clean_url)
-                    except Exception as exc:  # pragma: no cover - 防御性处理
-                        logger.warning("历史详情生成结果预签名失败: %s", exc)
-                        signed_urls.append(clean_url)
-                else:
-                    signed_urls.append(clean_url)
+                accessible_url = await file_service.ensure_accessible_url(clean_url)
+                signed_urls.append(accessible_url or clean_url)
             filename_value = (
                 ",".join(filtered_filenames) if filtered_filenames else task.result_filename
             )
@@ -230,13 +211,8 @@ async def get_task_detail(
             }
 
         original_image_url = task.original_image_url
-        if original_image_url and file_service.is_oss_url(original_image_url):
-            try:
-                signed_original = await file_service.generate_presigned_url_for_full_url(original_image_url)
-                if signed_original:
-                    original_image_url = signed_original
-            except Exception as exc:  # pragma: no cover - 防御性处理
-                logger.warning("历史详情生成原图预签名失败: %s", exc)
+        if original_image_url:
+            original_image_url = await file_service.ensure_accessible_url(original_image_url)
 
         return SuccessResponse(
             data={

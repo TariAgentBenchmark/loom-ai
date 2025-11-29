@@ -86,6 +86,32 @@ class FileService:
             return None
         return await self.oss_service.generate_presigned_url(object_key, expiration)
 
+    async def ensure_accessible_url(self, file_url: Optional[str]) -> Optional[str]:
+        """
+        返回可直接访问的URL：
+        - 如果是当前桶的OSS URL，则生成预签名地址
+        - 其他情况返回原始URL
+        """
+        if not file_url:
+            return file_url
+
+        try:
+            if self.oss_service.is_configured() and (
+                self.is_oss_url(file_url)
+                or (
+                    self.oss_service.bucket_name
+                    and self.oss_service.bucket_name.lower()
+                    in urlparse(file_url).netloc.lower()
+                )
+            ):
+                signed_url = await self.generate_presigned_url_for_full_url(file_url)
+                if signed_url:
+                    return signed_url
+        except Exception as exc:  # pragma: no cover - 防御性处理
+            logger.warning("生成可访问URL失败，将返回原始地址: %s", exc)
+
+        return file_url
+
     def validate_file(self, file_bytes: bytes, filename: str) -> Dict[str, Any]:
         """验证文件"""
         # 检查文件大小

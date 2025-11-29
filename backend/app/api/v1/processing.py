@@ -686,25 +686,13 @@ async def get_task_status(
             signed_urls = []
             for url in filtered_urls:
                 clean_url = url.strip()
-                if file_service.is_oss_url(clean_url):
-                    try:
-                        signed_url = await file_service.generate_presigned_url_for_full_url(clean_url)
-                        signed_urls.append(signed_url or clean_url)
-                    except Exception as exc:  # pragma: no cover - 防御性处理
-                        logger.warning("生成预签名URL失败: %s", exc)
-                        signed_urls.append(clean_url)
-                else:
-                    signed_urls.append(clean_url)
+                accessible_url = await file_service.ensure_accessible_url(clean_url)
+                signed_urls.append(accessible_url or clean_url)
 
             processed_value = ",".join(signed_urls) if signed_urls else task.result_image_url
             original_image_url = task.original_image_url
-            if original_image_url and file_service.is_oss_url(original_image_url):
-                try:
-                    signed_original = await file_service.generate_presigned_url_for_full_url(original_image_url)
-                    if signed_original:
-                        original_image_url = signed_original
-                except Exception as exc:  # pragma: no cover - 防御性处理
-                    logger.warning("原图预签名URL生成失败: %s", exc)
+            if original_image_url:
+                original_image_url = await file_service.ensure_accessible_url(original_image_url)
 
             response_data["result"] = {
                 "originalImage": original_image_url,
