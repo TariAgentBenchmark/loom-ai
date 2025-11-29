@@ -17,6 +17,7 @@ from app.services.ai_client.liblib_client import LiblibUpscaleAPI
 from app.services.ai_client.meitu_client import MeituClient
 from app.services.ai_client.vectorizer_client import VectorizerClient
 from app.services.ai_client.vector_webapi_client import VectorWebAPIClient
+from app.services.ai_client.a8_vectorizer_client import A8VectorizerClient
 from app.services.ai_client.runninghub_client import RunningHubClient
 from app.services.file_service import FileService
 
@@ -35,6 +36,7 @@ class AIClient:
         self.jimeng_client = JimengClient()
         self.vectorizer_client = VectorizerClient()
         self.vector_webapi_client = VectorWebAPIClient()
+        self.a8_vectorizer_client = A8VectorizerClient()
         self.meitu_client = MeituClient()
         self.image_utils = ImageProcessingUtils()
         self.base_client_utils = BaseAIClient()
@@ -533,11 +535,35 @@ class AIClient:
         )
         original_filename = opts.get("original_filename")
 
-        return await self.vector_webapi_client.convert_image(
-            image_bytes,
-            vector_format=vector_format,
-            filename=original_filename,
-        )
+        original_filename = opts.get("original_filename")
+
+        # 优先尝试使用A8矢量化API
+        try:
+            # A8 API需要的格式参数是 'eps' 或 'svg'，去掉点号
+            a8_fmt = vector_format.lstrip('.').lower()
+            if a8_fmt not in ('eps', 'svg'):
+                # 如果格式不支持，默认使用svg，或者根据需求决定是否跳过A8
+                # 这里假设A8只支持eps和svg，如果请求其他格式，可能需要直接走WebAPI或者强制转为svg
+                if a8_fmt == 'pdf': # WebAPI支持pdf，A8不支持，直接走WebAPI
+                     logger.info(f"Format {vector_format} not supported by A8, skipping to WebAPI")
+                     raise ValueError("Format not supported by A8")
+                a8_fmt = 'svg' # 默认兜底
+
+            logger.info(f"Attempting vectorization with A8 API, format: {a8_fmt}")
+            return await self.a8_vectorizer_client.image_to_vector(
+                image_bytes,
+                fmt=a8_fmt,
+                save_path=None, # 让client自己生成路径
+                timeout=120
+            )
+        except Exception as e:
+            logger.warning(f"A8 vectorization failed, falling back to WebAPI: {str(e)}")
+            # 失败后降级调用 WebAPI
+            return await self.vector_webapi_client.convert_image(
+                image_bytes,
+                vector_format=vector_format,
+                filename=original_filename,
+            )
 
     async def vectorize_image_a8(
         self,
