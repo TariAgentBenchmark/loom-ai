@@ -253,23 +253,39 @@ const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({ image, on
                 isSvg: image.filename.toLowerCase().includes('.svg') || image.url.toLowerCase().includes('.svg')
               });
               
-              // 检查是否是SVG文件
-              if (image.filename.toLowerCase().includes('.svg') || image.url.toLowerCase().includes('.svg')) {
-                console.log('ProcessedImagePreview: Detected SVG file, using special handling');
+              const isSvg =
+                image.filename.toLowerCase().includes('.svg') ||
+                image.url.toLowerCase().includes('.svg');
+
+              if (isSvg) {
+                console.log('ProcessedImagePreview: Detected SVG file, using <object>');
                 return (
-                  <img
-                    ref={imageRef}
-                    src={resolvedUrl}
-                    alt={image.filename}
+                  <object
+                    ref={imageRef as unknown as React.RefObject<HTMLObjectElement>}
+                    data={resolvedUrl}
+                    type="image/svg+xml"
                     className="max-w-full max-h-full object-contain"
                     draggable={false}
-                    onDragStart={(e) => e.preventDefault()}
                     onLoad={handleImageLoad}
-                    onError={(e) => console.error('ProcessedImagePreview: SVG failed to load (img fallback)', e)}
-                  />
+                    onError={(e) =>
+                      console.error('ProcessedImagePreview: SVG failed to load (object)', e)
+                    }
+                  >
+                    <img
+                      src={resolvedUrl}
+                      alt={image.filename}
+                      className="max-w-full max-h-full object-contain"
+                      draggable={false}
+                      onDragStart={(e) => e.preventDefault()}
+                      onLoad={handleImageLoad}
+                      onError={(e) =>
+                        console.error('ProcessedImagePreview: SVG fallback img failed', e)
+                      }
+                    />
+                  </object>
                 );
               }
-              
+
               return (
                 <img
                   ref={imageRef}

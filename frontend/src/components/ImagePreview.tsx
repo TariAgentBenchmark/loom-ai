@@ -395,9 +395,12 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
                     isSvg: currentImage.filename.toLowerCase().includes('.svg') || currentImage.url.toLowerCase().includes('.svg')
                   });
                   
-                  // 检查是否是SVG文件
-                  if (currentImage.filename.toLowerCase().includes('.svg') || currentImage.url.toLowerCase().includes('.svg')) {
-                    console.log('ImagePreview: Detected SVG file, using special handling');
+                  const isSvg =
+                    currentImage.filename.toLowerCase().includes('.svg') ||
+                    currentImage.url.toLowerCase().includes('.svg');
+
+                  if (isSvg) {
+                    console.log('ImagePreview: Detected SVG file, using <object>');
                     return (
                       <object
                         ref={objectRef}
