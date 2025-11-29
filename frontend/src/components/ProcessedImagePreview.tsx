@@ -265,6 +265,7 @@ const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({ image, on
                     data={resolvedUrl}
                     type="image/svg+xml"
                     className="max-w-full max-h-full object-contain"
+                    style={{ width: '100%', height: '100%', minHeight: '300px' }}
                     draggable={false}
                     onLoad={handleImageLoad}
                     onError={(e) =>

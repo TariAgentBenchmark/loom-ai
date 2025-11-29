@@ -407,7 +407,7 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
                         data={resolvedUrl}
                         type="image/svg+xml"
                         className="w-full h-full"
-                        style={{ maxWidth: '100%', maxHeight: '100%' }}
+                        style={{ maxWidth: '100%', maxHeight: '100%', minHeight: '300px' }}
                         draggable={false}
                         onLoad={handleImageLoad}
                         onError={(e) => console.error('ImagePreview: SVG failed to load', e)}
@@ -415,7 +415,7 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
                         <img
                           src={resolvedUrl}
                           alt={currentImage.filename}
-                          className="max-w-full max-h-full object-contain"
+                          className="w-full h-full object-contain"
                           draggable={false}
                           onDragStart={(e) => e.preventDefault()}
                           onError={(e) => console.error('ImagePreview: Fallback img also failed', e)}

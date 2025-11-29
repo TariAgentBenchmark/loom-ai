@@ -141,10 +141,10 @@ const CloudLoader: React.FC<CloudLoaderProps> = ({
             style={
               animated
                 ? {
-                    strokeDasharray: 620,
-                    strokeDashoffset: 620,
-                    animation: "loomCloudDraw 3s ease-in-out infinite",
-                  }
+                  strokeDasharray: 620,
+                  strokeDashoffset: 620,
+                  animation: "loomCloudDraw 3s ease-in-out infinite",
+                }
                 : undefined
             }
           />
@@ -276,18 +276,18 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     label: string;
     description: string;
   }[] = [
-    {
-      value: "meitu_v2",
-      label: "通用1",
-      description:
-        "基础高清模式，追求稳定还原与高保真，适合模糊或噪点较多的图片。",
-    },
-    {
-      value: "runninghub_vr2",
-      label: "通用2",
-      description: "锐化高清模式，突出细节与纹理锐度，适合较高清的原图。",
-    },
-  ];
+      {
+        value: "meitu_v2",
+        label: "通用1",
+        description:
+          "基础高清模式，追求稳定还原与高保真，适合模糊或噪点较多的图片。",
+      },
+      {
+        value: "runninghub_vr2",
+        label: "通用2",
+        description: "锐化高清模式，突出细节与纹理锐度，适合较高清的原图。",
+      },
+    ];
   const patternQualityOptions: { value: "standard" | "4k"; label: string }[] = [
     {
       value: "standard",
@@ -358,22 +358,19 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   const isSeamlessLoop = method === "seamless_loop";
   const isExpandImage = method === "expand_image";
   const seamFitValue = Math.max(0, Math.min(1, seamFit));
-  const uploadZoneClasses = `border-2 border-dashed rounded-lg md:rounded-xl p-4 md:p-8 text-center transition flex items-center justify-center ${
-    isProcessing
-      ? "cursor-not-allowed opacity-60 pointer-events-none"
-      : "cursor-pointer"
-  } ${
-    isSeamlessLoop
+  const uploadZoneClasses = `border-2 border-dashed rounded-lg md:rounded-xl p-4 md:p-8 text-center transition flex items-center justify-center ${isProcessing
+    ? "cursor-not-allowed opacity-60 pointer-events-none"
+    : "cursor-pointer"
+    } ${isSeamlessLoop
       ? "border-blue-300 hover:border-blue-400 bg-blue-50/70 min-h-[220px] md:min-h-[260px]"
       : isExpandImage
         ? "border-gray-300 hover:border-blue-400 bg-white min-h-[210px] md:min-h-[260px]"
         : "border-gray-300 hover:border-blue-400 min-h-[150px] md:min-h-[200px]"
-  }`;
-  const promptUploadBase = `border-2 border-dashed rounded-lg md:rounded-xl p-4 md:p-6 text-center transition flex items-center justify-center min-h-[170px] md:min-h-[200px] ${
-    isProcessing
-      ? "cursor-not-allowed opacity-60 pointer-events-none"
-      : "cursor-pointer"
-  }`;
+    }`;
+  const promptUploadBase = `border-2 border-dashed rounded-lg md:rounded-xl p-4 md:p-6 text-center transition flex items-center justify-center min-h-[170px] md:min-h-[200px] ${isProcessing
+    ? "cursor-not-allowed opacity-60 pointer-events-none"
+    : "cursor-pointer"
+    }`;
   const promptPrimaryClasses = `${promptUploadBase} border-gray-300 hover:border-blue-400 bg-white`;
   const promptSecondaryClasses = `${promptUploadBase} border-amber-300 hover:border-amber-400 bg-amber-50/60`;
 
@@ -947,11 +944,10 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                         type="button"
                         key={option.value}
                         onClick={() => handlePresetRatioSelect(option.value)}
-                        className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg border text-xs md:text-sm font-medium whitespace-nowrap flex-shrink-0 transition-all ${
-                          isActive
-                            ? "border-blue-500 bg-blue-50 text-blue-600 shadow-sm"
-                            : "border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50/60"
-                        }`}
+                        className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg border text-xs md:text-sm font-medium whitespace-nowrap flex-shrink-0 transition-all ${isActive
+                          ? "border-blue-500 bg-blue-50 text-blue-600 shadow-sm"
+                          : "border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50/60"
+                          }`}
                       >
                         {option.label}
                       </button>
@@ -1114,11 +1110,10 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                         type="button"
                         key={option.value}
                         onClick={() => onSeamDirectionChange?.(option.value)}
-                        className={`px-3 py-1.5 md:px-4 md:py-2 rounded-full border text-xs md:text-sm font-medium transition-all ${
-                          isActive
-                            ? "border-blue-500 bg-blue-50 text-blue-600 shadow-sm"
-                            : "border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50/60"
-                        }`}
+                        className={`px-3 py-1.5 md:px-4 md:py-2 rounded-full border text-xs md:text-sm font-medium transition-all ${isActive
+                          ? "border-blue-500 bg-blue-50 text-blue-600 shadow-sm"
+                          : "border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50/60"
+                          }`}
                       >
                         {option.label}
                       </button>
@@ -1193,11 +1188,10 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                       type="button"
                       key={option.value}
                       onClick={() => onPatternQualityChange?.(option.value)}
-                      className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-all ${
-                        isActive
-                          ? "border-blue-500 bg-blue-50 shadow-sm"
-                          : "border-gray-200 hover:border-blue-300 hover:bg-blue-50/60"
-                      }`}
+                      className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-all ${isActive
+                        ? "border-blue-500 bg-blue-50 shadow-sm"
+                        : "border-gray-200 hover:border-blue-300 hover:bg-blue-50/60"
+                        }`}
                     >
                       <span className="text-sm md:text-base font-semibold text-gray-900 flex items-center gap-2">
                         {option.label}
@@ -1385,9 +1379,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
 
                     return (
                       <div
-                        className={`flex flex-col md:flex-row gap-4 md:gap-6 w-full max-w-5xl ${
-                          shouldOffsetPreview ? "mt-4 md:mt-6" : ""
-                        }`}
+                        className={`flex flex-col md:flex-row gap-4 md:gap-6 w-full max-w-5xl ${shouldOffsetPreview ? "mt-4 md:mt-6" : ""
+                          }`}
                       >
                         <div className="flex md:flex-col gap-3 md:w-32 w-full md:flex-none overflow-x-auto md:overflow-visible">
                           {galleryUrls.map((url, index) => {
@@ -1397,11 +1390,10 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                                 key={url + index}
                                 type="button"
                                 onClick={() => setSelectedResultIndex(index)}
-                                className={`flex flex-col items-center rounded-lg border px-2 py-2 text-xs md:text-sm transition ${
-                                  isActive
-                                    ? "border-blue-500 bg-blue-50 shadow-sm"
-                                    : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
-                                }`}
+                                className={`flex flex-col items-center rounded-lg border px-2 py-2 text-xs md:text-sm transition ${isActive
+                                  ? "border-blue-500 bg-blue-50 shadow-sm"
+                                  : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
+                                  }`}
                                 title={`查看图 ${index + 1}`}
                               >
                                 <div className="w-16 h-24 md:w-20 md:h-28 rounded-md overflow-hidden border border-dashed border-gray-200 bg-white flex items-center justify-center mb-1">
@@ -1507,9 +1499,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
 
                     return (
                       <div
-                        className={`flex flex-col md:flex-row gap-4 md:gap-6 w-full max-w-5xl ${
-                          shouldOffsetPreview ? "mt-4 md:mt-6" : ""
-                        }`}
+                        className={`flex flex-col md:flex-row gap-4 md:gap-6 w-full max-w-5xl ${shouldOffsetPreview ? "mt-4 md:mt-6" : ""
+                          }`}
                       >
                         <div className="flex md:flex-col gap-3 md:w-32 w-full md:flex-none overflow-x-auto md:overflow-visible">
                           {imageUrls.map((url, index) => {
@@ -1519,11 +1510,10 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                                 key={url + index}
                                 type="button"
                                 onClick={() => setSelectedResultIndex(index)}
-                                className={`flex flex-col items-center rounded-lg border px-2 py-2 text-xs md:text-sm transition ${
-                                  isActive
-                                    ? "border-blue-500 bg-blue-50 shadow-sm"
-                                    : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
-                                }`}
+                                className={`flex flex-col items-center rounded-lg border px-2 py-2 text-xs md:text-sm transition ${isActive
+                                  ? "border-blue-500 bg-blue-50 shadow-sm"
+                                  : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
+                                  }`}
                                 title={`查看图 ${index + 1}`}
                               >
                                 <div className="w-16 h-24 md:w-20 md:h-28 rounded-md overflow-hidden border border-dashed border-gray-200 bg-white flex items-center justify-center mb-1">
@@ -1623,90 +1613,72 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                   // 单张图片
                   return (
                     <>
-                      <div className="relative group mb-4 md:mb-6">
-                        {(() => {
-                          const resolvedUrl = resolveFileUrl(processedImage);
-                          console.log(
-                            "ProcessingPage: Displaying processed image",
-                            {
-                              originalUrl: processedImage,
-                              resolvedUrl,
-                              isSvg: processedImage
-                                .toLowerCase()
-                                .includes(".svg"),
-                            },
-                          );
-
-                          // 检查是否是SVG文件
-                          if (processedImage.toLowerCase().includes(".svg")) {
+                      <div className="relative group mb-4 md:mb-6 w-full flex justify-center">
+                        <div className="w-full max-w-5xl h-[60vh] md:h-[70vh] flex items-center justify-center">
+                          {(() => {
+                            const resolvedUrl = resolveFileUrl(processedImage);
                             console.log(
-                              "ProcessingPage: Detected SVG file, using <object>",
+                              "ProcessingPage: Displaying processed image",
+                              {
+                                originalUrl: processedImage,
+                                resolvedUrl,
+                                isSvg: processedImage
+                                  .toLowerCase()
+                                  .includes(".svg"),
+                              },
                             );
-                            return (
-                              <object
-                                data={resolvedUrl}
-                                type="image/svg+xml"
-                                className="max-w-full max-h-[60vh] md:max-h-[80vh] w-auto h-auto rounded-lg border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
-                                onClick={() =>
-                                  handleProcessedImagePreview(processedImage)
-                                }
-                                onLoad={() =>
-                                  console.log(
-                                    "ProcessingPage: SVG loaded successfully (object)",
-                                  )
-                                }
-                                onError={(e) =>
-                                  console.error(
-                                    "ProcessingPage: SVG failed to load (object)",
-                                    e,
-                                  )
-                                }
-                              >
+
+                            // 检查是否是SVG文件
+                            if (processedImage.toLowerCase().includes(".svg")) {
+                              console.log(
+                                "ProcessingPage: Detected SVG file, using <img> tag",
+                              );
+                              return (
                                 <img
                                   src={resolvedUrl}
-                                  alt="Processed"
-                                  className="max-w-full max-h-[60vh] md:max-h-[80vh] w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+                                  alt="Processed SVG"
+                                  className="w-auto h-auto max-w-full max-h-full object-contain rounded-lg border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
                                   onClick={() =>
                                     handleProcessedImagePreview(processedImage)
                                   }
                                   onLoad={() =>
                                     console.log(
-                                      "ProcessingPage: SVG loaded successfully (img fallback)",
+                                      "ProcessingPage: SVG loaded successfully",
                                     )
                                   }
                                   onError={(e) =>
                                     console.error(
-                                      "ProcessingPage: SVG failed to load (img fallback)",
+                                      "ProcessingPage: SVG failed to load",
                                       e,
                                     )
                                   }
                                 />
-                              </object>
-                            );
-                          }
+                              );
+                            }
 
-                          return (
-                            <img
-                              src={resolvedUrl}
-                              alt="Processed"
-                              className="max-w-full max-h-[60vh] md:max-h-[80vh] w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
-                              onClick={() =>
-                                handleProcessedImagePreview(processedImage)
-                              }
-                              onLoad={() =>
-                                console.log(
-                                  "ProcessingPage: Image loaded successfully",
-                                )
-                              }
-                              onError={(e) =>
-                                console.error(
-                                  "ProcessingPage: Image failed to load",
-                                  e,
-                                )
-                              }
-                            />
-                          );
-                        })()}
+                            return (
+                              <img
+                                src={resolvedUrl}
+                                alt="Processed"
+                                className="w-full h-full object-contain rounded-lg border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+                                onClick={() =>
+                                  handleProcessedImagePreview(processedImage)
+                                }
+                                onLoad={() =>
+                                  console.log(
+                                    "ProcessingPage: Image loaded successfully",
+                                  )
+                                }
+                                onError={(e) =>
+                                  console.error(
+                                    "ProcessingPage: Image failed to load",
+                                    e,
+                                  )
+                                }
+                              />
+                            );
+                          })()}
+                        </div>
                         <button
                           onClick={() =>
                             handleProcessedImagePreview(processedImage)
