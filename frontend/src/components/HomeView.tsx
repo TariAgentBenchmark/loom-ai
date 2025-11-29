@@ -48,9 +48,9 @@ interface HomeViewProps {
 const formatNumber = (value: number | undefined, fallback: string, fractionDigits = 0) =>
   typeof value === 'number'
     ? value.toLocaleString(undefined, {
-        minimumFractionDigits: fractionDigits,
-        maximumFractionDigits: fractionDigits,
-      })
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
+    })
     : fallback;
 
 const membershipLabel = (membershipType: MembershipTag) => {
@@ -199,7 +199,7 @@ const HomeView: React.FC<HomeViewProps> = ({
                       <User className="h-4 w-4 md:h-5 md:w-5" />
                     </button>
                   </div>
-                  
+
                   {/* 通知下拉菜单 */}
                   {showNotifications && (
                     <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50 notification-menu-panel">
@@ -222,7 +222,7 @@ const HomeView: React.FC<HomeViewProps> = ({
                               </div>
                             </div>
                           </div>
-                          
+
                           <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                             <div className="flex items-start space-x-3">
                               <div className="flex-shrink-0">
@@ -237,7 +237,7 @@ const HomeView: React.FC<HomeViewProps> = ({
                               </div>
                             </div>
                           </div>
-                          
+
                         </div>
                       </div>
                       <div className="p-3 border-t border-gray-200 text-center">
@@ -247,7 +247,7 @@ const HomeView: React.FC<HomeViewProps> = ({
                       </div>
                     </div>
                   )}
-                  
+
                   {/* 用户菜单下拉 */}
                   {showUserMenu && (
                     <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50 user-menu-panel">
@@ -466,8 +466,8 @@ const HomeView: React.FC<HomeViewProps> = ({
         </div>
       )}
 
-      <div className="flex flex-col md:flex-row">
-        <aside className="hidden md:block w-full md:w-64 bg-white border-r border-gray-200 p-4 md:p-6 space-y-6 md:space-y-8 order-2 md:order-1 flex flex-col">
+      <div className="flex flex-col md:flex-row items-start">
+        <aside className="hidden md:block w-full md:w-64 bg-white border-r border-gray-200 p-4 md:p-6 space-y-6 md:space-y-8 order-2 md:order-1 flex flex-col sticky top-[73px] h-[calc(100vh-73px)] overflow-y-auto">
           <section>
             <h3 className="text-base md:text-lg font-bold text-gray-900 mb-3 md:mb-4 flex items-center">
               <User className="h-4 w-4 md:h-5 md:w-5 text-blue-500 mr-2" />
