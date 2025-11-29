@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     # Vectorizer.ai API配置
     vectorizer_api_key: str = ""
     vectorizer_api_secret: str = ""
+    vector_webapi_key: str = ""
+    vector_webapi_base_url: str = "http://mm.kknc.site/webapi/webapi.php"
+    vector_webapi_poll_timeout: int = 180
+    vector_webapi_poll_interval: int = 2
     
     # 即梦API配置
     jimeng_api_key: str = ""
