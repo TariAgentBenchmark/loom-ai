@@ -103,6 +103,19 @@ const HomeView: React.FC<HomeViewProps> = ({
     ? `本月已使用 ${monthlySpentLabel} 积分`
     : '登录后可查看本月积分使用情况';
 
+  // 打开任意全屏弹窗时锁定页面滚动，避免背景跟随滚动
+  useEffect(() => {
+    const modalOpen = showBatchDownload || showHistory;
+    if (modalOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+    return undefined;
+  }, [showBatchDownload, showHistory]);
+
   const handleLogout = () => {
     if (onLogout) {
       onLogout();
@@ -793,7 +806,7 @@ const HomeView: React.FC<HomeViewProps> = ({
             </div>
             <div className="flex-1 overflow-hidden p-4">
               {accessToken ? (
-                <div className="flex flex-col items-center justify-center h-full">
+                <div className="flex flex-col h-full overflow-hidden">
                   <div className="text-center mb-6">
                     <Download className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                     <h3 className="text-xl font-semibold text-gray-900 mb-2">批量下载功能</h3>
@@ -801,7 +814,7 @@ const HomeView: React.FC<HomeViewProps> = ({
                       选择您要下载的历史记录图片，支持一次性下载多张图片。您可以按日期、类型或状态筛选记录。
                     </p>
                   </div>
-                  <div className="w-full max-w-2xl">
+                  <div className="w-full max-w-2xl flex-1 overflow-hidden">
                     <HistoryList
                       accessToken={accessToken}
                       onTaskSelect={setSelectedTask}
