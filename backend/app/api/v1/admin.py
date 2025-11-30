@@ -1540,51 +1540,67 @@ async def get_admin_dashboard_stats(
 ):
     """获取管理员仪表板统计数据"""
     try:
+        non_admin_filter = User.is_admin.is_(False)
+        
         # 用户统计
-        total_users = db.query(User).count()
-        active_users = db.query(User).filter(User.status == UserStatus.ACTIVE).count()
+        total_users = db.query(User).filter(non_admin_filter).count()
+        active_users = db.query(User).filter(User.status == UserStatus.ACTIVE, non_admin_filter).count()
         admin_users = db.query(User).filter(User.is_admin == True).count()
         new_users_today = db.query(User).filter(
-            User.created_at >= datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+            User.created_at >= datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0),
+            non_admin_filter
         ).count()
         
         # 会员统计
         membership_stats = {}
         for membership_type in MembershipType:
-            count = db.query(User).filter(User.membership_type == membership_type).count()
+            count = db.query(User).filter(
+                User.membership_type == membership_type,
+                non_admin_filter
+            ).count()
             membership_stats[membership_type.value] = count
         
         # 积分统计
-        total_credits = db.query(func.sum(User.credits)).scalar() or 0
-        credit_transactions_today = db.query(CreditTransaction).filter(
-            CreditTransaction.created_at >= datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        total_credits = db.query(func.sum(User.credits)).filter(non_admin_filter).scalar() or 0
+        credit_transactions_today = db.query(CreditTransaction).join(
+            User, CreditTransaction.user_id == User.id
+        ).filter(
+            CreditTransaction.created_at >= datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0),
+            non_admin_filter
         ).count()
         
         # 订单统计
-        total_orders = db.query(Order).count()
-        paid_orders = db.query(Order).filter(Order.status == OrderStatus.PAID.value).count()
-        pending_orders = db.query(Order).filter(Order.status == OrderStatus.PENDING.value).count()
+        base_order_query = db.query(Order).join(User).filter(non_admin_filter)
+        total_orders = base_order_query.count()
+        paid_orders = base_order_query.filter(Order.status == OrderStatus.PAID.value).count()
+        pending_orders = base_order_query.filter(Order.status == OrderStatus.PENDING.value).count()
         
         # 收入统计
-        total_revenue = db.query(func.sum(Order.final_amount)).filter(
-            Order.status == OrderStatus.PAID.value
+        total_revenue = db.query(func.sum(Order.final_amount)).join(User).filter(
+            Order.status == OrderStatus.PAID.value,
+            non_admin_filter
         ).scalar() or 0
         
-        revenue_today = db.query(func.sum(Order.final_amount)).filter(
+        revenue_today = db.query(func.sum(Order.final_amount)).join(User).filter(
             and_(
                 Order.status == OrderStatus.PAID.value,
                 Order.paid_at >= datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-            )
+            ),
+            non_admin_filter
         ).scalar() or 0
         
         # 退款统计
-        pending_refunds = db.query(Refund).filter(Refund.status == "processing").count()
-        total_refund_amount = db.query(func.sum(Refund.amount)).filter(
-            Refund.status == "completed"
+        pending_refunds = db.query(Refund).join(User).filter(
+            Refund.status == "processing",
+            non_admin_filter
+        ).count()
+        total_refund_amount = db.query(func.sum(Refund.amount)).join(User).filter(
+            Refund.status == "completed",
+            non_admin_filter
         ).scalar() or 0
         
         # 最近活动
-        recent_orders = db.query(Order).join(User).order_by(desc(Order.created_at)).limit(5).all()
+        recent_orders = db.query(Order).join(User).filter(non_admin_filter).order_by(desc(Order.created_at)).limit(5).all()
         recent_activity = []
         for order in recent_orders:
             recent_activity.append({
@@ -1597,7 +1613,7 @@ async def get_admin_dashboard_stats(
                 "timestamp": order.created_at.isoformat()
             })
         
-        recent_refunds = db.query(Refund).join(User).order_by(desc(Refund.created_at)).limit(3).all()
+        recent_refunds = db.query(Refund).join(User).filter(non_admin_filter).order_by(desc(Refund.created_at)).limit(3).all()
         for refund in recent_refunds:
             recent_activity.append({
                 "type": "refund",
@@ -1655,47 +1671,6 @@ async def get_admin_dashboard_stats(
         
         return SuccessResponse(
             data=dashboard_stats.dict(),
-            message="获取仪表板统计成功"
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/dashboard/stats", dependencies=[Depends(admin_route())])
-async def get_admin_dashboard_stats(
-    db: Session = Depends(get_db)
-):
-    """获取管理员仪表板统计数据"""
-    try:
-        # 用户统计
-        total_users = db.query(User).count()
-        active_users = db.query(User).filter(User.status == UserStatus.ACTIVE).count()
-        admin_users = db.query(User).filter(User.is_admin == True).count()
-        
-        # 会员统计
-        premium_users = db.query(User).filter(
-            User.membership_type.in_([MembershipType.BASIC, MembershipType.PREMIUM, MembershipType.ENTERPRISE])
-        ).count()
-        
-        # 积分统计
-        from app.models.credit import CreditTransaction
-        total_credits = db.query(User).with_entities(db.func.sum(User.credits)).scalar() or 0
-        
-        return SuccessResponse(
-            data={
-                "users": {
-                    "total": total_users,
-                    "active": active_users,
-                    "admin": admin_users,
-                    "premium": premium_users
-                },
-                "credits": {
-                    "total": total_credits
-                }
-            },
             message="获取仪表板统计成功"
         )
         

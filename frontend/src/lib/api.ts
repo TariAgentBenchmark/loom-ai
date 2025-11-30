@@ -1133,6 +1133,10 @@ export interface AdminDashboardStats {
     today: number;
     averageOrderValue: number;
   };
+  subscriptions: {
+    pendingRefunds: number;
+    totalRefundAmount: number;
+  };
   recentActivity: Array<{
     type: string;
     id: string;

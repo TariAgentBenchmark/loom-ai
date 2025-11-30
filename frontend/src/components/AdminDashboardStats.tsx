@@ -75,7 +75,7 @@ const MetricCard: React.FC<{ metric: ProgressMetric }> = ({ metric }) => {
         <div className="mt-2 text-2xl font-semibold text-slate-900">{metric.value}</div>
         <div className="mt-1 flex items-center text-xs text-slate-400">
           <ArrowUpRight className="mr-1 h-3 w-3" />
-          与昨日相比
+          当前占比
         </div>
       </div>
       <ProgressRing percent={metric.percent} color={metric.accent} />
@@ -221,7 +221,9 @@ const AdminDashboardStats: React.FC = () => {
       ];
     }
 
-    const { users, orders } = snapshot;
+    const { users, orders, revenue, subscriptions } = snapshot;
+    const refundPercent =
+      revenue.total === 0 ? 0 : Math.min(100, (subscriptions.totalRefundAmount / revenue.total) * 100);
 
     return [
       {
@@ -247,8 +249,8 @@ const AdminDashboardStats: React.FC = () => {
       },
       {
         title: "退订/退款",
-        value: "0",
-        percent: 0,
+        value: formatCurrencyFromCents(subscriptions.totalRefundAmount),
+        percent: refundPercent,
         accent: "#38BDF8",
         icon: RefreshCcw,
       },
@@ -353,7 +355,8 @@ const AdminDashboardStats: React.FC = () => {
   const pendingRate = stats.orders.total === 0 ? 0 : (stats.orders.pending / stats.orders.total) * 100;
   const creditTurnoverRate =
     stats.credits.total === 0 ? 0 : (stats.credits.transactionsToday / stats.credits.total) * 100;
-  const refundRatio = 0;
+  const refundAmount = stats.subscriptions.totalRefundAmount;
+  const refundRatio = stats.revenue.total === 0 ? 0 : (refundAmount / stats.revenue.total) * 100;
 
   return (
     <div className="space-y-8">
@@ -479,11 +482,11 @@ const AdminDashboardStats: React.FC = () => {
                   <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100">
                     <div
                       className="h-full rounded-full bg-rose-400"
-                      style={{ width: `${Math.round(refundRatio)}%` }}
+                      style={{ width: `${Math.min(100, Math.round(refundRatio))}%` }}
                     />
                   </div>
                   <div className="mt-1 text-xs text-slate-400">
-                    累计退款 ￥0
+                    累计退款 {formatCurrencyFromCents(refundAmount)}
                   </div>
                 </div>
               </div>
@@ -514,7 +517,13 @@ const AdminDashboardStats: React.FC = () => {
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-500">退款金额</span>
               <span className="font-semibold text-rose-500">
-                ￥0
+                {formatCurrencyFromCents(refundAmount)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-500">待处理退款</span>
+              <span className="font-semibold text-rose-600">
+                {formatNumber(stats.subscriptions.pendingRefunds)}
               </span>
             </div>
           </div>
@@ -533,8 +542,8 @@ const AdminDashboardStats: React.FC = () => {
           <div className="mt-2 text-3xl font-semibold text-slate-900">
             {formatCurrencyFromCents(stats.revenue.total)}
           </div>
-          <div className="mt-3 flex items-center text-xs text-emerald-500">
-            <ArrowUpRight className="mr-1 h-3 w-3" /> 同比增长 18%
+          <div className="mt-3 flex items-center text-xs text-emerald-600">
+            <ArrowUpRight className="mr-1 h-3 w-3" /> 今日收入 {formatCurrencyFromCents(stats.revenue.today)}
           </div>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
