@@ -1188,9 +1188,6 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                 <option value="positioning">线条/矢量</option>
                 <option value="fine">烫画/胸前花</option>
               </select>
-              <p className="text-xs text-gray-500 mt-2">
-                通用1生成多张候选结果，通用2专注首张高清图；选择不同类型将使用对应工作流。
-              </p>
             </div>
           )}
 
