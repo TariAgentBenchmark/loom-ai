@@ -132,33 +132,33 @@ async def get_batch_status(
         raise HTTPException(status_code=500, detail="服务器火爆，重试一下。")
 
 
+
 @router.get("/batch/download/{batch_id}")
 async def download_batch_results(
     batch_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """下载批量任务结果"""
+    """获取批量任务结果下载链接"""
     try:
-        zip_bytes = await batch_processing_service.download_batch_results(db, batch_id, current_user.id)
+        result_files = await batch_processing_service.get_batch_download_urls(db, batch_id, current_user.id)
         
-        if not zip_bytes:
-            raise HTTPException(status_code=404, detail="批量任务不存在")
+        if not result_files:
+            raise HTTPException(status_code=404, detail="批量任务不存在或没有已完成的结果")
         
-        # 返回ZIP文件
-        return StreamingResponse(
-            BytesIO(zip_bytes),
-            media_type="application/zip",
-            headers={
-                "Content-Disposition": f"attachment; filename=batch_{batch_id}_results.zip"
-            }
+        return SuccessResponse(
+            data={
+                "files": result_files
+            },
+            message="获取下载链接成功"
         )
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to download batch results: {str(e)}", exc_info=True)
+        logger.error(f"Failed to get batch download URLs: {str(e)}", exc_info=True)
         error_msg = str(e)
         if "尚未完成" in error_msg or "没有已完成" in error_msg:
             raise HTTPException(status_code=400, detail=error_msg)
         raise HTTPException(status_code=500, detail="服务器火爆,重试一下。")
+

@@ -13,6 +13,7 @@
     "test:ci": "jest --ci --coverage --watchAll=false"
   },
   "dependencies": {
+    "jszip": "^3.10.1",
     "lucide-react": "^0.263.1",
     "next": "^14.2.4",
     "react": "^18.3.1",

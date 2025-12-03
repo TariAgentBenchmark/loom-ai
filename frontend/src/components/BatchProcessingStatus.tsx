@@ -55,13 +55,42 @@ export default function BatchProcessingStatus({
         setError('');
 
         try {
-            const result = await downloadBatchResults(batchId, accessToken);
+            // Get file URLs from backend
+            const files = await downloadBatchResults(batchId, accessToken);
+
+            if (!files || files.length === 0) {
+                setError('没有可下载的文件');
+                return;
+            }
+
+            // Dynamically import JSZip
+            const JSZip = (await import('jszip')).default;
+            const zip = new JSZip();
+
+            // Download all files and add to ZIP
+            await Promise.all(
+                files.map(async (file) => {
+                    try {
+                        const response = await fetch(file.url);
+                        if (!response.ok) {
+                            throw new Error(`下载 ${file.filename} 失败`);
+                        }
+                        const blob = await response.blob();
+                        zip.file(file.filename, blob);
+                    } catch (err) {
+                        console.error(`Failed to download ${file.filename}:`, err);
+                    }
+                })
+            );
+
+            // Generate ZIP file
+            const zipBlob = await zip.generateAsync({ type: 'blob' });
 
             // Create download link
-            const url = window.URL.createObjectURL(result.blob);
+            const url = window.URL.createObjectURL(zipBlob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = result.filename;
+            a.download = `batch_${batchId}_results.zip`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);

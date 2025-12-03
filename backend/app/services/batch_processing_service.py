@@ -208,11 +208,23 @@ class BatchProcessingService:
         
         task_statuses = []
         for task in tasks:
+            # Generate signed URL for result if completed
+            result_url = None
+            if task.is_completed and task.result_image_url:
+                try:
+                    # Handle multiple result URLs (comma-separated)
+                    result_urls = [url.strip() for url in task.result_image_url.split(",") if url.strip()]
+                    if result_urls:
+                        # For batch status, just return the first result URL with signature or original URL
+                        result_url = await self.file_service.ensure_accessible_url(result_urls[0])
+                except Exception as e:
+                    logger.warning(f"Failed to generate accessible URL for task {task.task_id}: {str(e)}")
+            
             task_status = {
                 "taskId": task.task_id,
                 "filename": task.original_filename,
                 "status": task.status,
-                "resultUrl": task.result_image_url if task.is_completed else None,
+                "resultUrl": result_url,
                 "errorMessage": task.error_message if task.is_failed else None,
             }
             task_statuses.append(task_status)
@@ -229,10 +241,13 @@ class BatchProcessingService:
             "completedAt": batch_task.completed_at,
         }
 
-    async def download_batch_results(
+
+    async def get_batch_download_urls(
         self, db: Session, batch_id: str, user_id: int
-    ) -> Optional[bytes]:
-        """下载批量任务结果（ZIP文件）"""
+    ) -> Optional[List[Dict[str, str]]]:
+        """获取批量任务结果的下载链接列表（前端打包）"""
+        logger.info(f"Getting download URLs for batch {batch_id}, user {user_id}")
+        
         batch_task = (
             db.query(BatchTask)
             .filter(BatchTask.batch_id == batch_id, BatchTask.user_id == user_id)
@@ -240,9 +255,11 @@ class BatchProcessingService:
         )
         
         if not batch_task:
+            logger.warning(f"Batch task {batch_id} not found for user {user_id}")
             return None
         
         if not batch_task.is_completed:
+            logger.warning(f"Batch task {batch_id} is not completed. Status: {batch_task.status}")
             raise Exception("批量任务尚未完成")
         
         # 获取所有已完成的子任务
@@ -255,41 +272,47 @@ class BatchProcessingService:
             .all()
         )
         
+        logger.info(f"Found {len(completed_tasks)} completed tasks for batch {batch_id}")
+        
         if not completed_tasks:
             raise Exception("没有已完成的任务")
         
-        # 创建ZIP文件
-        import zipfile
-        import tempfile
-        from io import BytesIO
+        # 生成所有结果文件的签名URL
+        result_files = []
         
-        zip_buffer = BytesIO()
-        
-        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-            for idx, task in enumerate(completed_tasks):
-                if task.result_image_url:
-                    try:
-                        # 处理多个结果URL（逗号分隔）
-                        result_urls = [url.strip() for url in task.result_image_url.split(",") if url.strip()]
+        for task in completed_tasks:
+            if task.result_image_url:
+                try:
+                    # 处理多个结果URL（逗号分隔）
+                    result_urls = [url.strip() for url in task.result_image_url.split(",") if url.strip()]
+                    
+                    for url_idx, result_url in enumerate(result_urls):
+                        # 生成签名URL或获取可访问URL
+                        signed_url = await self.file_service.ensure_accessible_url(result_url)
                         
-                        for url_idx, result_url in enumerate(result_urls):
-                            # 读取结果文件
-                            file_bytes = await self.file_service.read_file(result_url)
-                            
-                            # 生成文件名
-                            original_name = task.original_filename.rsplit('.', 1)[0]
-                            extension = result_url.split('.')[-1]
-                            
-                            if len(result_urls) > 1:
-                                filename = f"{original_name}_{url_idx + 1}.{extension}"
-                            else:
-                                filename = f"{original_name}.{extension}"
-                            
-                            # 添加到ZIP
-                            zip_file.writestr(filename, file_bytes)
-                            
-                    except Exception as e:
-                        logger.warning(f"Failed to add result for task {task.task_id}: {str(e)}")
+                        if not signed_url:
+                            logger.warning(f"Failed to generate accessible URL for task {task.task_id}: URL is empty")
+                            continue
+
+                        # 生成文件名
+                        original_name = task.original_filename.rsplit('.', 1)[0]
+                        extension = result_url.split('.')[-1]
+                        
+                        if len(result_urls) > 1:
+                            filename = f"{original_name}_{url_idx + 1}.{extension}"
+                        else:
+                            filename = f"{original_name}.{extension}"
+                        
+                        result_files.append({
+                            "url": signed_url,
+                            "filename": filename
+                        })
+                        
+                except Exception as e:
+                    logger.warning(f"Failed to generate accessible URL for task {task.task_id}: {str(e)}")
+            else:
+                logger.warning(f"Task {task.task_id} is completed but has no result_image_url")
         
-        zip_buffer.seek(0)
-        return zip_buffer.read()
+        logger.info(f"Generated {len(result_files)} download URLs for batch {batch_id}")
+        return result_files
+

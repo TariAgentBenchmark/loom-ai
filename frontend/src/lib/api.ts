@@ -25,7 +25,18 @@ const API_BASE_URL = resolveApiBaseUrl();
 
 const resolveApiOrigin = () => {
   try {
-    const parsedUrl = new URL(API_BASE_URL);
+    let urlToParse = API_BASE_URL;
+
+    // 如果是相对路径，添加当前 origin 或 localhost
+    if (API_BASE_URL.startsWith("/")) {
+      const base =
+        typeof window !== "undefined"
+          ? window.location.origin
+          : "http://localhost:8000";
+      urlToParse = `${base}${API_BASE_URL}`;
+    }
+
+    const parsedUrl = new URL(urlToParse);
     return parsedUrl.origin;
   } catch (error) {
     console.warn("无法解析 API 基础地址，已回退到空 origin", error);
@@ -1512,24 +1523,23 @@ export const createBatchTask = (payload: BatchProcessingRequestPayload) => {
 export const getBatchStatus = (batchId: string, accessToken: string) =>
   getJson<BatchTaskStatus>(`/processing/batch/status/${batchId}`, accessToken);
 
+export interface BatchDownloadFile {
+  url: string;
+  filename: string;
+}
+
+export interface BatchDownloadResponse {
+  files: BatchDownloadFile[];
+}
+
 export const downloadBatchResults = async (
   batchId: string,
   accessToken: string,
-): Promise<DownloadResult> => {
-  const response = await fetch(
-    `${API_BASE_URL}/processing/batch/download/${batchId}`,
-    {
-      method: "GET",
-      headers: withAuthHeader(undefined, accessToken),
-    },
+): Promise<BatchDownloadFile[]> => {
+  const response = await getJson<BatchDownloadResponse>(
+    `/processing/batch/download/${batchId}`,
+    accessToken
   );
 
-  const ensured = await ensureSuccess(response);
-  const blob = await ensured.blob();
-
-  const contentDisposition = ensured.headers.get("content-disposition") ?? "";
-  const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
-  const filename = filenameMatch?.[1] ?? `batch_${batchId}_results.zip`;
-
-  return { blob, filename };
+  return response.data.files;
 };
