@@ -39,8 +39,8 @@ class BatchProcessingService:
         if not images_data:
             raise Exception("请至少上传一张图片")
         
-        if len(images_data) > 50:  # 限制最大批量数
-            raise Exception("单次最多处理50张图片")
+        if len(images_data) > 10:  # 限制最大批量数
+            raise Exception("单次最多处理10张图片")
         
         # 计算总积分需求
         service_key = self.processing_service._resolve_service_key(task_type)

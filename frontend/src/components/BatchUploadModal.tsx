@@ -20,7 +20,7 @@ export default function BatchUploadModal({
     isOpen,
     onClose,
     onStartBatch,
-    maxFiles = 50,
+    maxFiles = 10,
     isProcessing = false,
 }: BatchUploadModalProps) {
     const [files, setFiles] = useState<FileWithPreview[]>([]);
