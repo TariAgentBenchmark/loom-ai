@@ -275,8 +275,8 @@ export default function BatchUploadModal({
                                 : serviceCredits === null
                                     ? '价格暂不可用，预计积分无法计算'
                                     : files.length > 0
-                                        ? `单张 ${formatCredits(serviceCredits)} 积分，预计消耗 ${formatCredits(estimatedCredits)} 积分`
-                                        : `单张 ${formatCredits(serviceCredits)} 积分`}
+                                        ? `单张 ${formatCredits(serviceCredits ?? 0)} 积分，预计消耗 ${formatCredits(estimatedCredits ?? 0)} 积分`
+                                        : `单张 ${formatCredits(serviceCredits ?? 0)} 积分`}
                         </p>
                     </div>
                     <div className="flex gap-3">
