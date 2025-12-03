@@ -10,13 +10,14 @@ from datetime import datetime
 
 from app.core.config import settings
 from app.core.database import init_db, close_db, check_db_health
-from app.api.v1 import auth, user, processing, credits, payment, history, admin, membership
+from app.api.v1 import auth, user, processing, credits, payment, history, admin, membership, batch_processing
 
 
 api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["认证"])
 api_router.include_router(user.router, prefix="/user", tags=["用户"])
 api_router.include_router(processing.router, prefix="/processing", tags=["图片处理"])
+api_router.include_router(batch_processing.router, prefix="/processing", tags=["批量处理"])
 api_router.include_router(credits.router, prefix="/credits", tags=["积分管理"])
 api_router.include_router(payment.router, prefix="/payment", tags=["支付"])
 api_router.include_router(history.router, prefix="/history", tags=["历史记录"])

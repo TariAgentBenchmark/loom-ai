@@ -73,6 +73,7 @@ class User(Base):
     
     # 关联关系
     tasks = relationship("Task", back_populates="user", cascade="all, delete-orphan")
+    batch_tasks = relationship("BatchTask", back_populates="user", cascade="all, delete-orphan")
     credit_transactions = relationship("CreditTransaction", back_populates="user", cascade="all, delete-orphan")
     orders = relationship("Order", back_populates="user", cascade="all, delete-orphan")
 

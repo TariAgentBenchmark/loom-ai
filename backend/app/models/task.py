@@ -34,6 +34,7 @@ class Task(Base):
     id = Column(Integer, primary_key=True, index=True)
     task_id = Column(String(50), unique=True, index=True, nullable=False)  # 任务唯一标识
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    batch_id = Column(Integer, ForeignKey("batch_tasks.id"), nullable=True, index=True)  # 批量任务ID（可选）
     
     # 任务基本信息
     type = Column(String(50), nullable=False, index=True)  # 任务类型
@@ -78,6 +79,7 @@ class Task(Base):
     
     # 关联关系
     user = relationship("User", back_populates="tasks")
+    batch_task = relationship("BatchTask", back_populates="tasks")
     shares = relationship("TaskShare", back_populates="task", cascade="all, delete-orphan")
 
     def __repr__(self):

@@ -13,6 +13,7 @@ import HomeView from '../components/HomeView';
 import PricingModal from '../components/PricingModal';
 import CreditHistoryModal from '../components/CreditHistoryModal';
 import ProcessingPage from '../components/ProcessingPage';
+import BatchProcessingWrapper from '../components/BatchProcessingWrapper';
 import LoginModal from '../components/LoginModal';
 import RegisterModal from '../components/RegisterModal';
 import ForgotPasswordModal from '../components/ForgotPasswordModal';
@@ -158,6 +159,7 @@ export default function Home() {
   const [historyRefreshToken, setHistoryRefreshToken] = useState(0);
   const [activeTasks, setActiveTasks] = useState<PersistedProcessingTaskMap>({});
   const [isCreatingTask, setIsCreatingTask] = useState(false);
+  const [batchMode, setBatchMode] = useState(false);
 
   const methodUiStateRef = useRef<MethodUiStateMap>({});
   const pollingRefs = useRef<Record<string, ReturnType<typeof setInterval>>>({});
@@ -811,81 +813,100 @@ export default function Home() {
   return (
     <div className="notranslate">
       {currentPage !== 'home' ? (
-        <ProcessingPage
-          method={currentPage}
-          imagePreview={imagePreview}
-          secondaryImagePreview={secondaryImagePreview}
-          processedImage={processedImage}
-          currentTaskId={currentTaskId || undefined}
-          isProcessing={isCurrentMethodProcessing || isCreatingTask}
-          hasUploadedImage={Boolean(uploadedImage)}
-          onBack={() => {
-            setCurrentPage('home');
-            setPromptInstruction('');
-            setPatternType('general1');
-            setPatternQuality('standard');
-            setUpscaleEngine('meitu_v2');
-            setAspectRatio('');
-            setExpandRatio('original');
-            setExpandEdges({ top: '0.00', bottom: '0.00', left: '0.00', right: '0.00' });
-            setExpandPrompt('');
-            setSeamDirection(0);
-            setSeamFit(0.5);
-            setErrorMessage('');
-            setSuccessMessage('');
-            setProcessedImage(null);
-            setImagePreview(null);
-            setUploadedImage(null);
-            setSecondaryImage(null);
-            setSecondaryImagePreview(null);
-          }}
-          onOpenPricingModal={() => setShowPricingModal(true)}
-          onProcessImage={handleProcessImage}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-          fileInputRef={fileInputRef}
-          secondaryFileInputRef={secondaryFileInputRef}
-          onFileInputChange={handleImageUpload}
-          onSecondaryFileInputChange={(event) => handleImageUpload(event, 'secondary')}
-          onSecondaryDragOver={handleDragOver}
-          onSecondaryDrop={(event) => handleDrop(event, 'secondary')}
-          errorMessage={errorMessage}
-          successMessage={successMessage}
-          accessToken={accessToken || undefined}
-          promptInstruction={promptInstruction}
-          onPromptInstructionChange={setPromptInstruction}
-          patternType={patternType}
-          patternQuality={patternQuality}
-          onPatternTypeChange={(value) => {
-            setPatternType(value);
-            if (currentPage === 'extract_pattern') {
-              setProcessedImage(null);
+        <>
+          <ProcessingPage
+            method={currentPage}
+            imagePreview={imagePreview}
+            secondaryImagePreview={secondaryImagePreview}
+            processedImage={processedImage}
+            currentTaskId={currentTaskId || undefined}
+            isProcessing={isCurrentMethodProcessing || isCreatingTask}
+            hasUploadedImage={Boolean(uploadedImage)}
+            onBack={() => {
+              setCurrentPage('home');
+              setBatchMode(false);
+              setPromptInstruction('');
+              setPatternType('general1');
+              setPatternQuality('standard');
+              setUpscaleEngine('meitu_v2');
+              setAspectRatio('');
+              setExpandRatio('original');
+              setExpandEdges({ top: '0.00', bottom: '0.00', left: '0.00', right: '0.00' });
+              setExpandPrompt('');
+              setSeamDirection(0);
+              setSeamFit(0.5);
               setErrorMessage('');
               setSuccessMessage('');
-            }
-            // 当从通用模式切换到其他模式时，清除分辨率设置
-            if (value !== 'general2') {
-              setAspectRatio('');
-              setPatternQuality('standard');
-            }
-          }}
-          onPatternQualityChange={setPatternQuality}
-          upscaleEngine={upscaleEngine}
-          onUpscaleEngineChange={setUpscaleEngine}
-          aspectRatio={aspectRatio}
-          onAspectRatioChange={setAspectRatio}
-          expandRatio={expandRatio}
-          onExpandRatioChange={setExpandRatio}
-          expandEdges={expandEdges}
-          onExpandEdgeChange={handleExpandEdgeChange}
-          expandPrompt={expandPrompt}
-          onExpandPromptChange={setExpandPrompt}
-          seamDirection={seamDirection}
-          onSeamDirectionChange={setSeamDirection}
-          seamFit={seamFit}
-          onSeamFitChange={setSeamFit}
-          historyRefreshToken={historyRefreshToken}
-        />
+              setProcessedImage(null);
+              setImagePreview(null);
+              setUploadedImage(null);
+              setSecondaryImage(null);
+              setSecondaryImagePreview(null);
+            }}
+            onOpenPricingModal={() => setShowPricingModal(true)}
+            onProcessImage={handleProcessImage}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            fileInputRef={fileInputRef}
+            secondaryFileInputRef={secondaryFileInputRef}
+            onFileInputChange={handleImageUpload}
+            onSecondaryFileInputChange={(event) => handleImageUpload(event, 'secondary')}
+            onSecondaryDragOver={handleDragOver}
+            onSecondaryDrop={(event) => handleDrop(event, 'secondary')}
+            errorMessage={errorMessage}
+            successMessage={successMessage}
+            accessToken={accessToken || undefined}
+            promptInstruction={promptInstruction}
+            onPromptInstructionChange={setPromptInstruction}
+            patternType={patternType}
+            patternQuality={patternQuality}
+            onPatternTypeChange={(value) => {
+              setPatternType(value);
+              if (currentPage === 'extract_pattern') {
+                setProcessedImage(null);
+                setErrorMessage('');
+                setSuccessMessage('');
+              }
+              // 当从通用模式切换到其他模式时，清除分辨率设置
+              if (value !== 'general2') {
+                setAspectRatio('');
+                setPatternQuality('standard');
+              }
+            }}
+            onPatternQualityChange={setPatternQuality}
+            upscaleEngine={upscaleEngine}
+            onUpscaleEngineChange={setUpscaleEngine}
+            aspectRatio={aspectRatio}
+            onAspectRatioChange={setAspectRatio}
+            expandRatio={expandRatio}
+            onExpandRatioChange={setExpandRatio}
+            expandEdges={expandEdges}
+            onExpandEdgeChange={handleExpandEdgeChange}
+            expandPrompt={expandPrompt}
+            onExpandPromptChange={setExpandPrompt}
+            seamDirection={seamDirection}
+            onSeamDirectionChange={setSeamDirection}
+            seamFit={seamFit}
+            onSeamFitChange={setSeamFit}
+            historyRefreshToken={historyRefreshToken}
+            batchMode={batchMode}
+            onBatchModeChange={setBatchMode}
+          />
+
+          {/* Batch Processing Overlay */}
+          {batchMode && accessToken && (
+            <BatchProcessingWrapper
+              method={currentPage}
+              accessToken={accessToken}
+              onBack={() => setBatchMode(false)}
+              promptInstruction={promptInstruction}
+              patternType={patternType}
+              patternQuality={patternQuality}
+              upscaleEngine={upscaleEngine}
+              aspectRatio={aspectRatio}
+            />
+          )}
+        </>
       ) : (
         <HomeView
           onSelectMethod={(method) => {
@@ -893,6 +914,7 @@ export default function Home() {
               setShowLoginModal(true);
               return;
             }
+            setBatchMode(false);
             setCurrentPage(method);
             applyStoredMethodUiState(method);
             setImagePreview(null);
@@ -914,6 +936,14 @@ export default function Home() {
               setSeamDirection(0);
               setSeamFit(0.5);
             }
+          }}
+          onSelectBatchMode={(method) => {
+            if (!isLoggedIn) {
+              setShowLoginModal(true);
+              return;
+            }
+            setBatchMode(true);
+            setCurrentPage(method);
           }}
           onOpenPricingModal={() => setShowPricingModal(true)}
           onOpenCreditHistory={() => setShowCreditHistoryModal(true)}

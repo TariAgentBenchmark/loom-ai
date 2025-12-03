@@ -1016,7 +1016,7 @@ export interface AdminUser {
   userId: string;
   email: string | null;
   nickname: string | null;
-   phone: string | null;
+  phone: string | null;
   credits: number;
   membershipType: string;
   status: string;
@@ -1035,7 +1035,7 @@ export interface AdminUsersResponse {
   };
 }
 
-export interface AdminUserDetail extends AdminUser {}
+export interface AdminUserDetail extends AdminUser { }
 
 export interface AdminCreditTransaction {
   transactionId: string;
@@ -1103,7 +1103,7 @@ export interface AdminOrdersResponse {
   };
 }
 
-export interface AdminOrderDetail extends AdminOrder {}
+export interface AdminOrderDetail extends AdminOrder { }
 
 export interface AdminDashboardStats {
   users: {
@@ -1422,3 +1422,114 @@ export const resetPasswordByPhone = (payload: ResetPasswordByPhonePayload) =>
     new_password: payload.newPassword,
     confirm_password: payload.confirmPassword,
   });
+
+// Batch Processing Types and Functions
+export interface BatchTaskData {
+  batchId: string;
+  status: string;
+  totalImages: number;
+  estimatedTime?: number | null;
+  totalCreditsUsed: number;
+  createdAt: string;
+}
+
+export interface BatchTaskStatus {
+  batchId: string;
+  status: string;
+  totalImages: number;
+  completedImages: number;
+  failedImages: number;
+  progress: number;
+  tasks: Array<{
+    taskId: string;
+    filename: string;
+    status: string;
+    resultUrl?: string | null;
+    errorMessage?: string | null;
+  }>;
+  createdAt: string;
+  completedAt?: string | null;
+}
+
+export interface BatchProcessingRequestPayload {
+  method: ProcessingMethod;
+  images: File[];
+  accessToken: string;
+  instruction?: string;
+  patternType?: string;
+  patternQuality?: "standard" | "4k";
+  upscaleEngine?: "meitu_v2" | "runninghub_vr2";
+  aspectRatio?: string;
+}
+
+export const createBatchTask = (payload: BatchProcessingRequestPayload) => {
+  const {
+    method,
+    images,
+    accessToken,
+    instruction,
+    patternType,
+    patternQuality,
+    upscaleEngine,
+    aspectRatio,
+  } = payload;
+
+  const formData = new FormData();
+
+  // Append all images
+  images.forEach((image) => {
+    formData.append("images", image);
+  });
+
+  // Add method-specific parameters
+  if (method === "prompt_edit" && instruction) {
+    formData.append("instruction", instruction);
+  }
+
+  if (method === "extract_pattern") {
+    formData.append("pattern_type", patternType ?? "general_2");
+    if (patternQuality) {
+      formData.append("quality", patternQuality);
+    }
+  }
+
+  if (method === "upscale" && upscaleEngine) {
+    formData.append("upscale_engine", upscaleEngine);
+  }
+
+  if (aspectRatio) {
+    formData.append("aspect_ratio", aspectRatio);
+  }
+
+  return postFormData<BatchTaskData>(
+    `/processing/batch/${method}`,
+    formData,
+    accessToken,
+    true
+  );
+};
+
+export const getBatchStatus = (batchId: string, accessToken: string) =>
+  getJson<BatchTaskStatus>(`/processing/batch/status/${batchId}`, accessToken);
+
+export const downloadBatchResults = async (
+  batchId: string,
+  accessToken: string,
+): Promise<DownloadResult> => {
+  const response = await fetch(
+    `${API_BASE_URL}/processing/batch/download/${batchId}`,
+    {
+      method: "GET",
+      headers: withAuthHeader(undefined, accessToken),
+    },
+  );
+
+  const ensured = await ensureSuccess(response);
+  const blob = await ensured.blob();
+
+  const contentDisposition = ensured.headers.get("content-disposition") ?? "";
+  const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+  const filename = filenameMatch?.[1] ?? `batch_${batchId}_results.zip`;
+
+  return { blob, filename };
+};

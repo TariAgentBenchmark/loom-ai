@@ -211,6 +211,11 @@ interface ProcessingPageProps {
   seamFit?: number;
   onSeamFitChange?: (value: number) => void;
   historyRefreshToken?: number;
+  // Batch mode props
+  batchMode?: boolean;
+  onBatchModeChange?: (enabled: boolean) => void;
+  batchId?: string | null;
+  onBatchComplete?: () => void;
 }
 
 const ProcessingPage: React.FC<ProcessingPageProps> = ({
@@ -256,6 +261,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   seamFit = 0.5,
   onSeamFitChange,
   historyRefreshToken = 0,
+  batchMode,
+  onBatchModeChange,
 }) => {
   const info = getProcessingMethodInfo(method);
   const [selectedTask, setSelectedTask] = useState<HistoryTask | null>(null);
@@ -942,6 +949,16 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                 "一键生成"
               )}
             </button>
+
+            {/* Batch Processing Button */}
+            {onBatchModeChange && !batchMode && (
+              <button
+                onClick={() => onBatchModeChange(true)}
+                className="mt-3 md:mt-4 w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium py-3 px-4 md:py-3.5 md:px-6 rounded-lg md:rounded-xl text-sm md:text-base shadow-md transition-all transform hover:scale-105"
+              >
+                批量处理
+              </button>
+            )}
           </div>
 
           {method === "expand_image" && (

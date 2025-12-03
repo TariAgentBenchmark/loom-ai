@@ -30,6 +30,7 @@ type AccountSummary = {
 
 interface HomeViewProps {
   onSelectMethod: (method: ProcessingMethod) => void;
+  onSelectBatchMode?: (method: ProcessingMethod) => void;
   onOpenPricingModal: () => void;
   onOpenCreditHistory: () => void;
   onLogout?: () => void;
