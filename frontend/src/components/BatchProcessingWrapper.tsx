@@ -1,8 +1,13 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { ProcessingMethod } from '../lib/processing';
-import { createBatchTask, BatchProcessingRequestPayload } from '../lib/api';
+import { useState, useCallback, useEffect } from 'react';
+import { ProcessingMethod, resolvePricingServiceKey } from '../lib/processing';
+import {
+    createBatchTask,
+    BatchProcessingRequestPayload,
+    getPublicServicePrices,
+    getServiceCost,
+} from '../lib/api';
 import BatchUploadModal from './BatchUploadModal';
 import BatchProcessingStatus from './BatchProcessingStatus';
 
@@ -31,6 +36,57 @@ export default function BatchProcessingWrapper({
     const [batchId, setBatchId] = useState<string | null>(null);
     const [isCreatingBatch, setIsCreatingBatch] = useState(false);
     const [error, setError] = useState<string>('');
+    const [serviceCredits, setServiceCredits] = useState<number | null>(null);
+    const [isLoadingServiceCost, setIsLoadingServiceCost] = useState(false);
+
+    useEffect(() => {
+        let isMounted = true;
+        setIsLoadingServiceCost(true);
+        setServiceCredits(null);
+
+        const fetchPrice = async () => {
+            let resolvedCost: number | null = null;
+            const pricingKey = resolvePricingServiceKey(method, {
+                patternType,
+                upscaleEngine,
+            });
+
+            if (accessToken) {
+                try {
+                    const response = await getServiceCost(pricingKey, accessToken, 1, {
+                        patternType,
+                        upscaleEngine,
+                    });
+                    resolvedCost = response.unit_cost ?? response.total_cost ?? null;
+                } catch (err) {
+                    console.warn(`获取服务价格失败（需登录接口）: ${pricingKey}`, err);
+                }
+            }
+
+            if (resolvedCost === null) {
+                try {
+                    const response = await getPublicServicePrices();
+                    const matched = response.data.find((item) => item.service_key === pricingKey);
+                    resolvedCost = matched ? (matched.price_credits ?? null) : null;
+                } catch (err) {
+                    console.warn(`获取服务价格失败（公开接口）: ${pricingKey}`, err);
+                }
+            }
+
+            if (!isMounted) {
+                return;
+            }
+
+            setServiceCredits(resolvedCost);
+            setIsLoadingServiceCost(false);
+        };
+
+        fetchPrice();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [method, accessToken, patternType, upscaleEngine]);
 
     const handleStartBatch = useCallback(async (files: File[]) => {
         setError('');
@@ -112,6 +168,8 @@ export default function BatchProcessingWrapper({
                 onClose={onBack}
                 onStartBatch={handleStartBatch}
                 isProcessing={isCreatingBatch}
+                serviceCredits={serviceCredits}
+                isLoadingServiceCost={isLoadingServiceCost}
             />
         </>
     );

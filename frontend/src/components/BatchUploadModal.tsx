@@ -8,6 +8,8 @@ interface BatchUploadModalProps {
     onStartBatch: (files: File[]) => void;
     maxFiles?: number;
     isProcessing?: boolean;
+    serviceCredits?: number | null;
+    isLoadingServiceCost?: boolean;
 }
 
 interface FileWithPreview {
@@ -16,12 +18,23 @@ interface FileWithPreview {
     id: string;
 }
 
+const formatCredits = (value: number) => {
+    if (Number.isInteger(value)) {
+        return value.toString();
+    }
+
+    const formatted = value.toFixed(2).replace(/\.00$/, '');
+    return formatted.replace(/(\.\d*[1-9])0$/, '$1');
+};
+
 export default function BatchUploadModal({
     isOpen,
     onClose,
     onStartBatch,
     maxFiles = 10,
     isProcessing = false,
+    serviceCredits = null,
+    isLoadingServiceCost = false,
 }: BatchUploadModalProps) {
     const [files, setFiles] = useState<FileWithPreview[]>([]);
     const [isDragging, setIsDragging] = useState(false);
@@ -117,6 +130,8 @@ export default function BatchUploadModal({
             onClose();
         }
     }, [isProcessing, onClose]);
+
+    const estimatedCredits = serviceCredits !== null ? serviceCredits * files.length : null;
 
     if (!isOpen) return null;
 
@@ -249,10 +264,21 @@ export default function BatchUploadModal({
                 </div>
 
                 {/* Footer */}
-                <div className="flex items-center justify-between p-6 border-t bg-gray-50">
-                    <p className="text-sm text-gray-600">
-                        {files.length > 0 ? `共 ${files.length} 张图片` : '还未选择图片'}
-                    </p>
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-6 border-t bg-gray-50">
+                    <div className="space-y-1">
+                        <p className="text-sm text-gray-600">
+                            {files.length > 0 ? `共 ${files.length} 张图片` : '还未选择图片'}
+                        </p>
+                        <p className="text-sm text-blue-700">
+                            {isLoadingServiceCost
+                                ? '价格加载中…'
+                                : serviceCredits === null
+                                    ? '价格暂不可用，预计积分无法计算'
+                                    : files.length > 0
+                                        ? `单张 ${formatCredits(serviceCredits)} 积分，预计消耗 ${formatCredits(estimatedCredits)} 积分`
+                                        : `单张 ${formatCredits(serviceCredits)} 积分`}
+                        </p>
+                    </div>
                     <div className="flex gap-3">
                         <button
                             onClick={handleClose}
