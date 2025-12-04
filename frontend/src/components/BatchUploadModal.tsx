@@ -193,16 +193,16 @@ export default function BatchUploadModal({
                     {/* Reference Image Upload (仅用于 prompt_edit) */}
                     {showReferenceImage && (
                         <div className="mb-6">
-                            <h3 className="text-lg font-semibold mb-3">基准图（可选）</h3>
+                            <h3 className="text-lg font-semibold mb-3">参考图（可选）</h3>
                             <p className="text-sm text-gray-600 mb-3">
-                                上传一张基准图，将与每张批量图片组合处理
+                                上传一张参考图，将与每张批量图片组合处理
                             </p>
 
                             {referenceImage ? (
                                 <div className="relative border-2 border-blue-500 rounded-lg overflow-hidden">
                                     <img
                                         src={referenceImage.preview}
-                                        alt="基准图"
+                                        alt="参考图"
                                         className="w-full h-48 object-cover"
                                     />
                                     <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-50 transition-opacity flex items-center justify-center group">
@@ -254,7 +254,7 @@ export default function BatchUploadModal({
                                             disabled={isProcessing}
                                             className="text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50"
                                         >
-                                            点击上传基准图
+                                            点击上传参考图（对应图片2）
                                         </button>
                                     </p>
                                 </div>

@@ -792,18 +792,18 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                       </p>
                     </div>
                   ) : (
-                    <div className="space-y-2 md:space-y-3">
-                      <div className="mx-auto flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg md:rounded-xl bg-gray-100 text-gray-400">
-                        ⬆
-                      </div>
-                      <div>
-                        <p className="text-sm md:text-base font-semibold text-gray-800">
-                          上传图片1
-                        </p>
-                        <p className="text-xs md:text-sm text-gray-500">
-                          支持 JPG、PNG 等格式
-                        </p>
-                      </div>
+                        <div className="space-y-2 md:space-y-3">
+                          <div className="mx-auto flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg md:rounded-xl bg-gray-100 text-gray-400">
+                            ⬆
+                          </div>
+                          <div>
+                            <p className="text-sm md:text-base font-semibold text-gray-800">
+                          上传图片1（待修改图）
+                            </p>
+                            <p className="text-xs md:text-sm text-gray-500">
+                              支持 JPG、PNG 等格式
+                            </p>
+                          </div>
                     </div>
                   )}
                 </div>
@@ -831,18 +831,18 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                       </p>
                     </div>
                   ) : (
-                    <div className="space-y-2 md:space-y-3">
-                      <div className="mx-auto flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg md:rounded-xl bg-amber-100 text-amber-500">
-                        ⬆
-                      </div>
-                      <div>
-                        <p className="text-sm md:text-base font-semibold text-gray-800">
-                          上传图片2（可选）
-                        </p>
-                        <p className="text-xs md:text-sm text-gray-600">
-                          支持 JPG、PNG 等格式
-                        </p>
-                      </div>
+                        <div className="space-y-2 md:space-y-3">
+                          <div className="mx-auto flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg md:rounded-xl bg-amber-100 text-amber-500">
+                            ⬆
+                          </div>
+                          <div>
+                            <p className="text-sm md:text-base font-semibold text-gray-800">
+                          上传图片2（参考图，可选）
+                            </p>
+                            <p className="text-xs md:text-sm text-gray-600">
+                              支持 JPG、PNG 等格式
+                            </p>
+                          </div>
                     </div>
                   )}
                 </div>
