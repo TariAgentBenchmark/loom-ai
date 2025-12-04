@@ -136,6 +136,7 @@ export default function Home() {
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [primaryImageDimensions, setPrimaryImageDimensions] = useState<{ width: number; height: number } | null>(null);
   const [secondaryImage, setSecondaryImage] = useState<File | null>(null);
   const [secondaryImagePreview, setSecondaryImagePreview] = useState<string | null>(null);
   const [showPricingModal, setShowPricingModal] = useState(false);
@@ -460,7 +461,19 @@ export default function Home() {
       setUploadedImage(file);
       const reader = new FileReader();
       reader.onload = (e) => {
-        setImagePreview(e.target?.result as string);
+        const result = e.target?.result as string;
+        setImagePreview(result);
+
+        // 读取图片尺寸，便于做前端校验
+        const img = new Image();
+        img.onload = () => {
+          setPrimaryImageDimensions({
+            width: img.naturalWidth,
+            height: img.naturalHeight,
+          });
+        };
+        img.onerror = () => setPrimaryImageDimensions(null);
+        img.src = result;
       };
       reader.readAsDataURL(file);
     } else {
@@ -663,6 +676,22 @@ export default function Home() {
       return;
     }
 
+    if (
+      currentPage === 'upscale' &&
+      (upscaleEngine || 'meitu_v2') === 'meitu_v2' &&
+      primaryImageDimensions
+    ) {
+      // 美图通用1（sr_num=2）限制原图最大 2560x2560
+      const maxSize = 2560;
+      const { width, height } = primaryImageDimensions;
+      if (width > maxSize || height > maxSize) {
+        setErrorMessage(
+          `通用1尺寸限制：原图需不超过 ${maxSize}x${maxSize}，当前 ${width}x${height}。请换小图或选择通用2。`,
+        );
+        return;
+      }
+    }
+
     if (currentPage === 'home') {
       setErrorMessage('请选择处理方式');
       return;
@@ -839,6 +868,7 @@ export default function Home() {
               setSuccessMessage('');
               setProcessedImage(null);
               setImagePreview(null);
+              setPrimaryImageDimensions(null);
               setUploadedImage(null);
               setSecondaryImage(null);
               setSecondaryImagePreview(null);
@@ -918,6 +948,7 @@ export default function Home() {
             setCurrentPage(method);
             applyStoredMethodUiState(method);
             setImagePreview(null);
+            setPrimaryImageDimensions(null);
             setUploadedImage(null);
             setSecondaryImage(null);
             setSecondaryImagePreview(null);
