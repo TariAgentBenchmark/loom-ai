@@ -88,7 +88,7 @@ export default function BatchProcessingWrapper({
         };
     }, [method, accessToken, patternType, upscaleEngine]);
 
-    const handleStartBatch = useCallback(async (files: File[]) => {
+    const handleStartBatch = useCallback(async (files: File[], referenceImage: File | null) => {
         setError('');
         setIsCreatingBatch(true);
 
@@ -96,6 +96,7 @@ export default function BatchProcessingWrapper({
             const payload: BatchProcessingRequestPayload = {
                 method,
                 images: files,
+                referenceImage: referenceImage || undefined,
                 accessToken,
                 instruction: promptInstruction,
                 patternType,
@@ -170,6 +171,7 @@ export default function BatchProcessingWrapper({
                 isProcessing={isCreatingBatch}
                 serviceCredits={serviceCredits}
                 isLoadingServiceCost={isLoadingServiceCost}
+                showReferenceImage={method === 'prompt_edit'}
             />
         </>
     );

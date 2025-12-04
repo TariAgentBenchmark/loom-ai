@@ -5,11 +5,12 @@ import { useState, useCallback, DragEvent, ChangeEvent, useRef } from 'react';
 interface BatchUploadModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onStartBatch: (files: File[]) => void;
+    onStartBatch: (files: File[], referenceImage: File | null) => void;
     maxFiles?: number;
     isProcessing?: boolean;
     serviceCredits?: number | null;
     isLoadingServiceCost?: boolean;
+    showReferenceImage?: boolean;  // 是否显示基准图上传（仅用于 prompt_edit）
 }
 
 interface FileWithPreview {
@@ -35,11 +36,14 @@ export default function BatchUploadModal({
     isProcessing = false,
     serviceCredits = null,
     isLoadingServiceCost = false,
+    showReferenceImage = false,
 }: BatchUploadModalProps) {
     const [files, setFiles] = useState<FileWithPreview[]>([]);
+    const [referenceImage, setReferenceImage] = useState<FileWithPreview | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [error, setError] = useState<string>('');
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const referenceInputRef = useRef<HTMLInputElement>(null);
 
     const generatePreview = useCallback((file: File): Promise<string> => {
         return new Promise((resolve) => {
@@ -115,17 +119,49 @@ export default function BatchUploadModal({
         setError('');
     }, []);
 
+    const handleReferenceImageInput = useCallback(async (e: ChangeEvent<HTMLInputElement>) => {
+        const selectedFile = e.target.files?.[0];
+        if (!selectedFile) return;
+
+        setError('');
+
+        // Validate file type
+        if (!selectedFile.type.startsWith('image/')) {
+            setError(`${selectedFile.name} 不是有效的图片文件`);
+            return;
+        }
+
+        // Generate preview
+        const preview = await generatePreview(selectedFile);
+        setReferenceImage({
+            file: selectedFile,
+            preview,
+            id: `reference-${Date.now()}`,
+        });
+
+        // Reset input
+        if (e.target) {
+            e.target.value = '';
+        }
+    }, [generatePreview]);
+
+    const removeReferenceImage = useCallback(() => {
+        setReferenceImage(null);
+        setError('');
+    }, []);
+
     const handleStartBatch = useCallback(() => {
         if (files.length === 0) {
             setError('请至少上传一张图片');
             return;
         }
-        onStartBatch(files.map(f => f.file));
-    }, [files, onStartBatch]);
+        onStartBatch(files.map(f => f.file), referenceImage?.file || null);
+    }, [files, referenceImage, onStartBatch]);
 
     const handleClose = useCallback(() => {
         if (!isProcessing) {
             setFiles([]);
+            setReferenceImage(null);
             setError('');
             onClose();
         }
@@ -154,53 +190,128 @@ export default function BatchUploadModal({
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-6">
+                    {/* Reference Image Upload (仅用于 prompt_edit) */}
+                    {showReferenceImage && (
+                        <div className="mb-6">
+                            <h3 className="text-lg font-semibold mb-3">基准图（可选）</h3>
+                            <p className="text-sm text-gray-600 mb-3">
+                                上传一张基准图，将与每张批量图片组合处理
+                            </p>
+
+                            {referenceImage ? (
+                                <div className="relative border-2 border-blue-500 rounded-lg overflow-hidden">
+                                    <img
+                                        src={referenceImage.preview}
+                                        alt="基准图"
+                                        className="w-full h-48 object-cover"
+                                    />
+                                    <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-50 transition-opacity flex items-center justify-center group">
+                                        <button
+                                            onClick={removeReferenceImage}
+                                            disabled={isProcessing}
+                                            className="opacity-0 group-hover:opacity-100 bg-red-600 text-white rounded-full p-3 hover:bg-red-700 transition-opacity disabled:opacity-50"
+                                        >
+                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                    <div className="p-3 bg-blue-50 border-t border-blue-200">
+                                        <p className="text-sm text-gray-700 font-medium truncate">
+                                            {referenceImage.file.name}
+                                        </p>
+                                        <p className="text-xs text-gray-500">
+                                            {(referenceImage.file.size / 1024 / 1024).toFixed(2)} MB
+                                        </p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                                    <input
+                                        ref={referenceInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleReferenceImageInput}
+                                        className="hidden"
+                                        disabled={isProcessing}
+                                    />
+                                    <svg
+                                        className="mx-auto h-10 w-10 text-gray-400"
+                                        stroke="currentColor"
+                                        fill="none"
+                                        viewBox="0 0 48 48"
+                                    >
+                                        <path
+                                            d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                                            strokeWidth={2}
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                        />
+                                    </svg>
+                                    <p className="mt-3 text-sm text-gray-600">
+                                        <button
+                                            onClick={() => referenceInputRef.current?.click()}
+                                            disabled={isProcessing}
+                                            className="text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50"
+                                        >
+                                            点击上传基准图
+                                        </button>
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* Upload Zone */}
-                    <div
-                        onDragOver={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        onDrop={handleDrop}
-                        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${isDragging
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-300 hover:border-gray-400'
-                            }`}
-                    >
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            multiple
-                            accept="image/*"
-                            onChange={handleFileInput}
-                            className="hidden"
-                            disabled={isProcessing}
-                        />
-
-                        <svg
-                            className="mx-auto h-12 w-12 text-gray-400"
-                            stroke="currentColor"
-                            fill="none"
-                            viewBox="0 0 48 48"
+                    <div>
+                        <h3 className="text-lg font-semibold mb-3">批量图片</h3>
+                        <div
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={handleDrop}
+                            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${isDragging
+                                ? 'border-blue-500 bg-blue-50'
+                                : 'border-gray-300 hover:border-gray-400'
+                                }`}
                         >
-                            <path
-                                d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                                strokeWidth={2}
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            />
-                        </svg>
-
-                        <p className="mt-4 text-lg text-gray-600">
-                            拖拽图片到此处，或
-                            <button
-                                onClick={() => fileInputRef.current?.click()}
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                multiple
+                                accept="image/*"
+                                onChange={handleFileInput}
+                                className="hidden"
                                 disabled={isProcessing}
-                                className="text-blue-600 hover:text-blue-700 font-medium ml-1 disabled:opacity-50"
+                            />
+
+                            <svg
+                                className="mx-auto h-12 w-12 text-gray-400"
+                                stroke="currentColor"
+                                fill="none"
+                                viewBox="0 0 48 48"
                             >
-                                点击选择
-                            </button>
-                        </p>
-                        <p className="mt-2 text-sm text-gray-500">
-                            支持 JPG、PNG 等格式，最多 {maxFiles} 张图片
-                        </p>
+                                <path
+                                    d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                                    strokeWidth={2}
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                />
+                            </svg>
+
+                            <p className="mt-4 text-lg text-gray-600">
+                                拖拽图片到此处，或
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={isProcessing}
+                                    className="text-blue-600 hover:text-blue-700 font-medium ml-1 disabled:opacity-50"
+                                >
+                                    点击选择
+                                </button>
+                            </p>
+                            <p className="mt-2 text-sm text-gray-500">
+                                支持 JPG、PNG 等格式，最多 {maxFiles} 张图片
+                            </p>
+                        </div>
                     </div>
 
                     {/* Error Message */}

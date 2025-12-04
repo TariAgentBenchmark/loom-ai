@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 async def create_batch_task(
     task_type: str,
     images: List[UploadFile] = File(...),
+    reference_image: Optional[UploadFile] = File(None),
     instruction: Optional[str] = Form(None),
     pattern_type: Optional[str] = Form(None),
     quality: Optional[str] = Form(None),
@@ -52,6 +53,13 @@ async def create_batch_task(
         
         logger.info(f"Batch upload: {len(images_data)} images, total size: {sum(len(b) for b, _ in images_data) / 1024 / 1024:.2f} MB")
         
+        # 读取基准图（仅用于 prompt_edit）
+        reference_image_data = None
+        if reference_image and task_type == "prompt_edit":
+            reference_bytes = await reference_image.read()
+            reference_image_data = (reference_bytes, reference_image.filename)
+            logger.info(f"Reference image uploaded: {reference_image.filename}, size: {len(reference_bytes) / 1024 / 1024:.2f} MB")
+        
         # 构建选项
         options = {}
         
@@ -59,6 +67,8 @@ async def create_batch_task(
             options["instruction"] = instruction.strip()
             if not options["instruction"]:
                 raise HTTPException(status_code=400, detail="请填写修改指令")
+        elif task_type == "prompt_edit" and not instruction:
+            raise HTTPException(status_code=400, detail="请填写修改指令")
         
         if task_type == "extract_pattern":
             options["pattern_type"] = pattern_type or "general_2"
@@ -82,7 +92,8 @@ async def create_batch_task(
             user=current_user,
             task_type=task_type,
             images_data=images_data,
-            options=options
+            options=options,
+            base_image=reference_image_data
         )
         
         return SuccessResponse(
@@ -161,4 +172,3 @@ async def download_batch_results(
         if "尚未完成" in error_msg or "没有已完成" in error_msg:
             raise HTTPException(status_code=400, detail=error_msg)
         raise HTTPException(status_code=500, detail="服务器火爆,重试一下。")
-

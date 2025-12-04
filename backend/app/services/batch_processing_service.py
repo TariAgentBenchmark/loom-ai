@@ -33,6 +33,7 @@ class BatchProcessingService:
         task_type: str,
         images_data: List[Tuple[bytes, str]],  # List of (image_bytes, filename)
         options: Dict[str, Any] = None,
+        base_image: Optional[Tuple[bytes, str]] = None,  # (bytes, filename)
     ) -> BatchTask:
         """创建批量处理任务"""
         
@@ -79,6 +80,26 @@ class BatchProcessingService:
         db.commit()
         db.refresh(batch_task)
         
+        # prompt_edit 基准图：保存一次，后续任务复用URL
+        reference_image_url: Optional[str] = None
+        if task_type == "prompt_edit" and base_image:
+            base_bytes, base_filename = base_image
+            reference_image_url = await self.file_service.save_upload_file(
+                base_bytes,
+                base_filename,
+                "originals",
+                purpose="general",
+            )
+
+        def _sanitize_options(raw: Dict[str, Any]) -> Dict[str, Any]:
+            """移除不适合入库的值（如bytes），避免JSON序列化失败。"""
+            sanitized = {}
+            for key, value in (raw or {}).items():
+                if isinstance(value, (bytes, bytearray)):
+                    continue
+                sanitized[key] = value
+            return sanitized
+
         # 创建各个子任务
         for idx, (image_bytes, filename) in enumerate(images_data):
             try:
@@ -100,6 +121,12 @@ class BatchProcessingService:
                 if credits_needed is None:
                     credits_needed = self.processing_service.default_service_costs.get(task_type)
                 
+                # 构建任务选项，包含基准图URL（如果有）
+                task_options = dict(options or {})
+                if reference_image_url and task_type == "prompt_edit":
+                    task_options["secondary_image_url"] = reference_image_url
+                task_options = _sanitize_options(task_options)
+                
                 # 创建子任务
                 task = Task(
                     task_id=f"task_{task_type}_{uuid.uuid4().hex[:12]}",
@@ -114,7 +141,7 @@ class BatchProcessingService:
                         "width": image_info["width"],
                         "height": image_info["height"],
                     },
-                    options=options or {},
+                    options=task_options,
                     credits_used=credits_needed,
                     estimated_time=self.processing_service.estimated_times.get(task_type, 120),
                 )

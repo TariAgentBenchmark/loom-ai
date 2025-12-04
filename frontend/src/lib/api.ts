@@ -1465,6 +1465,7 @@ export interface BatchTaskStatus {
 export interface BatchProcessingRequestPayload {
   method: ProcessingMethod;
   images: File[];
+  referenceImage?: File;
   accessToken: string;
   instruction?: string;
   patternType?: string;
@@ -1477,6 +1478,7 @@ export const createBatchTask = (payload: BatchProcessingRequestPayload) => {
   const {
     method,
     images,
+    referenceImage,
     accessToken,
     instruction,
     patternType,
@@ -1499,6 +1501,11 @@ export const createBatchTask = (payload: BatchProcessingRequestPayload) => {
   images.forEach((image) => {
     formData.append("images", image);
   });
+
+  // Append reference image for prompt_edit
+  if (method === "prompt_edit" && referenceImage) {
+    formData.append("reference_image", referenceImage);
+  }
 
   // Add method-specific parameters
   if (method === "prompt_edit" && instruction) {
