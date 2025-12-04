@@ -676,17 +676,13 @@ export default function Home() {
       return;
     }
 
-    if (
-      currentPage === 'upscale' &&
-      (upscaleEngine || 'meitu_v2') === 'meitu_v2' &&
-      primaryImageDimensions
-    ) {
-      // 美图通用1（sr_num=2）限制原图最大 2560x2560
+    if (currentPage === 'upscale' && primaryImageDimensions) {
+      // 通用1/2 均遵循美图尺寸限制
       const maxSize = 2560;
       const { width, height } = primaryImageDimensions;
       if (width > maxSize || height > maxSize) {
         setErrorMessage(
-          `通用1尺寸限制：原图需不超过 ${maxSize}x${maxSize}，当前 ${width}x${height}。请换小图或选择通用2。`,
+          `AI高清尺寸限制：原图需不超过 ${maxSize}x${maxSize}，当前 ${width}x${height}。请换用较小图片后再试。`,
         );
         return;
       }
