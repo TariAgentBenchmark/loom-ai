@@ -1030,113 +1030,25 @@ class AIClient:
         image_bytes: bytes,
         options: Optional[Dict[str, Any]] = None,
     ) -> str:
-        """AI平面转3D"""
+        """AI平面转3D（使用 Apyi Gemini 3 Pro Image Preview）"""
         try:
-            image_url = await self._prepare_image_for_jimeng(image_bytes, "temp_flat3d")
+            prompt = "将图片里的图案转换成3D立体效果，鲜艳颜色，精致细节，具有深度感和光影表现。"
+            resolution = (options or {}).get("resolution", "2K")
+            aspect_ratio = (options or {}).get("aspect_ratio")
 
-            prompt = "将图片里的图案转换成3d立体效果，鲜艳颜色，精致细节。"
-
-            data = {
-                "Action": "CVSync2AsyncSubmitTask",
-                "Version": "2022-08-31",
-                "req_key": "jimeng_t2i_v40",
-                "prompt": prompt,
-                "image_urls": [image_url],
-                "size": 2048 * 2048,
-                "scale": 0.75,
-                "force_single": True,
-                "min_ratio": 1 / 3,
-                "max_ratio": 3,
-            }
-
-            self._apply_jimeng_options(data, options)
-            logger.info("Sending flat-to-3D request with image URL: %s", image_url)
-
-            base_result_url = await self._execute_jimeng_task(
-                data,
-                log_label="Flat to 3D conversion",
-                result_prefix="flat3d",
+            result = await self.apyi_gemini_client.generate_image_preview(
+                image_bytes=image_bytes,
+                prompt=prompt,
+                mime_type="image/png",
+                aspect_ratio=aspect_ratio,
+                resolution=resolution,
             )
 
-            if not base_result_url:
+            image_url = self.base_client_utils._extract_image_url(result)
+            if not image_url:
                 raise Exception("AI平面转3D失败：未生成结果图片")
 
-            hd_scale_factor = 4
-            if options:
-                custom_scale = options.get("hd_scale_factor") or options.get("upscale_scale_factor")
-                if custom_scale is not None:
-                    try:
-                        parsed_scale = int(float(custom_scale))
-                        if parsed_scale >= 2:
-                            hd_scale_factor = parsed_scale
-                    except (TypeError, ValueError):
-                        logger.warning("Invalid HD scale factor provided: %s", custom_scale)
-
-            upscale_options: Dict[str, Any] = {
-                "engine": "meitu_v2",
-                "sr_num": 4 if hd_scale_factor >= 4 else 2,
-                "task": "/v1/Ultra_High_Definition_V2/478332",
-                "task_type": "formula",
-                "sync_timeout": 30,
-                "rsp_media_type": "url",
-            }
-
-            if options:
-                custom_upscale_options = options.get("hd_options") or options.get("upscale_options")
-                if isinstance(custom_upscale_options, dict):
-                    upscale_options.update(custom_upscale_options)
-
-            source_bytes: Optional[bytes] = None
-            if base_result_url.startswith("/files/"):
-                local_path = base_result_url.replace("/files/", f"{settings.upload_path}/")
-                try:
-                    with open(local_path, "rb") as file_obj:
-                        source_bytes = file_obj.read()
-                except Exception as exc:
-                    logger.warning("Failed to read local flat-to-3D result for HD upscale: %s", str(exc))
-
-            try:
-                enhanced_result = await self.upscale_image(
-                    base_result_url,
-                    scale_factor=hd_scale_factor,
-                    options=upscale_options,
-                    image_bytes=source_bytes,
-                )
-
-                enhanced_urls = [
-                    url.strip()
-                    for url in enhanced_result.split(",")
-                    if url and url.strip()
-                ] if enhanced_result else []
-
-                saved_hd_urls: List[str] = []
-                for enhanced_url in enhanced_urls:
-                    try:
-                        if enhanced_url.startswith("/files/"):
-                            saved_hd_urls.append(enhanced_url)
-                            continue
-
-                        enhanced_bytes = await self.base_client_utils._download_image_from_url(enhanced_url)
-                        saved_url = self.base_client_utils._save_image_bytes(
-                            enhanced_bytes,
-                            prefix="flat3d_hd",
-                        )
-                        saved_hd_urls.append(saved_url)
-                    except Exception as enhance_exc:
-                        logger.warning(
-                            "Failed to persist HD flat-to-3D result from %s: %s",
-                            enhanced_url,
-                            str(enhance_exc),
-                        )
-
-                if saved_hd_urls:
-                    logger.info("Flat-to-3D HD enhancement succeeded, returning %s", saved_hd_urls)
-                    return ",".join(saved_hd_urls)
-
-            except Exception as exc:
-                logger.warning("Flat-to-3D HD enhancement failed: %s. Returning base result.", str(exc))
-
-            return base_result_url
+            return image_url
 
         except Exception as exc:
             logger.error("Convert flat to 3D failed: %s", str(exc))
@@ -1147,10 +1059,8 @@ class AIClient:
         image_bytes: bytes,
         options: Optional[Dict[str, Any]] = None,
     ) -> str:
-        """AI毛线刺绣增强"""
+        """AI毛线刺绣增强（使用 Apyi Gemini 3 Pro Image Preview）"""
         try:
-            image_url = await self._prepare_image_for_jimeng(image_bytes, "temp_embroidery")
-
             prompt = """
             将这张图片转换为毛线刺绣效果：
             1. 针线类型：中等针脚，平衡的刺绣效果
@@ -1163,27 +1073,22 @@ class AIClient:
             请生成逼真的毛线刺绣效果图。
             """.strip()
             
-            data = {
-                "Action": "CVSync2AsyncSubmitTask",
-                "Version": "2022-08-31",
-                "req_key": "jimeng_t2i_v40",
-                "prompt": prompt,
-                "image_urls": [image_url],
-                "size": 2048 * 2048,  # 2K分辨率
-                "scale": 0.7,  # 文本描述影响程度
-                "force_single": True,  # 强制生成单图
-                "min_ratio": 1/3,
-                "max_ratio": 3
-            }
-            
-            self._apply_jimeng_options(data, options)
-            logger.info("Sending embroidery enhancement request with image URL: %s", image_url)
+            resolution = (options or {}).get("resolution", "2K")
+            aspect_ratio = (options or {}).get("aspect_ratio")
 
-            return await self._execute_jimeng_task(
-                data,
-                log_label="Embroidery enhancement",
-                result_prefix="embroidery",
+            result = await self.apyi_gemini_client.generate_image_preview(
+                image_bytes=image_bytes,
+                prompt=prompt,
+                mime_type="image/png",
+                aspect_ratio=aspect_ratio,
+                resolution=resolution,
             )
+
+            image_url = self.base_client_utils._extract_image_url(result)
+            if not image_url:
+                raise Exception("毛线刺绣增强失败：未生成结果图片")
+
+            return image_url
 
         except Exception as e:
             logger.error(f"Enhance embroidery failed: {str(e)}")

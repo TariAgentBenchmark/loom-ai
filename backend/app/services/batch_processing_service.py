@@ -83,12 +83,11 @@ class BatchProcessingService:
         for idx, (image_bytes, filename) in enumerate(images_data):
             try:
                 # 保存原始图片
-                jimeng_purposes = {"embroidery", "flat_to_3d"}
                 original_url = await self.file_service.save_upload_file(
                     image_bytes,
                     filename,
                     "originals",
-                    purpose="jimeng" if task_type in jimeng_purposes else "general",
+                    purpose="general",
                 )
                 
                 # 获取图片信息
@@ -315,4 +314,3 @@ class BatchProcessingService:
         
         logger.info(f"Generated {len(result_files)} download URLs for batch {batch_id}")
         return result_files
-

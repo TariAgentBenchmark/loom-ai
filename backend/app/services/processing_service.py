@@ -81,12 +81,11 @@ class ProcessingService:
         """创建处理任务"""
 
         # 保存原始图片
-        jimeng_purposes = {TaskType.EMBROIDERY.value, TaskType.FLAT_TO_3D.value}
         original_url = await self.file_service.save_upload_file(
             image_bytes,
             original_filename,
             "originals",
-            purpose="jimeng" if task_type in jimeng_purposes else "general",
+            purpose="general",
         )
 
         # 获取图片信息
