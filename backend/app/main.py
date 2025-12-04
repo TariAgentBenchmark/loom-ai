@@ -184,16 +184,17 @@ async def general_exception_handler(request: Request, exc: Exception):
 async def log_requests(request: Request, call_next):
     """请求日志中间件"""
     start_time = time.time()
-    
-    # 记录请求
+    # 健康检查不写请求日志，避免刷屏
+    if request.url.path == "/health":
+        return await call_next(request)
+
     logger.info(f"Request: {request.method} {request.url}")
-    
+
     response = await call_next(request)
-    
-    # 记录响应时间
+
     process_time = time.time() - start_time
     logger.info(f"Response: {response.status_code} - {process_time:.3f}s")
-    
+
     return response
 
 

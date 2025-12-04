@@ -34,7 +34,7 @@ RUN mkdir -p uploads/originals uploads/results uploads/temp data
 EXPOSE 8000
 
 # 健康检查
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=120s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # 初始化数据库并启动服务
