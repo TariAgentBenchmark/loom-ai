@@ -1485,6 +1485,14 @@ export const createBatchTask = (payload: BatchProcessingRequestPayload) => {
     aspectRatio,
   } = payload;
 
+  const batchTaskTypeMap: Partial<Record<ProcessingMethod, string>> = {
+    style: "vectorize",
+    watermark_removal: "remove_watermark",
+    noise_removal: "denoise",
+  };
+
+  const batchTaskType = batchTaskTypeMap[method] ?? method;
+
   const formData = new FormData();
 
   // Append all images
@@ -1513,7 +1521,7 @@ export const createBatchTask = (payload: BatchProcessingRequestPayload) => {
   }
 
   return postFormData<BatchTaskData>(
-    `/processing/batch/${method}`,
+    `/processing/batch/${batchTaskType}`,
     formData,
     accessToken,
     true
