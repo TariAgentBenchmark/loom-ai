@@ -69,7 +69,7 @@ RUNNINGHUB_API_KEY=your-runninghub-api-key
 RUNNINGHUB_WORKFLOW_ID_POSITIONING=your-runninghub-workflow-id
 
 # 可选配置
-DATABASE_URL=sqlite:///./loom_ai.db
+DATABASE_URL=sqlite:///./data/loom_ai.db  # 默认使用SQLite，如需Postgres改为 postgresql+psycopg://user:pass@host:5432/dbname
 REDIS_URL=redis://localhost:6379/0
 ```
 
@@ -141,9 +141,22 @@ backend/
 
 ### 数据库
 
-- 默认使用SQLite，适合开发和小规模部署
-- 生产环境建议使用PostgreSQL
+- 默认使用SQLite（`DATABASE_URL=sqlite:///./data/loom_ai.db`），适合开发和小规模部署
+- 生产环境建议使用PostgreSQL 17+，将 `DATABASE_URL` 设置为 `postgresql+psycopg://user:pass@host:5432/dbname`
 - 自动创建表结构，无需手动建表
+
+#### 从SQLite迁移数据到PostgreSQL
+
+1. 确保PostgreSQL已创建数据库并可连接。
+2. 运行迁移脚本（默认读取当前 `DATABASE_URL` 作为SQLite源，需指定目标PG URL）：
+
+```bash
+cd backend
+uv run python scripts/migrate_sqlite_to_postgres.py \
+  --sqlite-url sqlite:///./data/loom_ai.db \
+  --postgres-url postgresql+psycopg://user:pass@host:5432/dbname \
+  --wipe-target   # 如需清空目标库再导入
+```
 
 ### AI服务集成
 

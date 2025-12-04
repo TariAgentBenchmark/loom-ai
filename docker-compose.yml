@@ -29,7 +29,7 @@ services:
     image: ${REGISTRY:-crpi-lxfoqbwevmx9mc1q.cn-chengdu.personal.cr.aliyuncs.com}/${NAMESPACE:-tari_tech}/${BACKEND_IMAGE:-loomai-backend}:${IMAGE_TAG:-latest}
     # 不再直接暴露端口，通过nginx代理
     environment:
-      - DATABASE_URL=sqlite:///./data/loom_ai.db
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///./data/loom_ai.db}
       - REDIS_URL=redis://redis:6379/0
       - APIYI_API_KEY=${APIYI_API_KEY:-}
       - TUZI_API_KEY=${TUZI_API_KEY:-}
