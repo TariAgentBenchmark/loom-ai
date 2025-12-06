@@ -17,6 +17,7 @@ import BatchProcessingWrapper from '../components/BatchProcessingWrapper';
 import LoginModal from '../components/LoginModal';
 import RegisterModal from '../components/RegisterModal';
 import ForgotPasswordModal from '../components/ForgotPasswordModal';
+import DisclaimerBar from '../components/DisclaimerBar';
 import { ProcessingMethod } from '../lib/processing';
 import {
   authenticate,
@@ -836,7 +837,7 @@ export default function Home() {
   );
 
   return (
-    <div className="notranslate">
+    <div className="notranslate pb-24 md:pb-28">
       {currentPage !== 'home' ? (
         <>
           <ProcessingPage
@@ -1014,6 +1015,7 @@ export default function Home() {
         />
       )}
 
+      <DisclaimerBar />
       {renderPricingModal()}
       {renderCreditHistoryModal()}
 
