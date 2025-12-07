@@ -62,6 +62,11 @@ const parseErrorBody = async (
 ): Promise<{ primary?: string; secondary?: string }> => {
   const contentType = response.headers.get("content-type") ?? "";
 
+  // Ignore HTML error pages (e.g., nginx 502) and fall back to status text instead of showing raw markup
+  if (contentType.includes("text/html")) {
+    return {};
+  }
+
   if (contentType.includes("application/json")) {
     try {
       const payload = (await response.clone().json()) as ApiErrorResponse & {
@@ -95,6 +100,14 @@ const parseErrorBody = async (
 
   try {
     const rawText = await response.clone().text();
+    const htmlLikePattern =
+      /<\s*html[\s>]/i.test(rawText) ||
+      /<!DOCTYPE\s+html/i.test(rawText) ||
+      /<\s*body[\s>]/i.test(rawText);
+    if (htmlLikePattern) {
+      return {};
+    }
+
     const cleaned = rawText.replace(/\s+/g, " ").trim();
     if (cleaned) {
       const truncated =
