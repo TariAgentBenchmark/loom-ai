@@ -38,6 +38,11 @@ export default function BatchProcessingWrapper({
     const [error, setError] = useState<string>('');
     const [serviceCredits, setServiceCredits] = useState<number | null>(null);
     const [isLoadingServiceCost, setIsLoadingServiceCost] = useState(false);
+    const [batchInstruction, setBatchInstruction] = useState(promptInstruction ?? '');
+
+    useEffect(() => {
+        setBatchInstruction(promptInstruction ?? '');
+    }, [promptInstruction]);
 
     useEffect(() => {
         let isMounted = true;
@@ -93,12 +98,17 @@ export default function BatchProcessingWrapper({
         setIsCreatingBatch(true);
 
         try {
+            if (method === 'prompt_edit' && !batchInstruction.trim()) {
+                setError('请填写修改指令');
+                return;
+            }
+
             const payload: BatchProcessingRequestPayload = {
                 method,
                 images: files,
                 referenceImage: referenceImage || undefined,
                 accessToken,
-                instruction: promptInstruction,
+                instruction: batchInstruction,
                 patternType,
                 patternQuality,
                 upscaleEngine,
@@ -113,7 +123,7 @@ export default function BatchProcessingWrapper({
         } finally {
             setIsCreatingBatch(false);
         }
-    }, [method, accessToken, promptInstruction, patternType, patternQuality, upscaleEngine, aspectRatio]);
+    }, [method, accessToken, batchInstruction, patternType, patternQuality, upscaleEngine, aspectRatio]);
 
     const handleComplete = useCallback(() => {
         // Batch processing completed
@@ -172,6 +182,8 @@ export default function BatchProcessingWrapper({
                 serviceCredits={serviceCredits}
                 isLoadingServiceCost={isLoadingServiceCost}
                 showReferenceImage={method === 'prompt_edit'}
+                instruction={batchInstruction}
+                onInstructionChange={setBatchInstruction}
             />
         </>
     );

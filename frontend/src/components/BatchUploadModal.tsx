@@ -11,6 +11,8 @@ interface BatchUploadModalProps {
     serviceCredits?: number | null;
     isLoadingServiceCost?: boolean;
     showReferenceImage?: boolean;  // 是否显示基准图上传（仅用于 prompt_edit）
+    instruction?: string; // prompt_edit 的修改指令
+    onInstructionChange?: (value: string) => void;
 }
 
 interface FileWithPreview {
@@ -37,6 +39,8 @@ export default function BatchUploadModal({
     serviceCredits = null,
     isLoadingServiceCost = false,
     showReferenceImage = false,
+    instruction,
+    onInstructionChange,
 }: BatchUploadModalProps) {
     const [files, setFiles] = useState<FileWithPreview[]>([]);
     const [referenceImage, setReferenceImage] = useState<FileWithPreview | null>(null);
@@ -155,8 +159,12 @@ export default function BatchUploadModal({
             setError('请至少上传一张图片');
             return;
         }
+        if (showReferenceImage && !(instruction ?? '').trim()) {
+            setError('请填写修改指令');
+            return;
+        }
         onStartBatch(files.map(f => f.file), referenceImage?.file || null);
-    }, [files, referenceImage, onStartBatch]);
+    }, [files, referenceImage, onStartBatch, showReferenceImage, instruction]);
 
     const handleClose = useCallback(() => {
         if (!isProcessing) {
@@ -259,6 +267,28 @@ export default function BatchUploadModal({
                                     </p>
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {/* Instruction for prompt_edit */}
+                    {showReferenceImage && (
+                        <div className="mb-6">
+                            <h3 className="text-lg font-semibold mb-2">输入指令</h3>
+                            <p className="text-sm text-gray-600 mb-3">
+                                请输入希望修改的描述，将应用于所有批量图片
+                            </p>
+                            <textarea
+                                value={instruction ?? ''}
+                                onChange={(event) =>
+                                    onInstructionChange?.(event.target.value)
+                                }
+                                placeholder="例如：把图中裙子的颜色改成白色"
+                                className="w-full min-h-[100px] rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 resize-none"
+                                disabled={isProcessing}
+                            />
+                            <p className="text-xs text-gray-500 mt-2">
+                                一句话描述想要修改的细节，AI 会自动处理。批量任务会使用这里的指令。
+                            </p>
                         </div>
                     )}
 
