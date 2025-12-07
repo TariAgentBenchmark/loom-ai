@@ -10,7 +10,9 @@ from datetime import datetime
 
 from app.core.config import settings
 from app.core.database import init_db, close_db, check_db_health
+from app.core.redis_client import close_redis_client
 from app.api.v1 import auth, user, processing, credits, payment, history, admin, membership, batch_processing
+from app.services.api_limiter import api_limiter
 
 
 api_router = APIRouter()
@@ -46,6 +48,14 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
         raise
+
+    # 初始化 Redis 限流器
+    try:
+        await api_limiter.initialize_all()
+        logger.info("API limiters initialized")
+    except Exception as e:
+        logger.error("Failed to initialize API limiters: %s", e)
+        raise
     
     # 确保上传目录存在
     os.makedirs(settings.upload_path, exist_ok=True)
@@ -57,6 +67,10 @@ async def lifespan(app: FastAPI):
     # 关闭时执行
     logger.info("Shutting down LoomAI Backend...")
     close_db()
+    try:
+        await close_redis_client()
+    except Exception:
+        logger.warning("Closing Redis client failed", exc_info=True)
 
 
 # 创建FastAPI应用

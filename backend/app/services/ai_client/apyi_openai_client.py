@@ -16,6 +16,7 @@ class ApyiOpenAIClient(BaseAIClient):
 
     def __init__(self):
         """初始化Apyi OpenAI客户端"""
+        super().__init__(api_name="apyi_openai")
         self.base_url = f"{settings.apiyi_base_url}/v1"
         self.api_key = settings.apiyi_api_key
         self.headers = {

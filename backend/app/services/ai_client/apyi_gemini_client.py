@@ -18,6 +18,7 @@ class ApyiGeminiClient(BaseAIClient):
 
     def __init__(self):
         """初始化Apyi客户端"""
+        super().__init__(api_name="apyi_gemini")
         self.base_url = settings.apiyi_base_url
         self.api_key = settings.apiyi_api_key
         self.headers = {

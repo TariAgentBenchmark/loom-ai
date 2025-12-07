@@ -8,6 +8,7 @@ import httpx
 
 from app.core.config import settings
 from app.services.ai_client.base_client import BaseAIClient
+from app.services.api_limiter import api_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ class DewatermarkClient(BaseAIClient):
     """Dewatermark.ai API客户端"""
     
     def __init__(self):
-        super().__init__()
+        super().__init__(api_name="dewatermark")
         self.dewatermark_api_key = settings.dewatermark_api_key
         self.dewatermark_url = "https://platform.dewatermark.ai/api/object_removal/v1/erase_watermark"
     
@@ -54,14 +55,15 @@ class DewatermarkClient(BaseAIClient):
             logger.info("Sending request to Dewatermark.ai API")
             
             # 发送请求
-            async with httpx.AsyncClient(timeout=300.0) as client:
-                response = await client.post(
-                    self.dewatermark_url,
-                    headers=headers,
-                    files=files
-                )
-                response.raise_for_status()
-                result = response.json()
+            async with api_limiter.slot("dewatermark"):
+                async with httpx.AsyncClient(timeout=300.0) as client:
+                    response = await client.post(
+                        self.dewatermark_url,
+                        headers=headers,
+                        files=files
+                    )
+                    response.raise_for_status()
+                    result = response.json()
             
             # 关闭打开的文件
             if "mask_brush" in files and hasattr(files["mask_brush"][1], 'close'):

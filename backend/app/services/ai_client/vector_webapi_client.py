@@ -9,6 +9,7 @@ import httpx
 
 from app.core.config import settings
 from app.services.file_service import FileService
+from app.services.api_limiter import api_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -79,10 +80,11 @@ class VectorWebAPIClient:
 
     async def _download_and_save(self, url: str, vector_format: str) -> str:
         """下载矢量文件并保存到本地/OSS"""
-        async with httpx.AsyncClient(timeout=300.0) as client:
-            resp = await client.get(url)
-            resp.raise_for_status()
-            content = resp.content
+        async with api_limiter.slot("vector_webapi"):
+            async with httpx.AsyncClient(timeout=300.0) as client:
+                resp = await client.get(url)
+                resp.raise_for_status()
+                content = resp.content
 
         ext = self._normalize_format(vector_format).lstrip(".")
         filename = f"vectorized_{uuid.uuid4().hex[:8]}.{ext}"
@@ -129,15 +131,16 @@ class VectorWebAPIClient:
         }
 
         try:
-            async with httpx.AsyncClient(timeout=300.0) as client:
-                logger.info("Uploading image to vector API, format=%s", fmt)
-                response = await client.post(
-                    self.base_url,
-                    data=data,
-                    files=files,
-                )
-                response.raise_for_status()
-                payload = response.json()
+            async with api_limiter.slot("vector_webapi"):
+                async with httpx.AsyncClient(timeout=300.0) as client:
+                    logger.info("Uploading image to vector API, format=%s", fmt)
+                    response = await client.post(
+                        self.base_url,
+                        data=data,
+                        files=files,
+                    )
+                    response.raise_for_status()
+                    payload = response.json()
 
                 if payload.get("code") != 200:
                     raise Exception(payload.get("msg") or "矢量化服务异常")

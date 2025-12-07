@@ -1180,6 +1180,19 @@ export interface AdminServicePriceUpdateResult {
   updated: boolean;
 }
 
+export interface AdminApiLimitMetric {
+  api: string;
+  limit: number;
+  active: number;
+  available: number;
+  leasedTokens?: number;
+  leased_tokens?: number;
+}
+
+export interface AdminApiLimitMetricsResponse {
+  metrics: AdminApiLimitMetric[];
+}
+
 // Admin API functions
 export const adminLogin = (identifier: string, password: string) =>
   postJson<LoginResult, { identifier: string; password: string }>(
@@ -1399,6 +1412,9 @@ export const adminUpdateServicePrice = (
 
 export const adminGetDashboardStats = (accessToken: string) =>
   getJson<AdminDashboardStats>("/admin/dashboard/stats", accessToken);
+
+export const adminGetApiLimitMetrics = (accessToken: string) =>
+  getJson<AdminApiLimitMetricsResponse>("/admin/limits/metrics", accessToken);
 
 export const sendVerificationCode = (payload: SendVerificationCodePayload) =>
   postJson<SendVerificationCodeResult, { phone: string }>(

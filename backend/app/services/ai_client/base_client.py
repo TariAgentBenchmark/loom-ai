@@ -12,6 +12,7 @@ from PIL import Image
 
 from app.core.config import settings
 from app.services.oss_service import oss_service
+from app.services.api_limiter import api_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -54,13 +55,14 @@ def _summarize_value(value: Any) -> str:
 class BaseAIClient:
     """基础AI客户端，提供通用功能"""
     
-    def __init__(self):
+    def __init__(self, api_name: str = "apyi_gemini"):
         self.base_url = settings.apiyi_base_url
         self.api_key = settings.apiyi_api_key
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
+        self.api_name = api_name
     
     async def _make_request(self, method: str, endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """发送API请求"""
@@ -69,68 +71,73 @@ class BaseAIClient:
         max_retries = 3
         backoff_base = 1.5
 
-        for attempt in range(1, max_retries + 1):
-            try:
-                async with httpx.AsyncClient(timeout=300.0) as client:
-                    response = await client.request(
-                        method=method,
-                        url=url,
-                        headers=self.headers,
-                        json=data
-                    )
-                    response.raise_for_status()
-                    return response.json()
+        async def _do_request():
+            for attempt in range(1, max_retries + 1):
+                try:
+                    async with httpx.AsyncClient(timeout=300.0) as client:
+                        response = await client.request(
+                            method=method,
+                            url=url,
+                            headers=self.headers,
+                            json=data
+                        )
+                        response.raise_for_status()
+                        return response.json()
 
-            except httpx.HTTPStatusError as exc:
-                status = exc.response.status_code
-                body = exc.response.text
-                if 500 <= status < 600 and attempt < max_retries:
-                    wait_seconds = backoff_base * (2 ** (attempt - 1)) + uniform(0, 0.5)
-                    logger.warning(
-                        "AI API request failed with %s (attempt %s/%s). Body: %s. Retrying in %.2fs",
+                except httpx.HTTPStatusError as exc:
+                    status = exc.response.status_code
+                    body = exc.response.text
+                    if 500 <= status < 600 and attempt < max_retries:
+                        wait_seconds = backoff_base * (2 ** (attempt - 1)) + uniform(0, 0.5)
+                        logger.warning(
+                            "AI API request failed with %s (attempt %s/%s). Body: %s. Retrying in %.2fs",
+                            status,
+                            attempt,
+                            max_retries,
+                            body,
+                            wait_seconds,
+                        )
+                        await asyncio.sleep(wait_seconds)
+                        continue
+
+                    logger.error(
+                        "AI API request failed permanently: method=%s url=%s status=%s body=%s payload=%s",
+                        method,
+                        url,
                         status,
-                        attempt,
-                        max_retries,
-                        body,
-                        wait_seconds,
+                        _summarize_payload(body),
+                        _summarize_payload(data),
                     )
-                    await asyncio.sleep(wait_seconds)
-                    continue
+                    raise Exception(f"AI服务请求失败: {status}")
 
-                logger.error(
-                    "AI API request failed permanently: method=%s url=%s status=%s body=%s payload=%s",
-                    method,
-                    url,
-                    status,
-                    _summarize_payload(body),
-                    _summarize_payload(data),
-                )
-                raise Exception(f"AI服务请求失败: {status}")
+                except httpx.RequestError as exc:
+                    if attempt < max_retries:
+                        wait_seconds = backoff_base * (2 ** (attempt - 1)) + uniform(0, 0.5)
+                        logger.warning(
+                            "AI API request error '%s' (attempt %s/%s). Retrying in %.2fs",
+                            exc,
+                            attempt,
+                            max_retries,
+                            wait_seconds,
+                        )
+                        await asyncio.sleep(wait_seconds)
+                        continue
 
-            except httpx.RequestError as exc:
-                if attempt < max_retries:
-                    wait_seconds = backoff_base * (2 ** (attempt - 1)) + uniform(0, 0.5)
-                    logger.warning(
-                        "AI API request error '%s' (attempt %s/%s). Retrying in %.2fs",
-                        exc,
-                        attempt,
-                        max_retries,
-                        wait_seconds,
+                    logger.error(
+                        "AI API request error without retry: method=%s url=%s error=%s payload=%s",
+                        method,
+                        url,
+                        str(exc),
+                        _summarize_payload(data),
                     )
-                    await asyncio.sleep(wait_seconds)
-                    continue
+                    raise Exception(f"AI服务连接失败: {str(exc)}")
 
-                logger.error(
-                    "AI API request error without retry: method=%s url=%s error=%s payload=%s",
-                    method,
-                    url,
-                    str(exc),
-                    _summarize_payload(data),
-                )
-                raise Exception(f"AI服务连接失败: {str(exc)}")
+            # 理论上不会到达这里，保留兜底处理
+            raise Exception("AI服务连接失败: 未知错误")
 
-        # 理论上不会到达这里，保留兜底处理
-        raise Exception("AI服务连接失败: 未知错误")
+        if self.api_name:
+            return await api_limiter.run(self.api_name, _do_request)
+        return await _do_request()
 
     def _image_to_base64(self, image_bytes: bytes, format: str = "JPEG") -> str:
         """将图片字节转换为base64编码"""

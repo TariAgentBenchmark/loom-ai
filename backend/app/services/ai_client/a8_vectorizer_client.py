@@ -8,6 +8,7 @@ import httpx
 import urllib3
 
 from app.services.file_service import FileService
+from app.services.api_limiter import api_limiter
 
 # 禁用SSL警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -54,12 +55,13 @@ class A8VectorizerClient:
 
             logger.info(f"Uploading image to A8 vectorizer API, format: {fmt}")
 
-            async with httpx.AsyncClient(timeout=300.0, verify=False) as client:
-                response = await client.post(
-                    f"{self.base_url}/add_task",
-                    files=files,
-                    data=data
-                )
+            async with api_limiter.slot("a8_vectorizer"):
+                async with httpx.AsyncClient(timeout=300.0, verify=False) as client:
+                    response = await client.post(
+                        f"{self.base_url}/add_task",
+                        files=files,
+                        data=data
+                    )
 
             if response.status_code != 200:
                 raise Exception("服务异常，联系管理员")
@@ -77,11 +79,12 @@ class A8VectorizerClient:
             # 2) 轮询任务状态
             t0 = time.time()
             while True:
-                async with httpx.AsyncClient(timeout=300.0, verify=False) as client:
-                    response = await client.get(
-                        f"{self.base_url}/try_get",
-                        params={'taskid': taskid}
-                    )
+                async with api_limiter.slot("a8_vectorizer"):
+                    async with httpx.AsyncClient(timeout=300.0, verify=False) as client:
+                        response = await client.get(
+                            f"{self.base_url}/try_get",
+                            params={'taskid': taskid}
+                        )
 
                 if response.status_code != 200:
                     raise Exception("服务异常，联系管理员")
@@ -100,11 +103,12 @@ class A8VectorizerClient:
                 await asyncio.sleep(poll_interval)
 
             # 3) 下载文件
-            async with httpx.AsyncClient(timeout=300.0, verify=False) as client:
-                response = await client.get(
-                    f"{self.base_url}/get_image",
-                    params={'taskid': taskid}
-                )
+            async with api_limiter.slot("a8_vectorizer"):
+                async with httpx.AsyncClient(timeout=300.0, verify=False) as client:
+                    response = await client.get(
+                        f"{self.base_url}/get_image",
+                        params={'taskid': taskid}
+                    )
 
             if response.status_code != 200:
                 raise Exception("服务异常，联系管理员")

@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Dict
 
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -22,6 +22,23 @@ class Settings(BaseSettings):
 
     # Redis配置
     redis_url: str = "redis://localhost:6379/0"
+    # 下游API并发上限配置（按服务商/客户端粒度）
+    api_concurrency_limits: Dict[str, int] = Field(
+        default_factory=lambda: {
+            "apyi_gemini": 50,
+            "apyi_openai": 50,
+            "gpt4o": 50,
+            "runninghub": 100,
+            "gqch": 6,
+            "meitu": 5,
+            "vectorizer": 2,
+            "vector_webapi": 10,
+            "a8_vectorizer": 10,
+            "liblib": 2,
+            "dewatermark": 2,
+            "jimeng": 2,
+        }
+    )
 
     # 第三方API配置
     # tuzi配置已弃用，请使用apiyi配置

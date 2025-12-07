@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 from app.core.config import settings
+from app.services.api_limiter import api_limiter
 
 
 class RunningHubClient:
@@ -124,10 +125,11 @@ class RunningHubClient:
         data = {"apiKey": self.api_key, "fileType": "input"}
         files = {"file": (filename, image_bytes, mime_type)}
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(url, data=data, files=files)
-            response.raise_for_status()
-            payload = response.json()
+        async with api_limiter.slot("runninghub"):
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(url, data=data, files=files)
+                response.raise_for_status()
+                payload = response.json()
 
         if payload.get("code") != 0:
             msg = payload.get("msg") or "上传失败"
@@ -146,10 +148,11 @@ class RunningHubClient:
             "nodeInfoList": node_info_list,
         }
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(url, json=payload)
-            response.raise_for_status()
-            data = response.json()
+        async with api_limiter.slot("runninghub"):
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(url, json=payload)
+                response.raise_for_status()
+                data = response.json()
 
         if data.get("code") != 0:
             msg = data.get("msg") or "创建任务失败"
@@ -172,10 +175,11 @@ class RunningHubClient:
 
         start_time = time.monotonic()
         while True:
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                response = await client.post(url, json=payload)
-                response.raise_for_status()
-                data = response.json()
+            async with api_limiter.slot("runninghub"):
+                async with httpx.AsyncClient(timeout=60.0) as client:
+                    response = await client.post(url, json=payload)
+                    response.raise_for_status()
+                    data = response.json()
 
             code = data.get("code")
             result_data = data.get("data")

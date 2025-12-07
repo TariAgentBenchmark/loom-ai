@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional
 import httpx
 from app.core.config import settings
 from app.services.file_service import FileService
+from app.services.api_limiter import api_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -57,25 +58,26 @@ class VectorizerClient:
             logger.info("Sending request to Vectorizer.ai API")
 
             # 发送请求
-            async with httpx.AsyncClient(timeout=300.0) as client:
-                response = await client.post(
-                    self.vectorizer_url,
-                    files=files,
-                    data=data,
-                    auth=auth
-                )
-                response.raise_for_status()
+            async with api_limiter.slot("vectorizer"):
+                async with httpx.AsyncClient(timeout=300.0) as client:
+                    response = await client.post(
+                        self.vectorizer_url,
+                        files=files,
+                        data=data,
+                        auth=auth
+                    )
+                    response.raise_for_status()
 
-                # 保存结果为SVG文件，默认走OSS
-                filename = f"vectorized_{uuid.uuid4().hex[:8]}.svg"
-                file_service = FileService()
-                saved_url = await file_service.save_upload_file(
-                    response.content,
-                    filename,
-                    subfolder="results",
-                )
-                logger.info("SVG file saved to storage: %s", saved_url)
-                return saved_url
+                    # 保存结果为SVG文件，默认走OSS
+                    filename = f"vectorized_{uuid.uuid4().hex[:8]}.svg"
+                    file_service = FileService()
+                    saved_url = await file_service.save_upload_file(
+                        response.content,
+                        filename,
+                        subfolder="results",
+                    )
+                    logger.info("SVG file saved to storage: %s", saved_url)
+                    return saved_url
 
         except Exception as e:
             logger.error(f"Vectorize image failed: {str(e)}")

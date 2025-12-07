@@ -10,6 +10,7 @@ from typing import Dict, List
 import httpx
 
 from app.core.config import settings
+from app.services.api_limiter import api_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -89,10 +90,11 @@ class LiblibUpscaleAPI:
         params = self._get_common_params(url_path)
         
         # 发送请求
-        async with httpx.AsyncClient(timeout=300.0) as client:
-            response = await client.post(full_url, params=params, json=payload)
-            response.raise_for_status()
-            return response.json()
+        async with api_limiter.slot("liblib"):
+            async with httpx.AsyncClient(timeout=300.0) as client:
+                response = await client.post(full_url, params=params, json=payload)
+                response.raise_for_status()
+                return response.json()
     
     async def get_generate_status(self, generate_uuid: str) -> Dict:
         """
@@ -116,10 +118,11 @@ class LiblibUpscaleAPI:
         params = self._get_common_params(url_path)
         
         # 发送请求
-        async with httpx.AsyncClient(timeout=300.0) as client:
-            response = await client.post(full_url, params=params, json=payload)
-            response.raise_for_status()
-            return response.json()
+        async with api_limiter.slot("liblib"):
+            async with httpx.AsyncClient(timeout=300.0) as client:
+                response = await client.post(full_url, params=params, json=payload)
+                response.raise_for_status()
+                return response.json()
     
     async def wait_for_completion(self, generate_uuid: str, poll_interval: int = 5, timeout: int = 300) -> Dict:
         """

@@ -13,6 +13,7 @@ import {
   LogOut,
   Menu,
   X,
+  Gauge,
 } from "lucide-react";
 
 interface AdminLayoutProps {
@@ -63,6 +64,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       href: "/admin/analytics",
       icon: BarChart3,
       current: pathname === "/admin/analytics",
+    },
+    {
+      name: "并发监控",
+      href: "/admin/limits",
+      icon: Gauge,
+      current: pathname === "/admin/limits",
     },
   ];
 

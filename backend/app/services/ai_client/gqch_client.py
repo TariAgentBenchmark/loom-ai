@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 from app.core.config import settings
+from app.services.api_limiter import api_limiter
 
 
 logger = logging.getLogger(__name__)
@@ -34,24 +35,27 @@ class GQCHClient:
         url = f"{self.base_url}{endpoint}"
         payload = {key: value for key, value in data.items() if value is not None}
 
-        try:
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                response = await client.post(url, data=payload, files=files)
-                response.raise_for_status()
-                result = response.json()
-        except httpx.TimeoutException as exc:
-            logger.error("GQCH API request timed out: %s", exc)
-            raise Exception("GQCH 接口请求超时，请稍后再试")
-        except httpx.HTTPStatusError as exc:
-            body = exc.response.text
-            logger.error("GQCH API returned HTTP %s: %s", exc.response.status_code, body)
-            raise Exception("GQCH 接口请求失败，请联系管理员或稍后再试")
-        except httpx.RequestError as exc:
-            logger.error("GQCH API request error: %s", exc)
-            raise Exception("无法连接到 GQCH 接口，请检查网络或配置")
-        except Exception as exc:  # noqa: BLE001
-            logger.error("Unexpected error when calling GQCH API: %s", exc)
-            raise
+        async def _do_request():
+            try:
+                async with httpx.AsyncClient(timeout=timeout) as client:
+                    response = await client.post(url, data=payload, files=files)
+                    response.raise_for_status()
+                    return response.json()
+            except httpx.TimeoutException as exc:
+                logger.error("GQCH API request timed out: %s", exc)
+                raise Exception("GQCH 接口请求超时，请稍后再试")
+            except httpx.HTTPStatusError as exc:
+                body = exc.response.text
+                logger.error("GQCH API returned HTTP %s: %s", exc.response.status_code, body)
+                raise Exception("GQCH 接口请求失败，请联系管理员或稍后再试")
+            except httpx.RequestError as exc:
+                logger.error("GQCH API request error: %s", exc)
+                raise Exception("无法连接到 GQCH 接口，请检查网络或配置")
+            except Exception as exc:  # noqa: BLE001
+                logger.error("Unexpected error when calling GQCH API: %s", exc)
+                raise
+
+        result = await api_limiter.run("gqch", _do_request)
 
         err_code = result.get("err_code")
         if err_code != 0:
@@ -213,5 +217,4 @@ class GQCHClient:
             return None
         trimmed = raw.strip()
         return trimmed or None
-
 

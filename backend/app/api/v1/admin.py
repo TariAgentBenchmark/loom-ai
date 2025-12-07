@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, EmailStr, condecimal
 from datetime import datetime, timedelta
 
 from app.core.database import get_db
+from app.core.config import settings
 from app.models.user import User, MembershipType, UserStatus
 from app.models.credit import CreditTransaction, CreditSource, TransactionType, CreditTransfer, CreditAlert
 from app.models.payment import Order, Refund, OrderStatus, PackageType, PaymentMethod, Package
@@ -17,6 +18,7 @@ from app.api.dependencies import get_current_active_admin
 from app.api.decorators import admin_required, admin_route
 from app.schemas.common import SuccessResponse, PaginationMeta
 from app.services.auth_service import AuthService
+from app.services.api_limiter import api_limiter
 from app.services.credit_math import to_decimal, to_float
 from app.services.credit_service import CreditService
 from app.services.membership_service import MembershipService
@@ -204,6 +206,18 @@ class AdminAuditLog(BaseModel):
 class AdminAuditLogResponse(BaseModel):
     logs: List[AdminAuditLog]
     pagination: PaginationMeta
+
+
+class ApiLimitMetric(BaseModel):
+    api: str
+    limit: int
+    active: int
+    available: int
+    leasedTokens: int
+
+
+class ApiLimitMetricsResponse(BaseModel):
+    metrics: List[ApiLimitMetric]
 
 
 # Enhanced Dashboard Stats
@@ -1674,6 +1688,35 @@ async def get_admin_dashboard_stats(
             message="获取仪表板统计成功"
         )
         
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/limits/metrics", dependencies=[Depends(admin_route())])
+async def get_api_limit_metrics(
+    current_admin: User = Depends(get_current_active_admin),
+):
+    """获取下游API并发限流状态（管理员专用）。"""
+    try:
+        metrics = []
+        for api_name in settings.api_concurrency_limits.keys():
+            m = await api_limiter.get_metrics(api_name)
+            metrics.append(
+                ApiLimitMetric(
+                    api=m["api"],
+                    limit=m["limit"],
+                    active=m["active"],
+                    available=m["available"],
+                    leasedTokens=m["leased_tokens"],
+                )
+            )
+
+        return SuccessResponse(
+            data=ApiLimitMetricsResponse(metrics=metrics).dict(),
+            message="获取并发限流指标成功",
+        )
     except HTTPException:
         raise
     except Exception as e:
