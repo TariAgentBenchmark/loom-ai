@@ -12,7 +12,7 @@ const formatPercent = (value: number) =>
   `${Math.min(100, Math.max(0, Math.round(value)))}%`;
 
 type MetricState =
-  | { status: "idle" | "loading" }
+  | { status: "idle" }
   | { status: "error"; message: string }
   | { status: "ready"; items: AdminApiLimitMetric[]; fetchedAt: string };
 
@@ -36,10 +36,14 @@ const StatusBadge: React.FC<{ utilization: number }> = ({ utilization }) => {
 const AdminApiLimitMetrics: React.FC = () => {
   const accessToken = useAdminAccessToken();
   const [state, setState] = useState<MetricState>({ status: "idle" });
+  const [isFetching, setIsFetching] = useState(false);
+  const [countdown, setCountdown] = useState(10);
+
+  const REFRESH_INTERVAL_SECONDS = 10;
 
   const fetchMetrics = useCallback(async () => {
     if (!accessToken) return;
-    setState({ status: "loading" });
+    setIsFetching(true);
     try {
       const res = await adminGetApiLimitMetrics(accessToken);
       setState({
@@ -56,11 +60,28 @@ const AdminApiLimitMetrics: React.FC = () => {
         message: (err as Error)?.message ?? "获取限流数据失败",
       });
     }
+    setIsFetching(false);
   }, [accessToken]);
 
   useEffect(() => {
+    if (!accessToken) return;
+
+    // 首次加载 + 定时刷新，保持仪表盘接近实时
     fetchMetrics();
-  }, [fetchMetrics]);
+    setCountdown(REFRESH_INTERVAL_SECONDS);
+
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          fetchMetrics();
+          return REFRESH_INTERVAL_SECONDS;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [accessToken, fetchMetrics]);
 
   const ordered = useMemo(() => {
     if (state.status !== "ready") return [];
@@ -104,16 +125,13 @@ const AdminApiLimitMetrics: React.FC = () => {
         </div>
       )}
 
-      {state.status === "loading" && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6 text-center text-gray-500">
-          正在加载限流指标...
-        </div>
-      )}
-
       {state.status === "ready" && (
         <>
           <div className="text-xs text-gray-500">
             上次刷新：{state.fetchedAt}
+            <span className="ml-2">
+              自动刷新倒计时：{countdown}s {isFetching ? "(刷新中…)" : ""}
+            </span>
           </div>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {ordered.map((metric) => {
