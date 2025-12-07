@@ -13,6 +13,7 @@ interface BatchUploadModalProps {
     showReferenceImage?: boolean;  // 是否显示基准图上传（仅用于 prompt_edit）
     instruction?: string; // prompt_edit 的修改指令
     onInstructionChange?: (value: string) => void;
+    maxFileSizeMB?: number; // 单文件大小上限（可选）
 }
 
 interface FileWithPreview {
@@ -41,6 +42,7 @@ export default function BatchUploadModal({
     showReferenceImage = false,
     instruction,
     onInstructionChange,
+    maxFileSizeMB,
 }: BatchUploadModalProps) {
     const [files, setFiles] = useState<FileWithPreview[]>([]);
     const [referenceImage, setReferenceImage] = useState<FileWithPreview | null>(null);
@@ -69,10 +71,16 @@ export default function BatchUploadModal({
             return;
         }
 
-        // Validate file types
+        const sizeLimitBytes = maxFileSizeMB ? maxFileSizeMB * 1024 * 1024 : null;
+
+        // Validate file types and size
         const validFiles = newFiles.filter(file => {
             if (!file.type.startsWith('image/')) {
                 setError(`${file.name} 不是有效的图片文件`);
+                return false;
+            }
+            if (sizeLimitBytes && file.size > sizeLimitBytes) {
+                setError(`${file.name} 超过大小限制（最大 ${maxFileSizeMB}MB）`);
                 return false;
             }
             return true;
@@ -88,7 +96,7 @@ export default function BatchUploadModal({
         );
 
         setFiles(prev => [...prev, ...filesWithPreviews]);
-    }, [files.length, maxFiles, generatePreview]);
+    }, [files.length, maxFiles, maxFileSizeMB, generatePreview]);
 
     const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
         e.preventDefault();

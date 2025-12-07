@@ -73,6 +73,8 @@ const AUTH_DEMO_CREDENTIALS = {
   rememberMe: true,
 };
 
+const GQCH_MAX_FILE_SIZE_BYTES = 16 * 1024 * 1024; // 16MB 限制
+
 const POLLING_INTERVAL_MS = 3000;
 const ACTIVE_TASK_STORAGE_KEY = 'loomai:active-processing-task';
 
@@ -491,6 +493,8 @@ export default function Home() {
     event: ChangeEvent<HTMLInputElement>,
     slot: 'primary' | 'secondary' = 'primary',
   ) => {
+    const isGqchMethod = currentMethod === 'seamless_loop' || currentMethod === 'expand_image';
+
     if (isCurrentMethodProcessing) {
       setErrorMessage('当前任务正在处理中，请等待完成后再上传新图片');
       if (event.target) {
@@ -502,6 +506,15 @@ export default function Home() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    if (isGqchMethod && slot === 'primary' && file.size > GQCH_MAX_FILE_SIZE_BYTES) {
+      setErrorMessage('图片大小不能超过16MB，请重新上传。');
+      if (event.target) {
+        event.target.value = '';
+      }
+      return;
+    }
+
+    setErrorMessage('');
     applyFileSelection(file, slot);
   };
 
@@ -511,12 +524,19 @@ export default function Home() {
 
   const handleDrop = (event: DragEvent<HTMLDivElement>, slot: 'primary' | 'secondary' = 'primary') => {
     event.preventDefault();
+    const isGqchMethod = currentMethod === 'seamless_loop' || currentMethod === 'expand_image';
+
     if (isCurrentMethodProcessing) {
       setErrorMessage('当前任务正在处理中，请等待完成后再上传新图片');
       return;
     }
     const file = event.dataTransfer.files[0];
     if (file && file.type.startsWith('image/')) {
+      if (isGqchMethod && slot === 'primary' && file.size > GQCH_MAX_FILE_SIZE_BYTES) {
+        setErrorMessage('图片大小不能超过16MB，请重新上传。');
+        return;
+      }
+      setErrorMessage('');
       applyFileSelection(file, slot);
     }
   };
