@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Enum, Numeric
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Enum, Numeric, ForeignKey
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from enum import Enum as PyEnum
@@ -31,6 +31,8 @@ class User(Base):
     nickname = Column(String(100), nullable=True)
     phone = Column(String(20), unique=True, index=True, nullable=False)  # Made required and unique
     avatar_url = Column(String(500), nullable=True)
+    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=True, index=True)  # 代理商归属
+    invitation_code_id = Column(Integer, ForeignKey("invitation_codes.id"), nullable=True, index=True)  # 使用的邀请码
     
     # 手机验证相关字段
     phone_verification_code = Column(String(10), nullable=True)  # 6位验证码
@@ -76,6 +78,8 @@ class User(Base):
     batch_tasks = relationship("BatchTask", back_populates="user", cascade="all, delete-orphan")
     credit_transactions = relationship("CreditTransaction", back_populates="user", cascade="all, delete-orphan")
     orders = relationship("Order", back_populates="user", cascade="all, delete-orphan")
+    agent = relationship("Agent", back_populates="users")
+    invitation_code = relationship("InvitationCode", back_populates="users")
 
     def __repr__(self):
         return f"<User(id={self.id}, email={self.email}, nickname={self.nickname})>"

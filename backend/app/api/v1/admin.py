@@ -14,6 +14,7 @@ from app.models.user import User, MembershipType, UserStatus
 from app.models.credit import CreditTransaction, CreditSource, TransactionType, CreditTransfer, CreditAlert
 from app.models.payment import Order, Refund, OrderStatus, PackageType, PaymentMethod, Package
 from app.models.task import Task
+from app.models.agent import Agent, InvitationCode, AgentStatus, InvitationCodeStatus
 from app.api.dependencies import get_current_active_admin
 from app.api.decorators import admin_required, admin_route
 from app.schemas.common import SuccessResponse, PaginationMeta
@@ -34,6 +35,9 @@ class AdminUserResponse(BaseModel):
     email: Optional[str]
     nickname: Optional[str]
     phone: Optional[str]
+    agentId: Optional[int]
+    agentName: Optional[str]
+    invitationCode: Optional[str]
     credits: float
     membershipType: str
     status: str
@@ -220,6 +224,70 @@ class ApiLimitMetricsResponse(BaseModel):
     metrics: List[ApiLimitMetric]
 
 
+class AdminAgentResponse(BaseModel):
+    id: int
+    name: str
+    contact: Optional[str]
+    notes: Optional[str]
+    status: str
+    createdAt: str
+    updatedAt: Optional[str]
+    invitationCode: Optional[str]
+    invitationCount: int
+    userCount: int
+
+
+class AdminAgentListResponse(BaseModel):
+    agents: List[AdminAgentResponse]
+
+
+class AdminCreateAgentRequest(BaseModel):
+    name: str = Field(..., max_length=100, description="代理商名称")
+    contact: Optional[str] = Field(None, max_length=100, description="联系人/联系方式")
+    notes: Optional[str] = Field(None, max_length=500, description="备注")
+    status: Optional[str] = Field(AgentStatus.ACTIVE.value, description="代理商状态")
+
+
+class AdminUpdateAgentRequest(BaseModel):
+    name: Optional[str] = Field(None, max_length=100)
+    contact: Optional[str] = Field(None, max_length=100)
+    notes: Optional[str] = Field(None, max_length=500)
+    status: Optional[str] = Field(None, description="代理商状态")
+
+
+class AdminInvitationCodeResponse(BaseModel):
+    id: int
+    code: str
+    agentId: int
+    agentName: str
+    status: str
+    maxUses: Optional[int]
+    usageCount: int
+    remainingUses: Optional[int]
+    expiresAt: Optional[str]
+    description: Optional[str]
+    createdAt: str
+
+
+class AdminInvitationCodeListResponse(BaseModel):
+    invitationCodes: List[AdminInvitationCodeResponse]
+
+
+class AdminCreateInvitationCodeRequest(BaseModel):
+    agentId: int = Field(..., description="所属代理商ID")
+    description: Optional[str] = Field(None, max_length=255)
+    maxUses: Optional[int] = Field(None, ge=0, description="最大使用次数，0或空为不限")
+    expiresAt: Optional[str] = Field(None, description="过期时间，ISO8601")
+    code: Optional[str] = Field(None, max_length=32, description="自定义邀请码，可留空自动生成")
+
+
+class AdminUpdateInvitationCodeRequest(BaseModel):
+    description: Optional[str] = Field(None, max_length=255)
+    maxUses: Optional[int] = Field(None, ge=0)
+    expiresAt: Optional[str] = Field(None, description="过期时间，ISO8601，空字符串可清空")
+    status: Optional[str] = Field(None, description="邀请码状态")
+
+
 # Enhanced Dashboard Stats
 class AdminDashboardStats(BaseModel):
     users: Dict[str, Any]
@@ -228,6 +296,21 @@ class AdminDashboardStats(BaseModel):
     revenue: Dict[str, Any]
     subscriptions: Dict[str, Any]
     recentActivity: List[Dict[str, Any]]
+
+
+def _parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
+    if value is None:
+        return None
+    if value == "":
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="时间格式无效，请使用 ISO8601 格式")
+
+
+def _generate_invitation_code() -> str:
+    return uuid.uuid4().hex[:10].upper()
 
 
 @router.get("/users", dependencies=[Depends(admin_route())])
@@ -283,11 +366,16 @@ async def get_all_users(
         # 转换为响应格式
         user_list = []
         for user in users:
+            agent_name = user.agent.name if user.agent else None
+            invitation_code_value = user.invitation_code.code if user.invitation_code else None
             user_list.append(AdminUserResponse(
                 userId=user.user_id,
                 email=user.email,
                 nickname=user.nickname,
                 phone=user.phone,
+                agentId=user.agent_id,
+                agentName=agent_name,
+                invitationCode=invitation_code_value,
                 credits=to_float(user.credits),
                 membershipType=user.membership_type.value,
                 status=user.status.value,
@@ -345,11 +433,17 @@ async def get_user_detail(
         if not user:
             raise HTTPException(status_code=404, detail="用户不存在")
         
+        agent_name = user.agent.name if user.agent else None
+        invitation_code_value = user.invitation_code.code if user.invitation_code else None
+
         user_detail = AdminUserResponse(
             userId=user.user_id,
             email=user.email,
             nickname=user.nickname,
             phone=user.phone,
+            agentId=user.agent_id,
+            agentName=agent_name,
+            invitationCode=invitation_code_value,
             credits=to_float(user.credits),
             membershipType=user.membership_type.value,
             status=user.status.value,
@@ -439,6 +533,9 @@ async def create_user(
                 email=user.email,
                 nickname=user.nickname,
                 phone=user.phone,
+                agentId=user.agent_id,
+                agentName=None,
+                invitationCode=None,
                 credits=to_float(user.credits),
                 membershipType=user.membership_type.value,
                 status=user.status.value,
@@ -1543,6 +1640,505 @@ async def process_refund_action(
     except HTTPException:
         raise
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/agents", dependencies=[Depends(admin_route())])
+async def list_agents(
+    status: Optional[str] = Query(None, description="Filter by agent status"),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin),
+):
+    """代理商列表"""
+    try:
+        query = db.query(Agent).filter(Agent.is_deleted.is_(False))
+        if status:
+            try:
+                status_enum = AgentStatus(status)
+                query = query.filter(Agent.status == status_enum)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="无效的代理商状态")
+
+        agents = query.order_by(desc(Agent.created_at)).all()
+
+        invitation_counts = {
+            agent_id: count
+            for agent_id, count in db.query(
+                InvitationCode.agent_id, func.count(InvitationCode.id)
+            )
+            .filter(InvitationCode.is_deleted.is_(False))
+            .group_by(InvitationCode.agent_id)
+            .all()
+        }
+        user_counts = {
+            agent_id: count
+            for agent_id, count in db.query(User.agent_id, func.count(User.id))
+            .filter(User.agent_id.isnot(None))
+            .group_by(User.agent_id)
+            .all()
+        }
+
+        response_items = [
+            AdminAgentResponse(
+                id=agent.id,
+                name=agent.name,
+                contact=agent.contact,
+                notes=agent.notes,
+                status=agent.status.value if agent.status else AgentStatus.ACTIVE.value,
+                createdAt=agent.created_at.isoformat() if agent.created_at else "",
+                updatedAt=agent.updated_at.isoformat() if agent.updated_at else None,
+                invitationCode=(
+                    agent.invitation_codes[0].code if agent.invitation_codes else None
+                ),
+                invitationCount=invitation_counts.get(agent.id, 0),
+                userCount=user_counts.get(agent.id, 0),
+            )
+            for agent in agents
+        ]
+
+        await log_admin_action(
+            db=db,
+            admin=current_admin,
+            action="list_agents",
+            target_type="agent",
+            target_id="list",
+            details={"status": status},
+        )
+
+        return SuccessResponse(
+            data=AdminAgentListResponse(agents=response_items).dict(),
+            message="获取代理商列表成功",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/agents", dependencies=[Depends(admin_route())])
+async def create_agent(
+    payload: AdminCreateAgentRequest,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin),
+):
+    """创建代理商"""
+    try:
+        existing = (
+            db.query(Agent)
+            .filter(Agent.name == payload.name, Agent.is_deleted.is_(False))
+            .first()
+        )
+        if existing:
+            raise HTTPException(status_code=400, detail="代理商名称已存在")
+
+        status_value = AgentStatus(payload.status) if payload.status else AgentStatus.ACTIVE
+
+        agent = Agent(
+            name=payload.name,
+            contact=payload.contact,
+            notes=payload.notes,
+            status=status_value,
+        )
+        db.add(agent)
+        db.flush()
+
+        code = _generate_invitation_code()
+        invite = InvitationCode(
+            code=code,
+            agent_id=agent.id,
+            status=InvitationCodeStatus.ACTIVE,
+        )
+        db.add(invite)
+
+        db.commit()
+        db.refresh(agent)
+        db.refresh(invite)
+
+        await log_admin_action(
+            db=db,
+            admin=current_admin,
+            action="create_agent",
+            target_type="agent",
+            target_id=str(agent.id),
+            details={"name": agent.name, "status": agent.status.value},
+        )
+
+        return SuccessResponse(
+            data=AdminAgentResponse(
+                id=agent.id,
+                name=agent.name,
+                contact=agent.contact,
+                notes=agent.notes,
+                status=agent.status.value,
+                createdAt=agent.created_at.isoformat() if agent.created_at else "",
+                updatedAt=agent.updated_at.isoformat() if agent.updated_at else None,
+                invitationCode=invite.code,
+                invitationCount=0,
+                userCount=0,
+            ).dict(),
+            message="代理商创建成功",
+        )
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/agents/{agent_id}", dependencies=[Depends(admin_route())])
+async def update_agent(
+    agent_id: int,
+    payload: AdminUpdateAgentRequest,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin),
+):
+    """更新代理商信息"""
+    try:
+        agent = (
+            db.query(Agent)
+            .filter(Agent.id == agent_id, Agent.is_deleted.is_(False))
+            .first()
+        )
+        if not agent:
+            raise HTTPException(status_code=404, detail="代理商不存在")
+
+        if payload.name and payload.name != agent.name:
+            duplicate = (
+                db.query(Agent)
+                .filter(Agent.name == payload.name, Agent.id != agent_id, Agent.is_deleted.is_(False))
+                .first()
+            )
+            if duplicate:
+                raise HTTPException(status_code=400, detail="代理商名称已存在")
+            agent.name = payload.name
+
+        if payload.contact is not None:
+            agent.contact = payload.contact
+        if payload.notes is not None:
+            agent.notes = payload.notes
+        if payload.status:
+            try:
+                agent.status = AgentStatus(payload.status)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="无效的代理商状态")
+
+        db.commit()
+        db.refresh(agent)
+
+        await log_admin_action(
+            db=db,
+            admin=current_admin,
+            action="update_agent",
+            target_type="agent",
+            target_id=str(agent.id),
+            details=payload.dict(),
+        )
+
+        return SuccessResponse(
+            data=AdminAgentResponse(
+                id=agent.id,
+                name=agent.name,
+                contact=agent.contact,
+                notes=agent.notes,
+                status=agent.status.value if agent.status else AgentStatus.ACTIVE.value,
+                createdAt=agent.created_at.isoformat() if agent.created_at else "",
+                updatedAt=agent.updated_at.isoformat() if agent.updated_at else None,
+                invitationCount=(
+                    db.query(InvitationCode)
+                    .filter(InvitationCode.agent_id == agent.id, InvitationCode.is_deleted.is_(False))
+                    .count()
+                ),
+                userCount=db.query(User).filter(User.agent_id == agent.id).count(),
+            ).dict(),
+            message="代理商更新成功",
+        )
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/agents/{agent_id}/users", dependencies=[Depends(admin_route())])
+async def list_agent_users(
+    agent_id: int,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin),
+):
+    """查看代理商旗下用户"""
+    try:
+        agent = (
+            db.query(Agent)
+            .filter(Agent.id == agent_id, Agent.is_deleted.is_(False))
+            .first()
+        )
+        if not agent:
+            raise HTTPException(status_code=404, detail="代理商不存在")
+
+        users = (
+            db.query(User)
+            .filter(User.agent_id == agent_id)
+            .order_by(desc(User.created_at))
+            .all()
+        )
+
+        await log_admin_action(
+            db=db,
+            admin=current_admin,
+            action="list_agent_users",
+            target_type="agent",
+            target_id=str(agent_id),
+            details={"userCount": len(users)},
+        )
+
+        return SuccessResponse(
+            data={
+                "agent": {
+                    "id": agent.id,
+                    "name": agent.name,
+                    "status": agent.status.value if agent.status else AgentStatus.ACTIVE.value,
+                },
+                "users": [
+                    {
+                        "userId": user.user_id,
+                        "email": user.email,
+                        "phone": user.phone,
+                        "nickname": user.nickname,
+                        "createdAt": user.created_at.isoformat() if user.created_at else "",
+                    }
+                    for user in users
+                ],
+            },
+            message="获取代理商用户成功",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/invitation-codes", dependencies=[Depends(admin_route())])
+async def list_invitation_codes(
+    agent_id: Optional[int] = Query(None, description="Filter by agent ID"),
+    status: Optional[str] = Query(None, description="Filter by status"),
+    code_search: Optional[str] = Query(None, description="模糊搜索邀请码"),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin),
+):
+    """邀请码列表"""
+    try:
+        query = (
+            db.query(InvitationCode)
+            .filter(InvitationCode.is_deleted.is_(False))
+            .order_by(desc(InvitationCode.created_at))
+        )
+        if agent_id:
+            query = query.filter(InvitationCode.agent_id == agent_id)
+        if status:
+            try:
+                status_enum = InvitationCodeStatus(status)
+                query = query.filter(InvitationCode.status == status_enum)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="无效的邀请码状态")
+        if code_search:
+            query = query.filter(InvitationCode.code.ilike(f"%{code_search}%"))
+
+        codes = query.all()
+        agent_map = {
+            agent.id: agent.name
+            for agent in db.query(Agent.id, Agent.name)
+            .filter(Agent.is_deleted.is_(False))
+            .all()
+        }
+
+        response_items = []
+        for code in codes:
+            remaining = None
+            if code.max_uses not in (None, 0):
+                remaining = max((code.max_uses or 0) - (code.usage_count or 0), 0)
+
+            response_items.append(
+                AdminInvitationCodeResponse(
+                    id=code.id,
+                    code=code.code,
+                    agentId=code.agent_id,
+                    agentName=agent_map.get(code.agent_id, ""),
+                    status=code.status.value if code.status else InvitationCodeStatus.ACTIVE.value,
+                    maxUses=code.max_uses,
+                    usageCount=code.usage_count or 0,
+                    remainingUses=remaining,
+                    expiresAt=code.expires_at.isoformat() if code.expires_at else None,
+                    description=code.description,
+                    createdAt=code.created_at.isoformat() if code.created_at else "",
+                )
+            )
+
+        await log_admin_action(
+            db=db,
+            admin=current_admin,
+            action="list_invitation_codes",
+            target_type="invitation_code",
+            target_id="list",
+            details={"agent_id": agent_id, "status": status},
+        )
+
+        return SuccessResponse(
+            data=AdminInvitationCodeListResponse(invitationCodes=response_items).dict(),
+            message="获取邀请码列表成功",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/invitation-codes", dependencies=[Depends(admin_route())])
+async def create_invitation_code(
+    payload: AdminCreateInvitationCodeRequest,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin),
+):
+    """创建邀请码"""
+    try:
+        agent = (
+            db.query(Agent)
+            .filter(Agent.id == payload.agentId, Agent.is_deleted.is_(False))
+            .first()
+        )
+        if not agent:
+            raise HTTPException(status_code=404, detail="代理商不存在")
+
+        new_code = (payload.code or _generate_invitation_code()).upper()
+        exists = db.query(InvitationCode).filter(InvitationCode.code == new_code).first()
+        if exists:
+            raise HTTPException(status_code=400, detail="邀请码已存在，请换一个")
+
+        expires_at = _parse_iso_datetime(payload.expiresAt)
+
+        invitation = InvitationCode(
+            code=new_code,
+            agent_id=payload.agentId,
+            description=payload.description,
+            max_uses=payload.maxUses,
+            expires_at=expires_at,
+            status=InvitationCodeStatus.ACTIVE,
+        )
+        db.add(invitation)
+        db.commit()
+        db.refresh(invitation)
+
+        await log_admin_action(
+            db=db,
+            admin=current_admin,
+            action="create_invitation_code",
+            target_type="invitation_code",
+            target_id=str(invitation.id),
+            details={
+                "agentId": payload.agentId,
+                "code": new_code,
+                "maxUses": payload.maxUses,
+                "expiresAt": payload.expiresAt,
+            },
+        )
+
+        return SuccessResponse(
+            data=AdminInvitationCodeResponse(
+                id=invitation.id,
+                code=invitation.code,
+                agentId=invitation.agent_id,
+                agentName=agent.name,
+                status=invitation.status.value,
+                maxUses=invitation.max_uses,
+                usageCount=invitation.usage_count or 0,
+                remainingUses=(
+                    None
+                    if invitation.max_uses in (None, 0)
+                    else max((invitation.max_uses or 0) - (invitation.usage_count or 0), 0)
+                ),
+                expiresAt=invitation.expires_at.isoformat() if invitation.expires_at else None,
+                description=invitation.description,
+                createdAt=invitation.created_at.isoformat() if invitation.created_at else "",
+            ).dict(),
+            message="邀请码创建成功",
+        )
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/invitation-codes/{code_id}", dependencies=[Depends(admin_route())])
+async def update_invitation_code(
+    code_id: int,
+    payload: AdminUpdateInvitationCodeRequest,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin),
+):
+    """更新邀请码状态或限制"""
+    try:
+        invitation = (
+            db.query(InvitationCode)
+            .filter(InvitationCode.id == code_id, InvitationCode.is_deleted.is_(False))
+            .first()
+        )
+        if not invitation:
+            raise HTTPException(status_code=404, detail="邀请码不存在")
+
+        if payload.description is not None:
+            invitation.description = payload.description
+        if payload.maxUses is not None:
+            invitation.max_uses = payload.maxUses
+        if payload.expiresAt is not None:
+            invitation.expires_at = _parse_iso_datetime(payload.expiresAt)
+        if payload.status:
+            try:
+                invitation.status = InvitationCodeStatus(payload.status)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="无效的邀请码状态")
+
+        db.commit()
+        db.refresh(invitation)
+
+        agent = db.query(Agent).filter(Agent.id == invitation.agent_id).first()
+
+        await log_admin_action(
+            db=db,
+            admin=current_admin,
+            action="update_invitation_code",
+            target_type="invitation_code",
+            target_id=str(code_id),
+            details=payload.dict(),
+        )
+
+        remaining = None
+        if invitation.max_uses not in (None, 0):
+            remaining = max((invitation.max_uses or 0) - (invitation.usage_count or 0), 0)
+
+        return SuccessResponse(
+            data=AdminInvitationCodeResponse(
+                id=invitation.id,
+                code=invitation.code,
+                agentId=invitation.agent_id,
+                agentName=agent.name if agent else "",
+                status=invitation.status.value if invitation.status else InvitationCodeStatus.ACTIVE.value,
+                maxUses=invitation.max_uses,
+                usageCount=invitation.usage_count or 0,
+                remainingUses=remaining,
+                expiresAt=invitation.expires_at.isoformat() if invitation.expires_at else None,
+                description=invitation.description,
+                createdAt=invitation.created_at.isoformat() if invitation.created_at else "",
+            ).dict(),
+            message="邀请码更新成功",
+        )
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
 

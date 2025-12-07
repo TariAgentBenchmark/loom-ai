@@ -14,6 +14,7 @@ import {
   Menu,
   X,
   Gauge,
+  KeyRound,
 } from "lucide-react";
 
 interface AdminLayoutProps {
@@ -64,6 +65,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       href: "/admin/analytics",
       icon: BarChart3,
       current: pathname === "/admin/analytics",
+    },
+    {
+      name: "渠道 / 邀请码",
+      href: "/admin/agents",
+      icon: KeyRound,
+      current: pathname === "/admin/agents",
     },
     {
       name: "并发监控",

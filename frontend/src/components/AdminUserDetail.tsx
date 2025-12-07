@@ -200,6 +200,9 @@ const AdminUserDetail: React.FC = () => {
                     </div>
                   )}
                 </div>
+                <div className="mt-1 text-sm text-gray-600">
+                  渠道：{user.agentName || "未归属"} / 邀请码：{user.invitationCode || "未记录"}
+                </div>
               </div>
             </div>
             

@@ -22,6 +22,7 @@ class UserRegister(BaseModel):
     confirm_password: str
     nickname: Optional[str] = None
     email: Optional[EmailStr] = None  # Now optional
+    invitation_code: str
 
 
 class UserLogin(BaseModel):
@@ -84,6 +85,9 @@ async def register(
         
         if len(user_data.password) < 8:
             raise HTTPException(status_code=400, detail="密码长度至少8位")
+
+        if not user_data.invitation_code or not user_data.invitation_code.strip():
+            raise HTTPException(status_code=400, detail="邀请码不能为空")
         
         # 注册用户
         user = await auth_service.register_user(
@@ -91,7 +95,8 @@ async def register(
             phone=user_data.phone,
             password=user_data.password,
             nickname=user_data.nickname,
-            email=user_data.email
+            email=user_data.email,
+            invitation_code=user_data.invitation_code
         )
         
         return SuccessResponse(
@@ -101,7 +106,9 @@ async def register(
                 "email": user.email,
                 "nickname": user.nickname,
                 "credits": user.credits,
-                "createdAt": user.created_at
+                "createdAt": user.created_at,
+                "agentId": user.agent_id,
+                "invitationCodeId": user.invitation_code_id,
             },
             message="注册成功，已赠送10积分"
         )

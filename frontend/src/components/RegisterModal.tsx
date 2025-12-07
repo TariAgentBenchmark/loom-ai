@@ -8,7 +8,7 @@ interface RegisterModalProps {
   isSubmitting: boolean;
   errorMessage?: string;
   onClose: () => void;
-  onSubmit: (payload: { phone: string; password: string; confirmPassword: string; nickname?: string; email?: string }) => Promise<void>;
+  onSubmit: (payload: { phone: string; password: string; confirmPassword: string; nickname?: string; email?: string; invitationCode: string }) => Promise<void>;
   onSwitchToLogin: () => void;
 }
 
@@ -25,6 +25,7 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [nickname, setNickname] = useState('');
   const [email, setEmail] = useState('');
+  const [invitationCode, setInvitationCode] = useState('');
   const [localError, setLocalError] = useState('');
   const [showPhoneVerification, setShowPhoneVerification] = useState(false);
   const [isPhoneVerified, setIsPhoneVerified] = useState(false);
@@ -62,8 +63,8 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
   };
 
   const validateForm = () => {
-    if (!phone || !password || !confirmPassword) {
-      setLocalError('请填写所有必填字段（手机号、密码、确认密码）');
+    if (!phone || !password || !confirmPassword || !invitationCode) {
+      setLocalError('请填写所有必填字段（手机号、密码、确认密码、邀请码）');
       return false;
     }
 
@@ -123,7 +124,8 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
         password,
         confirmPassword,
         nickname: nickname || undefined,
-        email: email || undefined
+        email: email || undefined,
+        invitationCode: invitationCode.trim()
       });
       console.log('RegisterModal: onSubmit completed successfully');
       setPhone('');
@@ -131,6 +133,7 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
       setConfirmPassword('');
       setNickname('');
       setEmail('');
+      setInvitationCode('');
       setIsPhoneVerified(false);
     } catch (error) {
       console.error('RegisterModal: onSubmit failed', error);
@@ -229,6 +232,25 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
                 手机号已验证
               </p>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700" htmlFor="register-invite-code">
+              邀请码 <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="register-invite-code"
+              type="text"
+              value={invitationCode}
+              onChange={(event) => {
+                setInvitationCode(event.target.value.toUpperCase());
+                if (localError) setLocalError('');
+              }}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 uppercase"
+              placeholder="请输入邀请码"
+              disabled={isSubmitting}
+              required
+            />
           </div>
 
           <div className="space-y-2">

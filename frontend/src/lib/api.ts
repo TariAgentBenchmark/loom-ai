@@ -441,6 +441,7 @@ export interface RegisterPayload {
   confirmPassword: string;
   nickname?: string;
   email?: string; // Now optional
+  invitationCode: string;
 }
 
 export interface SendVerificationCodePayload {
@@ -639,6 +640,7 @@ export const register = (payload: RegisterPayload) => {
       confirm_password: string;
       nickname?: string;
       email?: string;
+      invitation_code: string;
     }
   >("/auth/register", {
     phone: payload.phone,
@@ -646,6 +648,7 @@ export const register = (payload: RegisterPayload) => {
     confirm_password: payload.confirmPassword,
     nickname: payload.nickname,
     email: payload.email,
+    invitation_code: payload.invitationCode,
   });
 };
 
@@ -1028,6 +1031,9 @@ export interface AdminUser {
   email: string | null;
   nickname: string | null;
   phone: string | null;
+  agentId?: number | null;
+  agentName?: string | null;
+  invitationCode?: string | null;
   credits: number;
   membershipType: string;
   status: string;
@@ -1191,6 +1197,41 @@ export interface AdminApiLimitMetric {
 
 export interface AdminApiLimitMetricsResponse {
   metrics: AdminApiLimitMetric[];
+}
+
+export interface AdminAgent {
+  id: number;
+  name: string;
+  contact?: string | null;
+  notes?: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt?: string | null;
+  invitationCode?: string | null;
+  invitationCount: number;
+  userCount: number;
+}
+
+export interface AdminAgentsResponse {
+  agents: AdminAgent[];
+}
+
+export interface AdminInvitationCode {
+  id: number;
+  code: string;
+  agentId: number;
+  agentName: string;
+  status: string;
+  maxUses?: number | null;
+  usageCount: number;
+  remainingUses?: number | null;
+  expiresAt?: string | null;
+  description?: string | null;
+  createdAt: string;
+}
+
+export interface AdminInvitationCodeList {
+  invitationCodes: AdminInvitationCode[];
 }
 
 // Admin API functions
@@ -1415,6 +1456,90 @@ export const adminGetDashboardStats = (accessToken: string) =>
 
 export const adminGetApiLimitMetrics = (accessToken: string) =>
   getJson<AdminApiLimitMetricsResponse>("/admin/limits/metrics", accessToken);
+
+export const adminGetAgents = (
+  accessToken: string,
+  options?: { status?: string },
+) => {
+  const params = new URLSearchParams();
+  if (options?.status) params.append("status", options.status);
+  const query = params.toString();
+  const path = `/admin/agents${query ? `?${query}` : ""}`;
+  return getJson<AdminAgentsResponse>(path, accessToken);
+};
+
+export const adminCreateAgent = (
+  payload: { name: string; contact?: string; notes?: string; status?: string },
+  accessToken: string,
+) => postJson<AdminAgent, typeof payload>("/admin/agents", payload, accessToken);
+
+export const adminUpdateAgent = (
+  agentId: number,
+  payload: { name?: string; contact?: string; notes?: string; status?: string },
+  accessToken: string,
+) =>
+  putJson<AdminAgent, typeof payload>(
+    `/admin/agents/${agentId}`,
+    payload,
+    accessToken,
+  );
+
+export const adminGetAgentUsers = (agentId: number, accessToken: string) =>
+  getJson<{
+    agent: { id: number; name: string; status: string };
+    users: Array<{
+      userId: string;
+      email?: string | null;
+      phone?: string | null;
+      nickname?: string | null;
+      createdAt: string;
+    }>;
+  }>(`/admin/agents/${agentId}/users`, accessToken);
+
+export const adminGetInvitationCodes = (
+  accessToken: string,
+  options?: { agent_id?: number; status?: string; code_search?: string },
+) => {
+  const params = new URLSearchParams();
+  if (options?.agent_id) params.append("agent_id", options.agent_id.toString());
+  if (options?.status) params.append("status", options.status);
+  if (options?.code_search) params.append("code_search", options.code_search);
+  const query = params.toString();
+  const path = `/admin/invitation-codes${query ? `?${query}` : ""}`;
+  return getJson<AdminInvitationCodeList>(path, accessToken);
+};
+
+export const adminCreateInvitationCode = (
+  payload: {
+    agentId: number;
+    description?: string;
+    maxUses?: number;
+    expiresAt?: string;
+    code?: string;
+  },
+  accessToken: string,
+) =>
+  postJson<AdminInvitationCode, typeof payload>(
+    "/admin/invitation-codes",
+    payload,
+    accessToken,
+  );
+
+export const adminUpdateInvitationCode = (
+  codeId: number,
+  payload: {
+    description?: string;
+    maxUses?: number;
+    expiresAt?: string | null;
+    status?: string;
+  },
+  accessToken: string,
+) =>
+  putJson<AdminInvitationCode, typeof payload>(
+    `/admin/invitation-codes/${codeId}`,
+    payload,
+    accessToken,
+  );
 
 export const sendVerificationCode = (payload: SendVerificationCodePayload) =>
   postJson<SendVerificationCodeResult, { phone: string }>(

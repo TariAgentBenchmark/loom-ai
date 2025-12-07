@@ -55,6 +55,8 @@ def get_db() -> Generator[Session, None, None]:
 def init_db() -> None:
     """初始化数据库"""
     try:
+        # 确保模型已注册到元数据
+        import app.models  # noqa: F401
         # 创建所有表
         Base.metadata.create_all(bind=engine)
         logger.info("Database initialized successfully")

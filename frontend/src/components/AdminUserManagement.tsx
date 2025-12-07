@@ -453,6 +453,9 @@ const AdminUserManagement: React.FC = () => {
                   用户
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  渠道/邀请码
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   状态
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -500,6 +503,16 @@ const AdminUserManagement: React.FC = () => {
                           </div>
                         )}
                       </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                    <div>
+                      <span className="text-gray-600 mr-1">渠道</span>
+                      {user.agentName || "未归属"}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      <span className="text-gray-600 mr-1">邀请码</span>
+                      {user.invitationCode || "未记录"}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
