@@ -201,7 +201,10 @@ export default function BatchUploadModal({
                     {/* Reference Image Upload (仅用于 prompt_edit) */}
                     {showReferenceImage && (
                         <div className="mb-6">
-                            <h3 className="text-lg font-semibold mb-3">参考图（可选）</h3>
+                            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                                <span>参考图（可选）</span>
+                                <span className="text-red-500 text-sm font-semibold">图2</span>
+                            </h3>
                             <p className="text-sm text-gray-600 mb-3">
                                 上传一张参考图，将与每张批量图片组合处理
                             </p>
@@ -294,7 +297,10 @@ export default function BatchUploadModal({
 
                     {/* Upload Zone */}
                     <div>
-                        <h3 className="text-lg font-semibold mb-3">批量图片</h3>
+                        <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                            <span>批量图片</span>
+                            <span className="text-red-500 text-sm font-semibold">图1</span>
+                        </h3>
                         <div
                             onDragOver={handleDragOver}
                             onDragLeave={handleDragLeave}
