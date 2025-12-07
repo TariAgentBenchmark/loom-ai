@@ -273,34 +273,12 @@ export default function BatchUploadModal({
                         </div>
                     )}
 
-                    {/* Instruction for prompt_edit */}
-                    {showReferenceImage && (
-                        <div className="mb-6">
-                            <h3 className="text-lg font-semibold mb-2">输入指令</h3>
-                            <p className="text-sm text-gray-600 mb-3">
-                                请输入希望修改的描述，将应用于所有批量图片
-                            </p>
-                            <textarea
-                                value={instruction ?? ''}
-                                onChange={(event) =>
-                                    onInstructionChange?.(event.target.value)
-                                }
-                                placeholder="例如：把图中裙子的颜色改成白色"
-                                className="w-full min-h-[100px] rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 resize-none"
-                                disabled={isProcessing}
-                            />
-                            <p className="text-xs text-gray-500 mt-2">
-                                一句话描述想要修改的细节，AI 会自动处理。批量任务会使用这里的指令。
-                            </p>
-                        </div>
-                    )}
-
                     {/* Upload Zone */}
                     <div>
-                        <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                            <span>批量图片</span>
-                            <span className="text-red-500 text-sm font-semibold">图1</span>
-                        </h3>
+                            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                                <span>批量图片</span>
+                                <span className="text-red-500 text-sm font-semibold">图1</span>
+                            </h3>
                         <div
                             onDragOver={handleDragOver}
                             onDragLeave={handleDragLeave}
@@ -406,6 +384,28 @@ export default function BatchUploadModal({
                                     </div>
                                 ))}
                             </div>
+                        </div>
+                    )}
+
+                    {/* Instruction for prompt_edit - bottom */}
+                    {showReferenceImage && (
+                        <div className="mt-6">
+                            <h3 className="text-lg font-semibold mb-2">输入指令</h3>
+                            <p className="text-sm text-gray-600 mb-3">
+                                请输入希望修改的描述，将应用于所有批量图片
+                            </p>
+                            <textarea
+                                value={instruction ?? ''}
+                                onChange={(event) =>
+                                    onInstructionChange?.(event.target.value)
+                                }
+                                placeholder="例如：把图中裙子的颜色改成白色"
+                                className="w-full min-h-[100px] rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 resize-none"
+                                disabled={isProcessing}
+                            />
+                            <p className="text-xs text-gray-500 mt-2">
+                                一句话描述想要修改的细节，AI 会自动处理。批量任务会使用这里的指令。
+                            </p>
                         </div>
                     )}
                 </div>
