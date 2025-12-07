@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, Gauge, RefreshCcw, Signal, Timer } from "lucide-react";
 import {
   adminGetApiLimitMetrics,
@@ -37,7 +37,7 @@ const AdminApiLimitMetrics: React.FC = () => {
   const accessToken = useAdminAccessToken();
   const [state, setState] = useState<MetricState>({ status: "idle" });
 
-  const fetchMetrics = async () => {
+  const fetchMetrics = useCallback(async () => {
     if (!accessToken) return;
     setState({ status: "loading" });
     try {
@@ -56,11 +56,11 @@ const AdminApiLimitMetrics: React.FC = () => {
         message: (err as Error)?.message ?? "获取限流数据失败",
       });
     }
-  };
+  }, [accessToken]);
 
   useEffect(() => {
     fetchMetrics();
-  }, [accessToken]);
+  }, [fetchMetrics]);
 
   const ordered = useMemo(() => {
     if (state.status !== "ready") return [];
@@ -118,7 +118,8 @@ const AdminApiLimitMetrics: React.FC = () => {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {ordered.map((metric) => {
               const utilization = metric.limit > 0 ? metric.active / metric.limit : 0;
-              const queueHint = Math.max(metric.leasedTokens - metric.active, 0);
+              const leased = metric.leasedTokens ?? 0;
+              const queueHint = Math.max(leased - metric.active, 0);
               return (
                 <div
                   key={metric.api}
