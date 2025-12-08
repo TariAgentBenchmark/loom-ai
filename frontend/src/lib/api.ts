@@ -1626,6 +1626,14 @@ export interface BatchProcessingRequestPayload {
   patternQuality?: "standard" | "4k";
   upscaleEngine?: "meitu_v2" | "runninghub_vr2";
   aspectRatio?: string;
+  expandRatio?: string;
+  expandTop?: string;
+  expandBottom?: string;
+  expandLeft?: string;
+  expandRight?: string;
+  expandPrompt?: string;
+  seamDirection?: number;
+  seamFit?: number;
 }
 
 export const createBatchTask = (payload: BatchProcessingRequestPayload) => {
@@ -1639,6 +1647,14 @@ export const createBatchTask = (payload: BatchProcessingRequestPayload) => {
     patternQuality,
     upscaleEngine,
     aspectRatio,
+    expandRatio,
+    expandTop,
+    expandBottom,
+    expandLeft,
+    expandRight,
+    expandPrompt,
+    seamDirection,
+    seamFit,
   } = payload;
 
   const batchTaskTypeMap: Partial<Record<ProcessingMethod, string>> = {
@@ -1679,6 +1695,30 @@ export const createBatchTask = (payload: BatchProcessingRequestPayload) => {
 
   if (aspectRatio) {
     formData.append("aspect_ratio", aspectRatio);
+  }
+
+  if (method === "expand_image") {
+    if (expandRatio) {
+      formData.append("expand_ratio", expandRatio);
+    }
+    if (expandTop) formData.append("expand_top", expandTop);
+    if (expandBottom) formData.append("expand_bottom", expandBottom);
+    if (expandLeft) formData.append("expand_left", expandLeft);
+    if (expandRight) formData.append("expand_right", expandRight);
+    if (expandPrompt) formData.append("expand_prompt", expandPrompt);
+  }
+
+  if (method === "seamless_loop") {
+    if (typeof seamDirection === "number") {
+      formData.append("seam_direction", seamDirection.toString());
+    }
+    if (typeof seamFit === "number") {
+      formData.append("seam_fit", seamFit.toString());
+    }
+    if (expandTop) formData.append("expand_top", expandTop);
+    if (expandBottom) formData.append("expand_bottom", expandBottom);
+    if (expandLeft) formData.append("expand_left", expandLeft);
+    if (expandRight) formData.append("expand_right", expandRight);
   }
 
   return postFormData<BatchTaskData>(

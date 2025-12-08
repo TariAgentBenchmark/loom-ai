@@ -20,6 +20,16 @@ interface BatchProcessingWrapperProps {
     patternQuality?: 'standard' | '4k';
     upscaleEngine?: 'meitu_v2' | 'runninghub_vr2';
     aspectRatio?: string;
+    expandRatio?: string;
+    expandEdges?: { top: string; bottom: string; left: string; right: string };
+    expandPrompt?: string;
+    onExpandRatioChange?: (value: string) => void;
+    onExpandEdgeChange?: (key: 'top' | 'bottom' | 'left' | 'right', value: string) => void;
+    onExpandPromptChange?: (value: string) => void;
+    seamDirection?: number;
+    seamFit?: number;
+    onSeamDirectionChange?: (value: number) => void;
+    onSeamFitChange?: (value: number) => void;
 }
 
 export default function BatchProcessingWrapper({
@@ -31,6 +41,16 @@ export default function BatchProcessingWrapper({
     patternQuality,
     upscaleEngine,
     aspectRatio,
+    expandRatio,
+    expandEdges,
+    expandPrompt,
+    onExpandRatioChange,
+    onExpandEdgeChange,
+    onExpandPromptChange,
+    seamDirection,
+    seamFit,
+    onSeamDirectionChange,
+    onSeamFitChange,
 }: BatchProcessingWrapperProps) {
     const [showUploadModal, setShowUploadModal] = useState(true);
     const [batchId, setBatchId] = useState<string | null>(null);
@@ -114,6 +134,14 @@ export default function BatchProcessingWrapper({
                 patternQuality,
                 upscaleEngine,
                 aspectRatio,
+                expandRatio,
+                expandTop: expandEdges?.top,
+                expandBottom: expandEdges?.bottom,
+                expandLeft: expandEdges?.left,
+                expandRight: expandEdges?.right,
+                expandPrompt,
+                seamDirection,
+                seamFit,
             };
 
             const response = await createBatchTask(payload);
@@ -186,6 +214,17 @@ export default function BatchProcessingWrapper({
                 instruction={batchInstruction}
                 onInstructionChange={setBatchInstruction}
                 maxFileSizeMB={isGqchMethod ? 16 : undefined}
+                method={method}
+                expandRatio={expandRatio}
+                onExpandRatioChange={onExpandRatioChange}
+                expandEdges={expandEdges}
+                onExpandEdgeChange={onExpandEdgeChange}
+                expandPrompt={expandPrompt}
+                onExpandPromptChange={onExpandPromptChange}
+                seamDirection={seamDirection}
+                onSeamDirectionChange={onSeamDirectionChange}
+                seamFit={seamFit}
+                onSeamFitChange={onSeamFitChange}
             />
         </>
     );

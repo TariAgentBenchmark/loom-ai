@@ -30,6 +30,14 @@ async def create_batch_task(
     height: Optional[int] = Form(None),
     upscale_engine: Optional[str] = Form(None),
     scale_factor: Optional[int] = Form(None),
+    expand_top: Optional[float] = Form(None),
+    expand_bottom: Optional[float] = Form(None),
+    expand_left: Optional[float] = Form(None),
+    expand_right: Optional[float] = Form(None),
+    expand_ratio: Optional[str] = Form(None),
+    expand_prompt: Optional[str] = Form(None),
+    seam_direction: Optional[int] = Form(None),
+    seam_fit: Optional[float] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -85,6 +93,26 @@ async def create_batch_task(
             options["width"] = width
         if height:
             options["height"] = height
+
+        if task_type in ["expand_image", "seamless_loop"]:
+            if expand_ratio:
+                options["expand_ratio"] = expand_ratio
+            if expand_prompt:
+                options["prompt"] = expand_prompt.strip()
+            if expand_top is not None:
+                options["expand_top"] = expand_top
+            if expand_bottom is not None:
+                options["expand_bottom"] = expand_bottom
+            if expand_left is not None:
+                options["expand_left"] = expand_left
+            if expand_right is not None:
+                options["expand_right"] = expand_right
+
+        if task_type == "seamless_loop":
+            if seam_direction is not None:
+                options["direction"] = seam_direction
+            if seam_fit is not None:
+                options["fit"] = seam_fit
         
         # 创建批量任务
         batch_task = await batch_processing_service.create_batch_task(

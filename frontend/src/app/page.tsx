@@ -928,17 +928,17 @@ export default function Home() {
             expandRatio={expandRatio}
             onExpandRatioChange={setExpandRatio}
             expandEdges={expandEdges}
-            onExpandEdgeChange={handleExpandEdgeChange}
-            expandPrompt={expandPrompt}
-            onExpandPromptChange={setExpandPrompt}
-            seamDirection={seamDirection}
-            onSeamDirectionChange={setSeamDirection}
-            seamFit={seamFit}
-            onSeamFitChange={setSeamFit}
-            historyRefreshToken={historyRefreshToken}
-            batchMode={batchMode}
-            onBatchModeChange={setBatchMode}
-          />
+          onExpandEdgeChange={handleExpandEdgeChange}
+          expandPrompt={expandPrompt}
+          onExpandPromptChange={setExpandPrompt}
+          seamDirection={seamDirection}
+          onSeamDirectionChange={setSeamDirection}
+          seamFit={seamFit}
+          onSeamFitChange={setSeamFit}
+          historyRefreshToken={historyRefreshToken}
+          batchMode={batchMode}
+          onBatchModeChange={setBatchMode}
+        />
 
           {/* Batch Processing Overlay */}
           {batchMode && accessToken && (
@@ -951,6 +951,16 @@ export default function Home() {
               patternQuality={patternQuality}
               upscaleEngine={upscaleEngine}
               aspectRatio={aspectRatio}
+              expandRatio={expandRatio}
+              expandEdges={expandEdges}
+              expandPrompt={expandPrompt}
+              onExpandRatioChange={setExpandRatio}
+              onExpandEdgeChange={handleExpandEdgeChange}
+              onExpandPromptChange={setExpandPrompt}
+              seamDirection={seamDirection}
+              seamFit={seamFit}
+              onSeamDirectionChange={setSeamDirection}
+              onSeamFitChange={setSeamFit}
             />
           )}
         </>
@@ -992,6 +1002,7 @@ export default function Home() {
             }
             setBatchMode(true);
             setCurrentPage(method);
+            applyStoredMethodUiState(method);
           }}
           onOpenPricingModal={() => setShowPricingModal(true)}
           onOpenCreditHistory={() => setShowCreditHistoryModal(true)}

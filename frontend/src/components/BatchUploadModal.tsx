@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, DragEvent, ChangeEvent, useRef } from 'react';
+import { ProcessingMethod } from '../lib/processing';
 
 interface BatchUploadModalProps {
     isOpen: boolean;
@@ -14,6 +15,17 @@ interface BatchUploadModalProps {
     instruction?: string; // prompt_edit 的修改指令
     onInstructionChange?: (value: string) => void;
     maxFileSizeMB?: number; // 单文件大小上限（可选）
+    method: ProcessingMethod;
+    expandRatio?: string;
+    onExpandRatioChange?: (value: string) => void;
+    expandEdges?: { top: string; bottom: string; left: string; right: string };
+    onExpandEdgeChange?: (key: 'top' | 'bottom' | 'left' | 'right', value: string) => void;
+    expandPrompt?: string;
+    onExpandPromptChange?: (value: string) => void;
+    seamDirection?: number;
+    onSeamDirectionChange?: (value: number) => void;
+    seamFit?: number;
+    onSeamFitChange?: (value: number) => void;
 }
 
 interface FileWithPreview {
@@ -43,6 +55,17 @@ export default function BatchUploadModal({
     instruction,
     onInstructionChange,
     maxFileSizeMB,
+    method,
+    expandRatio,
+    onExpandRatioChange,
+    expandEdges,
+    onExpandEdgeChange,
+    expandPrompt,
+    onExpandPromptChange,
+    seamDirection,
+    onSeamDirectionChange,
+    seamFit,
+    onSeamFitChange,
 }: BatchUploadModalProps) {
     const [files, setFiles] = useState<FileWithPreview[]>([]);
     const [referenceImage, setReferenceImage] = useState<FileWithPreview | null>(null);
@@ -283,9 +306,11 @@ export default function BatchUploadModal({
 
                     {/* Upload Zone */}
                     <div>
-                            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                                <span>批量图片</span>
+                        <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                            <span>批量图片</span>
+                            {method === 'prompt_edit' && (
                                 <span className="text-red-500 text-sm font-semibold">图1</span>
+                            )}
                             </h3>
                         <div
                             onDragOver={handleDragOver}
@@ -389,6 +414,132 @@ export default function BatchUploadModal({
                                                 {(fileWithPreview.file.size / 1024 / 1024).toFixed(2)} MB
                                             </p>
                                         </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Expand image options */}
+                    {method === 'expand_image' && (
+                        <div className="mt-6 space-y-4">
+                            <div>
+                                <h4 className="text-md font-semibold text-gray-900 mb-2">扩图比例</h4>
+                                <select
+                                    value={expandRatio || ''}
+                                    onChange={(event) => onExpandRatioChange?.(event.target.value)}
+                                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+                                    disabled={isProcessing}
+                                >
+                                    <option value="">自动（保持原图比例）</option>
+                                    <option value="21:9">21:9 超宽屏</option>
+                                    <option value="16:9">16:9 宽屏</option>
+                                    <option value="4:3">4:3 标准</option>
+                                    <option value="3:2">3:2 经典</option>
+                                    <option value="1:1">1:1 正方形</option>
+                                    <option value="9:16">9:16 竖屏</option>
+                                    <option value="3:4">3:4 竖屏</option>
+                                    <option value="2:3">2:3 竖屏</option>
+                                    <option value="5:4">5:4 特殊</option>
+                                    <option value="4:5">4:5 特殊</option>
+                                </select>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                {(['top', 'bottom', 'left', 'right'] as const).map((edge) => (
+                                    <div key={edge} className="flex flex-col">
+                                        <label className="text-xs text-gray-600 mb-1">
+                                            {edge === 'top' && '上'}
+                                            {edge === 'bottom' && '下'}
+                                            {edge === 'left' && '左'}
+                                            {edge === 'right' && '右'}
+                                        </label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            value={expandEdges?.[edge] ?? '0'}
+                                            onChange={(event) => onExpandEdgeChange?.(edge, event.target.value)}
+                                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+                                            disabled={isProcessing}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                            <div>
+                                <h4 className="text-md font-semibold text-gray-900 mb-2">扩图提示（可选）</h4>
+                                <textarea
+                                    value={expandPrompt ?? ''}
+                                    onChange={(event) => onExpandPromptChange?.(event.target.value)}
+                                    placeholder="描述扩展区域希望生成的内容"
+                                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 resize-none min-h-[80px]"
+                                    disabled={isProcessing}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Seamless loop options */}
+                    {method === 'seamless_loop' && (
+                        <div className="mt-6 space-y-4">
+                            <div>
+                                <h4 className="text-md font-semibold text-gray-900 mb-2">接缝方向</h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    {[
+                                        { value: 0, label: '四周拼接' },
+                                        { value: 1, label: '上下拼接' },
+                                        { value: 2, label: '左右拼接' },
+                                    ].map((item) => (
+                                        <button
+                                            key={item.value}
+                                            type="button"
+                                            onClick={() => onSeamDirectionChange?.(item.value)}
+                                            disabled={isProcessing}
+                                            className={`w-full rounded-lg border px-3 py-2 text-sm font-medium transition ${seamDirection === item.value
+                                                ? 'border-blue-500 bg-blue-50 text-blue-600'
+                                                : 'border-gray-200 text-gray-700 hover:border-blue-300 hover:bg-blue-50/60'
+                                                }`}
+                                        >
+                                            {item.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-sm font-semibold text-gray-900 mb-2 block">
+                                    接缝拟合度
+                                </label>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="1"
+                                    step="0.01"
+                                    value={Math.max(0, Math.min(1, seamFit ?? 0.5))}
+                                    onChange={(event) => onSeamFitChange?.(parseFloat(event.target.value))}
+                                    className="w-full"
+                                    disabled={isProcessing}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                    当前：{(seamFit ?? 0.5).toFixed(2)}
+                                </p>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                {(['top', 'bottom', 'left', 'right'] as const).map((edge) => (
+                                    <div key={edge} className="flex flex-col">
+                                        <label className="text-xs text-gray-600 mb-1">
+                                            {edge === 'top' && '上'}
+                                            {edge === 'bottom' && '下'}
+                                            {edge === 'left' && '左'}
+                                            {edge === 'right' && '右'}
+                                        </label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            value={expandEdges?.[edge] ?? '0'}
+                                            onChange={(event) => onExpandEdgeChange?.(edge, event.target.value)}
+                                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+                                            disabled={isProcessing}
+                                        />
                                     </div>
                                 ))}
                             </div>
