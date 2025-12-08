@@ -132,7 +132,8 @@ class VectorWebAPIClient:
 
         try:
             async with api_limiter.slot("vector_webapi"):
-                async with httpx.AsyncClient(timeout=300.0) as client:
+                client = httpx.AsyncClient(timeout=300.0)
+                try:
                     logger.info("Uploading image to vector API, format=%s", fmt)
                     response = await client.post(
                         self.base_url,
@@ -142,25 +143,27 @@ class VectorWebAPIClient:
                     response.raise_for_status()
                     payload = response.json()
 
-                if payload.get("code") != 200:
-                    raise Exception(payload.get("msg") or "矢量化服务异常")
+                    if payload.get("code") != 200:
+                        raise Exception(payload.get("msg") or "矢量化服务异常")
 
-                # 如果直接返回了结果URL，直接下载保存
-                result_url = self._extract_result_url(payload)
-                if not result_url:
-                    task_id = payload.get("bianhao")
-                    if not task_id:
-                        raise Exception("矢量化任务创建失败，缺少任务编号")
+                    # 如果直接返回了结果URL，直接下载保存
+                    result_url = self._extract_result_url(payload)
+                    if not result_url:
+                        task_id = payload.get("bianhao")
+                        if not task_id:
+                            raise Exception("矢量化任务创建失败，缺少任务编号")
 
-                    logger.info("Vector task created: %s, start polling", task_id)
-                    result_url = await self._poll_result_url(
-                        client,
-                        task_id,
-                        timeout=self.poll_timeout,
-                        interval=self.poll_interval,
-                    )
+                        logger.info("Vector task created: %s, start polling", task_id)
+                        result_url = await self._poll_result_url(
+                            client,
+                            task_id,
+                            timeout=self.poll_timeout,
+                            interval=self.poll_interval,
+                        )
 
-                return await self._download_and_save(result_url, fmt)
+                    return await self._download_and_save(result_url, fmt)
+                finally:
+                    await client.aclose()
 
         except Exception as exc:
             logger.error("Vector conversion failed: %s", str(exc))
