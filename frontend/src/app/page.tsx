@@ -946,6 +946,7 @@ export default function Home() {
               method={currentPage}
               accessToken={accessToken}
               onBack={() => setBatchMode(false)}
+              onHistoryRefresh={() => setHistoryRefreshToken((token) => token + 1)}
               promptInstruction={promptInstruction}
               patternType={patternType}
               patternQuality={patternQuality}

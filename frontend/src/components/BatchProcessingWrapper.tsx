@@ -15,6 +15,7 @@ interface BatchProcessingWrapperProps {
     method: ProcessingMethod;
     accessToken: string;
     onBack: () => void;
+    onHistoryRefresh?: () => void;
     promptInstruction?: string;
     patternType?: string;
     patternQuality?: 'standard' | '4k';
@@ -36,6 +37,7 @@ export default function BatchProcessingWrapper({
     method,
     accessToken,
     onBack,
+    onHistoryRefresh,
     promptInstruction,
     patternType,
     patternQuality,
@@ -165,6 +167,7 @@ export default function BatchProcessingWrapper({
             const response = await createBatchTask(payload);
             setBatchId(response.data.batchId);
             setShowUploadModal(false);
+            onHistoryRefresh?.();
         } catch (err) {
             setError((err as Error)?.message ?? '创建批量任务失败');
         } finally {
@@ -174,8 +177,8 @@ export default function BatchProcessingWrapper({
 
     const handleComplete = useCallback(() => {
         // Batch processing completed
-        console.log('Batch processing completed');
-    }, []);
+        onHistoryRefresh?.();
+    }, [onHistoryRefresh]);
 
     const handleBackToUpload = useCallback(() => {
         setBatchId(null);
