@@ -180,12 +180,29 @@ export default function Home() {
   const currentMethodTask = currentMethod ? activeTasks[currentMethod] : undefined;
   const isCurrentMethodProcessing = Boolean(currentMethodTask);
   const currentTaskId = currentMethodTask?.taskId ?? null;
-  const applyStoredMethodUiState = useCallback((method: ProcessingMethod) => {
-    const stored = methodUiStateRef.current[method];
-    setProcessedImage(stored?.processedImage ?? null);
-    setSuccessMessage(stored?.successMessage ?? '');
-    setErrorMessage(stored?.errorMessage ?? '');
-  }, []);
+  const applyStoredMethodUiState = useCallback(
+    (method: ProcessingMethod) => {
+      const hasActiveTask = Boolean(activeTasks[method]);
+      if (!hasActiveTask) {
+        // 没有进行中的任务时，不保留上次结果，回到初始状态
+        methodUiStateRef.current[method] = {
+          processedImage: null,
+          successMessage: '',
+          errorMessage: '',
+        };
+        setProcessedImage(null);
+        setSuccessMessage('');
+        setErrorMessage('');
+        return;
+      }
+
+      const stored = methodUiStateRef.current[method];
+      setProcessedImage(stored?.processedImage ?? null);
+      setSuccessMessage(stored?.successMessage ?? '');
+      setErrorMessage(stored?.errorMessage ?? '');
+    },
+    [activeTasks],
+  );
 
   const clearTaskPolling = useCallback((taskId: string) => {
     const poller = pollingRefs.current[taskId];
