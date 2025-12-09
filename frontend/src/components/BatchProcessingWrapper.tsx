@@ -62,6 +62,7 @@ export default function BatchProcessingWrapper({
     const [isLoadingServiceCost, setIsLoadingServiceCost] = useState(false);
     const [batchInstruction, setBatchInstruction] = useState(promptInstruction ?? '');
     const isGqchMethod = method === 'seamless_loop' || method === 'expand_image';
+    const maxFileSizeMB = isGqchMethod ? 16 : 50;
 
     useEffect(() => {
         setBatchInstruction(promptInstruction ?? '');
@@ -234,7 +235,7 @@ export default function BatchProcessingWrapper({
                 showReferenceImage={method === 'prompt_edit'}
                 instruction={batchInstruction}
                 onInstructionChange={setBatchInstruction}
-                maxFileSizeMB={isGqchMethod ? 16 : undefined}
+                maxFileSizeMB={maxFileSizeMB}
                 method={method}
                 expandRatio={expandRatio}
                 onExpandRatioChange={onExpandRatioChange}
