@@ -178,10 +178,17 @@ class MeituClient:
             logger.error("Meitu AI超清V2网络错误: %s", str(exc))
             raise Exception(f"美图AI超清V2网络错误: {str(exc)}")
 
-        if result.get("code") != 0:
+        # 业务错误码处理
+        code_value = result.get("code")
+        if code_value != 0:
             summary = _summarize_result(result)
             logger.error("Meitu AI超清V2返回非零code: %s | image_url=%s", summary, image_url)
-            raise Exception(result.get("message") or f"美图AI超清V2返回错误码: {result.get('code')}；响应: {summary}")
+
+            # 特殊处理违规/敏感内容（10025）
+            if str(code_value) == "10025":
+                raise Exception("图片涉及政治敏感内容或者侵权，请更换图片后重试。")
+
+            raise Exception(result.get("message") or f"AI超清V2返回错误码: {code_value}；响应: {summary}")
 
         data = result.get("data") or {}
         status = data.get("status")
