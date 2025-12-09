@@ -144,17 +144,30 @@ class BaseAIClient:
         try:
             # 使用PIL处理图片
             image = Image.open(BytesIO(image_bytes))
-            
-            # 如果是RGBA模式且要转换为JPEG，需要转换为RGB
-            if image.mode == "RGBA" and format.upper() == "JPEG":
-                # 创建白色背景
-                background = Image.new("RGB", image.size, (255, 255, 255))
-                background.paste(image, mask=image.split()[-1])  # 使用alpha通道作为mask
-                image = background
-            
+            target_format = format.upper()
+
+            # 统一模式，防止“cannot write mode CMYK as PNG/JPEG”等错误
+            if target_format == "JPEG":
+                if image.mode == "RGBA":
+                    # JPEG 不支持 alpha，使用白底合成
+                    background = Image.new("RGB", image.size, (255, 255, 255))
+                    background.paste(image, mask=image.split()[-1])
+                    image = background
+                elif image.mode != "RGB":
+                    image = image.convert("RGB")
+            else:  # PNG 或其他支持透明度的格式
+                if image.mode == "CMYK":
+                    image = image.convert("RGB")
+                elif image.mode not in ("RGB", "RGBA", "LA", "L"):
+                    # 对其他特殊模式（如 P、YCbCr 等）做一次通用转换
+                    image = image.convert("RGBA" if "A" in image.getbands() else "RGB")
+
             # 转换为字节
             buffer = BytesIO()
-            image.save(buffer, format=format, quality=95)
+            save_kwargs = {"format": target_format}
+            if target_format == "JPEG":
+                save_kwargs["quality"] = 95
+            image.save(buffer, **save_kwargs)
             image_bytes = buffer.getvalue()
             
             # 编码为base64
