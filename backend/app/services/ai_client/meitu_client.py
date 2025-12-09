@@ -128,6 +128,9 @@ class MeituClient:
         params_payload = {"parameter": {"sr_num": sr_num}}
         if area_size:
             params_payload["parameter"]["area_size"] = area_size
+        save_photo_format = options.get("save_photo_format")
+        if isinstance(save_photo_format, int) and save_photo_format in (1, 2):
+            params_payload["parameter"]["save_photo_format"] = save_photo_format
 
         request_body = {
             "params": json.dumps(params_payload, separators=(",", ":")),

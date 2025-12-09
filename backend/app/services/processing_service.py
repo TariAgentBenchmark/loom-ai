@@ -91,6 +91,14 @@ class ProcessingService:
         # 获取图片信息
         image_info = await self.file_service.get_image_info(image_bytes)
         options = dict(options or {})
+        # 将原图格式信息写入任务选项，便于下游选择输出格式
+        original_format = (image_info.get("format") or "").lower() if image_info else ""
+        if original_format:
+            options.setdefault("image_format", original_format)
+        if original_filename:
+            ext = original_filename.rsplit(".", 1)[-1].lower() if "." in original_filename else ""
+            if ext:
+                options.setdefault("image_ext", ext)
 
         # 保存第二张图片（可选）
         secondary_url: Optional[str] = None
@@ -233,6 +241,16 @@ class ProcessingService:
                     image_url = await self.file_service.save_upload_file(
                         image_bytes, temp_filename, "originals", purpose="upscale"
                     )
+                    if task_options.get("engine") == "meitu_v2":
+                        image_format = (
+                            task_options.get("image_format")
+                            or task_options.get("image_ext")
+                            or ""
+                        ).lower()
+                        save_photo_format = 1
+                        if image_format == "png":
+                            save_photo_format = 2
+                        task_options["save_photo_format"] = save_photo_format
                     # image_url 现在已经是正确的格式了，直接使用
                     result_url = await ai_client.upscale_image(
                         image_url,
@@ -341,16 +359,28 @@ class ProcessingService:
                                 result_bytes = await self.file_service.download_from_url(
                                     single_result_url
                                 )
-                        else:
-                            # 远程URL，下载文件
-                            result_bytes = await self.file_service.download_from_url(
-                                single_result_url
-                            )
-                            filename = f"result_{task.task_id}_{idx}.png"
-                            # 保存结果文件
-                            final_url = await self.file_service.save_upload_file(
-                                result_bytes, filename, "results"
-                            )
+                    else:
+                        # 远程URL，下载文件
+                        result_bytes = await self.file_service.download_from_url(
+                            single_result_url
+                        )
+                        target_ext = "png"
+                        if task.type == TaskType.UPSCALE.value:
+                            save_photo_format = task_options.get("save_photo_format")
+                            image_format = (
+                                task_options.get("image_format")
+                                or task_options.get("image_ext")
+                                or ""
+                            ).lower()
+                            if save_photo_format == 1 or image_format in {"jpeg", "jpg"}:
+                                target_ext = "jpg"
+                            elif save_photo_format == 2 or image_format == "png":
+                                target_ext = "png"
+                        filename = f"result_{task.task_id}_{idx}.{target_ext}"
+                        # 保存结果文件
+                        final_url = await self.file_service.save_upload_file(
+                            result_bytes, filename, "results"
+                        )
 
                     final_result_urls.append(final_url)
                     result_filenames.append(filename)

@@ -13,6 +13,7 @@ from app.utils.result_filter import (
     filter_result_strings,
     split_and_clean_csv,
 )
+from app.utils.exceptions import UserFacingException
 
 from app.core.database import get_db
 from app.models.user import User
@@ -37,6 +38,8 @@ def _display_credits(task) -> float:
 def _handle_processing_error(exc: Exception):
     """统一处理创建任务阶段的错误，补充积分不足提示。"""
     msg = str(exc)
+    if isinstance(exc, UserFacingException):
+        raise HTTPException(status_code=exc.status_code, detail=msg)
     if "积分不足" in msg:
         raise HTTPException(status_code=400, detail="积分不足，请充值后再试")
     raise HTTPException(status_code=400, detail="服务器火爆，重试一下。")
@@ -494,6 +497,14 @@ async def upscale_image(
         allowed_engines = {"meitu_v2", "runninghub_vr2"}
         if engine_value not in allowed_engines:
             engine_value = "meitu_v2"
+        # 通用1（美图）仅支持 JPG/PNG，提前校验格式，避免回传格式不一致
+        if engine_value == "meitu_v2":
+            filename = image.filename or ""
+            ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+            allowed_ext = {"jpg", "jpeg", "png"}
+            if ext not in allowed_ext:
+                raise HTTPException(status_code=400, detail="AI高清通用1暂只支持JPG或PNG格式，请更换图片后重试")
+
         options = {
             "scale_factor": scale_factor,
             "engine": engine_value,

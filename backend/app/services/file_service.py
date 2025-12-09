@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
 from app.core.config import settings
+from app.utils.exceptions import UserFacingException
 
 logger = logging.getLogger(__name__)
 
@@ -116,12 +117,12 @@ class FileService:
         """验证文件"""
         # 检查文件大小
         if len(file_bytes) > self.max_file_size:
-            raise Exception(f"文件大小超过限制 ({self.max_file_size / 1024 / 1024:.1f}MB)")
+            raise UserFacingException(f"文件大小超过限制 ({self.max_file_size / 1024 / 1024:.1f}MB)")
         
         # 检查文件扩展名
         file_ext = filename.lower().split('.')[-1] if '.' in filename else ''
         if file_ext not in self.allowed_extensions:
-            raise Exception(f"不支持的文件格式，支持格式: {', '.join(self.allowed_extensions)}")
+            raise UserFacingException(f"不支持的文件格式，支持格式: {', '.join(self.allowed_extensions)}")
         
         # 对于SVG文件，跳过图片验证
         if file_ext == 'svg':
@@ -152,7 +153,7 @@ class FileService:
         except Exception as e:
             if "图片分辨率" in str(e):
                 raise e
-            raise Exception("无效的图片文件")
+            raise UserFacingException("无效的图片文件")
 
     async def save_upload_file(self, file_bytes: bytes, filename: str, subfolder: str = "uploads", purpose: str = "general") -> str:
         """保存上传的文件"""
