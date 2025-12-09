@@ -522,27 +522,6 @@ export default function BatchUploadModal({
                                     当前：{(seamFit ?? 0.5).toFixed(2)}
                                 </p>
                             </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                {(['top', 'bottom', 'left', 'right'] as const).map((edge) => (
-                                    <div key={edge} className="flex flex-col">
-                                        <label className="text-xs text-gray-600 mb-1">
-                                            {edge === 'top' && '上'}
-                                            {edge === 'bottom' && '下'}
-                                            {edge === 'left' && '左'}
-                                            {edge === 'right' && '右'}
-                                        </label>
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            value={expandEdges?.[edge] ?? '0'}
-                                            onChange={(event) => onExpandEdgeChange?.(edge, event.target.value)}
-                                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
-                                            disabled={isProcessing}
-                                        />
-                                    </div>
-                                ))}
-                            </div>
                         </div>
                     )}
 

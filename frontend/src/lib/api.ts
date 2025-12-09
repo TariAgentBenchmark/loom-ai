@@ -1715,10 +1715,6 @@ export const createBatchTask = (payload: BatchProcessingRequestPayload) => {
     if (typeof seamFit === "number") {
       formData.append("seam_fit", seamFit.toString());
     }
-    if (expandTop) formData.append("expand_top", expandTop);
-    if (expandBottom) formData.append("expand_bottom", expandBottom);
-    if (expandLeft) formData.append("expand_left", expandLeft);
-    if (expandRight) formData.append("expand_right", expandRight);
   }
 
   return postFormData<BatchTaskData>(

@@ -129,20 +129,38 @@ export default function BatchProcessingWrapper({
                 images: files,
                 referenceImage: referenceImage || undefined,
                 accessToken,
-                instruction: batchInstruction,
-                patternType,
-                patternQuality,
-                upscaleEngine,
-                aspectRatio,
-                expandRatio,
-                expandTop: expandEdges?.top,
-                expandBottom: expandEdges?.bottom,
-                expandLeft: expandEdges?.left,
-                expandRight: expandEdges?.right,
-                expandPrompt,
-                seamDirection,
-                seamFit,
             };
+
+            if (method === 'prompt_edit') {
+                payload.instruction = batchInstruction;
+            }
+
+            if (method === 'extract_pattern') {
+                payload.patternType = patternType;
+                payload.patternQuality = patternQuality;
+            }
+
+            if (method === 'upscale') {
+                payload.upscaleEngine = upscaleEngine;
+            }
+
+            if (aspectRatio) {
+                payload.aspectRatio = aspectRatio;
+            }
+
+            if (method === 'expand_image') {
+                payload.expandRatio = expandRatio;
+                payload.expandTop = expandEdges?.top;
+                payload.expandBottom = expandEdges?.bottom;
+                payload.expandLeft = expandEdges?.left;
+                payload.expandRight = expandEdges?.right;
+                payload.expandPrompt = expandPrompt;
+            }
+
+            if (method === 'seamless_loop') {
+                payload.seamDirection = seamDirection;
+                payload.seamFit = seamFit;
+            }
 
             const response = await createBatchTask(payload);
             setBatchId(response.data.batchId);
@@ -152,7 +170,7 @@ export default function BatchProcessingWrapper({
         } finally {
             setIsCreatingBatch(false);
         }
-    }, [method, accessToken, batchInstruction, patternType, patternQuality, upscaleEngine, aspectRatio]);
+    }, [method, accessToken, batchInstruction, patternType, patternQuality, upscaleEngine, aspectRatio, expandRatio, expandEdges, expandPrompt, seamDirection, seamFit]);
 
     const handleComplete = useCallback(() => {
         // Batch processing completed
