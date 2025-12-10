@@ -359,28 +359,28 @@ class ProcessingService:
                                 result_bytes = await self.file_service.download_from_url(
                                     single_result_url
                                 )
-                    else:
-                        # 远程URL，下载文件
-                        result_bytes = await self.file_service.download_from_url(
-                            single_result_url
-                        )
-                        target_ext = "png"
-                        if task.type == TaskType.UPSCALE.value:
-                            save_photo_format = task_options.get("save_photo_format")
-                            image_format = (
-                                task_options.get("image_format")
-                                or task_options.get("image_ext")
-                                or ""
-                            ).lower()
-                            if save_photo_format == 1 or image_format in {"jpeg", "jpg"}:
-                                target_ext = "jpg"
-                            elif save_photo_format == 2 or image_format == "png":
-                                target_ext = "png"
-                        filename = f"result_{task.task_id}_{idx}.{target_ext}"
-                        # 保存结果文件
-                        final_url = await self.file_service.save_upload_file(
-                            result_bytes, filename, "results"
-                        )
+                        else:
+                            # 远程URL，下载文件
+                            result_bytes = await self.file_service.download_from_url(
+                                single_result_url
+                            )
+                            target_ext = "png"
+                            if task.type == TaskType.UPSCALE.value:
+                                save_photo_format = task_options.get("save_photo_format")
+                                image_format = (
+                                    task_options.get("image_format")
+                                    or task_options.get("image_ext")
+                                    or ""
+                                ).lower()
+                                if save_photo_format == 1 or image_format in {"jpeg", "jpg"}:
+                                    target_ext = "jpg"
+                                elif save_photo_format == 2 or image_format == "png":
+                                    target_ext = "png"
+                            filename = f"result_{task.task_id}_{idx}.{target_ext}"
+                            # 保存结果文件
+                            final_url = await self.file_service.save_upload_file(
+                                result_bytes, filename, "results"
+                            )
 
                     final_result_urls.append(final_url)
                     result_filenames.append(filename)
