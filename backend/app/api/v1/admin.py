@@ -1,4 +1,6 @@
 import uuid
+import random
+import string
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
@@ -327,7 +329,7 @@ def _parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
 
 
 def _generate_invitation_code() -> str:
-    return uuid.uuid4().hex[:10].upper()
+    return "".join(random.choices(string.ascii_uppercase + string.digits, k=4))
 
 
 @router.get("/users", dependencies=[Depends(admin_route())])
