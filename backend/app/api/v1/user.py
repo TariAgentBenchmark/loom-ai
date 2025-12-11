@@ -37,7 +37,12 @@ async def get_profile(
             "joinedAt": current_user.created_at,
             "lastLoginAt": current_user.last_login_at,
             "status": current_user.status.value,
-            "isAdmin": current_user.is_admin
+            "isAdmin": current_user.is_admin,
+            "agentId": current_user.agent_id,
+            "managedAgentId": current_user.managed_agent.id if current_user.managed_agent else None,
+            "managedAgentLevel": current_user.managed_agent.level if current_user.managed_agent else None,
+            "managedAgentName": current_user.managed_agent.name if current_user.managed_agent else None,
+            "managedAgentStatus": current_user.managed_agent.status.value if current_user.managed_agent else None,
         },
         message="获取用户信息成功"
     )

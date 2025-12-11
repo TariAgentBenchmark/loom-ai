@@ -1,8 +1,15 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { BadgeCheck, Ban, Link2, Plus, RefreshCcw, Users, X } from "lucide-react";
-import { adminCreateAgent, adminGetAgents, adminUpdateAgent, type AdminAgent } from "../lib/api";
+import {
+  adminCreateAgent,
+  adminGetAgents,
+  adminUpdateAgent,
+  adminSearchUsers,
+  type AdminAgent,
+  type AdminUserLookupItem,
+} from "../lib/api";
 import { useAdminAccessToken } from "../contexts/AdminAuthContext";
 
 type AsyncState =
@@ -34,9 +41,15 @@ const AdminAgentInvitationManager: React.FC = () => {
   const [state, setState] = useState<AsyncState>({ status: "idle" });
   const [agentForm, setAgentForm] = useState({
     name: "",
+    userIdentifier: "",
     contact: "",
     notes: "",
   });
+  const [selectedUser, setSelectedUser] = useState<AdminUserLookupItem | null>(null);
+  const [userOptions, setUserOptions] = useState<AdminUserLookupItem[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const searchTimer = useRef<NodeJS.Timeout | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   const loadData = useCallback(async () => {
@@ -54,6 +67,35 @@ const AdminAgentInvitationManager: React.FC = () => {
     }
   }, [accessToken]);
 
+  const searchUsers = useCallback(
+    (keyword: string) => {
+      if (!accessToken) return;
+      if (searchTimer.current) {
+        clearTimeout(searchTimer.current);
+      }
+      if (!keyword.trim()) {
+        setUserOptions([]);
+        setSearchError(null);
+        setSelectedUser(null);
+        return;
+      }
+      setIsSearching(true);
+      setSearchError(null);
+      searchTimer.current = setTimeout(async () => {
+        try {
+          const res = await adminSearchUsers(keyword.trim(), accessToken, 10);
+          setUserOptions(res.data.users || []);
+        } catch (err) {
+          setUserOptions([]);
+          setSearchError((err as Error)?.message ?? "搜索失败");
+        } finally {
+          setIsSearching(false);
+        }
+      }, 250);
+    },
+    [accessToken],
+  );
+
   useEffect(() => {
     loadData();
   }, [loadData]);
@@ -65,17 +107,23 @@ const AdminAgentInvitationManager: React.FC = () => {
       setState({ status: "error", message: "请填写代理商名称" });
       return;
     }
+    if (!agentForm.userIdentifier.trim()) {
+      setState({ status: "error", message: "请填写绑定的用户标识" });
+      return;
+    }
     setState({ status: "loading" });
     try {
       await adminCreateAgent(
         {
           name: agentForm.name.trim(),
+          userIdentifier: agentForm.userIdentifier.trim(),
           contact: agentForm.contact.trim() || undefined,
           notes: agentForm.notes.trim() || undefined,
         },
         accessToken,
       );
-      setAgentForm({ name: "", contact: "", notes: "" });
+      setAgentForm({ name: "", userIdentifier: "", contact: "", notes: "" });
+      setSelectedUser(null);
       setShowCreateModal(false);
       await loadData();
     } catch (err) {
@@ -164,6 +212,84 @@ const AdminAgentInvitationManager: React.FC = () => {
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
+                  <label className="text-xs text-gray-500">绑定用户（已注册）</label>
+                  {selectedUser ? (
+                    <div className="mt-1 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-gray-900 shadow-sm">
+                      <div className="flex-1">
+                        <div className="font-semibold">
+                          {selectedUser.nickname || selectedUser.phone || selectedUser.email || selectedUser.userId}
+                        </div>
+                        <div className="text-xs text-gray-700">手机：{selectedUser.phone || "—"}</div>
+                        <div className="text-[11px] text-gray-600">ID: {selectedUser.userId}</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedUser(null);
+                          setAgentForm({ ...agentForm, userIdentifier: "" });
+                          setUserOptions([]);
+                          setSearchError(null);
+                        }}
+                        className="mt-0.5 text-gray-400 hover:text-gray-600"
+                        aria-label="clear-user"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={agentForm.userIdentifier}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setAgentForm({ ...agentForm, userIdentifier: value });
+                          searchUsers(value);
+                        }}
+                        className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                        placeholder="用户ID / 手机号 / 邮箱"
+                        required
+                      />
+                      {agentForm.userIdentifier && (
+                        <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg">
+                          <div className="max-h-56 overflow-y-auto text-sm">
+                            {isSearching && (
+                              <div className="px-3 py-2 text-gray-500">搜索中…</div>
+                            )}
+                            {!isSearching && userOptions.length === 0 && !searchError && (
+                              <div className="px-3 py-2 text-gray-400">未找到匹配用户</div>
+                            )}
+                            {searchError && !isSearching && (
+                              <div className="px-3 py-2 text-red-500">搜索失败：{searchError}</div>
+                            )}
+                            {userOptions.map((user) => (
+                              <button
+                              key={user.userId}
+                              type="button"
+                              onClick={() => {
+                                setAgentForm({ ...agentForm, userIdentifier: user.userId });
+                                setSelectedUser(user);
+                                if (!agentForm.contact && user.phone) {
+                                  setAgentForm((prev) => ({ ...prev, contact: user.phone || "" }));
+                                }
+                                setUserOptions([]);
+                              }}
+                                className="flex w-full flex-col items-start px-3 py-2 text-left hover:bg-blue-50"
+                              >
+                                <span className="font-semibold text-gray-900">{user.nickname || user.phone || user.email || user.userId}</span>
+                                <span className="text-xs text-gray-600">
+                                  {user.phone ? `手机：${user.phone}` : user.email ? `邮箱：${user.email}` : "ID 匹配"}
+                                </span>
+                                <span className="text-[11px] text-gray-400">ID: {user.userId}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div>
                   <label className="text-xs text-gray-500">联系人/电话</label>
                   <input
                     type="text"
@@ -231,6 +357,8 @@ const AdminAgentInvitationManager: React.FC = () => {
             <thead>
               <tr className="bg-gray-50">
                 <th className="px-3 py-2 text-left font-medium text-gray-600">名称</th>
+                <th className="px-3 py-2 text-left font-medium text-gray-600">级别</th>
+                <th className="px-3 py-2 text-left font-medium text-gray-600">绑定用户</th>
                 <th className="px-3 py-2 text-left font-medium text-gray-600">用户数</th>
                 <th className="px-3 py-2 text-left font-medium text-gray-600">邀请码</th>
                 <th className="px-3 py-2 text-left font-medium text-gray-600">联系人</th>
@@ -246,6 +374,15 @@ const AdminAgentInvitationManager: React.FC = () => {
                     <div className="text-xs text-gray-500">
                       创建于 {agent.createdAt?.slice(0, 19).replace("T", " ")}
                     </div>
+                  </td>
+                  <td className="px-3 py-2">
+                    <span className="rounded-full bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-100">
+                      {agent.level === 1 ? "一级" : "二级"}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-gray-700">
+                    <div className="font-semibold text-gray-900">{agent.ownerUserPhone || agent.ownerUserId || "—"}</div>
+                    <div className="text-xs text-gray-500">{agent.ownerUserId ? `ID: ${agent.ownerUserId}` : ""}</div>
                   </td>
                   <td className="px-3 py-2">
                     <span className="font-semibold text-gray-900">{agent.userCount}</span>
@@ -271,7 +408,7 @@ const AdminAgentInvitationManager: React.FC = () => {
               ))}
               {agents.length === 0 && (
                 <tr>
-                  <td className="px-3 py-4 text-center text-sm text-gray-500" colSpan={6}>
+                  <td className="px-3 py-4 text-center text-sm text-gray-500" colSpan={8}>
                     暂无代理商，请先创建。
                   </td>
                 </tr>

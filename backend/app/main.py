@@ -11,7 +11,7 @@ from datetime import datetime
 from app.core.config import settings
 from app.core.database import init_db, close_db, check_db_health
 from app.core.redis_client import close_redis_client
-from app.api.v1 import auth, user, processing, credits, payment, history, admin, membership, batch_processing
+from app.api.v1 import auth, user, processing, credits, payment, history, admin, membership, batch_processing, agent_portal
 from app.services.api_limiter import api_limiter
 
 
@@ -25,6 +25,7 @@ api_router.include_router(payment.router, prefix="/payment", tags=["支付"])
 api_router.include_router(history.router, prefix="/history", tags=["历史记录"])
 api_router.include_router(admin.router, prefix="/admin", tags=["管理员"])
 api_router.include_router(membership.router, prefix="/membership", tags=["会员管理"])
+api_router.include_router(agent_portal.router, prefix="/agent", tags=["代理商"])
 
 
 # 配置日志

@@ -78,8 +78,18 @@ class User(Base):
     batch_tasks = relationship("BatchTask", back_populates="user", cascade="all, delete-orphan")
     credit_transactions = relationship("CreditTransaction", back_populates="user", cascade="all, delete-orphan")
     orders = relationship("Order", back_populates="user", cascade="all, delete-orphan")
-    agent = relationship("Agent", back_populates="users")
+    agent = relationship(
+        "Agent",
+        back_populates="users",
+        foreign_keys=[agent_id],
+    )
     invitation_code = relationship("InvitationCode", back_populates="users")
+    managed_agent = relationship(
+        "Agent",
+        back_populates="owner_user",
+        uselist=False,
+        foreign_keys="Agent.owner_user_id",
+    )
 
     def __repr__(self):
         return f"<User(id={self.id}, email={self.email}, nickname={self.nickname})>"

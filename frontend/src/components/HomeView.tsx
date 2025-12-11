@@ -12,6 +12,7 @@ import {
   Menu,
   X,
   MessageCircle,
+  ShieldCheck,
 } from 'lucide-react';
 import { ProcessingMethod } from '../lib/processing';
 import HistoryList from './HistoryList';
@@ -36,6 +37,7 @@ interface HomeViewProps {
   onLogout?: () => void;
   onLogin: () => void;
   onRegister?: () => void;
+  onOpenAgentManager?: () => void;
   isLoggedIn: boolean;
   isAuthenticating: boolean;
   authError?: string;
@@ -44,6 +46,7 @@ interface HomeViewProps {
   onOpenLoginModal: () => void;
   accessToken?: string;
   historyRefreshToken?: number;
+  hasAgentManagement?: boolean;
 }
 
 const formatNumber = (value: number | undefined, fallback: string, fractionDigits = 0) =>
@@ -76,6 +79,7 @@ const HomeView: React.FC<HomeViewProps> = ({
   onLogout,
   onLogin,
   onRegister,
+  onOpenAgentManager,
   isLoggedIn,
   isAuthenticating,
   authError,
@@ -84,6 +88,7 @@ const HomeView: React.FC<HomeViewProps> = ({
   onOpenLoginModal,
   accessToken,
   historyRefreshToken = 0,
+  hasAgentManagement = false,
 }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -294,6 +299,18 @@ const HomeView: React.FC<HomeViewProps> = ({
                           <Download className="h-4 w-4" />
                           <span>批量下载</span>
                         </button>
+                        {hasAgentManagement && onOpenAgentManager && (
+                          <button
+                            onClick={() => {
+                              setShowUserMenu(false);
+                              onOpenAgentManager();
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                          >
+                            <ShieldCheck className="h-4 w-4" />
+                            <span>代理管理</span>
+                          </button>
+                        )}
                         {isLoggedIn && (
                           <button
                             onClick={() => {
@@ -437,6 +454,18 @@ const HomeView: React.FC<HomeViewProps> = ({
                     <History className="h-3 w-3" />
                     <span>查看历史</span>
                   </button>
+                  {hasAgentManagement && onOpenAgentManager && (
+                    <button
+                      onClick={() => {
+                        onOpenAgentManager();
+                        setSidebarOpen(false);
+                      }}
+                      className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center space-x-2"
+                    >
+                      <ShieldCheck className="h-3 w-3" />
+                      <span>代理管理</span>
+                    </button>
+                  )}
                   <button
                     onClick={handleBatchDownload}
                     className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center space-x-2"
@@ -530,6 +559,15 @@ const HomeView: React.FC<HomeViewProps> = ({
                 <History className="h-3 w-3 md:h-4 md:w-4" />
                 <span>查看历史</span>
               </button>
+              {hasAgentManagement && onOpenAgentManager && (
+                <button
+                  onClick={onOpenAgentManager}
+                  className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 md:p-3 rounded-lg text-xs md:text-sm font-medium transition-all flex items-center justify-center space-x-2"
+                >
+                  <ShieldCheck className="h-3 w-3 md:h-4 md:w-4" />
+                  <span>代理管理</span>
+                </button>
+              )}
               <button
                 onClick={handleBatchDownload}
                 className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 md:p-3 rounded-lg text-xs md:text-sm font-medium transition-all flex items-center justify-center space-x-2"

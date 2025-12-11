@@ -527,6 +527,11 @@ export interface UserProfile {
   joinedAt?: string;
   lastLoginAt?: string;
   status?: string;
+  agentId?: number | null;
+  managedAgentId?: number | null;
+  managedAgentLevel?: number | null;
+  managedAgentName?: string | null;
+  managedAgentStatus?: string | null;
 }
 
 export interface ProcessingTaskData {
@@ -1218,6 +1223,10 @@ export interface AdminAgent {
   contact?: string | null;
   notes?: string | null;
   status: string;
+  level: number;
+  parentAgentId?: number | null;
+  ownerUserId?: string | null;
+  ownerUserPhone?: string | null;
   createdAt: string;
   updatedAt?: string | null;
   invitationCode?: string | null;
@@ -1227,6 +1236,64 @@ export interface AdminAgent {
 
 export interface AdminAgentsResponse {
   agents: AdminAgent[];
+}
+
+export interface AdminUserLookupItem {
+  userId: string;
+  phone?: string | null;
+  email?: string | null;
+  nickname?: string | null;
+}
+
+export interface AdminUserLookupResponse {
+  users: AdminUserLookupItem[];
+}
+
+export interface ManagedAgentChild {
+  id: number;
+  name: string;
+  level: number;
+  status: string;
+  parentAgentId?: number | null;
+  ownerUserId?: string | null;
+  ownerUserPhone?: string | null;
+  invitationCode?: string | null;
+  createdAt?: string | null;
+}
+
+export interface ManagedAgentResponse {
+  id: number;
+  name: string;
+  level: number;
+  status: string;
+  contact?: string | null;
+  notes?: string | null;
+  parentAgentId?: number | null;
+  ownerUserId?: string | null;
+  ownerUserPhone?: string | null;
+  invitationCode?: string | null;
+  createdAt?: string | null;
+  children: ManagedAgentChild[];
+}
+
+export interface AgentLedgerItem {
+  orderId: string;
+  userId: string;
+  userPhone?: string | null;
+  paidAt?: string | null;
+  amount: number;
+  commission: number;
+  rate: number;
+}
+
+export interface AgentLedgerResponse {
+  items: AgentLedgerItem[];
+  totalAmount: number;
+  totalCommission: number;
+  totalOrders: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }
 
 export interface AdminInvitationCode {
@@ -1482,7 +1549,7 @@ export const adminGetAgents = (
 };
 
 export const adminCreateAgent = (
-  payload: { name: string; contact?: string; notes?: string; status?: string },
+  payload: { name: string; userIdentifier: string; contact?: string; notes?: string; status?: string },
   accessToken: string,
 ) => postJson<AdminAgent, typeof payload>("/admin/agents", payload, accessToken);
 
@@ -1508,6 +1575,41 @@ export const adminGetAgentUsers = (agentId: number, accessToken: string) =>
       createdAt: string;
     }>;
   }>(`/admin/agents/${agentId}/users`, accessToken);
+
+export const adminSearchUsers = (query: string, accessToken: string, limit = 10) => {
+  const params = new URLSearchParams();
+  params.append("q", query);
+  params.append("limit", limit.toString());
+  return getJson<AdminUserLookupResponse>(`/admin/users/search?${params.toString()}`, accessToken);
+};
+
+export const agentGetManagedAgent = (accessToken: string) =>
+  getJson<ManagedAgentResponse>("/agent/me", accessToken);
+
+export const agentCreateChildAgent = (
+  payload: { name: string; userIdentifier: string; contact?: string; notes?: string },
+  accessToken: string,
+) => postJson<ManagedAgentChild, typeof payload>("/agent/agents", payload, accessToken);
+
+export const agentSearchUsers = (keyword: string, accessToken: string, limit = 10) => {
+  const params = new URLSearchParams();
+  params.append("q", keyword);
+  params.append("limit", limit.toString());
+  return getJson<{ users: AdminUserLookupItem[] }>(`/agent/users/search?${params.toString()}`, accessToken);
+};
+
+export const agentGetLedger = (
+  accessToken: string,
+  options?: { startDate?: string; endDate?: string; page?: number; pageSize?: number },
+) => {
+  const params = new URLSearchParams();
+  if (options?.startDate) params.append("startDate", options.startDate);
+  if (options?.endDate) params.append("endDate", options.endDate);
+  if (options?.page) params.append("page", options.page.toString());
+  if (options?.pageSize) params.append("pageSize", options.pageSize.toString());
+  const query = params.toString();
+  return getJson<AgentLedgerResponse>(`/agent/ledger${query ? `?${query}` : ""}`, accessToken);
+};
 
 export const adminGetInvitationCodes = (
   accessToken: string,

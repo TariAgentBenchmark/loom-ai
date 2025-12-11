@@ -33,6 +33,9 @@ class Agent(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), unique=True, nullable=False)
+    owner_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)  # 绑定的管理用户
+    parent_agent_id = Column(Integer, ForeignKey("agents.id"), nullable=True, index=True)  # 上级代理商
+    level = Column(Integer, default=1)  # 代理层级，1=一级，2=二级
     contact = Column(String(100), nullable=True)  # 负责人/联系方式
     notes = Column(String(500), nullable=True)
     status = Column(Enum(AgentStatus), default=AgentStatus.ACTIVE)
@@ -47,7 +50,27 @@ class Agent(Base):
         back_populates="agent",
         cascade="all, delete-orphan",
     )
-    users = relationship("User", back_populates="agent")
+    users = relationship(
+        "User",
+        back_populates="agent",
+        foreign_keys="User.agent_id",
+    )
+    owner_user = relationship(
+        "User",
+        back_populates="managed_agent",
+        foreign_keys=[owner_user_id],
+    )
+    parent = relationship(
+        "Agent",
+        remote_side=[id],
+        back_populates="children",
+        foreign_keys=[parent_agent_id],
+    )
+    children = relationship(
+        "Agent",
+        back_populates="parent",
+        foreign_keys=[parent_agent_id],
+    )
 
     def __repr__(self) -> str:
         return f"<Agent(id={self.id}, name={self.name})>"

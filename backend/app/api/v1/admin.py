@@ -7,6 +7,7 @@ from sqlalchemy import and_, or_, func, desc
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, EmailStr, condecimal
 from datetime import datetime, timedelta
+import re
 
 from app.core.database import get_db
 from app.core.config import settings
@@ -58,6 +59,17 @@ class AdminCreateUserRequest(BaseModel):
     nickname: Optional[str] = Field(None, max_length=100, description="Display nickname")
     initialCredits: CreditBalance = Field(Decimal("0.00"), description="Initial credit balance")
     isAdmin: bool = Field(False, description="Whether the user should have admin permissions")
+
+
+class AdminUserLookupItem(BaseModel):
+    userId: str
+    phone: Optional[str]
+    email: Optional[str]
+    nickname: Optional[str]
+
+
+class AdminUserLookupResponse(BaseModel):
+    users: List[AdminUserLookupItem]
 
 
 class AdminDeleteUserRequest(BaseModel):
@@ -230,6 +242,10 @@ class AdminAgentResponse(BaseModel):
     contact: Optional[str]
     notes: Optional[str]
     status: str
+    level: int
+    parentAgentId: Optional[int]
+    ownerUserId: Optional[str]
+    ownerUserPhone: Optional[str]
     createdAt: str
     updatedAt: Optional[str]
     invitationCode: Optional[str]
@@ -243,6 +259,7 @@ class AdminAgentListResponse(BaseModel):
 
 class AdminCreateAgentRequest(BaseModel):
     name: str = Field(..., max_length=100, description="代理商名称")
+    userIdentifier: str = Field(..., description="绑定的已注册用户标识（userId/手机号/邮箱）")
     contact: Optional[str] = Field(None, max_length=100, description="联系人/联系方式")
     notes: Optional[str] = Field(None, max_length=500, description="备注")
     status: Optional[str] = Field(AgentStatus.ACTIVE.value, description="代理商状态")
@@ -418,6 +435,49 @@ async def get_all_users(
         
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/users/search", dependencies=[Depends(admin_route())])
+async def search_users(
+    q: str = Query(..., min_length=1, description="用户ID/手机号/邮箱搜索关键字"),
+    limit: int = Query(10, ge=1, le=50, description="返回条数上限"),
+    db: Session = Depends(get_db),
+):
+    """模糊搜索用户以供选择"""
+    try:
+        keyword = q.strip()
+        digits_only = re.sub(r"\D", "", keyword)
+        query = (
+            db.query(User)
+            .filter(
+                or_(
+                    User.user_id.ilike(f"%{keyword}%"),
+                    User.phone.ilike(f"%{keyword}%"),
+                    User.email.ilike(f"%{keyword}%"),
+                    *( [User.phone == digits_only] if digits_only else [] ),
+                )
+            )
+            .order_by(desc(User.created_at))
+            .limit(limit)
+        )
+        users = query.all()
+
+        return SuccessResponse(
+            data=AdminUserLookupResponse(
+                users=[
+                    AdminUserLookupItem(
+                        userId=user.user_id,
+                        phone=user.phone,
+                        email=user.email,
+                        nickname=user.nickname,
+                    )
+                    for user in users
+                ]
+            ).dict(),
+            message="用户搜索成功",
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1661,6 +1721,14 @@ async def list_agents(
 
         agents = query.order_by(desc(Agent.created_at)).all()
 
+        owner_ids = [agent.owner_user_id for agent in agents if agent.owner_user_id]
+        owner_map = {
+            user.id: user
+            for user in db.query(User.id, User.user_id, User.phone)
+            .filter(User.id.in_(owner_ids))
+            .all()
+        } if owner_ids else {}
+
         invitation_counts = {
             agent_id: count
             for agent_id, count in db.query(
@@ -1685,6 +1753,10 @@ async def list_agents(
                 contact=agent.contact,
                 notes=agent.notes,
                 status=agent.status.value if agent.status else AgentStatus.ACTIVE.value,
+                level=agent.level or 1,
+                parentAgentId=agent.parent_agent_id,
+                ownerUserId=owner_map.get(agent.owner_user_id).user_id if agent.owner_user_id and agent.owner_user_id in owner_map else None,
+                ownerUserPhone=owner_map.get(agent.owner_user_id).phone if agent.owner_user_id and agent.owner_user_id in owner_map else None,
                 createdAt=agent.created_at.isoformat() if agent.created_at else "",
                 updatedAt=agent.updated_at.isoformat() if agent.updated_at else None,
                 invitationCode=(
@@ -1731,10 +1803,35 @@ async def create_agent(
         if existing:
             raise HTTPException(status_code=400, detail="代理商名称已存在")
 
+        owner_user = (
+            db.query(User)
+            .filter(
+                or_(
+                    User.user_id == payload.userIdentifier,
+                    User.phone == payload.userIdentifier,
+                    User.email == payload.userIdentifier,
+                )
+            )
+            .first()
+        )
+        if not owner_user:
+            raise HTTPException(status_code=404, detail="绑定用户不存在")
+
+        owned_agent = (
+            db.query(Agent)
+            .filter(Agent.owner_user_id == owner_user.id, Agent.is_deleted.is_(False))
+            .first()
+        )
+        if owned_agent:
+            raise HTTPException(status_code=400, detail="该用户已绑定其他代理商")
+
         status_value = AgentStatus(payload.status) if payload.status else AgentStatus.ACTIVE
 
         agent = Agent(
             name=payload.name,
+            owner_user_id=owner_user.id,
+            parent_agent_id=None,
+            level=1,
             contact=payload.contact,
             notes=payload.notes,
             status=status_value,
@@ -1760,7 +1857,11 @@ async def create_agent(
             action="create_agent",
             target_type="agent",
             target_id=str(agent.id),
-            details={"name": agent.name, "status": agent.status.value},
+            details={
+                "name": agent.name,
+                "status": agent.status.value,
+                "ownerUserId": owner_user.user_id,
+            },
         )
 
         return SuccessResponse(
@@ -1770,6 +1871,10 @@ async def create_agent(
                 contact=agent.contact,
                 notes=agent.notes,
                 status=agent.status.value,
+                level=agent.level or 1,
+                parentAgentId=agent.parent_agent_id,
+                ownerUserId=owner_user.user_id,
+                ownerUserPhone=owner_user.phone,
                 createdAt=agent.created_at.isoformat() if agent.created_at else "",
                 updatedAt=agent.updated_at.isoformat() if agent.updated_at else None,
                 invitationCode=invite.code,
@@ -1842,8 +1947,15 @@ async def update_agent(
                 contact=agent.contact,
                 notes=agent.notes,
                 status=agent.status.value if agent.status else AgentStatus.ACTIVE.value,
+                level=agent.level or 1,
+                parentAgentId=agent.parent_agent_id,
+                ownerUserId=agent.owner_user.user_id if agent.owner_user else None,
+                ownerUserPhone=agent.owner_user.phone if agent.owner_user else None,
                 createdAt=agent.created_at.isoformat() if agent.created_at else "",
                 updatedAt=agent.updated_at.isoformat() if agent.updated_at else None,
+                invitationCode=(
+                    agent.invitation_codes[0].code if agent.invitation_codes else None
+                ),
                 invitationCount=(
                     db.query(InvitationCode)
                     .filter(InvitationCode.agent_id == agent.id, InvitationCode.is_deleted.is_(False))
