@@ -2,15 +2,8 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Copy, Link2, ShieldCheck, UserPlus, Users, X, Calendar, RefreshCcw } from "lucide-react";
-import {
-  agentCreateChildAgent,
-  agentGetLedger,
-  agentGetManagedAgent,
-  type ManagedAgentChild,
-  type ManagedAgentResponse,
-  type AgentLedgerItem,
-} from "../../lib/api";
+import { Copy, Link2, ShieldCheck, X, Calendar, RefreshCcw } from "lucide-react";
+import { agentGetLedger, agentGetManagedAgent, type ManagedAgentResponse, type AgentLedgerItem } from "../../lib/api";
 import { restoreSession } from "../../lib/auth";
 import { getUserProfile } from "../../lib/api";
 import { clearAuthTokens, setInitialAuthTokens } from "../../lib/tokenManager";
@@ -30,12 +23,6 @@ const AgentPage: React.FC = () => {
   const [agentInfo, setAgentInfo] = useState<ManagedAgentResponse | null>(null);
   const [state, setState] = useState<AsyncState>({ status: "idle" });
   const [ledgerState, setLedgerState] = useState<AsyncState>({ status: "idle" });
-  const [childForm, setChildForm] = useState({
-    name: "",
-    userIdentifier: "",
-    contact: "",
-    notes: "",
-  });
   const [inviteCopied, setInviteCopied] = useState(false);
   const [ledgerItems, setLedgerItems] = useState<AgentLedgerItem[]>([]);
   const [ledgerSummary, setLedgerSummary] = useState({
@@ -121,45 +108,7 @@ const AgentPage: React.FC = () => {
     loadLedger();
   }, [loadLedger]);
 
-  const handleCreateChild = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!agentInfo || !accessToken) return;
-    if ((agentInfo.level ?? 1) >= 2) {
-      setState({ status: "error", message: "仅一级代理可创建二级代理" });
-      return;
-    }
-    if (!childForm.name.trim() || !childForm.userIdentifier.trim()) {
-      setState({ status: "error", message: "请填写二级代理名称和绑定用户" });
-      return;
-    }
-    setState({ status: "submitting" });
-    try {
-      const res = await agentCreateChildAgent(
-        {
-          name: childForm.name.trim(),
-          userIdentifier: childForm.userIdentifier.trim(),
-          contact: childForm.contact.trim() || undefined,
-          notes: childForm.notes.trim() || undefined,
-        },
-        accessToken,
-      );
-      setAgentInfo((prev) =>
-        prev ? { ...prev, children: [res.data as ManagedAgentChild, ...(prev.children || [])] } : prev,
-      );
-      setChildForm({ name: "", userIdentifier: "", contact: "", notes: "" });
-      setState({ status: "ready" });
-    } catch (err) {
-      setState({ status: "error", message: (err as Error)?.message ?? "创建二级代理失败" });
-    }
-  };
-
-  const commissionRuleText = useMemo(
-    () => ({
-      level1: "一级：下级用户充值 < 10000 抽成20%，>= 10000 抽成30%",
-      level2: "二级：统一抽成6%",
-    }),
-    [],
-  );
+  const commissionRuleText = useMemo(() => "充值 ≤ 30000 部分抽成20%，超出部分抽成25%", []);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -171,7 +120,7 @@ const AgentPage: React.FC = () => {
               <span>代理商管理 / 结算</span>
             </div>
             <h1 className="mt-1 text-2xl font-bold text-gray-900">代理中心</h1>
-            <p className="text-sm text-gray-600">查看渠道信息、创建二级代理、查询佣金流水。</p>
+            <p className="text-sm text-gray-600">查看渠道信息、查询佣金流水。</p>
           </div>
           <button
             type="button"
@@ -258,146 +207,11 @@ const AgentPage: React.FC = () => {
                   </button>
                 )}
               </div>
-              <div className="text-xs text-gray-500">
-                佣金规则：{agentInfo.level === 1 ? `${commissionRuleText.level1}；${commissionRuleText.level2}` : commissionRuleText.level2}
-              </div>
+              <div className="text-xs text-gray-500">佣金规则：{commissionRuleText}</div>
             </div>
           </div>
         )}
-
-        {agentInfo?.level === 1 && (
-          <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <UserPlus className="h-5 w-5 text-blue-600" />
-                <div>
-                  <div className="text-sm font-semibold text-gray-900">创建二级代理商</div>
-                  <div className="text-xs text-gray-500">二级代理不可再发展下级</div>
-                </div>
-              </div>
-            </div>
-            <form onSubmit={handleCreateChild} className="grid gap-3 md:grid-cols-2">
-              <div>
-                <label className="text-xs text-gray-500">名称</label>
-                <input
-                  type="text"
-                  value={childForm.name}
-                  onChange={(e) => setChildForm({ ...childForm, name: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                  placeholder="二级代理名称"
-                  required
-                />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500">绑定用户（手机号）</label>
-                <input
-                  type="text"
-                  value={childForm.userIdentifier}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setChildForm({ ...childForm, userIdentifier: value });
-                  }}
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                  placeholder="请输入手机号"
-                  required
-                />
-                <p className="mt-1 text-xs text-gray-500">请直接填写手机号，提交后校验是否存在。</p>
-              </div>
-              <div>
-                <label className="text-xs text-gray-500">联系人/电话</label>
-                <input
-                  type="text"
-                  value={childForm.contact}
-                  onChange={(e) => setChildForm({ ...childForm, contact: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                  placeholder="选填"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500">备注</label>
-                <input
-                  type="text"
-                  value={childForm.notes}
-                  onChange={(e) => setChildForm({ ...childForm, notes: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                  placeholder="选填"
-                />
-              </div>
-              <div className="md:col-span-2 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setChildForm({ name: "", userIdentifier: "", contact: "", notes: "" });
-                  }}
-                  className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  重置
-                </button>
-                <button
-                  type="submit"
-                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
-                  disabled={state.status === "submitting"}
-                >
-                  <UserPlus className="h-4 w-4" />
-                  创建二级代理
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {agentInfo?.level === 1 && (
-          <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-blue-600" />
-                <div className="text-sm font-semibold text-gray-900">下级代理</div>
-              </div>
-              <span className="text-xs text-gray-500">共 {agentInfo?.children?.length ?? 0} 个</span>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">名称</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">绑定用户</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">邀请码</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">状态</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">创建时间</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {agentInfo?.children?.map((child) => (
-                    <tr key={child.id}>
-                      <td className="px-3 py-2">
-                        <div className="font-semibold text-gray-900">{child.name}</div>
-                        <div className="text-xs text-gray-500">ID: {child.id}</div>
-                      </td>
-                      <td className="px-3 py-2 text-gray-700">
-                        <div className="font-semibold text-gray-900">{child.ownerUserPhone || child.ownerUserId || "—"}</div>
-                        <div className="text-xs text-gray-500">{child.ownerUserId ? `ID: ${child.ownerUserId}` : ""}</div>
-                      </td>
-                      <td className="px-3 py-2 text-gray-900">{child.invitationCode || "—"}</td>
-                      <td className="px-3 py-2">
-                        <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-100">
-                          {child.status === "active" ? "启用" : "停用"}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-gray-600">
-                        {child.createdAt?.slice(0, 19).replace("T", " ") || "—"}
-                      </td>
-                    </tr>
-                  ))}
-                  {(!agentInfo?.children || agentInfo.children.length === 0) && (
-                    <tr>
-                      <td className="px-3 py-4 text-center text-sm text-gray-500" colSpan={5}>
-                        暂无二级代理
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <div className="text-xs text-gray-500">佣金规则：{commissionRuleText}</div>
           </div>
         )}
 

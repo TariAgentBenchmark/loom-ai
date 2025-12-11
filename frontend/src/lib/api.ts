@@ -1264,16 +1264,13 @@ export interface ManagedAgentChild {
 export interface ManagedAgentResponse {
   id: number;
   name: string;
-  level: number;
   status: string;
   contact?: string | null;
   notes?: string | null;
-  parentAgentId?: number | null;
   ownerUserId?: string | null;
   ownerUserPhone?: string | null;
   invitationCode?: string | null;
   createdAt?: string | null;
-  children: ManagedAgentChild[];
 }
 
 export interface AgentLedgerItem {
@@ -1585,18 +1582,6 @@ export const adminSearchUsers = (query: string, accessToken: string, limit = 10)
 
 export const agentGetManagedAgent = (accessToken: string) =>
   getJson<ManagedAgentResponse>("/agent/me", accessToken);
-
-export const agentCreateChildAgent = (
-  payload: { name: string; userIdentifier: string; contact?: string; notes?: string },
-  accessToken: string,
-) => postJson<ManagedAgentChild, typeof payload>("/agent/agents", payload, accessToken);
-
-export const agentSearchUsers = (keyword: string, accessToken: string, limit = 10) => {
-  const params = new URLSearchParams();
-  params.append("q", keyword);
-  params.append("limit", limit.toString());
-  return getJson<{ users: AdminUserLookupItem[] }>(`/agent/users/search?${params.toString()}`, accessToken);
-};
 
 export const agentGetLedger = (
   accessToken: string,

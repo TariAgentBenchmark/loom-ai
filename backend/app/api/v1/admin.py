@@ -1832,8 +1832,6 @@ async def create_agent(
         agent = Agent(
             name=payload.name,
             owner_user_id=owner_user.id,
-            parent_agent_id=None,
-            level=1,
             contact=payload.contact,
             notes=payload.notes,
             status=status_value,

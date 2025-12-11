@@ -357,7 +357,6 @@ const AdminAgentInvitationManager: React.FC = () => {
             <thead>
               <tr className="bg-gray-50">
                 <th className="px-3 py-2 text-left font-medium text-gray-600">名称</th>
-                <th className="px-3 py-2 text-left font-medium text-gray-600">级别</th>
                 <th className="px-3 py-2 text-left font-medium text-gray-600">绑定用户</th>
                 <th className="px-3 py-2 text-left font-medium text-gray-600">用户数</th>
                 <th className="px-3 py-2 text-left font-medium text-gray-600">邀请码</th>
@@ -374,11 +373,6 @@ const AdminAgentInvitationManager: React.FC = () => {
                     <div className="text-xs text-gray-500">
                       创建于 {agent.createdAt?.slice(0, 19).replace("T", " ")}
                     </div>
-                  </td>
-                  <td className="px-3 py-2">
-                    <span className="rounded-full bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-100">
-                      {agent.level === 1 ? "一级" : "二级"}
-                    </span>
                   </td>
                   <td className="px-3 py-2 text-gray-700">
                     <div className="font-semibold text-gray-900">{agent.ownerUserPhone || agent.ownerUserId || "—"}</div>
@@ -408,7 +402,7 @@ const AdminAgentInvitationManager: React.FC = () => {
               ))}
               {agents.length === 0 && (
                 <tr>
-                  <td className="px-3 py-4 text-center text-sm text-gray-500" colSpan={8}>
+                  <td className="px-3 py-4 text-center text-sm text-gray-500" colSpan={7}>
                     暂无代理商，请先创建。
                   </td>
                 </tr>
