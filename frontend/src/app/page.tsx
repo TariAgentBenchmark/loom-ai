@@ -1047,7 +1047,6 @@ export default function Home() {
             setRegisterError('');
             setShowLoginModal(true);
             setShowRegisterModal(false);
-            setShowAgentModal(false);
             clearAuthTokens();
             rememberMeRef.current = false;
           }}
