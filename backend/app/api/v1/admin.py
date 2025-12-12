@@ -61,6 +61,7 @@ class AdminCreateUserRequest(BaseModel):
     nickname: Optional[str] = Field(None, max_length=100, description="Display nickname")
     initialCredits: CreditBalance = Field(Decimal("0.00"), description="Initial credit balance")
     isAdmin: bool = Field(False, description="Whether the user should have admin permissions")
+    invitationCode: Optional[str] = Field(None, description="注册邀请码（可选）")
 
 
 class AdminUserLookupItem(BaseModel):
@@ -265,6 +266,12 @@ class AdminCreateAgentRequest(BaseModel):
     contact: Optional[str] = Field(None, max_length=100, description="联系人/联系方式")
     notes: Optional[str] = Field(None, max_length=500, description="备注")
     status: Optional[str] = Field(AgentStatus.ACTIVE.value, description="代理商状态")
+
+
+class AdminDeleteAgentResponse(BaseModel):
+    id: int
+    name: str
+    deleted: bool
 
 
 class AdminUpdateAgentRequest(BaseModel):
@@ -546,6 +553,35 @@ async def create_user(
             if existing_email:
                 raise HTTPException(status_code=400, detail="邮箱已存在")
 
+        agent_id = None
+        invitation_code_id = None
+        if user_data.invitationCode:
+            code_value = user_data.invitationCode.strip().upper()
+            code_record = (
+                db.query(InvitationCode)
+                .filter(InvitationCode.code == code_value, InvitationCode.is_deleted.is_(False))
+                .first()
+            )
+            if not code_record:
+                raise HTTPException(status_code=400, detail="邀请码无效")
+            if code_record.status != InvitationCodeStatus.ACTIVE:
+                raise HTTPException(status_code=400, detail="邀请码已被停用")
+            if code_record.expires_at and code_record.expires_at <= datetime.utcnow():
+                raise HTTPException(status_code=400, detail="邀请码已过期")
+            if code_record.max_uses not in (None, 0) and (code_record.usage_count or 0) >= code_record.max_uses:
+                raise HTTPException(status_code=400, detail="邀请码已达使用上限")
+
+            agent = (
+                db.query(Agent)
+                .filter(Agent.id == code_record.agent_id, Agent.is_deleted.is_(False))
+                .first()
+            )
+            if not agent or agent.status != AgentStatus.ACTIVE:
+                raise HTTPException(status_code=400, detail="所属代理商不可用")
+
+            agent_id = agent.id
+            invitation_code_id = code_record.id
+
         user = User(
             user_id=f"user_{uuid.uuid4().hex[:12]}",
             phone=user_data.phone,
@@ -555,10 +591,14 @@ async def create_user(
             credits=to_decimal(user_data.initialCredits),
             membership_type=MembershipType.FREE,
             status=UserStatus.ACTIVE,
-            is_admin=user_data.isAdmin
+            is_admin=user_data.isAdmin,
+            agent_id=agent_id,
+            invitation_code_id=invitation_code_id,
         )
 
         db.add(user)
+        if invitation_code_id:
+            code_record.usage_count = (code_record.usage_count or 0) + 1
         db.commit()
         db.refresh(user)
 
@@ -1882,6 +1922,53 @@ async def create_agent(
                 userCount=0,
             ).dict(),
             message="代理商创建成功",
+        )
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/agents/{agent_id}", dependencies=[Depends(admin_route())])
+async def delete_agent(
+    agent_id: int,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin),
+):
+    """删除代理商（仅限停用状态）"""
+    try:
+        agent = (
+            db.query(Agent)
+            .filter(Agent.id == agent_id, Agent.is_deleted.is_(False))
+            .first()
+        )
+        if not agent:
+            raise HTTPException(status_code=404, detail="代理商不存在")
+        if agent.status != AgentStatus.DISABLED:
+            raise HTTPException(status_code=400, detail="请先停用代理商后再删除")
+
+        agent.is_deleted = True
+        # 同时停用邀请码
+        for code in agent.invitation_codes:
+            code.is_deleted = True
+            code.status = InvitationCodeStatus.DISABLED
+
+        db.commit()
+
+        await log_admin_action(
+            db=db,
+            admin=current_admin,
+            action="delete_agent",
+            target_type="agent",
+            target_id=str(agent.id),
+            details={"name": agent.name},
+        )
+
+        return SuccessResponse(
+            data=AdminDeleteAgentResponse(id=agent.id, name=agent.name, deleted=True).dict(),
+            message="代理商已删除",
         )
     except HTTPException:
         db.rollback()

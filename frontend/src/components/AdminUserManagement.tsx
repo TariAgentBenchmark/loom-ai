@@ -37,6 +37,7 @@ interface CreateUserFormState {
   confirmPassword: string;
   initialCredits: number;
   isAdmin: boolean;
+  invitationCode: string;
 }
 
 interface CreditAdjustmentFormState {
@@ -76,6 +77,7 @@ const AdminUserManagement: React.FC = () => {
     confirmPassword: "",
     initialCredits: 0,
     isAdmin: false,
+    invitationCode: "",
   });
   const [createError, setCreateError] = useState<string | null>(null);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
@@ -183,6 +185,7 @@ const AdminUserManagement: React.FC = () => {
       confirmPassword: "",
       initialCredits: 0,
       isAdmin: false,
+      invitationCode: "",
     });
   };
 
@@ -225,6 +228,7 @@ const AdminUserManagement: React.FC = () => {
           password: createForm.password,
           initialCredits: Math.max(0, createForm.initialCredits),
           isAdmin: createForm.isAdmin,
+          invitationCode: createForm.invitationCode.trim() || undefined,
         },
         accessToken
       );
@@ -664,6 +668,16 @@ const AdminUserManagement: React.FC = () => {
                     onChange={(e) => setCreateForm((prev) => ({ ...prev, email: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                     placeholder="user@example.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">邀请码（可选）</label>
+                  <input
+                    type="text"
+                    value={createForm.invitationCode}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, invitationCode: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="绑定代理的邀请码"
                   />
                 </div>
                 <div>

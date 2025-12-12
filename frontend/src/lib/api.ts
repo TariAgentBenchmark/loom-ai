@@ -318,6 +318,33 @@ const putJson = async <TData, TBody = unknown>(
   }
 };
 
+const delJson = async <TData>(
+  path: string,
+  accessToken?: string,
+) => {
+  console.log("delJson: Making request to", `${API_BASE_URL}${path}`);
+  try {
+    const response = await performAuthenticatedRequest((token) => {
+      const url = `${API_BASE_URL}${path}`;
+      const options = {
+        method: "DELETE",
+        headers: withAuthHeader(undefined, token),
+      };
+      return fetch(url, options);
+    }, accessToken);
+
+    console.log("delJson: Response status", response.status, response.statusText);
+    const ensured = await ensureSuccess(response);
+    return jsonResponse<ApiSuccessResponse<TData>>(ensured);
+  } catch (err) {
+    const message =
+      err instanceof Error && err.message === "Failed to fetch"
+        ? "网络连接异常或被浏览器拦截，请稍后重试"
+        : ((err as Error)?.message ?? "请求失败");
+    throw new Error(message);
+  }
+};
+
 const postFormData = async <TData>(
   path: string,
   formData: FormData,
@@ -1359,6 +1386,7 @@ export interface AdminCreateUserPayload {
   nickname?: string;
   initialCredits?: number;
   isAdmin?: boolean;
+  invitationCode?: string;
 }
 
 export const adminCreateUser = (
@@ -1374,6 +1402,7 @@ export const adminCreateUser = (
       nickname: payload.nickname,
       initialCredits: payload.initialCredits ?? 0,
       isAdmin: Boolean(payload.isAdmin),
+      invitationCode: payload.invitationCode,
     },
     accessToken,
   );
@@ -1560,6 +1589,9 @@ export const adminUpdateAgent = (
     payload,
     accessToken,
   );
+
+export const adminDeleteAgent = (agentId: number, accessToken: string) =>
+  delJson<{ id: number; name: string; deleted: boolean }>(`/admin/agents/${agentId}`, accessToken);
 
 export const adminGetAgentUsers = (agentId: number, accessToken: string) =>
   getJson<{

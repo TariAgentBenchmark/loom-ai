@@ -6,6 +6,7 @@ import {
   adminCreateAgent,
   adminGetAgents,
   adminUpdateAgent,
+  adminDeleteAgent,
   adminSearchUsers,
   type AdminAgent,
   type AdminUserLookupItem,
@@ -149,6 +150,24 @@ const AdminAgentInvitationManager: React.FC = () => {
       setState({
         status: "error",
         message: (err as Error)?.message ?? "更新代理商状态失败",
+      });
+    }
+  };
+
+  const handleDeleteAgent = async (agent: AdminAgent) => {
+    if (!accessToken) return;
+    if (agent.status !== "disabled") {
+      setState({ status: "error", message: "请先停用后再删除" });
+      return;
+    }
+    setState({ status: "loading" });
+    try {
+      await adminDeleteAgent(agent.id, accessToken);
+      await loadData();
+    } catch (err) {
+      setState({
+        status: "error",
+        message: (err as Error)?.message ?? "删除代理商失败",
       });
     }
   };
@@ -389,14 +408,26 @@ const AdminAgentInvitationManager: React.FC = () => {
                   </td>
                   <td className="px-3 py-2">{statusBadge(agent.status)}</td>
                   <td className="px-3 py-2 text-right">
-                    <button
-                      type="button"
-                      onClick={() => toggleAgentStatus(agent)}
-                      className="text-xs font-medium text-blue-600 hover:text-blue-800"
-                      disabled={state.status === "loading"}
-                    >
-                      {agent.status === "active" ? "停用" : "启用"}
-                    </button>
+                    <div className="flex justify-end gap-3">
+                      <button
+                        type="button"
+                        onClick={() => toggleAgentStatus(agent)}
+                        className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                        disabled={state.status === "loading"}
+                      >
+                        {agent.status === "active" ? "停用" : "启用"}
+                      </button>
+                      {agent.status === "disabled" && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteAgent(agent)}
+                          className="text-xs font-medium text-red-600 hover:text-red-800"
+                          disabled={state.status === "loading"}
+                        >
+                          删除
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
