@@ -108,7 +108,7 @@ const AgentPage: React.FC = () => {
     loadLedger();
   }, [loadLedger]);
 
-  const commissionRuleText = useMemo(() => "充值 ≤ 30000 部分抽成20%，超出部分抽成25%", []);
+  const commissionRuleText = useMemo(() => "充值 <= 30000 部分抽成20%，超出部分抽成25%", []);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -156,9 +156,6 @@ const AgentPage: React.FC = () => {
                 <div className="text-sm text-gray-500">代理商</div>
                 <div className="text-xl font-semibold text-gray-900">{agentInfo.name}</div>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
-                  <span className="rounded-full bg-blue-100 px-2 py-1 font-semibold text-blue-700">
-                    {agentInfo.level === 1 ? "一级代理" : "二级代理"}
-                  </span>
                   <span className="rounded-full bg-gray-100 px-2 py-1 font-semibold text-gray-700">
                     {agentInfo.status === "active" ? "启用" : "停用"}
                   </span>
@@ -211,9 +208,6 @@ const AgentPage: React.FC = () => {
             </div>
           </div>
         )}
-            <div className="text-xs text-gray-500">佣金规则：{commissionRuleText}</div>
-          </div>
-        )}
 
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-center justify-between">
@@ -221,9 +215,7 @@ const AgentPage: React.FC = () => {
               <Link2 className="h-5 w-5 text-blue-600" />
               <div>
                 <div className="text-sm font-semibold text-gray-900">佣金流水</div>
-                <div className="text-xs text-gray-500">
-                  {agentInfo?.level === 1 ? `${commissionRuleText.level1}；${commissionRuleText.level2}` : commissionRuleText.level2}
-                </div>
+                <div className="text-xs text-gray-500">{commissionRuleText}</div>
               </div>
             </div>
             <div className="flex items-center gap-2">

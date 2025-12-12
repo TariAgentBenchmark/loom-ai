@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_active_user
 from app.core.database import get_db
-from app.models.agent import Agent, AgentStatus
+from app.models.agent import Agent, AgentStatus, InvitationCode
 from app.models.user import User
 from app.models.payment import Order, OrderStatus
 from app.schemas.common import SuccessResponse
