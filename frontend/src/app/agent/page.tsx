@@ -36,6 +36,7 @@ const AgentPage: React.FC = () => {
     totalPages: 1,
   });
   const [filters, setFilters] = useState<{ startDate?: string; endDate?: string }>({});
+  const [noAgent, setNoAgent] = useState(false);
 
   const loadSession = useCallback(async () => {
     const restored = restoreSession();
@@ -57,13 +58,20 @@ const AgentPage: React.FC = () => {
       const profile = await getUserProfile(accessToken);
       if (!profile.data?.managedAgentId) {
         setState({ status: "error", message: "当前账号未绑定代理商" });
+        setNoAgent(true);
         return;
       }
+      setNoAgent(false);
       const res = await agentGetManagedAgent(accessToken);
       setAgentInfo(res.data);
       setState({ status: "ready" });
     } catch (err) {
-      setState({ status: "error", message: (err as Error)?.message ?? "加载失败" });
+      const msg = (err as Error)?.message ?? "加载失败";
+      const friendly = msg.includes("404") ? "当前账号未绑定代理商" : msg;
+      setState({ status: "error", message: friendly });
+      if (msg.includes("404")) {
+        setNoAgent(true);
+      }
       if ((err as Error)?.message?.includes("401")) {
         clearAuthTokens();
       }
@@ -72,7 +80,7 @@ const AgentPage: React.FC = () => {
 
   const loadLedger = useCallback(
     async (page = 1) => {
-      if (!accessToken) return;
+      if (!accessToken || noAgent) return;
       setLedgerState({ status: "loading" });
       try {
         const res = await agentGetLedger(accessToken, {
@@ -94,10 +102,12 @@ const AgentPage: React.FC = () => {
         });
         setLedgerState({ status: "ready" });
       } catch (err) {
-        setLedgerState({ status: "error", message: (err as Error)?.message ?? "加载流水失败" });
+        const msg = (err as Error)?.message ?? "加载流水失败";
+        const friendly = msg.includes("404") ? "当前账号未绑定代理商" : msg;
+        setLedgerState({ status: "error", message: friendly });
       }
     },
-    [accessToken, filters.startDate, filters.endDate, ledgerSummary.pageSize],
+    [accessToken, filters.startDate, filters.endDate, ledgerSummary.pageSize, noAgent],
   );
 
   useEffect(() => {
