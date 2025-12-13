@@ -84,9 +84,7 @@ const AgentManagementModal: React.FC<AgentManagementModalProps> = ({ open, acces
                 <div className="text-sm text-gray-500">代理商</div>
                 <div className="mt-1 text-lg font-semibold text-gray-900">{agentInfo.name}</div>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-600">
-                  <span className="rounded-full bg-blue-100 px-2 py-1 font-semibold text-blue-700">
-                    {agentInfo.level === 1 ? "一级代理" : "二级代理"}
-                  </span>
+                  <span className="rounded-full bg-blue-100 px-2 py-1 font-semibold text-blue-700">代理</span>
                   <span className="rounded-full bg-gray-100 px-2 py-1 font-semibold text-gray-700">
                     {agentInfo.status === "active" ? "启用" : "停用"}
                   </span>
