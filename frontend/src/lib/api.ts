@@ -769,7 +769,7 @@ export const createProcessingTask = (payload: ProcessingRequestPayload) => {
   }
 
   if (method === "extract_pattern") {
-    formData.append("pattern_type", patternType ?? "general1");
+    formData.append("pattern_type", patternType ?? "general");
   }
 
   if (method === "upscale" && upscaleEngine) {
@@ -1854,7 +1854,7 @@ export const createBatchTask = (payload: BatchProcessingRequestPayload) => {
   }
 
   if (method === "extract_pattern") {
-    formData.append("pattern_type", patternType ?? "general_2");
+    formData.append("pattern_type", patternType ?? "general");
   }
 
   if (method === "upscale" && upscaleEngine) {

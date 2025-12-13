@@ -148,9 +148,16 @@ SERVICE_PRICES = [
     },
     {
         "service_id": "extract_pattern_general_1",
-        "service_name": "提取花型-通用1",
+        "service_name": "提取花型-通用模型",
         "service_key": "extract_pattern_general_1",
-        "description": "AI提取花型（通用1，多结果）",
+        "description": "AI提取花型（通用模型，多结果）",
+        "price_credits": 1.5,
+    },
+    {
+        "service_id": "extract_pattern_combined",
+        "service_name": "提取花型-综合模型",
+        "service_key": "extract_pattern_combined",
+        "description": "AI提取花型（综合模型，并行多模型输出3图）",
         "price_credits": 1.5,
     },
     {

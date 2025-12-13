@@ -277,12 +277,10 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     ];
   const patternTypeOptions: { value: string; label: string; hint?: string }[] =
     [
-      { value: "general1", label: "通用1", hint: "多结果，默认模式" },
-      { value: "general2", label: "通用2", hint: "首图高清，支持分辨率" },
-      { value: "positioning", label: "线条/矢量", hint: "矢量稿更清晰" },
-      { value: "fine", label: "烫画/胸前花", hint: "细节强化" },
+      { value: "general", label: "通用模型" },
+      { value: "combined", label: "综合模型" },
     ];
-  const effectivePatternType = patternType ?? "general1";
+  const effectivePatternType = patternType ?? "general";
   const selectedUpscaleOption =
     upscaleOptions.find(
       (option) => option.value === (upscaleEngine || "meitu_v2"),
@@ -1062,7 +1060,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                     .filter(Boolean);
                   const useGeneralGallery =
                     method === "extract_pattern" &&
-                    patternType === "general1" &&
+                    patternType === "general" &&
                     imageUrls.length > 0;
 
                   const shouldOffsetPreview = Boolean(

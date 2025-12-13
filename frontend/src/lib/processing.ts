@@ -166,13 +166,17 @@ export const isAIModelMethod = (method: ProcessingMethod): boolean => {
 };
 
 const normalizePatternTypeForPricing = (value?: string) => {
-  const normalized = (value ?? "general_2")
+  const normalized = (value ?? "general")
     .trim()
     .toLowerCase()
     .replace(/-/g, "_");
 
-  if (normalized === "general") {
-    return "general_2";
+  if (["general", "general1", "general_1", "general_model"].includes(normalized)) {
+    return "general_1";
+  }
+
+  if (normalized === "combined" || normalized === "composite") {
+    return "combined";
   }
 
   const generalMatch = normalized.match(/^general_?(\d)$/);
@@ -180,7 +184,7 @@ const normalizePatternTypeForPricing = (value?: string) => {
     return `general_${generalMatch[1]}`;
   }
 
-  return normalized || "general_2";
+  return normalized || "general_1";
 };
 
 export const resolvePricingServiceKey = (

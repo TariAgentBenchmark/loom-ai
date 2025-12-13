@@ -280,14 +280,67 @@ class AIClient:
     ) -> str:
         """AI提取花型，并按需进行高清增强"""
         options = options or {}
-        pattern_type_raw = (options.get("pattern_type") or "general_2").strip().lower()
+        pattern_type_raw = (options.get("pattern_type") or "general").strip().lower()
         normalized_pattern_type = pattern_type_raw.replace("-", "_")
-        if normalized_pattern_type == "general":
-            pattern_type = "general_2"
+        if normalized_pattern_type in {"general", "general1", "general_1", "general_model"}:
+            pattern_type = "general_1"
         elif normalized_pattern_type.startswith("general") and normalized_pattern_type[-1].isdigit():
             pattern_type = f"general_{normalized_pattern_type[-1]}"
         else:
             pattern_type = normalized_pattern_type
+
+        if pattern_type == "combined":
+            async def _run_variant(pt: str) -> Optional[str]:
+                try:
+                    merged_options = dict(options or {})
+                    merged_options["pattern_type"] = pt
+                    result = await self.image_utils.extract_pattern(image_bytes, merged_options)
+                    if not result:
+                        return None
+                    return result.split(",")[0].strip()
+                except Exception as exc:
+                    logger.warning("Combined pattern variant %s failed: %s", pt, str(exc))
+                    return None
+
+            async def _run_gemini3_custom() -> Optional[str]:
+                custom_prompt = (
+                    "核心任务： 全幅宽定位印花画稿生成 (密度控制 + 智能扩展) 角色设定： 您是顶级印花设计专家。您的目标是生成一张“准备上机打印”的、构图完美的数码印花源文件。\n"
+                    "定位花布局与密度控制：严格遵循定位印花原则，保持原图特有的花位布局和疏密节奏，保留干净背景与呼吸感，禁止为填满画布堆砌图案；若原设计有局部密/疏变化需严格保持。\n"
+                    "四周扩展与完整性：扩展边缘时保证花朵/几何图形结构完整，禁止半截、切断或破碎的花型。\n"
+                    "腰头区域去褶皱：识别腰部高密由挤压造成，将图案拉开摊平，恢复自然间距与大小，与主体一致。\n"
+                    "裤装/裙装处理：忽略裤腿缝隙，合并为连续宽幅平面；顺势排列但不画版型轮廓或缝线。\n"
+                    "画质要求：8K+超清，边缘锐利，无模糊，保留原稿细腻笔触。\n"
+                    "排除：图案拥挤、花型被切断、边缘残缺、腰部假性密集、裤子/裙子轮廓、缝隙、阴影、模糊。"
+                )
+                try:
+                    aspect_ratio = options.get("aspect_ratio") if isinstance(options, dict) else None
+                    result = await self.apyi_gemini_client.generate_image_preview(
+                        image_bytes,
+                        custom_prompt,
+                        "image/png",
+                        aspect_ratio=aspect_ratio,
+                        resolution="4K",
+                    )
+                    url = self.apyi_gemini_client._extract_image_url(result)
+                    return url.strip() if url else None
+                except Exception as exc:
+                    logger.warning("Combined pattern Gemini-3 generation failed: %s", str(exc))
+                    return None
+
+            variants = ["general_2", "positioning", "fine"]
+            variant_tasks = [asyncio.create_task(_run_variant(pt)) for pt in variants]
+            gemini3_task = asyncio.create_task(_run_gemini3_custom())
+            variant_urls: List[str] = []
+            for task in variant_tasks + [gemini3_task]:
+                url = await task
+                if url:
+                    variant_urls.append(url)
+
+            if not variant_urls:
+                raise Exception("AI提取花型失败：综合模型未获得结果")
+
+            logger.info("Combined pattern produced %s urls", len(variant_urls))
+            return ",".join(variant_urls[:4])
 
         if pattern_type == "positioning":
             return await self.runninghub_client.run_positioning_workflow(

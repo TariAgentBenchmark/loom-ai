@@ -148,7 +148,7 @@ export default function Home() {
   const [showCreditHistoryModal, setShowCreditHistoryModal] = useState(false);
   const [currentPage, setCurrentPage] = useState<PageState>('home');
   const [promptInstruction, setPromptInstruction] = useState<string>('');
-  const [patternType, setPatternType] = useState<string>('general1');
+  const [patternType, setPatternType] = useState<string>('general');
   const [upscaleEngine, setUpscaleEngine] = useState<'meitu_v2' | 'runninghub_vr2'>('meitu_v2');
   const [expandRatio, setExpandRatio] = useState<string>('original');
   const [expandEdges, setExpandEdges] = useState<ExpandEdgesState>({
@@ -878,10 +878,8 @@ export default function Home() {
               setCurrentPage('home');
               setBatchMode(false);
               setPromptInstruction('');
-              setPatternType('general1');
-              setPatternQuality('standard');
+              setPatternType('general');
               setUpscaleEngine('meitu_v2');
-              setAspectRatio('');
               setExpandRatio('original');
               setExpandEdges({ top: '0.00', bottom: '0.00', left: '0.00', right: '0.00' });
               setExpandPrompt('');
@@ -979,7 +977,7 @@ export default function Home() {
               setPromptInstruction('');
             }
             if (method === 'extract_pattern') {
-              setPatternType('general1');
+              setPatternType('general');
             }
             if (method === 'expand_image') {
               setExpandRatio('original');

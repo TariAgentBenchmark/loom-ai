@@ -5,15 +5,18 @@ from typing import Any, Dict, Optional
 
 def _normalize_pattern_type(raw_value: Optional[str]) -> str:
     """Normalize pattern type to the canonical identifiers used internally."""
-    normalized = (raw_value or "general_2").strip().lower().replace("-", "_")
+    normalized = (raw_value or "general").strip().lower().replace("-", "_")
 
-    if normalized == "general":
-        return "general_2"
+    if normalized in {"general", "general1", "general_1", "general_model"}:
+        return "general_1"
+
+    if normalized in {"combined", "composite"}:
+        return "combined"
 
     if normalized.startswith("general") and normalized[-1].isdigit():
         return f"general_{normalized[-1]}"
 
-    return normalized or "general_2"
+    return normalized or "general_1"
 
 
 def _normalize_upscale_engine(raw_value: Optional[str]) -> str:
