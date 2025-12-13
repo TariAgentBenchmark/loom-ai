@@ -5,6 +5,7 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import and_, or_, func, desc
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, EmailStr, condecimal
@@ -732,6 +733,12 @@ async def create_user(
     except HTTPException:
         db.rollback()
         raise
+    except IntegrityError as ie:
+        db.rollback()
+        msg = str(ie.orig).lower()
+        if "agents_name_key" in msg or "unique constraint" in msg:
+            raise HTTPException(status_code=400, detail="代理商名称已存在")
+        raise HTTPException(status_code=400, detail="创建代理商失败，数据唯一性冲突")
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
