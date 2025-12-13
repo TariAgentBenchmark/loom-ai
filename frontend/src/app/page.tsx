@@ -149,9 +149,7 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState<PageState>('home');
   const [promptInstruction, setPromptInstruction] = useState<string>('');
   const [patternType, setPatternType] = useState<string>('general1');
-  const [patternQuality, setPatternQuality] = useState<'standard' | '4k'>('standard');
   const [upscaleEngine, setUpscaleEngine] = useState<'meitu_v2' | 'runninghub_vr2'>('meitu_v2');
-  const [aspectRatio, setAspectRatio] = useState<string>('');
   const [expandRatio, setExpandRatio] = useState<string>('original');
   const [expandEdges, setExpandEdges] = useState<ExpandEdgesState>({
     top: '0.00',
@@ -221,12 +219,6 @@ export default function Home() {
     });
     pollingRefs.current = {};
   }, []);
-
-  useEffect(() => {
-    if (patternType !== 'general2') {
-      setPatternQuality('standard');
-    }
-  }, [patternType]);
 
   const updateActiveTasks = useCallback(
     (updater: (prev: PersistedProcessingTaskMap) => PersistedProcessingTaskMap) => {
@@ -768,16 +760,10 @@ export default function Home() {
 
     if (currentPage === 'extract_pattern') {
       payload.patternType = patternType;
-      payload.patternQuality = patternQuality;
     }
 
     if (currentPage === 'upscale') {
       payload.upscaleEngine = upscaleEngine;
-    }
-
-    // 添加分辨率参数
-    if (aspectRatio) {
-      payload.aspectRatio = aspectRatio;
     }
 
     if (currentPage === 'expand_image') {
@@ -926,7 +912,6 @@ export default function Home() {
             promptInstruction={promptInstruction}
             onPromptInstructionChange={setPromptInstruction}
             patternType={patternType}
-            patternQuality={patternQuality}
             onPatternTypeChange={(value) => {
               setPatternType(value);
               if (currentPage === 'extract_pattern') {
@@ -934,17 +919,9 @@ export default function Home() {
                 setErrorMessage('');
                 setSuccessMessage('');
               }
-              // 当从通用模式切换到其他模式时，清除分辨率设置
-              if (value !== 'general2') {
-                setAspectRatio('');
-                setPatternQuality('standard');
-              }
             }}
-            onPatternQualityChange={setPatternQuality}
             upscaleEngine={upscaleEngine}
             onUpscaleEngineChange={setUpscaleEngine}
-            aspectRatio={aspectRatio}
-            onAspectRatioChange={setAspectRatio}
             expandRatio={expandRatio}
             onExpandRatioChange={setExpandRatio}
             expandEdges={expandEdges}
@@ -969,9 +946,7 @@ export default function Home() {
               onHistoryRefresh={() => setHistoryRefreshToken((token) => token + 1)}
               promptInstruction={promptInstruction}
               patternType={patternType}
-              patternQuality={patternQuality}
               upscaleEngine={upscaleEngine}
-              aspectRatio={aspectRatio}
               expandRatio={expandRatio}
               expandEdges={expandEdges}
               expandPrompt={expandPrompt}

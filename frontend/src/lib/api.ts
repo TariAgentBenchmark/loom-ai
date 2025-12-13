@@ -726,9 +726,7 @@ export interface ProcessingRequestPayload {
   instruction?: string;
   model?: "new" | "original";
   patternType?: string;
-  patternQuality?: "standard" | "4k";
   upscaleEngine?: "meitu_v2" | "runninghub_vr2";
-  aspectRatio?: string;
   expandRatio?: string;
   expandTop?: number;
   expandBottom?: number;
@@ -748,9 +746,7 @@ export const createProcessingTask = (payload: ProcessingRequestPayload) => {
     instruction,
     model,
     patternType,
-    patternQuality,
     upscaleEngine,
-    aspectRatio,
     expandRatio,
     expandTop,
     expandBottom,
@@ -774,18 +770,10 @@ export const createProcessingTask = (payload: ProcessingRequestPayload) => {
 
   if (method === "extract_pattern") {
     formData.append("pattern_type", patternType ?? "general1");
-    if (patternQuality) {
-      formData.append("quality", patternQuality);
-    }
   }
 
   if (method === "upscale" && upscaleEngine) {
     formData.append("engine", upscaleEngine);
-  }
-
-  // 添加分辨率参数
-  if (aspectRatio) {
-    formData.append("aspect_ratio", aspectRatio);
   }
 
   if (method === "expand_image") {
@@ -1810,9 +1798,7 @@ export interface BatchProcessingRequestPayload {
   accessToken: string;
   instruction?: string;
   patternType?: string;
-  patternQuality?: "standard" | "4k";
   upscaleEngine?: "meitu_v2" | "runninghub_vr2";
-  aspectRatio?: string;
   expandRatio?: string;
   expandTop?: string;
   expandBottom?: string;
@@ -1831,9 +1817,7 @@ export const createBatchTask = (payload: BatchProcessingRequestPayload) => {
     accessToken,
     instruction,
     patternType,
-    patternQuality,
     upscaleEngine,
-    aspectRatio,
     expandRatio,
     expandTop,
     expandBottom,
@@ -1871,17 +1855,10 @@ export const createBatchTask = (payload: BatchProcessingRequestPayload) => {
 
   if (method === "extract_pattern") {
     formData.append("pattern_type", patternType ?? "general_2");
-    if (patternQuality) {
-      formData.append("quality", patternQuality);
-    }
   }
 
   if (method === "upscale" && upscaleEngine) {
     formData.append("upscale_engine", upscaleEngine);
-  }
-
-  if (aspectRatio) {
-    formData.append("aspect_ratio", aspectRatio);
   }
 
   if (method === "expand_image") {

@@ -5,7 +5,6 @@ import { History, Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   ProcessingMethod,
   getProcessingMethodInfo,
-  canAdjustResolution,
   resolvePricingServiceKey,
 } from "../lib/processing";
 import {
@@ -183,12 +182,8 @@ interface ProcessingPageProps {
   onPromptInstructionChange?: (value: string) => void;
   patternType?: string;
   onPatternTypeChange?: (value: string) => void;
-  patternQuality?: "standard" | "4k";
-  onPatternQualityChange?: (value: "standard" | "4k") => void;
   upscaleEngine?: "meitu_v2" | "runninghub_vr2";
   onUpscaleEngineChange?: (value: "meitu_v2" | "runninghub_vr2") => void;
-  aspectRatio?: string;
-  onAspectRatioChange?: (value: string) => void;
   expandRatio?: string;
   onExpandRatioChange?: (value: string) => void;
   expandEdges?: Record<ExpandEdgeKey, string>;
@@ -233,12 +228,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   onPromptInstructionChange,
   patternType,
   onPatternTypeChange,
-  patternQuality,
-  onPatternQualityChange,
   upscaleEngine,
   onUpscaleEngineChange,
-  aspectRatio,
-  onAspectRatioChange,
   expandRatio,
   onExpandRatioChange,
   expandEdges,
@@ -272,7 +263,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     label: string;
     description: string;
   }[] = [
-      {
+    {
         value: "meitu_v2",
         label: "通用1",
         description:
@@ -284,17 +275,14 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
         description: "锐化高清模式，突出细节与纹理锐度，适合较高清的原图。",
       },
     ];
-  const patternQualityOptions: { value: "standard" | "4k"; label: string }[] = [
-    {
-      value: "standard",
-      label: "普通",
-    },
-    {
-      value: "4k",
-      label: "4K",
-    },
-  ];
-  const effectivePatternQuality = patternQuality ?? "standard";
+  const patternTypeOptions: { value: string; label: string; hint?: string }[] =
+    [
+      { value: "general1", label: "通用1", hint: "多结果，默认模式" },
+      { value: "general2", label: "通用2", hint: "首图高清，支持分辨率" },
+      { value: "positioning", label: "线条/矢量", hint: "矢量稿更清晰" },
+      { value: "fine", label: "烫画/胸前花", hint: "细节强化" },
+    ];
+  const effectivePatternType = patternType ?? "general1";
   const selectedUpscaleOption =
     upscaleOptions.find(
       (option) => option.value === (upscaleEngine || "meitu_v2"),
@@ -921,38 +909,20 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                   模型
                 </h4>
               </div>
-              <select
-                value={patternType || "general1"}
-                onChange={(event) => onPatternTypeChange?.(event.target.value)}
-                className="w-full rounded-lg md:rounded-xl border border-gray-200 px-3 py-2 md:px-4 md:py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
-              >
-                <option value="general1">通用1</option>
-                <option value="general2">通用2</option>
-                <option value="positioning">线条/矢量</option>
-                <option value="fine">烫画/胸前花</option>
-              </select>
-            </div>
-          )}
-
-          {method === "extract_pattern" && patternType === "general2" && (
-            <div className="mb-4 md:mb-6">
-              <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2">
-                清晰度模式
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {patternQualityOptions.map((option) => {
-                  const isActive = effectivePatternQuality === option.value;
+              <div className="grid grid-cols-2 gap-3">
+                {patternTypeOptions.map((option) => {
+                  const isActive = effectivePatternType === option.value;
                   return (
                     <button
                       type="button"
                       key={option.value}
-                      onClick={() => onPatternQualityChange?.(option.value)}
+                      onClick={() => onPatternTypeChange?.(option.value)}
                       className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-all ${isActive
                         ? "border-blue-500 bg-blue-50 shadow-sm"
                         : "border-gray-200 hover:border-blue-300 hover:bg-blue-50/60"
                         }`}
                     >
-                      <span className="text-sm md:text-base font-semibold text-gray-900 flex items-center gap-2">
+                      <span className="text-sm md:text-base font-semibold text-gray-900">
                         {option.label}
                       </span>
                     </button>
@@ -967,62 +937,32 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
               <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2">
                 高清算法
               </h4>
-              <select
-                value={upscaleEngine || "meitu_v2"}
-                onChange={(event) =>
-                  onUpscaleEngineChange?.(
-                    event.target.value as "meitu_v2" | "runninghub_vr2",
-                  )
-                }
-                className="w-full rounded-lg md:rounded-xl border border-gray-200 px-3 py-2 md:px-4 md:py-3 text-sm md:text-base text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
-              >
-                {upscaleOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+              <div className="grid grid-cols-2 gap-3">
+                {upscaleOptions.map((option) => {
+                  const isActive =
+                    (upscaleEngine || "meitu_v2") === option.value;
+                  return (
+                    <button
+                      type="button"
+                      key={option.value}
+                      onClick={() =>
+                        onUpscaleEngineChange?.(option.value)
+                      }
+                      className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-all ${isActive
+                        ? "border-blue-500 bg-blue-50 shadow-sm"
+                        : "border-gray-200 hover:border-blue-300 hover:bg-blue-50/60"
+                        }`}
+                    >
+                      <span className="text-sm md:text-base font-semibold text-gray-900">
+                        {option.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
               <p className="text-xs md:text-sm text-gray-500 mt-2 leading-snug">
                 {selectedUpscaleOption.description}
               </p>
-            </div>
-          )}
-
-          {/* 分辨率选择 - 仅在AI提取花型的通用2模式下显示 */}
-          {canAdjustResolution(method) && patternType === "general2" && (
-            <div className="mb-4 md:mb-6">
-              <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2">
-                分辨率设置
-              </h4>
-
-              {/* 预设比例选择 */}
-              <div>
-                <label className="text-xs text-gray-600 mb-1 block">
-                  选择比例
-                </label>
-                <select
-                  value={aspectRatio || ""}
-                  onChange={(event) =>
-                    onAspectRatioChange?.(event.target.value)
-                  }
-                  className="w-full rounded-lg md:rounded-xl border border-gray-200 px-3 py-2 md:px-4 md:py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
-                >
-                  <option value="">自动（保持原图比例）</option>
-                  <option value="21:9">21:9 超宽屏</option>
-                  <option value="16:9">16:9 宽屏</option>
-                  <option value="4:3">4:3 标准</option>
-                  <option value="3:2">3:2 经典</option>
-                  <option value="1:1">1:1 正方形</option>
-                  <option value="9:16">9:16 竖屏</option>
-                  <option value="3:4">3:4 竖屏</option>
-                  <option value="2:3">2:3 竖屏</option>
-                  <option value="5:4">5:4 特殊</option>
-                  <option value="4:5">4:5 特殊</option>
-                </select>
-                <p className="text-xs text-gray-500 mt-2">
-                  选择预设比例，AI将按选定比例生成图片
-                </p>
-              </div>
             </div>
           )}
 

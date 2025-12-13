@@ -288,8 +288,6 @@ class AIClient:
             pattern_type = f"general_{normalized_pattern_type[-1]}"
         else:
             pattern_type = normalized_pattern_type
-        quality_mode = (options.get("quality") or "standard").strip().lower()
-        use_4k_preview = pattern_type == "general_2" and quality_mode == "4k"
 
         if pattern_type == "positioning":
             return await self.runninghub_client.run_positioning_workflow(
@@ -402,9 +400,9 @@ class AIClient:
         if not result_urls:
             raise Exception("AI提取花型失败：结果URL无效")
 
-        if use_4k_preview:
+        if pattern_type == "general_2":
             logger.info(
-                "General-2 pattern requested 4K preview model; skipping secondary enhancement. urls=%s",
+                "General-2 pattern returns base result without secondary enhancement. urls=%s",
                 len(result_urls),
             )
             return result_urls[0]
@@ -412,29 +410,19 @@ class AIClient:
         async def _enhance_url(url: str) -> List[str]:
             try:
                 # 通用模式：调用高清模型增强
-                if pattern_type == "general_2":
-                    # 通用2改为使用RunningHub VR2完美放大工作流
-                    vr2_options = dict(options or {})
-                    vr2_options["engine"] = "runninghub_vr2"
-                    enhanced = await self.upscale_image(
-                        url,
-                        scale_factor=4,
-                        options=vr2_options,
-                    )
-                else:
-                    meitu_options = {
-                        "engine": "meitu_v2",
-                        "sr_num": 4,
-                        "task": options.get("task", "/v1/Ultra_High_Definition_V2/478332"),
-                        "task_type": options.get("task_type", "formula"),
-                        "sync_timeout": options.get("sync_timeout", 30),
-                        "rsp_media_type": options.get("rsp_media_type", "url"),
-                    }
-                    enhanced = await self.upscale_image(
-                        url,
-                        scale_factor=4,
-                        options=meitu_options,
-                    )
+                meitu_options = {
+                    "engine": "meitu_v2",
+                    "sr_num": 4,
+                    "task": options.get("task", "/v1/Ultra_High_Definition_V2/478332"),
+                    "task_type": options.get("task_type", "formula"),
+                    "sync_timeout": options.get("sync_timeout", 30),
+                    "rsp_media_type": options.get("rsp_media_type", "url"),
+                }
+                enhanced = await self.upscale_image(
+                    url,
+                    scale_factor=4,
+                    options=meitu_options,
+                )
                 return [item.strip() for item in enhanced.split(",") if item.strip()]
             except Exception as exc:
                 logger.warning(
@@ -467,22 +455,13 @@ class AIClient:
 
         final_result_pool = enhanced_urls or result_urls
 
-        general_pattern_types = {"general_2"}
-
         # 非通用模式直接返回高清增强后的结果
-        if pattern_type not in general_pattern_types:
+        if pattern_type not in {"general_2"}:
             return ",".join(final_result_pool)
 
         if not final_result_pool:
             raise Exception("AI提取花型失败：通用模式未获得结果")
-
-        # 通用2：输出首张高清增强结果
-        if pattern_type == "general_2":
-            logger.info(
-                "General-2 pattern output prepared with %s base urls",
-                len(final_result_pool),
-            )
-            return final_result_pool[0]
+        return ",".join(final_result_pool)
 
     async def denoise_image(
         self,
