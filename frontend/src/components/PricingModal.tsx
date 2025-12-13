@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import PaymentModal from './PaymentModal';
 import {
   membershipPackages as membershipPackageData,
@@ -15,31 +15,26 @@ interface PricingModalProps {
   accessToken?: string;
 }
 
-const TABS: Array<{ key: 'membership' | 'discount'; label: string }> = [
-  { key: 'membership', label: '会员套餐' },
-  { key: 'discount', label: '积分套餐' },
-];
-
-const TAB_NOTICES: Record<'membership' | 'discount', string[]> = {
-  membership: [
-    '积分永不过期。',
-    '会员充值后使用不满意或者没需求可联系客服人员退款（赠送积分不参与退款）。',
-  ],
-  discount: ['积分永不过期。', '优惠套餐不参与退款政策。'],
-};
-
 const PricingModal: React.FC<PricingModalProps> = ({
   onClose,
   isLoggedIn = false,
   onLogin,
   accessToken,
 }) => {
-  const [activeTab, setActiveTab] = useState<'membership' | 'discount'>('membership');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<PackageData | null>(null);
 
   const membershipPackages = membershipPackageData;
   const discountPackages = discountPackageData;
+
+  // 防止弹窗打开时背景滚动
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
 
   const handlePurchase = (pkg: PackageData) => {
     if (!accessToken) {
@@ -92,7 +87,7 @@ const PricingModal: React.FC<PricingModalProps> = ({
     return (
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
         {pkgList.map((pkg, index) => {
-          const isHighlighted = pkg.recommended || pkg.popular || index === 0;
+          const isHighlighted = pkg.recommended || pkg.popular;
           return (
             <div
               key={pkg.id}
@@ -101,16 +96,21 @@ const PricingModal: React.FC<PricingModalProps> = ({
               }`}
             >
               {(pkg.popular || pkg.recommended) && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-red-500 to-orange-500 px-4 py-1 text-xs font-semibold text-white shadow">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-orange-500 to-red-500 px-4 py-1 text-xs font-semibold text-white shadow">
                   推荐
                 </div>
               )}
 
               <div className="text-center flex flex-col flex-1">
-                <p className="text-sm text-gray-500">{pkg.category === 'membership' ? '会员长效权益' : '积分灵活使用'}</p>
+                <p className="text-sm text-gray-500">{pkg.category === 'membership' ? '积分灵活使用' : '积分灵活使用'}</p>
                 <h4 className="mt-2 text-2xl font-bold text-gray-900">{pkg.name}</h4>
-                <div className="mt-4 flex flex-col items-center">
-                  <span className="text-4xl font-extrabold text-gray-900">{formatPrice(pkg.price_yuan)}</span>
+                <div className="mt-4 flex flex-col items-center gap-2">
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="text-4xl font-extrabold text-gray-900">{formatPrice(pkg.price_yuan)}</span>
+                    <span className="rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">
+                      {pkg.gift_label || `到手${pkg.total_credits}分 送${Math.round((pkg.bonus_credits / Math.max(pkg.price_yuan, 1)) * 100)}%`}
+                    </span>
+                  </div>
                 </div>
                 <div className="mt-6 space-y-2 text-left w-full">{renderPrivileges(pkg.privileges)}</div>
               </div>
@@ -160,7 +160,7 @@ const PricingModal: React.FC<PricingModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-3 py-6">
-      <div className="flex w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="flex w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl max-h-[90vh]">
         <div className="border-b border-gray-100 px-6 py-5 md:px-10 md:py-6">
           <div className="flex items-center justify-between">
             <div>
@@ -174,47 +174,22 @@ const PricingModal: React.FC<PricingModalProps> = ({
               ×
             </button>
           </div>
-
-          <div className="mt-6 flex flex-wrap gap-3">
-            {TABS.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`rounded-full px-5 py-2 text-sm font-medium transition ${
-                  activeTab === tab.key
-                    ? 'bg-blue-600 text-white shadow'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* 支付方式放到下单弹窗内选择 */}
         </div>
 
-        <div className="space-y-8 px-6 py-6 md:px-10 md:py-8">
-          {activeTab === 'membership' && (
-            <>
-              <h3 className="text-lg font-semibold text-gray-900">包月会员</h3>
-              {renderPackageGrid(membershipPackages)}
-            </>
-          )}
-
-          {activeTab === 'discount' && (
-            <>
+        <div className="space-y-8 px-6 py-6 md:px-10 md:py-8 overflow-y-auto">
+          <div className="space-y-6">
+            <div className="space-y-3">
               <h3 className="text-lg font-semibold text-gray-900">积分套餐</h3>
               {renderPackageGrid(discountPackages)}
-            </>
-          )}
-
-          <div className="rounded-2xl bg-gray-50 px-6 py-4 text-sm text-gray-600">
-            {TAB_NOTICES[activeTab].map((notice, index) => (
-              <p key={notice}>
-                {index + 1}. {notice}
-              </p>
-            ))}
+            </div>
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold text-gray-900">会员套餐</h3>
+              {renderPackageGrid(membershipPackages)}
+            </div>
+            <div className="rounded-2xl bg-gray-50 px-6 py-4 text-sm text-gray-600">
+              <p>1. 积分永不过期。</p>
+              <p>2. 优惠套餐不可退款；会员套餐如需退款请联系客服（赠送部分不退）。</p>
+            </div>
           </div>
         </div>
       </div>
