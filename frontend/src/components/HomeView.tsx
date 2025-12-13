@@ -200,11 +200,11 @@ const HomeView: React.FC<HomeViewProps> = ({
                     {membershipLabel(accountSummary?.membershipType)}
                   </span>
                 )}
-                {accountSummary?.isTestUser && (
-              <span className="hidden sm:block text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded-full">
-                测试用户
-              </span>
-            )}
+                {(accountSummary as any)?.isTestUser && (
+                  <span className="hidden sm:block text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded-full">
+                    测试用户
+                  </span>
+                )}
                 <div className="flex items-center space-x-2 relative">
                   <div className="notification-menu">
                     <button
