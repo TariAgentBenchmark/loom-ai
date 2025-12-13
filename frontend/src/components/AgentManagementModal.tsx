@@ -117,7 +117,7 @@ const AgentManagementModal: React.FC<AgentManagementModalProps> = ({ open, acces
                   <Users className="h-4 w-4 text-blue-600" />
                   <span className="text-sm font-semibold text-gray-900">下级代理</span>
                 </div>
-                <span className="text-xs text-gray-500">共 {agentInfo.children?.length ?? 0} 个</span>
+                <span className="text-xs text-gray-500">共 0 个</span>
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
@@ -131,34 +131,11 @@ const AgentManagementModal: React.FC<AgentManagementModalProps> = ({ open, acces
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {agentInfo.children?.map((child) => (
-                      <tr key={child.id}>
-                        <td className="px-3 py-2">
-                          <div className="font-semibold text-gray-900">{child.name}</div>
-                          <div className="text-xs text-gray-500">ID: {child.id}</div>
-                        </td>
-                        <td className="px-3 py-2 text-gray-700">
-                          <div className="font-semibold text-gray-900">{child.ownerUserPhone || child.ownerUserId || "—"}</div>
-                          <div className="text-xs text-gray-500">{child.ownerUserId ? `ID: ${child.ownerUserId}` : ""}</div>
-                        </td>
-                        <td className="px-3 py-2 text-gray-900">{child.invitationCode || "—"}</td>
-                        <td className="px-3 py-2">
-                          <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-100">
-                            {child.status === "active" ? "启用" : "停用"}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 text-gray-600">
-                          {child.createdAt?.slice(0, 19).replace("T", " ") || "—"}
-                        </td>
-                      </tr>
-                    ))}
-                    {(!agentInfo.children || agentInfo.children.length === 0) && (
-                      <tr>
-                        <td className="px-3 py-4 text-center text-sm text-gray-500" colSpan={5}>
-                          暂无二级代理
-                        </td>
-                      </tr>
-                    )}
+                    <tr>
+                      <td className="px-3 py-4 text-center text-sm text-gray-500" colSpan={5}>
+                        暂无二级代理
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
