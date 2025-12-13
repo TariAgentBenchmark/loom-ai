@@ -32,7 +32,7 @@ def main() -> None:
         print("ℹ️  users.is_test_user already exists")
         return
     with engine.begin() as conn:
-        conn.execute(text("ALTER TABLE users ADD COLUMN is_test_user BOOLEAN DEFAULT 0"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN is_test_user BOOLEAN DEFAULT FALSE"))
     print("✅ Added users.is_test_user")
 
 
