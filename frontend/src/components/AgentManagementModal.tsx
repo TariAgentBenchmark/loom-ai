@@ -103,15 +103,13 @@ const AgentManagementModal: React.FC<AgentManagementModalProps> = ({ open, acces
               </div>
             </div>
 
-            {agentInfo.level === 1 && (
-              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                <div className="mb-2 flex items-center gap-2 font-semibold text-gray-900">
-                  <UserPlus className="h-4 w-4 text-blue-600" />
-                  二级代理创建已关闭
-                </div>
-                <div className="text-sm text-gray-600">当前仅管理员可创建代理。如需新增下级代理，请联系管理员处理。</div>
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <div className="mb-2 flex items-center gap-2 font-semibold text-gray-900">
+                <UserPlus className="h-4 w-4 text-blue-600" />
+                二级代理创建已关闭
               </div>
-            )}
+              <div className="text-sm text-gray-600">当前仅管理员可创建代理。如需新增下级代理，请联系管理员处理。</div>
+            </div>
 
             <div className="rounded-xl border border-gray-200">
               <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
