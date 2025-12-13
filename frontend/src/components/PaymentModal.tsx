@@ -116,6 +116,15 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         );
       }
 
+      // 测试用户走直充：payload.paymentSkipped=true
+      if (payload?.paymentSkipped) {
+        setPaymentStatus('success');
+        setResultMessage(payload?.message || '测试用户已完成充值');
+        onPaymentSuccess();
+        onClose();
+        return;
+      }
+
       const code = (payload?.code || payload?.resp_code || '')
         .toString()
         .toUpperCase();

@@ -59,6 +59,7 @@ export const toAccountSummary = (profile?: UserProfile) => {
     totalProcessed: profile.totalProcessed,
     nickname: profile.nickname,
     membershipType: profile.membershipType,
+    isTestUser: profile.isTestUser,
   };
 };
 
@@ -131,4 +132,3 @@ export const clearPersistedSession = () => {
   window.localStorage.removeItem(AUTH_STORAGE_KEY);
   window.sessionStorage.removeItem(AUTH_STORAGE_KEY);
 };
-

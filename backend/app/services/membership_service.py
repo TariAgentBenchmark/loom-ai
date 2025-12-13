@@ -21,6 +21,7 @@ from app.models.membership_package import (
     ServicePrice,
     UserMembership,
 )
+from app.models.user import User
 from app.services.credit_math import multiply, to_decimal, to_float
 from app.services.service_pricing import resolve_pricing_key
 

@@ -1,7 +1,7 @@
 import uuid
 import random
 import string
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.orm import Session
@@ -18,6 +18,7 @@ from app.models.credit import CreditTransaction, CreditSource, TransactionType, 
 from app.models.payment import Order, Refund, OrderStatus, PackageType, PaymentMethod, Package
 from app.models.task import Task
 from app.models.agent import Agent, InvitationCode, AgentStatus, InvitationCodeStatus
+from app.models.agent_commission import AgentCommission, AgentCommissionStatus
 from app.api.dependencies import get_current_active_admin
 from app.api.decorators import admin_required, admin_route
 from app.schemas.common import SuccessResponse, PaginationMeta
@@ -45,6 +46,7 @@ class AdminUserResponse(BaseModel):
     membershipType: str
     status: str
     isAdmin: bool
+    isTestUser: bool
     createdAt: str
     lastLoginAt: Optional[str]
 
@@ -62,6 +64,7 @@ class AdminCreateUserRequest(BaseModel):
     initialCredits: CreditBalance = Field(Decimal("0.00"), description="Initial credit balance")
     isAdmin: bool = Field(False, description="Whether the user should have admin permissions")
     invitationCode: Optional[str] = Field(None, description="注册邀请码（可选）")
+    isTestUser: bool = Field(False, description="是否为测试用户")
 
 
 class AdminUserLookupItem(BaseModel):
@@ -274,6 +277,35 @@ class AdminDeleteAgentResponse(BaseModel):
     deleted: bool
 
 
+class AdminSettleCommissionRequest(BaseModel):
+    startDate: Optional[str] = None
+    endDate: Optional[str] = None
+    orderIds: Optional[List[int]] = None
+    note: Optional[str] = None
+
+
+class AdminCommissionItem(BaseModel):
+    orderId: str
+    amount: int
+    commission: int
+    rate: float
+    status: str
+    paidAt: Optional[str]
+    settledAt: Optional[str]
+    settledBy: Optional[str]
+    userId: Optional[str]
+    userPhone: Optional[str]
+
+
+class AdminCommissionListResponse(BaseModel):
+    items: List[AdminCommissionItem]
+    totalAmount: int
+    totalCommission: int
+    settledAmount: int
+    unsettledAmount: int
+    totalOrders: int
+
+
 class AdminUpdateAgentRequest(BaseModel):
     name: Optional[str] = Field(None, max_length=100)
     contact: Optional[str] = Field(None, max_length=100)
@@ -337,6 +369,52 @@ def _parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
 
 def _generate_invitation_code() -> str:
     return "".join(random.choices(string.ascii_uppercase + string.digits, k=4))
+
+
+def _compute_commission_cents(amount_cents: int) -> (int, float):
+    """统一佣金计算：<= 30000 抽20%，超过部分抽25%"""
+    amt = Decimal(amount_cents or 0)
+    if amt <= 0:
+        return 0, 0.0
+    threshold_cents = Decimal("30000") * 100
+    lower = min(amt, threshold_cents)
+    higher = max(amt - threshold_cents, 0)
+    commission = lower * Decimal("0.20") + higher * Decimal("0.25")
+    commission = commission.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    eff_rate = float((commission / amt).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
+    return int(commission), eff_rate
+
+
+def _compute_commission_running_total(order_rows: List[tuple]) -> Dict[int, Dict[str, float]]:
+    """
+    按代理累计充值计算佣金：前 30000 元按 20%，超过部分按 25%。
+    返回 {order_id: {"commission": int, "rate": float}}，顺序根据支付时间。
+    """
+    threshold_cents = Decimal("30000") * 100
+    cumulative = Decimal("0")
+    result: Dict[int, Dict[str, float]] = {}
+
+    def _order_key(order: Order):
+        # 以 paid_at 优先，其次 created_at 兜底
+        return order.paid_at or order.created_at or datetime.utcnow()
+
+    for order, _user in sorted(order_rows, key=lambda row: _order_key(row[0])):
+        amount = Decimal(order.final_amount or 0)
+        if amount <= 0:
+            result[order.id] = {"commission": 0, "rate": 0.0}
+            continue
+
+        remaining_lower = max(threshold_cents - cumulative, Decimal("0"))
+        lower_part = min(amount, remaining_lower)
+        higher_part = max(amount - remaining_lower, Decimal("0"))
+        commission = lower_part * Decimal("0.20") + higher_part * Decimal("0.25")
+        commission = commission.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        eff_rate = float((commission / amount).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
+
+        result[order.id] = {"commission": int(commission), "rate": eff_rate}
+        cumulative += amount
+
+    return result
 
 
 @router.get("/users", dependencies=[Depends(admin_route())])
@@ -406,6 +484,7 @@ async def get_all_users(
                 membershipType=user.membership_type.value,
                 status=user.status.value,
                 isAdmin=user.is_admin,
+                isTestUser=bool(getattr(user, "is_test_user", False)),
                 createdAt=user.created_at.isoformat() if user.created_at else "",
                 lastLoginAt=user.last_login_at.isoformat() if user.last_login_at else None
             ))
@@ -517,6 +596,7 @@ async def get_user_detail(
             membershipType=user.membership_type.value,
             status=user.status.value,
             isAdmin=user.is_admin,
+            isTestUser=bool(getattr(user, "is_test_user", False)),
             createdAt=user.created_at.isoformat() if user.created_at else "",
             lastLoginAt=user.last_login_at.isoformat() if user.last_login_at else None
         )
@@ -592,6 +672,7 @@ async def create_user(
             membership_type=MembershipType.FREE,
             status=UserStatus.ACTIVE,
             is_admin=user_data.isAdmin,
+            is_test_user=user_data.isTestUser,
             agent_id=agent_id,
             invitation_code_id=invitation_code_id,
         )
@@ -1976,6 +2057,327 @@ async def delete_agent(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/agents/{agent_id}/commissions/settle", dependencies=[Depends(admin_route())])
+async def settle_agent_commissions(
+    agent_id: int,
+    payload: AdminSettleCommissionRequest,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin),
+):
+    """管理员手动结算代理商佣金"""
+    agent = (
+        db.query(Agent)
+        .filter(Agent.id == agent_id, Agent.is_deleted.is_(False))
+        .first()
+    )
+    if not agent:
+        raise HTTPException(status_code=404, detail="代理商不存在")
+
+    start_dt = datetime.fromisoformat(payload.startDate) if payload.startDate else None
+    end_dt = datetime.fromisoformat(payload.endDate) if payload.endDate else None
+
+    # 找到已付款订单
+    order_query = (
+        db.query(Order, User)
+        .join(User, User.id == Order.user_id)
+        .filter(
+            User.agent_id == agent.id,
+            Order.status == OrderStatus.PAID.value,
+        )
+    )
+    if start_dt:
+        order_query = order_query.filter(Order.paid_at >= start_dt)
+    if end_dt:
+        order_query = order_query.filter(Order.paid_at <= end_dt)
+    if payload.orderIds:
+        order_query = order_query.filter(Order.id.in_(payload.orderIds))
+
+    rows = order_query.all()
+
+    if not rows:
+        return SuccessResponse(data={"settled": 0, "totalOrders": 0}, message="无可结算订单")
+
+    commission_map = _compute_commission_running_total(rows)
+
+    # 已结算的订单
+    existing_map = {
+        c.order_id: c for c in db.query(AgentCommission).filter(
+            AgentCommission.order_id.in_([r[0].id for r in rows]),
+            AgentCommission.status == AgentCommissionStatus.SETTLED,
+        )
+    }
+
+    settled_amount = 0
+    settled_count = 0
+    for order, _user in rows:
+        if order.id in existing_map:
+            continue
+        computed = commission_map.get(order.id, {"commission": 0, "rate": 0.0})
+        commission = computed.get("commission", 0)
+        rate = computed.get("rate", 0.0)
+        record = AgentCommission(
+            agent_id=agent.id,
+            order_id=order.id,
+            amount=commission,
+            rate=rate,
+            status=AgentCommissionStatus.SETTLED,
+            paid_at=order.paid_at,
+            settled_at=datetime.utcnow(),
+            settled_by=current_admin.id,
+            notes=payload.note,
+        )
+        db.add(record)
+        settled_amount += commission
+        settled_count += 1
+
+    db.commit()
+
+    await log_admin_action(
+        db=db,
+        admin=current_admin,
+        action="settle_agent_commission",
+        target_type="agent",
+        target_id=str(agent.id),
+        details={"orders": settled_count, "amount": settled_amount},
+    )
+
+    return SuccessResponse(
+        data={
+            "settledOrders": settled_count,
+            "settledAmount": settled_amount,
+        },
+        message="佣金结算完成",
+    )
+
+
+@router.get("/agents/{agent_id}/commissions", dependencies=[Depends(admin_route())])
+async def get_agent_commissions(
+    agent_id: int,
+    startDate: Optional[str] = Query(None, description="开始日期，ISO8601"),
+    endDate: Optional[str] = Query(None, description="结束日期，ISO8601"),
+    status: Optional[str] = Query(None, description="过滤状态：settled/unsettled"),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin),
+):
+    """管理员查看代理商佣金流水（含结算状态）"""
+    agent = (
+        db.query(Agent)
+        .filter(Agent.id == agent_id, Agent.is_deleted.is_(False))
+        .first()
+    )
+    if not agent:
+        raise HTTPException(status_code=404, detail="代理商不存在")
+
+    start_dt = _parse_iso_datetime(startDate)
+    end_dt = _parse_iso_datetime(endDate)
+
+    order_query = (
+        db.query(Order, User)
+        .join(User, User.id == Order.user_id)
+        .filter(
+            User.agent_id == agent.id,
+            Order.status == OrderStatus.PAID.value,
+        )
+    )
+    if start_dt:
+        order_query = order_query.filter(Order.paid_at >= start_dt)
+    if end_dt:
+        order_query = order_query.filter(Order.paid_at <= end_dt)
+
+    order_rows = order_query.order_by(desc(Order.paid_at)).all()
+    if not order_rows:
+        return SuccessResponse(
+            data=AdminCommissionListResponse(
+                items=[],
+                totalAmount=0,
+                totalCommission=0,
+                settledAmount=0,
+                unsettledAmount=0,
+                totalOrders=0,
+            ).dict(),
+            message="暂无佣金流水",
+        )
+
+    order_ids = [o.id for o, _u in order_rows]
+    commission_query = db.query(AgentCommission).filter(
+        AgentCommission.agent_id == agent.id,
+        AgentCommission.order_id.in_(order_ids),
+    )
+    if status in {AgentCommissionStatus.SETTLED, AgentCommissionStatus.UNSETTLED}:
+        commission_query = commission_query.filter(AgentCommission.status == status)
+    commission_map = {c.order_id: c for c in commission_query.all()}
+
+    items: List[AdminCommissionItem] = []
+    total_amount = 0
+    total_commission = 0
+    settled_amount = 0
+
+    computed_map = _compute_commission_running_total(order_rows)
+
+    for order, user in order_rows:
+        record = commission_map.get(order.id)
+        amount = order.final_amount or 0
+
+        computed = computed_map.get(order.id, {"commission": 0, "rate": 0.0})
+        commission_amt = int(computed["commission"])
+        rate = float(computed["rate"])
+        current_status = AgentCommissionStatus.UNSETTLED
+        settled_at = None
+        settled_by = None
+
+        if record:
+            current_status = record.status
+            settled_at = record.settled_at.isoformat() if record.settled_at else None
+            if record.settled_by:
+                admin_user = db.query(User).filter(User.id == record.settled_by).first()
+                settled_by = admin_user.user_id if admin_user else None
+            if record.amount is not None:
+                commission_amt = int(record.amount)
+
+        # 如果传入状态过滤，且当前状态不匹配则跳过
+        if status and current_status != status:
+            continue
+
+        total_amount += amount
+        total_commission += commission_amt
+        if current_status == AgentCommissionStatus.SETTLED:
+            settled_amount += commission_amt
+
+        items.append(
+            AdminCommissionItem(
+                orderId=order.order_id,
+                amount=amount,
+                commission=commission_amt,
+                rate=rate,
+                status=current_status,
+                paidAt=order.paid_at.isoformat() if order.paid_at else None,
+                settledAt=settled_at,
+                settledBy=settled_by,
+                userId=user.user_id,
+                userPhone=user.phone,
+            )
+        )
+
+    unsettled_amount = max(total_commission - settled_amount, 0)
+
+    await log_admin_action(
+        db=db,
+        admin=current_admin,
+        action="view_agent_commissions",
+        target_type="agent",
+        target_id=str(agent.id),
+        details={
+            "orders": len(items),
+            "totalAmount": total_amount,
+            "totalCommission": total_commission,
+            "statusFilter": status,
+        },
+    )
+
+    return SuccessResponse(
+        data=AdminCommissionListResponse(
+            items=items,
+            totalAmount=total_amount,
+            totalCommission=total_commission,
+            settledAmount=settled_amount,
+            unsettledAmount=unsettled_amount,
+            totalOrders=len(items),
+        ).dict(),
+        message="获取佣金流水成功",
+    )
+
+
+@router.post("/agents/{agent_id}/commissions/{order_id}/settle", dependencies=[Depends(admin_route())])
+async def settle_single_commission(
+    agent_id: int,
+    order_id: str,
+    payload: AdminSettleCommissionRequest = Body(default_factory=AdminSettleCommissionRequest),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin),
+):
+    """管理员手动结算单笔订单佣金"""
+    agent = (
+        db.query(Agent)
+        .filter(Agent.id == agent_id, Agent.is_deleted.is_(False))
+        .first()
+    )
+    if not agent:
+        raise HTTPException(status_code=404, detail="代理商不存在")
+
+    order_rows = (
+        db.query(Order, User)
+        .join(User, User.id == Order.user_id)
+        .filter(
+            User.agent_id == agent.id,
+            Order.status == OrderStatus.PAID.value,
+        )
+        .all()
+    )
+    if not order_rows:
+        raise HTTPException(status_code=404, detail="订单不存在或未归属该代理")
+
+    commission_map = _compute_commission_running_total(order_rows)
+    order = (
+        db.query(Order)
+        .filter(Order.order_id == order_id, Order.status == OrderStatus.PAID.value)
+        .first()
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="订单不存在或未归属该代理")
+
+    computed = commission_map.get(order.id, {"commission": 0, "rate": 0.0})
+    commission = computed.get("commission", 0)
+    rate = computed.get("rate", 0.0)
+
+    record = (
+        db.query(AgentCommission)
+        .filter(AgentCommission.agent_id == agent.id, AgentCommission.order_id == order.id)
+        .first()
+    )
+    now = datetime.utcnow()
+    if record:
+        record.amount = commission
+        record.rate = rate
+        record.status = AgentCommissionStatus.SETTLED
+        record.paid_at = order.paid_at
+        record.settled_at = now
+        record.settled_by = current_admin.id
+        record.notes = payload.note
+    else:
+        record = AgentCommission(
+            agent_id=agent.id,
+            order_id=order.id,
+            amount=commission,
+            rate=rate,
+            status=AgentCommissionStatus.SETTLED,
+            paid_at=order.paid_at,
+            settled_at=now,
+            settled_by=current_admin.id,
+            notes=payload.note,
+        )
+        db.add(record)
+
+    db.commit()
+
+    await log_admin_action(
+        db=db,
+        admin=current_admin,
+        action="settle_agent_commission_single",
+        target_type="agent",
+        target_id=str(agent.id),
+        details={"orderId": order_id, "amount": commission},
+    )
+
+    return SuccessResponse(
+        data={
+            "orderId": order.order_id,
+            "commission": commission,
+            "settled": True,
+        },
+        message="单笔佣金结算完成",
+    )
 
 
 @router.put("/agents/{agent_id}", dependencies=[Depends(admin_route())])

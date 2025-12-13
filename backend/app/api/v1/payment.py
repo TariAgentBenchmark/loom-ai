@@ -79,8 +79,45 @@ async def create_counter_order(
     """Create payment order in Lakala Aggregated Payment Gateway."""
 
     payment_service = PaymentService()
+    membership_service = MembershipService()
 
     try:
+        # 测试用户直接完成购买，不跳转支付
+        if getattr(current_user, "is_test_user", False):
+            _ensure_local_order_record(db=db, user=current_user, payload=payload)
+            package_id = _parse_package_id(payload.out_order_no)
+            if package_id:
+                await membership_service.purchase_package(
+                    db=db,
+                    user_id=current_user.id,
+                    package_id=package_id,
+                    payment_method="test",
+                    order_id=payload.out_order_no,
+                )
+            order = (
+                db.query(Order)
+                .filter(Order.order_id == payload.out_order_no)
+                .order_by(Order.id.desc())
+                .first()
+            )
+            if order:
+                order.status = OrderStatus.PAID.value
+                order.paid_at = datetime.utcnow()
+                order.transaction_id = "TEST-PAID"
+                meta = order.extra_metadata or {}
+                meta["test_user"] = True
+                order.extra_metadata = meta
+                db.commit()
+
+            return SuccessResponse(
+                data={
+                    "orderId": payload.out_order_no,
+                    "paymentSkipped": True,
+                    "message": "测试用户已直接完成充值，无需支付",
+                },
+                message="测试用户已完成支付",
+            )
+
         notify_url = (
             payload.notify_url
             or f"{settings.base_url.rstrip('/')}/api/v1/payment/lakala/counter/notify"

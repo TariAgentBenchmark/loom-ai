@@ -8,8 +8,12 @@ import {
   adminUpdateAgent,
   adminDeleteAgent,
   adminSearchUsers,
+  adminSettleAgentCommissions,
+  adminGetAgentCommissions,
+  adminSettleAgentOrder,
   type AdminAgent,
   type AdminUserLookupItem,
+  type AdminCommissionItem,
 } from "../lib/api";
 import { useAdminAccessToken } from "../contexts/AdminAuthContext";
 
@@ -40,6 +44,12 @@ const AdminAgentInvitationManager: React.FC = () => {
   const accessToken = useAdminAccessToken();
   const [agents, setAgents] = useState<AdminAgent[]>([]);
   const [state, setState] = useState<AsyncState>({ status: "idle" });
+  const [settlingId, setSettlingId] = useState<number | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState<AdminAgent | null>(null);
+  const [commissionItems, setCommissionItems] = useState<AdminCommissionItem[]>([]);
+  const [commissionLoading, setCommissionLoading] = useState(false);
+  const [commissionError, setCommissionError] = useState<string | null>(null);
+  const [settlingOrderId, setSettlingOrderId] = useState<string | null>(null);
   const [agentForm, setAgentForm] = useState({
     name: "",
     userIdentifier: "",
@@ -67,6 +77,69 @@ const AdminAgentInvitationManager: React.FC = () => {
       });
     }
   }, [accessToken]);
+
+  const handleSettleAgent = useCallback(
+    async (agent: AdminAgent) => {
+      if (!accessToken) return;
+      setSelectedAgent(agent);
+      setCommissionError(null);
+      setCommissionLoading(true);
+      try {
+        const res = await adminGetAgentCommissions(agent.id, accessToken);
+        setCommissionItems(res.data.items || []);
+      } catch (err) {
+        setCommissionError((err as Error)?.message ?? "加载失败");
+      }
+      setCommissionLoading(false);
+    },
+    [accessToken],
+  );
+
+  const reloadCommissions = useCallback(
+    async (agentId: number) => {
+      if (!accessToken) return;
+      setCommissionLoading(true);
+      try {
+        const res = await adminGetAgentCommissions(agentId, accessToken);
+        setCommissionItems(res.data.items || []);
+      } catch (err) {
+        setCommissionError((err as Error)?.message ?? "加载失败");
+      }
+      setCommissionLoading(false);
+    },
+    [accessToken],
+  );
+
+  const handleSettleOrder = useCallback(
+    async (orderId: string) => {
+      if (!accessToken || !selectedAgent) return;
+      setSettlingOrderId(orderId);
+      try {
+        await adminSettleAgentOrder(selectedAgent.id, orderId, {}, accessToken);
+        await reloadCommissions(selectedAgent.id);
+      } catch (err) {
+        setCommissionError((err as Error)?.message ?? "结算失败");
+      }
+      setSettlingOrderId(null);
+    },
+    [accessToken, reloadCommissions, selectedAgent],
+  );
+
+  const handleSettleAll = useCallback(
+    async () => {
+      if (!accessToken || !selectedAgent) return;
+      setSettlingId(selectedAgent.id);
+      try {
+        await adminSettleAgentCommissions(selectedAgent.id, {}, accessToken);
+        await reloadCommissions(selectedAgent.id);
+        await loadData();
+      } catch (err) {
+        setCommissionError((err as Error)?.message ?? "批量结算失败");
+      }
+      setSettlingId(null);
+    },
+    [accessToken, loadData, reloadCommissions, selectedAgent],
+  );
 
   const searchUsers = useCallback(
     (keyword: string) => {
@@ -411,6 +484,14 @@ const AdminAgentInvitationManager: React.FC = () => {
                     <div className="flex justify-end gap-3">
                       <button
                         type="button"
+                        onClick={() => handleSettleAgent(agent)}
+                        className="text-xs font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+                        disabled={settlingId === agent.id || state.status === "loading"}
+                      >
+                        {settlingId === agent.id ? "结算中..." : "结算"}
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => toggleAgentStatus(agent)}
                         className="text-xs font-medium text-blue-600 hover:text-blue-800"
                         disabled={state.status === "loading"}
@@ -442,6 +523,130 @@ const AdminAgentInvitationManager: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {selectedAgent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
+          <div className="w-full max-w-5xl rounded-2xl bg-white p-5 shadow-xl">
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="text-sm text-gray-500">代理商</div>
+                <div className="text-lg font-semibold text-gray-900">{selectedAgent.name}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedAgent(null);
+                  setCommissionItems([]);
+                  setCommissionError(null);
+                }}
+                className="rounded-full p-2 text-gray-500 hover:bg-gray-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-3 flex items-center justify-between">
+              <div className="text-sm text-gray-600">查看并手动结算订单佣金（单笔或批量）。</div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => reloadCommissions(selectedAgent.id)}
+                  className="rounded border border-gray-200 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                  disabled={commissionLoading}
+                >
+                  重新加载
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSettleAll}
+                  className="rounded bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
+                  disabled={commissionLoading || settlingId === selectedAgent.id}
+                >
+                  {settlingId === selectedAgent.id ? "批量结算中..." : "全部结算"}
+                </button>
+              </div>
+            </div>
+
+            {commissionError && (
+              <div className="mt-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {commissionError}
+              </div>
+            )}
+
+            <div className="mt-4 overflow-auto rounded-lg border border-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600">订单号</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600">用户</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600">充值金额</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600">佣金</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600">比例</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600">状态</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600">支付时间</th>
+                    <th className="px-3 py-2 text-right font-medium text-gray-600">操作</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {commissionLoading && (
+                    <tr>
+                      <td colSpan={8} className="px-3 py-4 text-center text-sm text-gray-500">
+                        加载中...
+                      </td>
+                    </tr>
+                  )}
+                  {!commissionLoading && commissionItems.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="px-3 py-4 text-center text-sm text-gray-500">
+                        暂无订单
+                      </td>
+                    </tr>
+                  )}
+                  {!commissionLoading &&
+                    commissionItems.map((item) => (
+                      <tr key={item.orderId}>
+                        <td className="px-3 py-2 text-gray-900">{item.orderId}</td>
+                        <td className="px-3 py-2 text-gray-700">
+                          <div className="font-semibold text-gray-900">{item.userPhone || item.userId || "-"}</div>
+                          {item.userId && <div className="text-xs text-gray-500">ID: {item.userId}</div>}
+                        </td>
+                        <td className="px-3 py-2 text-gray-900">¥{((item.amount || 0) / 100).toFixed(2)}</td>
+                        <td className="px-3 py-2 text-emerald-600">¥{((item.commission || 0) / 100).toFixed(2)}</td>
+                        <td className="px-3 py-2 text-gray-700">{(item.rate * 100).toFixed(0)}%</td>
+                        <td className="px-3 py-2">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                              item.status === "settled"
+                                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"
+                                : "bg-amber-50 text-amber-700 ring-1 ring-amber-100"
+                            }`}
+                          >
+                            {item.status === "settled" ? "已结算" : "未结算"}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-gray-600">{item.paidAt?.slice(0, 19).replace("T", " ") || "-"}</td>
+                        <td className="px-3 py-2 text-right">
+                          {item.status === "settled" ? (
+                            <span className="text-xs text-gray-500">已结算</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleSettleOrder(item.orderId)}
+                              className="text-xs font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+                              disabled={settlingOrderId === item.orderId}
+                            >
+                              {settlingOrderId === item.orderId ? "结算中..." : "结算"}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 邀请码列表简化后移除，邀请码随代理商自动生成 */}
     </div>

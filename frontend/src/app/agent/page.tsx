@@ -29,6 +29,8 @@ const AgentPage: React.FC = () => {
     totalAmount: 0,
     totalCommission: 0,
     totalOrders: 0,
+    settledAmount: 0,
+    unsettledAmount: 0,
     page: 1,
     pageSize: 20,
     totalPages: 1,
@@ -84,6 +86,8 @@ const AgentPage: React.FC = () => {
           totalAmount: res.data.totalAmount,
           totalCommission: res.data.totalCommission,
           totalOrders: res.data.totalOrders,
+          settledAmount: res.data.settledAmount || 0,
+          unsettledAmount: res.data.unsettledAmount || 0,
           page: res.data.page,
           pageSize: res.data.pageSize,
           totalPages: res.data.totalPages,
@@ -245,7 +249,7 @@ const AgentPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
             <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
               <div className="text-xs text-gray-500">总充值</div>
               <div className="text-lg font-semibold text-gray-900 mt-1">¥{yuan(ledgerSummary.totalAmount)}</div>
@@ -255,10 +259,15 @@ const AgentPage: React.FC = () => {
               <div className="text-lg font-semibold text-emerald-600 mt-1">¥{yuan(ledgerSummary.totalCommission)}</div>
             </div>
             <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
-              <div className="text-xs text-gray-500">订单数</div>
-              <div className="text-lg font-semibold text-gray-900 mt-1">{ledgerSummary.totalOrders}</div>
+              <div className="text-xs text-gray-500">已结算</div>
+              <div className="text-lg font-semibold text-blue-600 mt-1">¥{yuan(ledgerSummary.settledAmount)}</div>
+            </div>
+            <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+              <div className="text-xs text-gray-500">未结算</div>
+              <div className="text-lg font-semibold text-amber-600 mt-1">¥{yuan(ledgerSummary.unsettledAmount)}</div>
             </div>
           </div>
+          <div className="mt-1 text-xs text-gray-500">当前筛选共 {ledgerSummary.totalOrders} 笔订单</div>
 
           <div className="mt-3 overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 text-sm">
@@ -269,6 +278,7 @@ const AgentPage: React.FC = () => {
                   <th className="px-3 py-2 text-left font-medium text-gray-600">充值金额</th>
                   <th className="px-3 py-2 text-left font-medium text-gray-600">佣金</th>
                   <th className="px-3 py-2 text-left font-medium text-gray-600">比例</th>
+                  <th className="px-3 py-2 text-left font-medium text-gray-600">状态</th>
                   <th className="px-3 py-2 text-left font-medium text-gray-600">时间</th>
                 </tr>
               </thead>
@@ -283,12 +293,23 @@ const AgentPage: React.FC = () => {
                     <td className="px-3 py-2 text-gray-900">¥{yuan(item.amount)}</td>
                     <td className="px-3 py-2 text-emerald-600">¥{yuan(item.commission)}</td>
                     <td className="px-3 py-2 text-gray-700">{(item.rate * 100).toFixed(0)}%</td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                          item.status === "settled"
+                            ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"
+                            : "bg-amber-50 text-amber-700 ring-1 ring-amber-100"
+                        }`}
+                      >
+                        {item.status === "settled" ? "已结算" : "未结算"}
+                      </span>
+                    </td>
                     <td className="px-3 py-2 text-gray-600">{item.paidAt?.slice(0, 19).replace("T", " ") || "—"}</td>
                   </tr>
                 ))}
                 {ledgerItems.length === 0 && (
                   <tr>
-                    <td className="px-3 py-4 text-center text-sm text-gray-500" colSpan={6}>
+                    <td className="px-3 py-4 text-center text-sm text-gray-500" colSpan={7}>
                       暂无数据
                     </td>
                   </tr>

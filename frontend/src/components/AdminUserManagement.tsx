@@ -38,6 +38,7 @@ interface CreateUserFormState {
   initialCredits: number;
   isAdmin: boolean;
   invitationCode: string;
+  isTestUser: boolean;
 }
 
 interface CreditAdjustmentFormState {
@@ -78,6 +79,7 @@ const AdminUserManagement: React.FC = () => {
     initialCredits: 0,
     isAdmin: false,
     invitationCode: "",
+    isTestUser: false,
   });
   const [createError, setCreateError] = useState<string | null>(null);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
@@ -183,10 +185,11 @@ const AdminUserManagement: React.FC = () => {
       nickname: "",
       password: "",
       confirmPassword: "",
-      initialCredits: 0,
-      isAdmin: false,
-      invitationCode: "",
-    });
+    initialCredits: 0,
+    isAdmin: false,
+    invitationCode: "",
+    isTestUser: false,
+  });
   };
 
   const closeCreateModal = () => {
@@ -229,6 +232,7 @@ const AdminUserManagement: React.FC = () => {
           initialCredits: Math.max(0, createForm.initialCredits),
           isAdmin: createForm.isAdmin,
           invitationCode: createForm.invitationCode.trim() || undefined,
+          isTestUser: createForm.isTestUser,
         },
         accessToken
       );
@@ -498,17 +502,24 @@ const AdminUserManagement: React.FC = () => {
                         </div>
                         <div className="text-xs text-gray-500">
                           <span className="text-gray-600 mr-1">邮箱</span>
-                          {user.email || "未设置邮箱"}
-                        </div>
-                        {user.isAdmin && (
-                          <div className="flex items-center mt-1">
-                            <Crown className="h-3 w-3 text-yellow-500 mr-1" />
-                            <span className="text-xs text-yellow-600">管理员</span>
-                          </div>
-                        )}
+                        {user.email || "未设置邮箱"}
                       </div>
+                      {user.isAdmin && (
+                        <div className="flex items-center mt-1">
+                          <Crown className="h-3 w-3 text-yellow-500 mr-1" />
+                          <span className="text-xs text-yellow-600">管理员</span>
+                        </div>
+                      )}
+                      {user.isTestUser && (
+                        <div className="flex items-center mt-1">
+                          <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[11px] font-semibold text-purple-700">
+                            测试用户
+                          </span>
+                        </div>
+                      )}
                     </div>
-                  </td>
+                  </div>
+                </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                     <div>
                       <span className="text-gray-600 mr-1">渠道</span>
@@ -740,6 +751,15 @@ const AdminUserManagement: React.FC = () => {
                   className="h-4 w-4 text-blue-600 border-gray-300 rounded mr-2"
                 />
                 授予管理员权限
+              </label>
+              <label className="inline-flex items-center text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={createForm.isTestUser}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, isTestUser: e.target.checked }))}
+                  className="h-4 w-4 text-blue-600 border-gray-300 rounded mr-2"
+                />
+                标记为测试用户（套餐充值无需支付）
               </label>
               {createError && <p className="text-sm text-red-600">{createError}</p>}
             </div>

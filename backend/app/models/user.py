@@ -33,6 +33,7 @@ class User(Base):
     avatar_url = Column(String(500), nullable=True)
     agent_id = Column(Integer, ForeignKey("agents.id"), nullable=True, index=True)  # 代理商归属
     invitation_code_id = Column(Integer, ForeignKey("invitation_codes.id"), nullable=True, index=True)  # 使用的邀请码
+    is_test_user = Column(Boolean, default=False)  # 测试用户标识
     
     # 手机验证相关字段
     phone_verification_code = Column(String(10), nullable=True)  # 6位验证码

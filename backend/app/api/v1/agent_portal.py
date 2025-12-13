@@ -12,6 +12,7 @@ from app.core.database import get_db
 from app.models.agent import Agent, AgentStatus, InvitationCode
 from app.models.user import User
 from app.models.payment import Order, OrderStatus
+from app.models.agent_commission import AgentCommission, AgentCommissionStatus
 from app.schemas.common import SuccessResponse
 
 router = APIRouter()
@@ -37,6 +38,8 @@ class AgentLedgerItem(BaseModel):
     amount: int  # cents
     commission: int  # cents
     rate: float
+    status: str
+    settledAt: Optional[str] = None
 
 
 class AgentLedgerResponse(BaseModel):
@@ -44,6 +47,8 @@ class AgentLedgerResponse(BaseModel):
     totalAmount: int
     totalCommission: int
     totalOrders: int
+    settledAmount: int
+    unsettledAmount: int
     page: int
     pageSize: int
     totalPages: int
@@ -75,6 +80,34 @@ def _compute_commission_cents(amount_cents: int) -> (int, float):
     # effective rate for display
     effective_rate = float((commission / amt).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
     return int(commission), effective_rate
+
+
+def _compute_commission_running_total(order_rows: list) -> dict:
+    """按代理累计充值计算佣金，前 30000 部分 20%，超过部分 25%"""
+    threshold_cents = Decimal("30000") * 100
+    cumulative = Decimal("0")
+    result = {}
+
+    def _order_key(order: Order):
+        return order.paid_at or order.created_at or datetime.utcnow()
+
+    for order, _user in sorted(order_rows, key=lambda row: _order_key(row[0])):
+        amount = Decimal(order.final_amount or 0)
+        if amount <= 0:
+            result[order.id] = {"commission": 0, "rate": 0.0}
+            continue
+
+        remaining_lower = max(threshold_cents - cumulative, Decimal("0"))
+        lower_part = min(amount, remaining_lower)
+        higher_part = max(amount - remaining_lower, Decimal("0"))
+        commission = lower_part * Decimal("0.20") + higher_part * Decimal("0.25")
+        commission = commission.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        eff_rate = float((commission / amount).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
+
+        result[order.id] = {"commission": int(commission), "rate": eff_rate}
+        cumulative += amount
+
+    return result
 
 
 @router.get("/me")
@@ -132,7 +165,7 @@ async def get_agent_ledger(
     start_dt = datetime.fromisoformat(startDate) if startDate else None
     end_dt = datetime.fromisoformat(endDate) if endDate else None
 
-    query = (
+    base_query = (
         db.query(Order, User)
         .join(User, User.id == Order.user_id)
         .filter(
@@ -141,28 +174,64 @@ async def get_agent_ledger(
         )
     )
     if start_dt:
-        query = query.filter(Order.paid_at >= start_dt)
+        base_query = base_query.filter(Order.paid_at >= start_dt)
     if end_dt:
-        query = query.filter(Order.paid_at <= end_dt)
+        base_query = base_query.filter(Order.paid_at <= end_dt)
 
-    total_orders = query.count()
+    all_rows = base_query.order_by(desc(Order.paid_at)).all()
+    total_orders = len(all_rows)
     total_pages = (total_orders + pageSize - 1) // pageSize
 
-    rows = (
-        query.order_by(desc(Order.paid_at))
-        .offset((page - 1) * pageSize)
-        .limit(pageSize)
-        .all()
-    )
+    computed_map = _compute_commission_running_total(all_rows)
+
+    # 全量订单对应的结算记录
+    order_ids = [o.id for o, _u in all_rows]
+    commission_map = {}
+    if order_ids:
+        records = (
+            db.query(AgentCommission)
+            .filter(AgentCommission.agent_id == agent.id, AgentCommission.order_id.in_(order_ids))
+            .all()
+        )
+        commission_map = {rec.order_id: rec for rec in records}
+
+    full_amount = 0
+    full_commission = 0
+    settled_total = 0
+    for order_obj, _ in all_rows:
+        amt = order_obj.final_amount or 0
+        computed = computed_map.get(order_obj.id, {"commission": 0, "rate": 0.0})
+        com_amount = int(computed["commission"])
+        record = commission_map.get(order_obj.id)
+        if record and record.status == AgentCommissionStatus.SETTLED and record.amount is not None:
+            com_amount = int(record.amount)
+            settled_total += int(record.amount)
+        full_amount += amt
+        full_commission += com_amount
+
+    unsettled_total = max(full_commission - settled_total, 0)
+
+    start_idx = (page - 1) * pageSize
+    end_idx = start_idx + pageSize
+    page_rows = all_rows[start_idx:end_idx]
 
     items: List[AgentLedgerItem] = []
-    total_amount = 0
-    total_commission = 0
-    for order, user in rows:
+    for order, user in page_rows:
         amount = order.final_amount or 0
-        commission, rate = _compute_commission_cents(amount)
-        total_amount += amount
-        total_commission += commission
+        record = commission_map.get(order.id)
+        computed = computed_map.get(order.id, {"commission": 0, "rate": 0.0})
+        commission = int(computed["commission"])
+        rate = float(computed["rate"])
+        status = AgentCommissionStatus.UNSETTLED
+        settled_at = None
+        if record:
+            status = record.status
+            settled_at = record.settled_at.isoformat() if record.settled_at else None
+            if record.amount is not None:
+                commission = int(record.amount)
+            if record.rate is not None:
+                rate = float(record.rate)
+
         items.append(
             AgentLedgerItem(
                 orderId=order.order_id,
@@ -172,17 +241,10 @@ async def get_agent_ledger(
                 amount=amount,
                 commission=commission,
                 rate=rate,
+                status=status,
+                settledAt=settled_at,
             )
         )
-
-    # recompute totals over full set for accuracy
-    full_amount = 0
-    full_commission = 0
-    for order_obj, _ in query.all():
-        amt = order_obj.final_amount or 0
-        com, _ = _compute_commission_cents(amt)
-        full_amount += amt
-        full_commission += com
 
     return SuccessResponse(
         data=AgentLedgerResponse(
@@ -190,6 +252,8 @@ async def get_agent_ledger(
             totalAmount=full_amount,
             totalCommission=full_commission,
             totalOrders=total_orders,
+            settledAmount=settled_total,
+            unsettledAmount=unsettled_total,
             page=page,
             pageSize=pageSize,
             totalPages=total_pages,

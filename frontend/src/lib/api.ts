@@ -554,6 +554,7 @@ export interface UserProfile {
   joinedAt?: string;
   lastLoginAt?: string;
   status?: string;
+  isTestUser?: boolean;
   agentId?: number | null;
   managedAgentId?: number | null;
   managedAgentLevel?: number | null;
@@ -1083,6 +1084,7 @@ export interface AdminUser {
   membershipType: string;
   status: string;
   isAdmin: boolean;
+  isTestUser: boolean;
   createdAt: string;
   lastLoginAt: string | null;
 }
@@ -1308,6 +1310,8 @@ export interface AgentLedgerItem {
   amount: number;
   commission: number;
   rate: number;
+   status: string;
+  settledAt?: string | null;
 }
 
 export interface AgentLedgerResponse {
@@ -1318,6 +1322,30 @@ export interface AgentLedgerResponse {
   page: number;
   pageSize: number;
   totalPages: number;
+  settledAmount?: number;
+  unsettledAmount?: number;
+}
+
+export interface AdminCommissionItem {
+  orderId: string;
+  amount: number;
+  commission: number;
+  rate: number;
+  status: string;
+  paidAt?: string | null;
+  settledAt?: string | null;
+  settledBy?: string | null;
+  userId?: string | null;
+  userPhone?: string | null;
+}
+
+export interface AdminCommissionList {
+  items: AdminCommissionItem[];
+  totalAmount: number;
+  totalCommission: number;
+  settledAmount: number;
+  unsettledAmount: number;
+  totalOrders: number;
 }
 
 export interface AdminInvitationCode {
@@ -1387,6 +1415,7 @@ export interface AdminCreateUserPayload {
   initialCredits?: number;
   isAdmin?: boolean;
   invitationCode?: string;
+  isTestUser?: boolean;
 }
 
 export const adminCreateUser = (
@@ -1403,6 +1432,7 @@ export const adminCreateUser = (
       initialCredits: payload.initialCredits ?? 0,
       isAdmin: Boolean(payload.isAdmin),
       invitationCode: payload.invitationCode,
+      isTestUser: Boolean(payload.isTestUser),
     },
     accessToken,
   );
@@ -1627,6 +1657,44 @@ export const agentGetLedger = (
   const query = params.toString();
   return getJson<AgentLedgerResponse>(`/agent/ledger${query ? `?${query}` : ""}`, accessToken);
 };
+
+export const adminGetAgentCommissions = (
+  agentId: number,
+  accessToken: string,
+  options?: { startDate?: string; endDate?: string; status?: string },
+) => {
+  const params = new URLSearchParams();
+  if (options?.startDate) params.append("startDate", options.startDate);
+  if (options?.endDate) params.append("endDate", options.endDate);
+  if (options?.status) params.append("status", options.status);
+  const query = params.toString();
+  return getJson<AdminCommissionList>(
+    `/admin/agents/${agentId}/commissions${query ? `?${query}` : ""}`,
+    accessToken,
+  );
+};
+
+export const adminSettleAgentCommissions = (
+  agentId: number,
+  payload: { startDate?: string; endDate?: string; orderIds?: number[]; note?: string },
+  accessToken: string,
+) => postJson<{ settledOrders: number; settledAmount: number }, typeof payload>(
+  `/admin/agents/${agentId}/commissions/settle`,
+  payload,
+  accessToken,
+);
+
+export const adminSettleAgentOrder = (
+  agentId: number,
+  orderId: string,
+  payload: { note?: string } = {},
+  accessToken: string,
+) =>
+  postJson<{ orderId: string; commission: number; settled: boolean }, typeof payload>(
+    `/admin/agents/${agentId}/commissions/${orderId}/settle`,
+    payload,
+    accessToken,
+  );
 
 export const adminGetInvitationCodes = (
   accessToken: string,
