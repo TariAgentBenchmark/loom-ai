@@ -47,6 +47,7 @@ import {
   sendPasswordResetCode,
   resetPasswordByPhone,
   ResetPasswordByPhonePayload,
+  agentGetManagedAgent,
 } from '../lib/api';
 import {
   clearAuthTokens,
@@ -54,6 +55,7 @@ import {
   setInitialAuthTokens,
   unregisterTokenUpdateHandler,
 } from '../lib/tokenManager';
+import { AlertTriangle } from 'lucide-react';
 
 type PageState = 'home' | ProcessingMethod;
 
@@ -164,6 +166,7 @@ export default function Home() {
   const [activeTasks, setActiveTasks] = useState<PersistedProcessingTaskMap>({});
   const [isCreatingTask, setIsCreatingTask] = useState(false);
   const [batchMode, setBatchMode] = useState(false);
+  const [showAgentAlertModal, setShowAgentAlertModal] = useState(false);
 
   const methodUiStateRef = useRef<MethodUiStateMap>({});
   const pollingRefs = useRef<Record<string, ReturnType<typeof setInterval>>>({});
@@ -1000,8 +1003,19 @@ export default function Home() {
           }}
           onOpenPricingModal={() => setShowPricingModal(true)}
           onOpenCreditHistory={() => setShowCreditHistoryModal(true)}
-          onOpenAgentManager={() => {
-            router.push("/agent");
+          onOpenAgentManager={async () => {
+            if (!accessToken) {
+              setShowLoginModal(true);
+              return;
+            }
+
+            try {
+              await agentGetManagedAgent(accessToken);
+              router.push("/agent");
+            } catch (error) {
+              console.error("代理管理入口检查失败：", error);
+              setShowAgentAlertModal(true);
+            }
           }}
           onLogout={() => {
             clearAllPolling();
@@ -1106,6 +1120,27 @@ export default function Home() {
           setAuthError('');
         }}
       />
+
+      {/* Agent Alert Modal */}
+      {showAgentAlertModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg w-80 max-w-sm shadow-2xl p-6">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 mb-4">
+                <AlertTriangle className="h-6 w-6 text-yellow-600" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">提示</h3>
+              <p className="text-sm text-gray-500 mb-6">当前账号未绑定代理商，申请代理联系管理员</p>
+              <button
+                onClick={() => setShowAgentAlertModal(false)}
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+              >
+                确定
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
