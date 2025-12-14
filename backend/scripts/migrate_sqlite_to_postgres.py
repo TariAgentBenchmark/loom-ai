@@ -64,6 +64,12 @@ def copy_table_data(
     pg_engine: Engine,
     batch_size: int,
 ) -> None:
+    tables = list(Base.metadata.sorted_tables)
+    if not tables:
+        raise RuntimeError(
+            "No SQLAlchemy models registered. Ensure app.models is imported before running the migration."
+        )
+
     src_conn = sqlite_engine.connect()
     tgt_conn = pg_engine.connect()
 
@@ -71,7 +77,7 @@ def copy_table_data(
     tgt_conn.execute(text("SET session_replication_role = 'replica'"))
 
     try:
-        for table in Base.metadata.sorted_tables:
+        for table in tables:
             result = src_conn.execute(table.select())
             total = 0
             for rows in chunked(result, batch_size):
@@ -115,6 +121,14 @@ def reset_sequences(pg_engine: Engine) -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
+    # Ensure SQLAlchemy models are registered on Base.metadata
+    try:
+        import app.models  # noqa: F401
+    except Exception as exc:
+        raise RuntimeError(
+            "Failed to import app.models. Make sure the project root (backend/) is on PYTHONPATH."
+        ) from exc
+
     parser = argparse.ArgumentParser(
         description="Migrate data from SQLite to PostgreSQL."
     )
