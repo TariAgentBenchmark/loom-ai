@@ -30,7 +30,8 @@ def chunked(iterable: Iterable[Mapping], size: int) -> Iterable[List[Mapping]]:
     """Yield chunks from iterable."""
     chunk: List[Mapping] = []
     for item in iterable:
-        chunk.append(dict(item))
+        mapping = getattr(item, "_mapping", None)
+        chunk.append(dict(mapping if mapping is not None else item))
         if len(chunk) >= size:
             yield chunk
             chunk = []
