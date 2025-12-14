@@ -20,7 +20,7 @@ import argparse
 import sys
 from typing import Iterable, List, Mapping
 
-from sqlalchemy import Integer, create_engine, select, func, text
+from sqlalchemy import Integer, create_engine, select, func, text, inspect
 from sqlalchemy.engine import Engine
 
 from app.core.database import Base, settings
@@ -73,13 +73,25 @@ def copy_table_data(
 
     src_conn = sqlite_engine.connect()
     tgt_conn = pg_engine.connect()
+    inspector = inspect(sqlite_engine)
 
     trans = tgt_conn.begin()
     tgt_conn.execute(text("SET session_replication_role = 'replica'"))
 
     try:
         for table in tables:
-            result = src_conn.execute(table.select())
+            # Only copy columns that exist in the SQLite source to avoid missing-column errors.
+            src_columns = {col["name"] for col in inspector.get_columns(table.name)}
+            if not src_columns:
+                print(f"⚠️  Skipping {table.name}: table not found in SQLite source")
+                continue
+
+            columns_to_copy = [col for col in table.columns if col.name in src_columns]
+            if not columns_to_copy:
+                print(f"⚠️  Skipping {table.name}: no shared columns between SQLite and models")
+                continue
+
+            result = src_conn.execute(select(*columns_to_copy).select_from(table))
             total = 0
             for rows in chunked(result, batch_size):
                 tgt_conn.execute(table.insert(), rows)
