@@ -50,6 +50,8 @@ const AdminAgentInvitationManager: React.FC = () => {
   const [commissionLoading, setCommissionLoading] = useState(false);
   const [commissionError, setCommissionError] = useState<string | null>(null);
   const [settlingOrderId, setSettlingOrderId] = useState<string | null>(null);
+  const [commissionPage, setCommissionPage] = useState(1);
+  const COMMISSION_PAGE_SIZE = 10;
   const [agentForm, setAgentForm] = useState({
     name: "",
     userIdentifier: "",
@@ -84,6 +86,7 @@ const AdminAgentInvitationManager: React.FC = () => {
       setSelectedAgent(agent);
       setCommissionError(null);
       setCommissionLoading(true);
+      setCommissionPage(1);
       try {
         const res = await adminGetAgentCommissions(agent.id, accessToken);
         setCommissionItems(res.data.items || []);
@@ -99,6 +102,7 @@ const AdminAgentInvitationManager: React.FC = () => {
     async (agentId: number) => {
       if (!accessToken) return;
       setCommissionLoading(true);
+      setCommissionPage(1);
       try {
         const res = await adminGetAgentCommissions(agentId, accessToken);
         setCommissionItems(res.data.items || []);
@@ -603,7 +607,12 @@ const AdminAgentInvitationManager: React.FC = () => {
                     </tr>
                   )}
                   {!commissionLoading &&
-                    commissionItems.map((item) => (
+                    commissionItems
+                      .slice(
+                        (commissionPage - 1) * COMMISSION_PAGE_SIZE,
+                        commissionPage * COMMISSION_PAGE_SIZE,
+                      )
+                      .map((item) => (
                       <tr key={item.orderId}>
                         <td className="px-3 py-2 text-gray-900">{item.orderId}</td>
                         <td className="px-3 py-2 text-gray-700">
@@ -644,6 +653,41 @@ const AdminAgentInvitationManager: React.FC = () => {
                 </tbody>
               </table>
             </div>
+            {!commissionLoading && commissionItems.length > 0 && (
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-sm text-gray-600">
+                <span>
+                  共 {commissionItems.length} 条，当前第 {commissionPage} /
+                  {Math.max(1, Math.ceil(commissionItems.length / COMMISSION_PAGE_SIZE))} 页
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCommissionPage((prev) => Math.max(1, prev - 1))}
+                    className="rounded border border-gray-200 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    disabled={commissionPage === 1}
+                  >
+                    上一页
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCommissionPage((prev) =>
+                        Math.min(
+                          Math.max(1, Math.ceil(commissionItems.length / COMMISSION_PAGE_SIZE)),
+                          prev + 1,
+                        )
+                      )
+                    }
+                    className="rounded border border-gray-200 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    disabled={
+                      commissionPage >= Math.max(1, Math.ceil(commissionItems.length / COMMISSION_PAGE_SIZE))
+                    }
+                  >
+                    下一页
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
