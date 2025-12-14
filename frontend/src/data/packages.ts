@@ -93,7 +93,7 @@ const membershipBase: BasePackage[] = [
     gift_label: '到手11888分 送约100%',
     refund_policy: 'refundable',
     refund_deduction_rate: 0.2,
-    privileges: ['提取约0.18一张图', '畅享全站功能', '积分永不过期', '支持多台电脑登录同一账号', '提供开具增值税发票', '会员套餐可联系客服退款（赠送不退）'],
+    privileges: ['提取约0.18一张图', '畅享全站功能', '积分永不过期', '支持多台电脑登录同一账号', '会员套餐可联系客服退款（赠送不退）'],
     sort_order: 4,
   },
 ];
