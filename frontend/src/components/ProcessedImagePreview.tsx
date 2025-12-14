@@ -33,6 +33,15 @@ const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({
   const imageContainerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
 
+  // 锁定背景滚动，避免预览时页面跟随滚动
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
+
   // 处理键盘导航
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
