@@ -119,6 +119,8 @@ def reset_sequences(pg_engine: Engine) -> None:
                 continue
 
             max_id = conn.execute(select(func.max(pk_col))).scalar() or 0
+            # setval requires value >= 1; use 1 when table is empty.
+            setval_value = max_id if max_id > 0 else 1
             seq_sql = text(
                 "SELECT setval(pg_get_serial_sequence(:table_name, :pk), :value, true)"
             )
@@ -127,10 +129,10 @@ def reset_sequences(pg_engine: Engine) -> None:
                 {
                     "table_name": table.name,
                     "pk": pk_col.name,
-                    "value": max_id,
+                    "value": setval_value,
                 },
             )
-            print(f"🔄 Reset sequence for {table.name}.{pk_col.name} to {max_id}")
+            print(f"🔄 Reset sequence for {table.name}.{pk_col.name} to {setval_value}")
 
 
 def main(argv: list[str] | None = None) -> None:
