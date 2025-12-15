@@ -33,6 +33,7 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
   const [lastVerificationSentAt, setLastVerificationSentAt] = useState<number | null>(null);
   const [verificationCooldownSeconds, setVerificationCooldownSeconds] = useState(60);
   const [initialVerificationCountdown, setInitialVerificationCountdown] = useState(0);
+  const [showOptionalFields, setShowOptionalFields] = useState(false);
 
   if (!isOpen) {
     return null;
@@ -241,6 +242,9 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
             <input
               id="register-invite-code"
               type="text"
+              inputMode="text"
+              autoComplete="off"
+              spellCheck={false}
               value={invitationCode}
               onChange={(event) => {
                 setInvitationCode(event.target.value.toUpperCase());
@@ -311,34 +315,50 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
             />
           </div>
 
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700" htmlFor="register-nickname">
-              昵称
-            </label>
-            <input
-              id="register-nickname"
-              type="text"
-              value={nickname}
-              onChange={(event) => setNickname(event.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              placeholder="选填"
-              disabled={isSubmitting}
-            />
-          </div>
+          <div className="pt-2 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={() => setShowOptionalFields(!showOptionalFields)}
+              className="text-xs text-gray-600 hover:text-gray-900 flex items-center space-x-1"
+              aria-expanded={showOptionalFields}
+            >
+              <span>{showOptionalFields ? '收起选填信息' : '展开选填信息（选填）'}</span>
+              <span className={`transition-transform ${showOptionalFields ? 'rotate-180' : ''}`}>⌄</span>
+            </button>
 
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700" htmlFor="register-email">
-              邮箱
-            </label>
-            <input
-              id="register-email"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              placeholder="选填"
-              disabled={isSubmitting}
-            />
+            {showOptionalFields && (
+              <div className="mt-3 space-y-3">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700" htmlFor="register-nickname">
+                    昵称
+                  </label>
+                  <input
+                    id="register-nickname"
+                    type="text"
+                    value={nickname}
+                    onChange={(event) => setNickname(event.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    placeholder="选填"
+                    disabled={isSubmitting}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700" htmlFor="register-email">
+                    邮箱
+                  </label>
+                  <input
+                    id="register-email"
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    placeholder="选填"
+                    disabled={isSubmitting}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {(localError || errorMessage) && (
