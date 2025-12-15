@@ -181,6 +181,15 @@ const HomeView: React.FC<HomeViewProps> = ({
           </div>
 
           <div className="flex items-center space-x-2 md:space-x-4">
+            <a
+              href="https://jcnra80wsnt6.feishu.cn/wiki/Z3gyw5r6IiauObkUyo5cIaShniA?from=from_copylink"
+              target="_blank"
+              rel="noreferrer"
+              className="hidden sm:inline-flex flex-col justify-center text-center px-3 py-1.5 md:px-4 md:py-2 rounded-lg border border-blue-200 bg-white text-xs md:text-sm font-semibold text-blue-600 hover:bg-blue-50 shadow-sm transition"
+            >
+              <span>试用教程</span>
+              <span className="text-[11px] md:text-xs font-normal">(建议使用前阅读)</span>
+            </a>
             {isLoggedIn && (
               <button
                 onClick={onOpenPricingModal}
