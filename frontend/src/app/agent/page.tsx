@@ -173,7 +173,7 @@ const AgentPage: React.FC = () => {
                   </span>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3 text-sm text-gray-700 md:grid-cols-3">
+              <div className="grid grid-cols-2 gap-3 text-sm text-gray-700 md:grid-cols-4">
                 <div>
                   <div className="text-xs text-gray-500">绑定用户</div>
                   <div className="font-semibold text-gray-900">{agentInfo.ownerUserPhone || agentInfo.ownerUserId || "—"}</div>
@@ -187,6 +187,10 @@ const AgentPage: React.FC = () => {
                   <div className="font-semibold text-gray-900">
                     {agentInfo.createdAt?.slice(0, 16).replace("T", " ") || "—"}
                   </div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-500">邀请注册人数</div>
+                  <div className="font-semibold text-gray-900">{agentInfo.invitedCount ?? 0}</div>
                 </div>
               </div>
             </div>

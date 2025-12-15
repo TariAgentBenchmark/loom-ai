@@ -1289,6 +1289,7 @@ export interface ManagedAgentResponse {
   ownerUserPhone?: string | null;
   invitationCode?: string | null;
   createdAt?: string | null;
+  invitedCount?: number;
 }
 
 export interface AgentLedgerItem {

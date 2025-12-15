@@ -28,6 +28,7 @@ class ManagedAgentResponse(BaseModel):
     ownerUserPhone: Optional[str]
     invitationCode: Optional[str]
     createdAt: Optional[str]
+    invitedCount: int = 0
 
 
 class AgentLedgerItem(BaseModel):
@@ -132,6 +133,8 @@ async def get_my_agent(
         for code in codes:
             invitation_map.setdefault(code.agent_id, code.code)
 
+    invited_count = db.query(User).filter(User.agent_id == agent.id).count()
+
     return SuccessResponse(
         data=ManagedAgentResponse(
             id=agent.id,
@@ -143,6 +146,7 @@ async def get_my_agent(
             ownerUserPhone=current_user.phone,
             invitationCode=invitation_map.get(agent.id),
             createdAt=agent.created_at.isoformat() if agent.created_at else None,
+            invitedCount=invited_count,
         ).dict(),
         message="获取代理商信息成功",
     )
