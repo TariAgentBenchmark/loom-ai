@@ -7,9 +7,11 @@ import {
   adminUpdateUserStatus,
   adminGetUserTransactions,
   adminAdjustUserCredits,
+  adminGetUserTasks,
   type AdminUserDetail,
   type AdminCreditTransaction,
   type AdminCreditTransactionsResponse,
+  type AdminUserTask,
 } from "../lib/api";
 import { useAdminAccessToken } from "../contexts/AdminAuthContext";
 import {
@@ -28,6 +30,7 @@ import {
   UserCheck,
   UserX,
   History,
+  List,
 } from "lucide-react";
 import { formatDateTime } from "../lib/datetime";
 
@@ -41,7 +44,7 @@ const AdminUserDetail: React.FC = () => {
   const [transactions, setTransactions] = useState<AdminCreditTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "transactions" | "actions">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "transactions" | "history" | "actions">("overview");
   
   // Status update state
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
@@ -58,6 +61,9 @@ const AdminUserDetail: React.FC = () => {
     sendNotification: true,
   });
   const [showCreditModal, setShowCreditModal] = useState(false);
+  const [userTasks, setUserTasks] = useState<AdminUserTask[]>([]);
+  const [taskPage, setTaskPage] = useState(1);
+  const [taskTotalPages, setTaskTotalPages] = useState(1);
 
   const fetchUserDetail = useCallback(async () => {
     if (!accessToken || !userId) return;
@@ -87,10 +93,26 @@ const AdminUserDetail: React.FC = () => {
     }
   }, [accessToken, userId]);
 
+  const fetchUserTasks = useCallback(
+    async (page = 1) => {
+      if (!accessToken || !userId) return;
+      try {
+        const res = await adminGetUserTasks(userId, accessToken, { page, limit: 10 });
+        setUserTasks(res.data.tasks);
+        setTaskPage(res.data.pagination.page);
+        setTaskTotalPages(res.data.pagination.totalPages);
+      } catch (err) {
+        console.error("获取用户任务历史失败:", err);
+      }
+    },
+    [accessToken, userId],
+  );
+
   useEffect(() => {
     fetchUserDetail();
     fetchUserTransactions();
-  }, [fetchUserDetail, fetchUserTransactions]);
+    fetchUserTasks(1);
+  }, [fetchUserDetail, fetchUserTransactions, fetchUserTasks]);
 
   const handleUpdateStatus = useCallback(async () => {
     if (!accessToken || !userId || !newStatus || !statusReason) return;
@@ -259,6 +281,16 @@ const AdminUserDetail: React.FC = () => {
             交易记录
           </button>
           <button
+            onClick={() => setActiveTab("history")}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === "history"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            }`}
+          >
+            历史记录
+          </button>
+          <button
             onClick={() => setActiveTab("actions")}
             className={`py-2 px-1 border-b-2 font-medium text-sm ${
               activeTab === "actions"
@@ -370,6 +402,116 @@ const AdminUserDetail: React.FC = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "history" && (
+        <div className="bg-white shadow rounded-lg">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+            <div className="flex items-center gap-2 text-gray-700">
+              <History className="h-5 w-5 text-blue-500" />
+              <span className="font-medium text-sm">历史任务</span>
+            </div>
+            <button
+              onClick={() => fetchUserTasks(taskPage)}
+              className="inline-flex items-center gap-1 rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+            >
+              <List className="h-4 w-4" />
+              刷新
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    任务ID
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    类型
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    状态
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    积分
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    创建时间
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    完成时间
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {userTasks.map((task) => (
+                  <tr key={task.taskId}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{task.taskId}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{task.type}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <span
+                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          task.status === "completed"
+                            ? "bg-green-100 text-green-800"
+                            : task.status === "failed"
+                            ? "bg-red-100 text-red-800"
+                            : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        {task.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {Number.isFinite(task.creditsUsed) ? task.creditsUsed : 0}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {task.createdAt ? formatDateTime(task.createdAt) : "—"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {task.completedAt ? formatDateTime(task.completedAt) : "—"}
+                    </td>
+                  </tr>
+                ))}
+                {userTasks.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
+                      暂无历史任务
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 text-sm text-gray-600">
+            <span>
+              第 {taskPage} / {taskTotalPages} 页
+            </span>
+            <div className="space-x-2">
+              <button
+                onClick={() => taskPage > 1 && fetchUserTasks(taskPage - 1)}
+                disabled={taskPage <= 1}
+                className={`px-3 py-1 rounded border text-xs ${
+                  taskPage <= 1
+                    ? "border-gray-200 text-gray-400 cursor-not-allowed"
+                    : "border-gray-300 text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                上一页
+              </button>
+              <button
+                onClick={() => taskPage < taskTotalPages && fetchUserTasks(taskPage + 1)}
+                disabled={taskPage >= taskTotalPages}
+                className={`px-3 py-1 rounded border text-xs ${
+                  taskPage >= taskTotalPages
+                    ? "border-gray-200 text-gray-400 cursor-not-allowed"
+                    : "border-gray-300 text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                下一页
+              </button>
+            </div>
           </div>
         </div>
       )}

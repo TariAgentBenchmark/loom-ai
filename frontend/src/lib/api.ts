@@ -1104,6 +1104,27 @@ export interface AdminCreditTransaction {
   relatedOrderId: string | null;
 }
 
+export interface AdminUserTask {
+  taskId: string;
+  type: string;
+  status: string;
+  creditsUsed: number;
+  createdAt?: string | null;
+  completedAt?: string | null;
+  originalFilename?: string | null;
+  resultFilename?: string | null;
+}
+
+export interface AdminUserTaskListResponse {
+  tasks: AdminUserTask[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 export interface AdminCreditTransactionsResponse {
   transactions: AdminCreditTransaction[];
   pagination: {
@@ -1396,6 +1417,22 @@ export const adminGetUsers = (
 
 export const adminGetUserDetail = (userId: string, accessToken: string) =>
   getJson<AdminUserDetail>(`/admin/users/${userId}`, accessToken);
+
+export const adminGetUserTasks = (
+  userId: string,
+  accessToken: string,
+  options?: { page?: number; limit?: number; type?: string; status?: string },
+) => {
+  const params = new URLSearchParams();
+  if (options?.page) params.append("page", options.page.toString());
+  if (options?.limit) params.append("limit", options.limit.toString());
+  if (options?.type) params.append("type", options.type);
+  if (options?.status) params.append("status", options.status);
+
+  const query = params.toString();
+  const path = `/admin/users/${userId}/tasks${query ? `?${query}` : ""}`;
+  return getJson<AdminUserTaskListResponse>(path, accessToken);
+};
 
 export interface AdminCreateUserPayload {
   phone: string;

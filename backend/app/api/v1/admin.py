@@ -118,6 +118,22 @@ class AdminCreditTransactionResponse(BaseModel):
 
 class AdminCreditTransactionListResponse(BaseModel):
     transactions: List[AdminCreditTransactionResponse]
+
+
+class AdminUserTaskResponse(BaseModel):
+    taskId: str
+    type: str
+    status: str
+    creditsUsed: float
+    createdAt: Optional[str]
+    completedAt: Optional[str]
+    originalFilename: Optional[str]
+    resultFilename: Optional[str]
+
+
+class AdminUserTaskListResponse(BaseModel):
+    tasks: List[AdminUserTaskResponse]
+    pagination: PaginationMeta
     pagination: PaginationMeta
     summary: Dict[str, Any]
 
@@ -607,6 +623,65 @@ async def get_user_detail(
             message="获取用户详情成功"
         )
         
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/users/{user_id}/tasks", dependencies=[Depends(admin_route())])
+async def get_user_tasks(
+    user_id: str,
+    type: Optional[str] = Query(None, description="任务类型"),
+    status: Optional[str] = Query(None, description="任务状态"),
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    """获取指定用户的任务历史（管理员专用）"""
+    try:
+        user = db.query(User).filter(User.user_id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="用户不存在")
+
+        query = db.query(Task).filter(Task.user_id == user.id)
+        if type:
+            query = query.filter(Task.type == type)
+        if status:
+            query = query.filter(Task.status == status)
+
+        total = query.count()
+        tasks = (
+            query.order_by(desc(Task.created_at))
+            .offset((page - 1) * limit)
+            .limit(limit)
+            .all()
+        )
+
+        return SuccessResponse(
+            data=AdminUserTaskListResponse(
+                tasks=[
+                    AdminUserTaskResponse(
+                        taskId=task.task_id,
+                        type=task.type,
+                        status=task.status,
+                        creditsUsed=to_float(task.credits_used),
+                        createdAt=task.created_at.isoformat() if task.created_at else None,
+                        completedAt=task.completed_at.isoformat() if task.completed_at else None,
+                        originalFilename=task.original_filename,
+                        resultFilename=task.result_filename,
+                    )
+                    for task in tasks
+                ],
+                pagination=PaginationMeta(
+                    page=page,
+                    limit=limit,
+                    total=total,
+                    total_pages=(total + limit - 1) // limit,
+                ),
+            ).dict(),
+            message="获取用户任务历史成功",
+        )
     except HTTPException:
         raise
     except Exception as e:
