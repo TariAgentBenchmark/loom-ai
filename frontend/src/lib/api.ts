@@ -986,6 +986,7 @@ export interface HistoryTask {
 
 export interface HistoryResponse {
   tasks: HistoryTask[];
+  retentionDays?: number;
   statistics: {
     totalTasks: number;
     completedTasks: number;

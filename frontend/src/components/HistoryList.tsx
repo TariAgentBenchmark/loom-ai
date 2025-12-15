@@ -46,6 +46,7 @@ const HistoryList: React.FC<HistoryListProps> = ({
   const [selectAll, setSelectAll] = useState(false);
   const [showDownloadOptions, setShowDownloadOptions] = useState(false);
   const [selectedTaskForDownload, setSelectedTaskForDownload] = useState<HistoryTask | null>(null);
+  const [retentionDays, setRetentionDays] = useState<number | null>(null);
 
   const typeOptions = [
     { value: 'all', label: '全部类型' },
@@ -85,6 +86,7 @@ const HistoryList: React.FC<HistoryListProps> = ({
       const currentPage = pagination.page ?? pageNum;
 
       setTasks(response.data.tasks);
+      setRetentionDays(response.data.retentionDays ?? null);
       setPage(currentPage);
       setTotalPages(computedTotalPages);
       setTotalCount(total);
@@ -350,6 +352,13 @@ const HistoryList: React.FC<HistoryListProps> = ({
 
   return (
     <div className="h-full flex flex-col">
+      {retentionDays !== null && (
+        <div className="mb-2 flex items-center text-xs text-gray-500">
+          <Clock className="h-3.5 w-3.5 mr-1" />
+          <span>仅展示最近 {retentionDays} 天的历史记录</span>
+        </div>
+      )}
+
       {/* 批量操作栏 */}
       {showBatchSelection && (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">

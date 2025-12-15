@@ -208,6 +208,9 @@ class Settings(BaseSettings):
         "https://tuyun.website",
         "https://www.tuyun.website",
     ]
+    # 数据保留策略
+    history_retention_days: int = 5
+    oss_storage_retention_days: int = 15
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -2,7 +2,8 @@ from fastapi import FastAPI, Request, HTTPException, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse, Response
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
+import asyncio
 import logging
 import os
 import time
@@ -13,6 +14,7 @@ from app.core.database import init_db, close_db, check_db_health
 from app.core.redis_client import close_redis_client
 from app.api.v1 import auth, user, processing, credits, payment, history, admin, membership, batch_processing, agent_portal
 from app.services.api_limiter import api_limiter
+from app.services.retention_service import storage_cleanup_worker
 
 
 api_router = APIRouter()
@@ -62,11 +64,16 @@ async def lifespan(app: FastAPI):
     os.makedirs(settings.upload_path, exist_ok=True)
     os.makedirs(f"{settings.upload_path}/originals", exist_ok=True)
     os.makedirs(f"{settings.upload_path}/results", exist_ok=True)
+
+    cleanup_task = asyncio.create_task(storage_cleanup_worker())
     
     yield
     
     # 关闭时执行
     logger.info("Shutting down LoomAI Backend...")
+    cleanup_task.cancel()
+    with suppress(asyncio.CancelledError):
+        await cleanup_task
     close_db()
     try:
         await close_redis_client()

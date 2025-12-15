@@ -1,6 +1,6 @@
 import logging
 from typing import Optional
-from datetime import timezone, timedelta
+from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import os
 
@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.config import settings
 from app.models.user import User
 from app.models.task import Task, TaskStatus
 from app.api.dependencies import get_current_user
@@ -53,6 +54,9 @@ async def get_history_tasks(
     """获取处理历史"""
     try:
         query = db.query(Task).filter(Task.user_id == current_user.id)
+
+        cutoff = datetime.utcnow() - timedelta(days=settings.history_retention_days)
+        query = query.filter(Task.created_at >= cutoff)
         
         if type:
             query = query.filter(Task.type == type)
@@ -122,15 +126,15 @@ async def get_history_tasks(
             formatted_tasks.append(formatted_task)
         
         # 计算统计信息
-        total_tasks = db.query(Task).filter(Task.user_id == current_user.id).count()
-        completed_tasks = db.query(Task).filter(
+        stats_query = db.query(Task).filter(
             Task.user_id == current_user.id,
-            Task.status == "completed"
-        ).count()
-        failed_tasks = db.query(Task).filter(
-            Task.user_id == current_user.id,
-            Task.status == "failed"
-        ).count()
+            Task.created_at >= cutoff
+        )
+        completed_query = stats_query.filter(Task.status == TaskStatus.COMPLETED.value)
+        failed_query = stats_query.filter(Task.status == TaskStatus.FAILED.value)
+        total_tasks = stats_query.count()
+        completed_tasks = completed_query.count()
+        failed_tasks = failed_query.count()
         
         processing_times = [task.processing_time for task in tasks if task.processing_time]
         total_credits_used = sum(
@@ -142,6 +146,7 @@ async def get_history_tasks(
         return SuccessResponse(
             data={
                 "tasks": formatted_tasks,
+                "retentionDays": settings.history_retention_days,
                 "statistics": {
                     "totalTasks": total_tasks,
                     "completedTasks": completed_tasks,
