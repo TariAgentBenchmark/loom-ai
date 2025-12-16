@@ -100,6 +100,19 @@ const membershipBase: BasePackage[] = [
 
 const discountBase: BasePackage[] = [
   {
+    package_id: 'discount_28',
+    name: '试用 套餐',
+    category: 'discount',
+    price_yuan: 28,
+    bonus_credits: 2,
+    total_credits: 30,
+    gift_label: '到手30分 送约7%',
+    refund_policy: 'non_refundable',
+    refund_deduction_rate: 0,
+    privileges: ['积分永不过期', '优惠套餐不可退款'],
+    sort_order: 5,
+  },
+  {
     package_id: 'discount_66',
     name: '试用 套餐',
     category: 'discount',
@@ -110,7 +123,7 @@ const discountBase: BasePackage[] = [
     refund_policy: 'non_refundable',
     refund_deduction_rate: 0,
     privileges: ['提取约0.38一张图', '积分永不过期', '优惠套餐不可退款'],
-    sort_order: 5,
+    sort_order: 6,
   },
 ];
 

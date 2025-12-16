@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Update membership_packages to new pricing set (sync with frontend).
-- Upsert new package IDs (discount_66, membership_168/688/1888/5888)
+- Upsert new package IDs (discount_28/discount_66, membership_168/688/1888/5888)
 - Deactivate old packages not in the new list
 """
 from __future__ import annotations
@@ -13,21 +13,6 @@ from app.core.config import settings
 from app.models.membership_package import MembershipPackage, PackageCategory, RefundPolicy
 
 NEW_PACKAGES = [
-    {
-        "package_id": "discount_66",
-        "name": "66元试用套餐",
-        "category": PackageCategory.DISCOUNT.value,
-        "description": "积分灵活使用",
-        "price_yuan": 66,
-        "bonus_credits": 6,
-        "total_credits": 72,
-        "refund_policy": RefundPolicy.NON_REFUNDABLE.value,
-        "refund_deduction_rate": 0.0,
-        "privileges": ["提取约0.38一张图", "积分永不过期", "优惠套餐不可退款"],
-        "popular": False,
-        "recommended": False,
-        "sort_order": 1,
-    },
     {
         "package_id": "membership_168",
         "name": "优惠 套餐",
@@ -47,7 +32,7 @@ NEW_PACKAGES = [
         ],
         "popular": False,
         "recommended": False,
-        "sort_order": 2,
+        "sort_order": 1,
     },
     {
         "package_id": "membership_688",
@@ -68,7 +53,7 @@ NEW_PACKAGES = [
         ],
         "popular": False,
         "recommended": False,
-        "sort_order": 3,
+        "sort_order": 2,
     },
     {
         "package_id": "membership_1888",
@@ -89,7 +74,7 @@ NEW_PACKAGES = [
         ],
         "popular": True,
         "recommended": True,
-        "sort_order": 4,
+        "sort_order": 3,
     },
     {
         "package_id": "membership_5888",
@@ -111,7 +96,37 @@ NEW_PACKAGES = [
         ],
         "popular": False,
         "recommended": False,
+        "sort_order": 4,
+    },
+    {
+        "package_id": "discount_28",
+        "name": "28元试用套餐",
+        "category": PackageCategory.DISCOUNT.value,
+        "description": "积分灵活使用",
+        "price_yuan": 28,
+        "bonus_credits": 2,
+        "total_credits": 30,
+        "refund_policy": RefundPolicy.NON_REFUNDABLE.value,
+        "refund_deduction_rate": 0.0,
+        "privileges": ["积分永不过期", "优惠套餐不可退款"],
+        "popular": False,
+        "recommended": False,
         "sort_order": 5,
+    },
+    {
+        "package_id": "discount_66",
+        "name": "66元试用套餐",
+        "category": PackageCategory.DISCOUNT.value,
+        "description": "积分灵活使用",
+        "price_yuan": 66,
+        "bonus_credits": 6,
+        "total_credits": 72,
+        "refund_policy": RefundPolicy.NON_REFUNDABLE.value,
+        "refund_deduction_rate": 0.0,
+        "privileges": ["提取约0.38一张图", "积分永不过期", "优惠套餐不可退款"],
+        "popular": False,
+        "recommended": False,
+        "sort_order": 6,
     },
 ]
 

@@ -95,6 +95,19 @@ MEMBERSHIP_PACKAGES = [
 # 积分套餐配置
 DISCOUNT_PACKAGES = [
     {
+        "package_id": "discount_28",
+        "name": "28元试用套餐",
+        "category": PackageCategory.DISCOUNT.value,
+        "description": "积分灵活使用",
+        "price_yuan": 28,
+        "bonus_credits": 2,
+        "total_credits": 30,
+        "refund_policy": RefundPolicy.NON_REFUNDABLE.value,
+        "refund_deduction_rate": 0.0,
+        "privileges": ["积分永不过期", "优惠套餐不可退款"],
+        "sort_order": 5,
+    },
+    {
         "package_id": "discount_66",
         "name": "66元试用套餐",
         "category": PackageCategory.DISCOUNT.value,
@@ -105,7 +118,7 @@ DISCOUNT_PACKAGES = [
         "refund_policy": RefundPolicy.NON_REFUNDABLE.value,
         "refund_deduction_rate": 0.0,
         "privileges": ["提取约0.38一张图", "积分永不过期", "优惠套餐不可退款"],
-        "sort_order": 5,
+        "sort_order": 6,
     },
 ]
 
