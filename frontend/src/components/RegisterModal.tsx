@@ -255,6 +255,7 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
               disabled={isSubmitting}
               required
             />
+            <p className="text-xs text-gray-500">没有可填写MDXR</p>
           </div>
 
           <div className="space-y-2">
