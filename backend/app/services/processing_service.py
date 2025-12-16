@@ -39,6 +39,7 @@ class ProcessingService:
             TaskType.UPSCALE.value: "upscale",
             TaskType.EXPAND.value: "expand_image",
             TaskType.SEAMLESS_LOOP.value: "seamless_loop",
+            TaskType.SIMILAR_IMAGE.value: "similar_image",
         }
 
         # 预计处理时间（秒）
@@ -54,11 +55,13 @@ class ProcessingService:
             TaskType.UPSCALE.value: 180,  # 高清放大
             TaskType.EXPAND.value: 180,
             TaskType.SEAMLESS_LOOP.value: 210,
+            TaskType.SIMILAR_IMAGE.value: 180,
         }
 
         # 服务成本兜底配置，避免未初始化价格时阻塞功能
         self.default_service_costs = {
             TaskType.FLAT_TO_3D.value: to_decimal(1.5),
+            TaskType.SIMILAR_IMAGE.value: to_decimal(1.0),
         }
 
     def _resolve_service_key(self, task_type: str) -> str:
@@ -271,6 +274,11 @@ class ProcessingService:
                         image_bytes,
                         task_options,
                         task.original_filename,
+                    )
+                elif task.type == TaskType.SIMILAR_IMAGE.value:
+                    result_url = await ai_client.generate_similar_image(
+                        image_bytes,
+                        task_options,
                     )
                 else:
                     raise Exception(f"不支持的任务类型: {task.type}")

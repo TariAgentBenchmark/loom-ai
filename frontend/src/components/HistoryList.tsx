@@ -59,6 +59,7 @@ const HistoryList: React.FC<HistoryListProps> = ({
     { value: 'flat_to_3d', label: 'AI平面转3D' },
     { value: 'expand_image', label: 'AI扩图' },
     { value: 'seamless_loop', label: 'AI接循环' },
+    { value: 'similar_image', label: 'AI相似图' },
   ];
 
   const statusOptions = [

@@ -202,6 +202,13 @@ SERVICE_PRICES = [
         "price_credits": 0.9,
     },
     {
+        "service_id": "similar_image",
+        "service_name": "相似图",
+        "service_key": "similar_image",
+        "description": "AI相似图（RunningHub）",
+        "price_credits": 1.0,
+    },
+    {
         "service_id": "noise_removal",
         "service_name": "布纹降噪",
         "service_key": "noise_removal",

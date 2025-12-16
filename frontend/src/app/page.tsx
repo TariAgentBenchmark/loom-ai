@@ -161,7 +161,8 @@ export default function Home() {
   });
   const [expandPrompt, setExpandPrompt] = useState<string>('');
   const [seamDirection, setSeamDirection] = useState<number>(0);
-  const [seamFit, setSeamFit] = useState<number>(0.5);
+  const [seamFit, setSeamFit] = useState<number>(0.7);
+  const [similarDenoise, setSimilarDenoise] = useState<number>(0.7);
   const [historyRefreshToken, setHistoryRefreshToken] = useState(0);
   const [activeTasks, setActiveTasks] = useState<PersistedProcessingTaskMap>({});
   const [isCreatingTask, setIsCreatingTask] = useState(false);
@@ -808,6 +809,12 @@ export default function Home() {
       payload.seamFit = Number(seamFit.toFixed(2));
     }
 
+    if (currentPage === 'similar_image') {
+      const clamped = Math.max(0, Math.min(1, similarDenoise));
+      payload.denoise = Number(clamped.toFixed(2));
+      setSimilarDenoise(clamped);
+    }
+
     setIsCreatingTask(true);
     createProcessingTask(payload)
       .then((response) => {
@@ -926,17 +933,19 @@ export default function Home() {
             expandRatio={expandRatio}
             onExpandRatioChange={setExpandRatio}
             expandEdges={expandEdges}
-          onExpandEdgeChange={handleExpandEdgeChange}
-          expandPrompt={expandPrompt}
-          onExpandPromptChange={setExpandPrompt}
-          seamDirection={seamDirection}
-          onSeamDirectionChange={setSeamDirection}
-          seamFit={seamFit}
-          onSeamFitChange={setSeamFit}
-          historyRefreshToken={historyRefreshToken}
-          batchMode={batchMode}
-          onBatchModeChange={setBatchMode}
-        />
+            onExpandEdgeChange={handleExpandEdgeChange}
+            expandPrompt={expandPrompt}
+            onExpandPromptChange={setExpandPrompt}
+            seamDirection={seamDirection}
+            onSeamDirectionChange={setSeamDirection}
+            seamFit={seamFit}
+            onSeamFitChange={setSeamFit}
+            denoise={similarDenoise}
+            onDenoiseChange={setSimilarDenoise}
+            historyRefreshToken={historyRefreshToken}
+            batchMode={batchMode}
+            onBatchModeChange={setBatchMode}
+          />
 
           {/* Batch Processing Overlay */}
           {batchMode && accessToken && (
@@ -989,7 +998,10 @@ export default function Home() {
             }
             if (method === 'seamless_loop') {
               setSeamDirection(0);
-              setSeamFit(0.5);
+              setSeamFit(0.7);
+            }
+            if (method === 'similar_image') {
+              setSimilarDenoise(0.7);
             }
           }}
           onSelectBatchMode={(method) => {

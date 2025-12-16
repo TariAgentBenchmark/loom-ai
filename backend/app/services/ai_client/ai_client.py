@@ -696,6 +696,45 @@ class AIClient:
             logger.error("RunningHub一致性去水印失败: %s", str(exc))
             raise Exception(f"智能去水印失败: {str(exc)}")
 
+    async def generate_similar_image(
+        self,
+        image_bytes: bytes,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """AI相似图（RunningHub相似图工作流）"""
+        try:
+            workflow_id = (settings.runninghub_workflow_id_similar_image or "").strip()
+            node_ids = settings.runninghub_consistent_similar_image_node_id
+            field_name = (settings.runninghub_consistent_similar_image_field_name or "").strip()
+
+            if not workflow_id:
+                raise Exception("未配置RunningHub相似图workflowId")
+            if not node_ids:
+                raise Exception("未配置RunningHub相似图nodeId")
+            if not field_name:
+                raise Exception("未配置RunningHub相似图fieldName")
+
+            rh_options = dict(options or {})
+            if not rh_options.get("original_filename"):
+                rh_options["original_filename"] = "similar_image.png"
+
+            result_urls = await self.runninghub_client.run_workflow_with_custom_nodes(
+                image_bytes=image_bytes,
+                workflow_id=workflow_id,
+                node_ids=node_ids,
+                field_name=field_name,
+                options=rh_options,
+            )
+
+            cleaned_urls = [url.strip() for url in result_urls if url and url.strip()]
+            if not cleaned_urls:
+                raise Exception("RunningHub相似图未返回结果图片")
+
+            return ",".join(cleaned_urls)
+        except Exception as exc:
+            logger.error("RunningHub相似图失败: %s", str(exc))
+            raise Exception(f"相似图生成失败: {str(exc)}")
+
     # AI高清放大相关方法
     async def upscale_image(
         self,

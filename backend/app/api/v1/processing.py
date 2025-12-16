@@ -419,6 +419,53 @@ async def enhance_embroidery(
         _handle_processing_error(e)
 
 
+@router.post("/similar-image")
+async def generate_similar_image(
+    image: UploadFile = File(...),
+    denoise: Optional[float] = Form(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """AI相似图（RunningHub工作流）"""
+    try:
+        image_bytes = await image.read()
+        file_size = len(image_bytes)
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.info(
+            "Uploaded file size for similar-image: %.2f MB, filename: %s",
+            file_size / 1024 / 1024,
+            image.filename,
+        )
+
+        options = {}
+        if denoise is not None:
+            options["denoise"] = denoise
+
+        task = await processing_service.create_task(
+            db=db,
+            user=current_user,
+            task_type="similar_image",
+            image_bytes=image_bytes,
+            original_filename=image.filename,
+            options=options,
+        )
+
+        return SuccessResponse(
+            data={
+                "taskId": task.task_id,
+                "status": task.status,
+                "estimatedTime": task.estimated_time,
+                "creditsUsed": _display_credits(task),
+                "createdAt": task.created_at,
+            },
+            message="相似图任务创建成功",
+        )
+    except Exception as e:
+        _handle_processing_error(e)
+
+
 @router.post("/flat-to-3d")
 async def convert_flat_to_3d(
     image: UploadFile = File(...),
@@ -598,7 +645,7 @@ async def expand_image(
 @router.post("/seamless-loop")
 async def seamless_loop(
     image: UploadFile = File(...),
-    fit: float = Form(0.5),
+    fit: float = Form(0.7),
     direction: int = Form(0),
     expand_top: float = Form(0.0),
     expand_bottom: float = Form(0.0),

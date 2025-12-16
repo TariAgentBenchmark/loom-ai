@@ -8,7 +8,8 @@ export type ProcessingMethod =
   | "noise_removal"
   | "upscale"
   | "expand_image"
-  | "seamless_loop";
+  | "seamless_loop"
+  | "similar_image";
 
 interface ProcessingMethodInfo {
   title: string;
@@ -146,6 +147,18 @@ export const processingMethodInfo: Record<
       "处理完成后可下载无缝图与网格效果图",
     ],
   },
+  similar_image: {
+    title: "AI相似图",
+    description:
+      "上传参考图，调用RunningHub工作流生成风格/构图相近的相似图，适合选款和灵感扩展。",
+    icon: "/optimized/AI智能去水印.webp",
+    examples: [
+      "上传清晰的参考图片，主体尽量完整",
+      "保持5MB以内便于快速处理",
+      "系统会调用相似图工作流生成候选结果",
+      "下载生成的相似图片",
+    ],
+  },
 };
 
 export const getProcessingMethodInfo = (method: ProcessingMethod) =>
@@ -158,6 +171,7 @@ export const AI_MODEL_METHODS: ProcessingMethod[] = [
   "flat_to_3d", // AI平面转3D - 使用即梦
   "extract_pattern", // AI提取花型 - 使用Gemini/GPT-4o
   "noise_removal", // AI布纹去噪 - 使用Gemini
+  "similar_image", // AI相似图 - RunningHub工作流
 ];
 
 // 检查方法是否使用AI模型

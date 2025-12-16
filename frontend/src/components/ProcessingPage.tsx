@@ -194,6 +194,8 @@ interface ProcessingPageProps {
   onSeamDirectionChange?: (value: number) => void;
   seamFit?: number;
   onSeamFitChange?: (value: number) => void;
+  denoise?: number;
+  onDenoiseChange?: (value: number) => void;
   historyRefreshToken?: number;
   // Batch mode props
   batchMode?: boolean;
@@ -238,8 +240,10 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   onExpandPromptChange,
   seamDirection = 0,
   onSeamDirectionChange,
-  seamFit = 0.5,
+  seamFit = 0.7,
   onSeamFitChange,
+  denoise = 0.7,
+  onDenoiseChange,
   historyRefreshToken = 0,
   batchMode,
   onBatchModeChange,
@@ -322,6 +326,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   const isSeamlessLoop = method === "seamless_loop";
   const isExpandImage = method === "expand_image";
   const seamFitValue = Math.max(0, Math.min(1, seamFit));
+  const denoiseValue = Math.max(0, Math.min(1, denoise));
   const uploadZoneClasses = `border-2 border-dashed rounded-lg md:rounded-xl p-4 md:p-8 text-center transition flex items-center justify-center ${isProcessing
     ? "cursor-not-allowed opacity-60 pointer-events-none"
     : "cursor-pointer"
@@ -900,6 +905,33 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
             </div>
           )}
 
+          {method === "similar_image" && (
+            <div className="mb-4 md:mb-6 space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm md:text-base font-semibold text-gray-900">
+                  接缝拟合度
+                </h4>
+                <span className="text-xs md:text-sm font-medium text-blue-600">
+                  {denoiseValue.toFixed(2)}
+                </span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={denoiseValue}
+                onChange={(event) =>
+                  onDenoiseChange?.(parseFloat(event.target.value))
+                }
+                className="w-full accent-blue-500"
+              />
+              <p className="text-xs text-gray-500">
+                调高可强化过渡与融合，调低保留细节，默认 0.50。
+              </p>
+            </div>
+          )}
+
           {method === "extract_pattern" && (
             <div className="mb-4 md:mb-6">
               <div className="flex items-center justify-between mb-2">
@@ -1008,15 +1040,6 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
               </div>
             </div>
           )}
-
-          <div className="mb-4 md:mb-6">
-            <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2 md:mb-3">
-              使用提示
-            </h4>
-            <p className="text-xs md:text-sm text-gray-600 mb-3 md:mb-4">
-              {info.description}
-            </p>
-          </div>
 
           <div>
             <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2 md:mb-3">

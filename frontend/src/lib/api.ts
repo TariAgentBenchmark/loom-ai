@@ -450,6 +450,7 @@ const processingPathMap: Record<ProcessingMethod, string> = {
   upscale: "/processing/upscale",
   expand_image: "/processing/expand-image",
   seamless_loop: "/processing/seamless-loop",
+  similar_image: "/processing/similar-image",
 };
 
 export interface ApiSuccessResponse<T> {
@@ -735,6 +736,7 @@ export interface ProcessingRequestPayload {
   expandPrompt?: string;
   seamDirection?: number;
   seamFit?: number;
+  denoise?: number;
 }
 
 export const createProcessingTask = (payload: ProcessingRequestPayload) => {
@@ -755,6 +757,7 @@ export const createProcessingTask = (payload: ProcessingRequestPayload) => {
     expandPrompt,
     seamDirection,
     seamFit,
+    denoise,
   } = payload;
 
   const formData = new FormData();
@@ -799,6 +802,11 @@ export const createProcessingTask = (payload: ProcessingRequestPayload) => {
 
     formData.append("direction", safeDirection.toString());
     formData.append("fit", safeFit.toString());
+  }
+
+  if (method === "similar_image" && typeof denoise === "number") {
+    const safeDenoise = Math.max(0, Math.min(1, denoise));
+    formData.append("denoise", safeDenoise.toString());
   }
 
   const path = processingPathMap[method];

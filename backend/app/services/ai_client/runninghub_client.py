@@ -116,6 +116,17 @@ class RunningHubClient:
             for node_id in resolved_node_ids
         ]
 
+        # 可选：为特定节点追加额外字段（例如 denoise 调节）
+        denoise_value = (options or {}).get("denoise")
+        if denoise_value is not None:
+            node_info_list.append(
+                {
+                    "nodeId": str((options or {}).get("denoise_node_id") or 3),
+                    "fieldName": "denoise",
+                    "fieldValue": str(denoise_value),
+                }
+            )
+
         task_id = await self._submit_task(node_info_list, resolved_workflow_id)
         return await self._poll_task(task_id)
 

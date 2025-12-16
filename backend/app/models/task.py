@@ -18,6 +18,7 @@ class TaskType(PyEnum):
     UPSCALE = "upscale"  # AI高清
     EXPAND = "expand_image"  # AI扩图
     SEAMLESS_LOOP = "seamless_loop"  # AI接循环
+    SIMILAR_IMAGE = "similar_image"  # AI相似图
 
 
 class TaskStatus(PyEnum):
@@ -100,6 +101,7 @@ class Task(Base):
             TaskType.UPSCALE.value: "AI高清",
             TaskType.EXPAND.value: "AI扩图",
             TaskType.SEAMLESS_LOOP.value: "AI接循环",
+            TaskType.SIMILAR_IMAGE.value: "AI相似图",
         }
         return type_names.get(self.type, self.type)
 
