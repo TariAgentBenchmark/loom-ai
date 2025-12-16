@@ -119,12 +119,15 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
+          load: false
           push: ${{ needs.determine-tags.outputs.push-images == 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
           platforms: linux/amd64
+          provenance: false
+          sbom: false
 
 
   # 构建后端镜像
@@ -167,12 +170,15 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./backend
+          load: false
           push: ${{ needs.determine-tags.outputs.push-images == 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
           platforms: linux/amd64
+          provenance: false
+          sbom: false
 
 
   # 汇总构建结果
