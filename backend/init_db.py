@@ -140,32 +140,40 @@ def create_membership_data():
     db = SessionLocal()
 
     try:
-        has_packages = db.query(MembershipPackage).first()
-        has_services = db.query(ServicePrice).first()
-        has_bonus = db.query(NewUserBonus).first()
-
-        if has_packages and has_services and has_bonus:
-            logger.info("会员套餐/服务价格数据已存在，跳过创建")
-            return
-
         # 使用服务初始化，保持与线上逻辑一致
         service = MembershipService()
         asyncio.run(service.initialize_packages(db))
 
-        # double-check: 如果服务未插入（例如表为空但async逻辑跳过），则手动填充
-        if not db.query(MembershipPackage).first():
-            for package in get_all_packages():
+        existing_packages = {
+            row.package_id: row for row in db.query(MembershipPackage).all()
+        }
+        added_packages = 0
+        for package in get_all_packages():
+            if package["package_id"] not in existing_packages:
                 db.add(MembershipPackage(**package))
+                added_packages += 1
 
-        if not db.query(ServicePrice).first():
-            for service_data in get_service_prices():
+        existing_service_keys = {
+            row.service_key: row for row in db.query(ServicePrice).all()
+        }
+        added_services = 0
+        for service_data in get_service_prices():
+            if service_data["service_key"] not in existing_service_keys:
                 db.add(ServicePrice(**service_data))
+                added_services += 1
 
         if not db.query(NewUserBonus).first():
             db.add(NewUserBonus(**get_new_user_bonus()))
 
-        db.commit()
-        logger.info("✅ 会员套餐与服务价格数据创建成功")
+        if added_packages or added_services:
+            db.commit()
+            logger.info(
+                "✅ 会员套餐/服务价格数据补齐完成 (套餐新增 %s, 服务新增 %s)",
+                added_packages,
+                added_services,
+            )
+        else:
+            logger.info("会员套餐/服务价格数据已存在，跳过创建")
 
     except Exception as e:
         logger.error(f"❌ 创建会员套餐/服务价格数据失败: {e}")
