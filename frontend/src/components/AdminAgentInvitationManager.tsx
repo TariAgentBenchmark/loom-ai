@@ -601,7 +601,7 @@ const AdminAgentInvitationManager: React.FC = () => {
                           className="text-blue-600 hover:text-blue-800"
                           disabled={
                             !agent.referralLinkToken ||
-                            (agent.referralLinkStatus && agent.referralLinkStatus !== "active")
+                            (agent.referralLinkStatus ? agent.referralLinkStatus !== "active" : false)
                           }
                         >
                           {copiedAgentId === agent.id ? "已复制" : "复制链接"}
