@@ -12,6 +12,7 @@ import {
 import { useAdminAccessToken } from "../contexts/AdminAuthContext";
 import {
   Filter,
+  Search,
   ChevronLeft,
   ChevronRight,
   Eye,
@@ -25,6 +26,7 @@ import { formatDateTime } from "../lib/datetime";
 interface FilterOptions {
   status_filter: string;
   email_filter: string;
+  keyword: string;
   sort_by: string;
   sort_order: string;
 }
@@ -50,6 +52,7 @@ interface CreditAdjustmentFormState {
 const defaultFilters: FilterOptions = {
   status_filter: "",
   email_filter: "",
+  keyword: "",
   sort_by: "created_at",
   sort_order: "desc",
 };
@@ -353,23 +356,57 @@ const AdminUserManagement: React.FC = () => {
       {/* Filters */}
       <div className="bg-white shadow rounded-lg mb-6">
         <div className="px-4 py-5 sm:p-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-900">用户管理</h3>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={openCreateModal}
-                className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 shadow-sm"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                新增用户
-              </button>
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-              >
-                <Filter className="h-4 w-4 mr-2" />
-                筛选
-              </button>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">用户管理</h3>
+              <p className="mt-1 text-sm text-gray-500">按手机号、邮箱或用户ID快速定位账号</p>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full lg:w-auto">
+              <div className="flex w-full sm:w-80 items-center rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 shadow-sm focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
+                <Search className="h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={filters.keyword}
+                  onChange={(e) => handleFilterChange("keyword", e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      applyFilters();
+                    }
+                  }}
+                  placeholder="手机号/邮箱/用户ID 搜索"
+                  className="ml-2 w-full border-0 bg-transparent text-sm text-gray-900 placeholder-gray-400 focus:outline-none"
+                />
+                {filters.keyword && (
+                  <button
+                    onClick={() => handleFilterChange("keyword", "")}
+                    className="text-xs text-gray-500 hover:text-gray-700 px-1"
+                  >
+                    清空
+                  </button>
+                )}
+                <button
+                  onClick={applyFilters}
+                  className="ml-3 inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                >
+                  搜索
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={openCreateModal}
+                  className="inline-flex items-center px-3.5 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 shadow-sm"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  新增用户
+                </button>
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="flex items-center px-3.5 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  <Filter className="h-4 w-4 mr-2" />
+                  筛选
+                </button>
+              </div>
             </div>
           </div>
 

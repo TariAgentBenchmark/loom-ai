@@ -537,6 +537,7 @@ async def get_all_users(
     status_filter: Optional[str] = Query(None, description="Filter by user status"),
     membership_filter: Optional[str] = Query(None, description="Filter by membership type"),
     email_filter: Optional[str] = Query(None, description="Filter by email (contains)"),
+    keyword: Optional[str] = Query(None, description="Search by phone/email/nickname/user_id"),
     sort_by: Optional[str] = Query("created_at", description="Sort field"),
     sort_order: Optional[str] = Query("desc", description="Sort order: asc or desc"),
     db: Session = Depends(get_db),
@@ -563,6 +564,17 @@ async def get_all_users(
         
         if email_filter:
             query = query.filter(User.email.ilike(f"%{email_filter}%"))
+
+        if keyword:
+            pattern = f"%{keyword}%"
+            query = query.filter(
+                or_(
+                    User.phone.ilike(pattern),
+                    User.email.ilike(pattern),
+                    User.nickname.ilike(pattern),
+                    User.user_id.ilike(pattern),
+                )
+            )
         
         # 应用排序
         if hasattr(User, sort_by):

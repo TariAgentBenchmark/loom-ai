@@ -1421,6 +1421,7 @@ export const adminGetUsers = (
     status_filter?: string;
     membership_filter?: string;
     email_filter?: string;
+    keyword?: string;
     sort_by?: string;
     sort_order?: string;
   },
@@ -1435,6 +1436,7 @@ export const adminGetUsers = (
     params.append("membership_filter", options.membership_filter);
   if (options?.email_filter)
     params.append("email_filter", options.email_filter);
+  if (options?.keyword) params.append("keyword", options.keyword);
   if (options?.sort_by) params.append("sort_by", options.sort_by);
   if (options?.sort_order) params.append("sort_order", options.sort_order);
 
