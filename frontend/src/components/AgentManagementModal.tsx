@@ -20,6 +20,7 @@ type AsyncState =
 const AgentManagementModal: React.FC<AgentManagementModalProps> = ({ open, accessToken, onClose }) => {
   const [agentInfo, setAgentInfo] = useState<ManagedAgentResponse | null>(null);
   const [state, setState] = useState<AsyncState>({ status: "idle" });
+  const [copied, setCopied] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!open || !accessToken) return;
@@ -39,6 +40,31 @@ const AgentManagementModal: React.FC<AgentManagementModalProps> = ({ open, acces
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const buildReferralUrl = (token?: string | null) => {
+    if (!token) return "";
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    return origin ? `${origin}/?ref=${token}` : "";
+  };
+
+  const handleCopyReferralLink = async () => {
+    if (agentInfo?.referralLinkStatus && agentInfo.referralLinkStatus !== "active") {
+      setState({ status: "error", message: "注册链接已停用，无法复制" });
+      return;
+    }
+    const url = buildReferralUrl(agentInfo?.referralLinkToken);
+    if (!url) {
+      setState({ status: "error", message: "暂无可复制的注册链接" });
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (err) {
+      setState({ status: "error", message: "复制失败，请手动复制" });
+    }
+  };
 
   if (!open) {
     return null;
@@ -94,6 +120,20 @@ const AgentManagementModal: React.FC<AgentManagementModalProps> = ({ open, acces
                 </div>
                 <div className="text-sm text-gray-600">
                   邀请码：<span className="font-semibold text-gray-900">{agentInfo.invitationCode || "—"}</span>
+                </div>
+                <div className="mt-2 text-sm text-gray-600">
+                  注册链接：
+                  <button
+                    type="button"
+                    onClick={handleCopyReferralLink}
+                    className="ml-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    disabled={
+                      !agentInfo.referralLinkToken ||
+                      (agentInfo.referralLinkStatus && agentInfo.referralLinkStatus !== "active")
+                    }
+                  >
+                    {copied ? "已复制" : "复制链接"}
+                  </button>
                 </div>
               </div>
               <div className="space-y-1 text-sm text-gray-600">

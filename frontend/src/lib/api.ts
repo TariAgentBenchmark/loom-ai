@@ -482,7 +482,8 @@ export interface RegisterPayload {
   confirmPassword: string;
   nickname?: string;
   email?: string; // Now optional
-  invitationCode: string;
+  invitationCode?: string;
+  agentLinkToken?: string;
 }
 
 export interface SendVerificationCodePayload {
@@ -687,7 +688,8 @@ export const register = (payload: RegisterPayload) => {
       confirm_password: string;
       nickname?: string;
       email?: string;
-      invitation_code: string;
+      invitation_code?: string;
+      agent_link_token?: string;
     }
   >("/auth/register", {
     phone: payload.phone,
@@ -696,6 +698,7 @@ export const register = (payload: RegisterPayload) => {
     nickname: payload.nickname,
     email: payload.email,
     invitation_code: payload.invitationCode,
+    agent_link_token: payload.agentLinkToken,
   });
 };
 
@@ -1277,12 +1280,27 @@ export interface AdminAgent {
   createdAt: string;
   updatedAt?: string | null;
   invitationCode?: string | null;
+  referralLinkToken?: string | null;
+  referralLinkStatus?: string | null;
+  referralLinkUsageCount?: number | null;
+  referralLinkMaxUses?: number | null;
+  referralLinkExpiresAt?: string | null;
   invitationCount: number;
   userCount: number;
 }
 
 export interface AdminAgentsResponse {
   agents: AdminAgent[];
+}
+
+export interface AdminAgentReferralLink {
+  agentId: number;
+  token: string;
+  status: string;
+  usageCount: number;
+  maxUses?: number | null;
+  expiresAt?: string | null;
+  createdAt?: string | null;
 }
 
 export interface AdminUserLookupItem {
@@ -1317,6 +1335,8 @@ export interface ManagedAgentResponse {
   ownerUserId?: string | null;
   ownerUserPhone?: string | null;
   invitationCode?: string | null;
+  referralLinkToken?: string | null;
+  referralLinkStatus?: string | null;
   createdAt?: string | null;
   invitedCount?: number;
 }
@@ -1657,6 +1677,13 @@ export const adminUpdateAgent = (
 
 export const adminDeleteAgent = (agentId: number, accessToken: string) =>
   delJson<{ id: number; name: string; deleted: boolean }>(`/admin/agents/${agentId}`, accessToken);
+
+export const adminRotateAgentReferralLink = (agentId: number, accessToken: string) =>
+  postJson<AdminAgentReferralLink, Record<string, never>>(
+    `/admin/agents/${agentId}/referral-link/rotate`,
+    {},
+    accessToken,
+  );
 
 export const adminGetAgentUsers = (agentId: number, accessToken: string) =>
   getJson<{

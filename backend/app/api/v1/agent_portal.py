@@ -9,7 +9,13 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_active_user
 from app.core.database import get_db
-from app.models.agent import Agent, AgentStatus, InvitationCode
+from app.models.agent import (
+    Agent,
+    AgentStatus,
+    InvitationCode,
+    AgentReferralLink,
+    AgentCommissionMode,
+)
 from app.models.user import User
 from app.models.payment import Order, OrderStatus
 from app.models.agent_commission import AgentCommission, AgentCommissionStatus
@@ -27,6 +33,8 @@ class ManagedAgentResponse(BaseModel):
     ownerUserId: Optional[str]
     ownerUserPhone: Optional[str]
     invitationCode: Optional[str]
+    referralLinkToken: Optional[str]
+    referralLinkStatus: Optional[str]
     createdAt: Optional[str]
     invitedCount: int = 0
 
@@ -66,11 +74,16 @@ def _get_managed_agent(db: Session, current_user: User) -> Agent:
     return agent
 
 
-def _compute_commission_cents(amount_cents: int) -> (int, float):
-    """Calculate commission amount in cents based on tiered rule."""
+def _compute_commission_cents(amount_cents: int, fixed_rate: Optional[Decimal] = None) -> (int, float):
+    """Calculate commission amount in cents based on tiered or fixed rule."""
     amt = Decimal(amount_cents or 0)
     if amt <= 0:
         return 0, 0.0
+
+    if fixed_rate is not None:
+        commission = (amt * fixed_rate).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        effective_rate = float((commission / amt).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
+        return int(commission), effective_rate
 
     threshold_cents = Decimal("30000") * 100  # 3万
     lower_part = min(amt, threshold_cents)
@@ -83,15 +96,26 @@ def _compute_commission_cents(amount_cents: int) -> (int, float):
     return int(commission), effective_rate
 
 
-def _compute_commission_running_total(order_rows: list) -> dict:
+def _compute_commission_running_total(order_rows: list, fixed_rate: Optional[Decimal] = None) -> dict:
     """按代理累计充值计算佣金，前 30000 部分 20%，超过部分 25%"""
-    threshold_cents = Decimal("30000") * 100
-    cumulative = Decimal("0")
     result = {}
 
     def _order_key(order: Order):
         return order.paid_at or order.created_at or datetime.utcnow()
 
+    if fixed_rate is not None:
+        for order, _user in sorted(order_rows, key=lambda row: _order_key(row[0])):
+            amount = Decimal(order.final_amount or 0)
+            if amount <= 0:
+                result[order.id] = {"commission": 0, "rate": 0.0}
+                continue
+            commission = (amount * fixed_rate).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+            eff_rate = float((commission / amount).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
+            result[order.id] = {"commission": int(commission), "rate": eff_rate}
+        return result
+
+    threshold_cents = Decimal("30000") * 100
+    cumulative = Decimal("0")
     for order, _user in sorted(order_rows, key=lambda row: _order_key(row[0])):
         amount = Decimal(order.final_amount or 0)
         if amount <= 0:
@@ -109,6 +133,20 @@ def _compute_commission_running_total(order_rows: list) -> dict:
         cumulative += amount
 
     return result
+
+
+def _agent_fixed_rate(agent: Agent) -> Optional[Decimal]:
+    try:
+        mode = (
+            AgentCommissionMode(agent.commission_mode)
+            if isinstance(agent.commission_mode, str)
+            else agent.commission_mode
+        )
+    except Exception:
+        mode = None
+    if mode == AgentCommissionMode.FIXED_30:
+        return Decimal("0.30")
+    return None
 
 
 @router.get("/me")
@@ -133,6 +171,16 @@ async def get_my_agent(
         for code in codes:
             invitation_map.setdefault(code.agent_id, code.code)
 
+    referral_link = (
+        db.query(AgentReferralLink)
+        .filter(
+            AgentReferralLink.agent_id == agent.id,
+            AgentReferralLink.is_deleted.is_(False),
+        )
+        .order_by(desc(AgentReferralLink.created_at))
+        .first()
+    )
+
     invited_count = db.query(User).filter(User.agent_id == agent.id).count()
 
     return SuccessResponse(
@@ -145,6 +193,8 @@ async def get_my_agent(
             ownerUserId=current_user.user_id,
             ownerUserPhone=current_user.phone,
             invitationCode=invitation_map.get(agent.id),
+            referralLinkToken=referral_link.token if referral_link else None,
+            referralLinkStatus=referral_link.status.value if referral_link and referral_link.status else None,
             createdAt=agent.created_at.isoformat() if agent.created_at else None,
             invitedCount=invited_count,
         ).dict(),
@@ -186,7 +236,8 @@ async def get_agent_ledger(
     total_orders = len(all_rows)
     total_pages = (total_orders + pageSize - 1) // pageSize
 
-    computed_map = _compute_commission_running_total(all_rows)
+    fixed_rate = _agent_fixed_rate(agent)
+    computed_map = _compute_commission_running_total(all_rows, fixed_rate)
 
     # 全量订单对应的结算记录
     order_ids = [o.id for o, _u in all_rows]

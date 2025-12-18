@@ -33,6 +33,7 @@ class User(Base):
     avatar_url = Column(String(500), nullable=True)
     agent_id = Column(Integer, ForeignKey("agents.id"), nullable=True, index=True)  # 代理商归属
     invitation_code_id = Column(Integer, ForeignKey("invitation_codes.id"), nullable=True, index=True)  # 使用的邀请码
+    agent_referral_link_id = Column(Integer, ForeignKey("agent_referral_links.id"), nullable=True, index=True)  # 使用的代理注册链接
     is_test_user = Column(Boolean, default=False)  # 测试用户标识
     
     # 手机验证相关字段
@@ -85,6 +86,7 @@ class User(Base):
         foreign_keys=[agent_id],
     )
     invitation_code = relationship("InvitationCode", back_populates="users")
+    agent_referral_link = relationship("AgentReferralLink", back_populates="users")
     managed_agent = relationship(
         "Agent",
         back_populates="owner_user",

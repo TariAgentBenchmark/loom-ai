@@ -1,12 +1,13 @@
 import uuid
 import random
+import secrets
 import string
 from decimal import Decimal, ROUND_HALF_UP
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import and_, or_, func, desc
+from sqlalchemy import and_, or_, func, desc, text
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, EmailStr, condecimal
 from datetime import datetime, timedelta
@@ -18,7 +19,15 @@ from app.models.user import User, MembershipType, UserStatus
 from app.models.credit import CreditTransaction, CreditSource, TransactionType, CreditTransfer, CreditAlert
 from app.models.payment import Order, Refund, OrderStatus, PackageType, PaymentMethod, Package
 from app.models.task import Task
-from app.models.agent import Agent, InvitationCode, AgentStatus, InvitationCodeStatus
+from app.models.agent import (
+    Agent,
+    InvitationCode,
+    AgentReferralLink,
+    AgentStatus,
+    AgentCommissionMode,
+    InvitationCodeStatus,
+    AgentReferralLinkStatus,
+)
 from app.models.agent_commission import AgentCommission, AgentCommissionStatus
 from app.api.dependencies import get_current_active_admin
 from app.api.decorators import admin_required, admin_route
@@ -272,6 +281,12 @@ class AdminAgentResponse(BaseModel):
     createdAt: str
     updatedAt: Optional[str]
     invitationCode: Optional[str]
+    referralLinkToken: Optional[str] = None
+    referralLinkStatus: Optional[str] = None
+    referralLinkUsageCount: Optional[int] = None
+    referralLinkMaxUses: Optional[int] = None
+    referralLinkExpiresAt: Optional[str] = None
+    commissionMode: Optional[str] = None
     invitationCount: int
     userCount: int
 
@@ -286,12 +301,23 @@ class AdminCreateAgentRequest(BaseModel):
     contact: Optional[str] = Field(None, max_length=100, description="联系人/联系方式")
     notes: Optional[str] = Field(None, max_length=500, description="备注")
     status: Optional[str] = Field(AgentStatus.ACTIVE.value, description="代理商状态")
+    commissionMode: Optional[str] = Field(AgentCommissionMode.TIERED.value, description="佣金模式：tiered 或 fixed_30")
 
 
 class AdminDeleteAgentResponse(BaseModel):
     id: int
     name: str
     deleted: bool
+
+
+class AdminAgentReferralLinkResponse(BaseModel):
+    agentId: int
+    token: str
+    status: str
+    usageCount: int
+    maxUses: Optional[int]
+    expiresAt: Optional[str]
+    createdAt: Optional[str]
 
 
 class AdminSettleCommissionRequest(BaseModel):
@@ -328,6 +354,7 @@ class AdminUpdateAgentRequest(BaseModel):
     contact: Optional[str] = Field(None, max_length=100)
     notes: Optional[str] = Field(None, max_length=500)
     status: Optional[str] = Field(None, description="代理商状态")
+    commissionMode: Optional[str] = Field(None, description="佣金模式：tiered 或 fixed_30")
 
 
 class AdminInvitationCodeResponse(BaseModel):
@@ -388,11 +415,33 @@ def _generate_invitation_code() -> str:
     return "".join(random.choices(string.ascii_uppercase + string.digits, k=4))
 
 
-def _compute_commission_cents(amount_cents: int) -> (int, float):
-    """统一佣金计算：<= 30000 抽20%，超过部分抽25%"""
+def _generate_referral_token(length: int = 12) -> str:
+    alphabet = string.ascii_uppercase + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+def _create_referral_link(db: Session, agent_id: int) -> AgentReferralLink:
+    token = _generate_referral_token()
+    while db.query(AgentReferralLink).filter(AgentReferralLink.token == token).first():
+        token = _generate_referral_token()
+    link = AgentReferralLink(
+        token=token,
+        agent_id=agent_id,
+        status=AgentReferralLinkStatus.ACTIVE,
+    )
+    db.add(link)
+    return link
+
+
+def _compute_commission_cents(amount_cents: int, fixed_rate: Optional[Decimal] = None) -> (int, float):
+    """计算佣金，支持固定比例或阶梯比例。"""
     amt = Decimal(amount_cents or 0)
     if amt <= 0:
         return 0, 0.0
+    if fixed_rate is not None:
+        commission = (amt * fixed_rate).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        eff_rate = float((commission / amt).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
+        return int(commission), eff_rate
     threshold_cents = Decimal("30000") * 100
     lower = min(amt, threshold_cents)
     higher = max(amt - threshold_cents, 0)
@@ -402,19 +451,33 @@ def _compute_commission_cents(amount_cents: int) -> (int, float):
     return int(commission), eff_rate
 
 
-def _compute_commission_running_total(order_rows: List[tuple]) -> Dict[int, Dict[str, float]]:
+def _compute_commission_running_total(
+    order_rows: List[tuple],
+    fixed_rate: Optional[Decimal] = None,
+) -> Dict[int, Dict[str, float]]:
     """
     按代理累计充值计算佣金：前 30000 元按 20%，超过部分按 25%。
     返回 {order_id: {"commission": int, "rate": float}}，顺序根据支付时间。
     """
-    threshold_cents = Decimal("30000") * 100
-    cumulative = Decimal("0")
     result: Dict[int, Dict[str, float]] = {}
 
     def _order_key(order: Order):
         # 以 paid_at 优先，其次 created_at 兜底
         return order.paid_at or order.created_at or datetime.utcnow()
 
+    if fixed_rate is not None:
+        for order, _user in sorted(order_rows, key=lambda row: _order_key(row[0])):
+            amount = Decimal(order.final_amount or 0)
+            if amount <= 0:
+                result[order.id] = {"commission": 0, "rate": 0.0}
+                continue
+            commission = (amount * fixed_rate).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+            eff_rate = float((commission / amount).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
+            result[order.id] = {"commission": int(commission), "rate": eff_rate}
+        return result
+
+    threshold_cents = Decimal("30000") * 100
+    cumulative = Decimal("0")
     for order, _user in sorted(order_rows, key=lambda row: _order_key(row[0])):
         amount = Decimal(order.final_amount or 0)
         if amount <= 0:
@@ -432,6 +495,39 @@ def _compute_commission_running_total(order_rows: List[tuple]) -> Dict[int, Dict
         cumulative += amount
 
     return result
+
+
+def _agent_fixed_rate(agent: Agent) -> Optional[Decimal]:
+    try:
+        mode = AgentCommissionMode(agent.commission_mode) if isinstance(agent.commission_mode, str) else agent.commission_mode
+    except Exception:
+        mode = None
+    if mode == AgentCommissionMode.FIXED_30:
+        return Decimal("0.30")
+    return None
+
+
+def _normalize_agent_commission_mode_db(db: Session) -> None:
+    """Ensure stored commission_mode values match Enum casing."""
+    db.execute(
+        text(
+            """
+            UPDATE agents
+            SET commission_mode = UPPER(commission_mode)
+            WHERE commission_mode IN ('tiered','fixed_30')
+            """
+        )
+    )
+    db.execute(
+        text(
+            """
+            UPDATE agents
+            SET commission_mode = 'TIERED'
+            WHERE commission_mode IS NULL
+            """
+        )
+    )
+    db.commit()
 
 
 @router.get("/users", dependencies=[Depends(admin_route())])
@@ -1922,6 +2018,8 @@ async def list_agents(
 ):
     """代理商列表"""
     try:
+        _normalize_agent_commission_mode_db(db)
+
         query = db.query(Agent).filter(Agent.is_deleted.is_(False))
         if status:
             try:
@@ -1956,28 +2054,50 @@ async def list_agents(
             .group_by(User.agent_id)
             .all()
         }
-
-        response_items = [
-            AdminAgentResponse(
-                id=agent.id,
-                name=agent.name,
-                contact=agent.contact,
-                notes=agent.notes,
-                status=agent.status.value if agent.status else AgentStatus.ACTIVE.value,
-                level=agent.level or 1,
-                parentAgentId=agent.parent_agent_id,
-                ownerUserId=owner_map.get(agent.owner_user_id).user_id if agent.owner_user_id and agent.owner_user_id in owner_map else None,
-                ownerUserPhone=owner_map.get(agent.owner_user_id).phone if agent.owner_user_id and agent.owner_user_id in owner_map else None,
-                createdAt=agent.created_at.isoformat() if agent.created_at else "",
-                updatedAt=agent.updated_at.isoformat() if agent.updated_at else None,
-                invitationCode=(
-                    agent.invitation_codes[0].code if agent.invitation_codes else None
-                ),
-                invitationCount=invitation_counts.get(agent.id, 0),
-                userCount=user_counts.get(agent.id, 0),
+        agent_ids = [agent.id for agent in agents]
+        referral_link_map: Dict[int, AgentReferralLink] = {}
+        if agent_ids:
+            links = (
+                db.query(AgentReferralLink)
+                .filter(
+                    AgentReferralLink.agent_id.in_(agent_ids),
+                    AgentReferralLink.is_deleted.is_(False),
+                )
+                .order_by(desc(AgentReferralLink.created_at))
+                .all()
             )
-            for agent in agents
-        ]
+            for link in links:
+                referral_link_map.setdefault(link.agent_id, link)
+
+        response_items = []
+        for agent in agents:
+            link = referral_link_map.get(agent.id)
+            response_items.append(
+                AdminAgentResponse(
+                    id=agent.id,
+                    name=agent.name,
+                    contact=agent.contact,
+                    notes=agent.notes,
+                    status=agent.status.value if agent.status else AgentStatus.ACTIVE.value,
+                    level=agent.level or 1,
+                    parentAgentId=agent.parent_agent_id,
+                    ownerUserId=owner_map.get(agent.owner_user_id).user_id if agent.owner_user_id and agent.owner_user_id in owner_map else None,
+                    ownerUserPhone=owner_map.get(agent.owner_user_id).phone if agent.owner_user_id and agent.owner_user_id in owner_map else None,
+                    createdAt=agent.created_at.isoformat() if agent.created_at else "",
+                    updatedAt=agent.updated_at.isoformat() if agent.updated_at else None,
+                    invitationCode=(
+                        agent.invitation_codes[0].code if agent.invitation_codes else None
+                    ),
+                    referralLinkToken=link.token if link else None,
+                    referralLinkStatus=link.status.value if link and link.status else None,
+                    referralLinkUsageCount=link.usage_count if link else None,
+                    referralLinkMaxUses=link.max_uses if link else None,
+                    referralLinkExpiresAt=link.expires_at.isoformat() if link and link.expires_at else None,
+                    invitationCount=invitation_counts.get(agent.id, 0),
+                    userCount=user_counts.get(agent.id, 0),
+                    commissionMode=agent.commission_mode.value if agent.commission_mode else AgentCommissionMode.TIERED.value,
+                )
+            )
 
         await log_admin_action(
             db=db,
@@ -2037,6 +2157,11 @@ async def create_agent(
             raise HTTPException(status_code=400, detail="该用户已绑定其他代理商")
 
         status_value = AgentStatus(payload.status) if payload.status else AgentStatus.ACTIVE
+        commission_mode = (
+            AgentCommissionMode(payload.commissionMode.upper())
+            if payload.commissionMode
+            else AgentCommissionMode.TIERED
+        )
 
         agent = Agent(
             name=payload.name,
@@ -2044,6 +2169,7 @@ async def create_agent(
             contact=payload.contact,
             notes=payload.notes,
             status=status_value,
+            commission_mode=commission_mode,
         )
         db.add(agent)
         db.flush()
@@ -2056,9 +2182,13 @@ async def create_agent(
         )
         db.add(invite)
 
+        referral_link = _create_referral_link(db, agent.id)
+
         db.commit()
         db.refresh(agent)
         db.refresh(invite)
+        if referral_link:
+            db.refresh(referral_link)
 
         await log_admin_action(
             db=db,
@@ -2087,6 +2217,12 @@ async def create_agent(
                 createdAt=agent.created_at.isoformat() if agent.created_at else "",
                 updatedAt=agent.updated_at.isoformat() if agent.updated_at else None,
                 invitationCode=invite.code,
+                referralLinkToken=referral_link.token if referral_link else None,
+                referralLinkStatus=referral_link.status.value if referral_link and referral_link.status else None,
+                referralLinkUsageCount=referral_link.usage_count if referral_link else None,
+                referralLinkMaxUses=referral_link.max_uses if referral_link else None,
+                referralLinkExpiresAt=referral_link.expires_at.isoformat() if referral_link and referral_link.expires_at else None,
+                commissionMode=agent.commission_mode.value if agent.commission_mode else AgentCommissionMode.TIERED.value,
                 invitationCount=0,
                 userCount=0,
             ).dict(),
@@ -2095,6 +2231,11 @@ async def create_agent(
     except HTTPException:
         db.rollback()
         raise
+    except IntegrityError as e:
+        db.rollback()
+        if "agents_name" in str(e).lower() or "unique" in str(e).lower():
+            raise HTTPException(status_code=400, detail="代理商名称已存在")
+        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
@@ -2123,6 +2264,10 @@ async def delete_agent(
         for code in agent.invitation_codes:
             code.is_deleted = True
             code.status = InvitationCodeStatus.DISABLED
+        # 同时停用注册链接
+        for link in agent.referral_links:
+            link.is_deleted = True
+            link.status = AgentReferralLinkStatus.DISABLED
 
         db.commit()
 
@@ -2187,7 +2332,8 @@ async def settle_agent_commissions(
     if not rows:
         return SuccessResponse(data={"settled": 0, "totalOrders": 0}, message="无可结算订单")
 
-    commission_map = _compute_commission_running_total(rows)
+    fixed_rate = _agent_fixed_rate(agent)
+    commission_map = _compute_commission_running_total(rows, fixed_rate)
 
     # 已结算的订单
     existing_map = {
@@ -2302,7 +2448,8 @@ async def get_agent_commissions(
     total_commission = 0
     settled_amount = 0
 
-    computed_map = _compute_commission_running_total(order_rows)
+    fixed_rate = _agent_fixed_rate(agent)
+    computed_map = _compute_commission_running_total(order_rows, fixed_rate)
 
     for order, user in order_rows:
         record = commission_map.get(order.id)
@@ -2406,7 +2553,8 @@ async def settle_single_commission(
     if not order_rows:
         raise HTTPException(status_code=404, detail="订单不存在或未归属该代理")
 
-    commission_map = _compute_commission_running_total(order_rows)
+    fixed_rate = _agent_fixed_rate(agent)
+    commission_map = _compute_commission_running_total(order_rows, fixed_rate)
     order = (
         db.query(Order)
         .filter(Order.order_id == order_id, Order.status == OrderStatus.PAID.value)
@@ -2504,6 +2652,11 @@ async def update_agent(
                 agent.status = AgentStatus(payload.status)
             except ValueError:
                 raise HTTPException(status_code=400, detail="无效的代理商状态")
+        if payload.commissionMode:
+            try:
+                agent.commission_mode = AgentCommissionMode(payload.commissionMode.upper())
+            except ValueError:
+                raise HTTPException(status_code=400, detail="无效的佣金模式")
 
         db.commit()
         db.refresh(agent)
@@ -2533,6 +2686,12 @@ async def update_agent(
                 invitationCode=(
                     agent.invitation_codes[0].code if agent.invitation_codes else None
                 ),
+                referralLinkToken=agent.referral_links[0].token if agent.referral_links else None,
+                referralLinkStatus=agent.referral_links[0].status.value if agent.referral_links and agent.referral_links[0].status else None,
+                referralLinkUsageCount=agent.referral_links[0].usage_count if agent.referral_links else None,
+                referralLinkMaxUses=agent.referral_links[0].max_uses if agent.referral_links else None,
+                referralLinkExpiresAt=agent.referral_links[0].expires_at.isoformat() if agent.referral_links and agent.referral_links[0].expires_at else None,
+                commissionMode=agent.commission_mode.value if agent.commission_mode else AgentCommissionMode.TIERED.value,
                 invitationCount=(
                     db.query(InvitationCode)
                     .filter(InvitationCode.agent_id == agent.id, InvitationCode.is_deleted.is_(False))
@@ -2541,6 +2700,67 @@ async def update_agent(
                 userCount=db.query(User).filter(User.agent_id == agent.id).count(),
             ).dict(),
             message="代理商更新成功",
+        )
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/agents/{agent_id}/referral-link/rotate", dependencies=[Depends(admin_route())])
+async def rotate_agent_referral_link(
+    agent_id: int,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin),
+):
+    """重置代理注册链接"""
+    try:
+        agent = (
+            db.query(Agent)
+            .filter(Agent.id == agent_id, Agent.is_deleted.is_(False))
+            .first()
+        )
+        if not agent:
+            raise HTTPException(status_code=404, detail="代理商不存在")
+
+        active_links = (
+            db.query(AgentReferralLink)
+            .filter(
+                AgentReferralLink.agent_id == agent.id,
+                AgentReferralLink.is_deleted.is_(False),
+                AgentReferralLink.status == AgentReferralLinkStatus.ACTIVE,
+            )
+            .all()
+        )
+        for link in active_links:
+            link.status = AgentReferralLinkStatus.DISABLED
+
+        new_link = _create_referral_link(db, agent.id)
+        db.commit()
+        db.refresh(new_link)
+
+        await log_admin_action(
+            db=db,
+            admin=current_admin,
+            action="rotate_agent_referral_link",
+            target_type="agent",
+            target_id=str(agent.id),
+            details={"token": new_link.token},
+        )
+
+        return SuccessResponse(
+            data=AdminAgentReferralLinkResponse(
+                agentId=agent.id,
+                token=new_link.token,
+                status=new_link.status.value if new_link.status else AgentReferralLinkStatus.ACTIVE.value,
+                usageCount=new_link.usage_count or 0,
+                maxUses=new_link.max_uses,
+                expiresAt=new_link.expires_at.isoformat() if new_link.expires_at else None,
+                createdAt=new_link.created_at.isoformat() if new_link.created_at else None,
+            ).dict(),
+            message="代理注册链接已重置",
         )
     except HTTPException:
         db.rollback()

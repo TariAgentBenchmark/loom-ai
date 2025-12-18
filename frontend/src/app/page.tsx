@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import HomeView from '../components/HomeView';
 import PricingModal from '../components/PricingModal';
 import CreditHistoryModal from '../components/CreditHistoryModal';
@@ -130,6 +130,7 @@ const clearPersistedProcessingTasks = () => {
 
 export default function Home() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [authState, setAuthState] = useState(createLoggedOutState());
   const [accountProfile, setAccountProfile] = useState<UserProfile | undefined>(undefined);
   const [creditBalance, setCreditBalance] = useState<CreditBalanceResponse | undefined>(undefined);
@@ -139,6 +140,7 @@ export default function Home() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
+  const [prefilledAgentLinkToken, setPrefilledAgentLinkToken] = useState<string | null>(null);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
@@ -185,6 +187,20 @@ export default function Home() {
   const currentMethodTask = currentMethod ? activeTasks[currentMethod] : undefined;
   const isCurrentMethodProcessing = Boolean(currentMethodTask);
   const currentTaskId = currentMethodTask?.taskId ?? null;
+  const referralToken = useMemo(() => {
+    const token = searchParams.get('ref') || searchParams.get('agent');
+    return token ? token.trim() : '';
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!referralToken || isLoggedIn) {
+      return;
+    }
+    setPrefilledAgentLinkToken(referralToken.toUpperCase());
+    setShowRegisterModal(true);
+    setShowLoginModal(false);
+    setRegisterError('');
+  }, [isLoggedIn, referralToken]);
   const applyStoredMethodUiState = useCallback(
     (method: ProcessingMethod) => {
       const hasActiveTask = Boolean(activeTasks[method]);
@@ -1105,6 +1121,7 @@ export default function Home() {
         isOpen={showRegisterModal}
         isSubmitting={authState.status === 'authenticating'}
         errorMessage={registerError}
+        agentLinkToken={prefilledAgentLinkToken}
         onClose={() => {
           if (authState.status !== 'authenticating') {
             setShowRegisterModal(false);

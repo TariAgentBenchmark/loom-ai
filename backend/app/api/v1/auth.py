@@ -22,7 +22,8 @@ class UserRegister(BaseModel):
     confirm_password: str
     nickname: Optional[str] = None
     email: Optional[EmailStr] = None  # Now optional
-    invitation_code: str
+    invitation_code: Optional[str] = None
+    agent_link_token: Optional[str] = None
 
 
 class UserLogin(BaseModel):
@@ -86,8 +87,10 @@ async def register(
         if len(user_data.password) < 8:
             raise HTTPException(status_code=400, detail="密码长度至少8位")
 
-        if not user_data.invitation_code or not user_data.invitation_code.strip():
-            raise HTTPException(status_code=400, detail="邀请码不能为空")
+        if (not user_data.invitation_code or not user_data.invitation_code.strip()) and (
+            not user_data.agent_link_token or not user_data.agent_link_token.strip()
+        ):
+            raise HTTPException(status_code=400, detail="邀请码或代理链接不能为空")
         
         # 注册用户
         user = await auth_service.register_user(
@@ -96,7 +99,8 @@ async def register(
             password=user_data.password,
             nickname=user_data.nickname,
             email=user_data.email,
-            invitation_code=user_data.invitation_code
+            invitation_code=user_data.invitation_code,
+            agent_link_token=user_data.agent_link_token,
         )
         
         return SuccessResponse(

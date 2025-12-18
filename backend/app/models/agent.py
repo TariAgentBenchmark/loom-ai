@@ -26,6 +26,17 @@ class InvitationCodeStatus(PyEnum):
     EXPIRED = "expired"
 
 
+class AgentReferralLinkStatus(PyEnum):
+    ACTIVE = "active"
+    DISABLED = "disabled"
+    EXPIRED = "expired"
+
+
+class AgentCommissionMode(PyEnum):
+    TIERED = "TIERED"
+    FIXED_30 = "FIXED_30"
+
+
 class Agent(Base):
     """代理商模型"""
 
@@ -39,6 +50,7 @@ class Agent(Base):
     contact = Column(String(100), nullable=True)  # 负责人/联系方式
     notes = Column(String(500), nullable=True)
     status = Column(Enum(AgentStatus), default=AgentStatus.ACTIVE)
+    commission_mode = Column(Enum(AgentCommissionMode), default=AgentCommissionMode.TIERED)
     is_deleted = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(
@@ -47,6 +59,11 @@ class Agent(Base):
 
     invitation_codes = relationship(
         "InvitationCode",
+        back_populates="agent",
+        cascade="all, delete-orphan",
+    )
+    referral_links = relationship(
+        "AgentReferralLink",
         back_populates="agent",
         cascade="all, delete-orphan",
     )
@@ -101,4 +118,32 @@ class InvitationCode(Base):
     def __repr__(self) -> str:
         return (
             f"<InvitationCode(id={self.id}, code={self.code}, agent_id={self.agent_id})>"
+        )
+
+
+class AgentReferralLink(Base):
+    """代理注册链接模型"""
+
+    __tablename__ = "agent_referral_links"
+
+    id = Column(Integer, primary_key=True, index=True)
+    token = Column(String(64), unique=True, nullable=False, index=True)
+    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False, index=True)
+    description = Column(String(255), nullable=True)
+    max_uses = Column(Integer, nullable=True)  # None 或 0 表示不限
+    usage_count = Column(Integer, default=0)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    status = Column(Enum(AgentReferralLinkStatus), default=AgentReferralLinkStatus.ACTIVE)
+    is_deleted = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    agent = relationship("Agent", back_populates="referral_links")
+    users = relationship("User", back_populates="agent_referral_link")
+
+    def __repr__(self) -> str:
+        return (
+            f"<AgentReferralLink(id={self.id}, token={self.token}, agent_id={self.agent_id})>"
         )

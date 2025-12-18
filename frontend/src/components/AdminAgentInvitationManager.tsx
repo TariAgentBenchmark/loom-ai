@@ -11,6 +11,7 @@ import {
   adminSettleAgentCommissions,
   adminGetAgentCommissions,
   adminSettleAgentOrder,
+  adminRotateAgentReferralLink,
   type AdminAgent,
   type AdminUserLookupItem,
   type AdminCommissionItem,
@@ -52,6 +53,8 @@ const AdminAgentInvitationManager: React.FC = () => {
   const [settlingOrderId, setSettlingOrderId] = useState<string | null>(null);
   const [commissionPage, setCommissionPage] = useState(1);
   const COMMISSION_PAGE_SIZE = 10;
+  const [copiedAgentId, setCopiedAgentId] = useState<number | null>(null);
+  const [rotatingLinkId, setRotatingLinkId] = useState<number | null>(null);
   const [agentForm, setAgentForm] = useState({
     name: "",
     userIdentifier: "",
@@ -246,6 +249,47 @@ const AdminAgentInvitationManager: React.FC = () => {
         status: "error",
         message: (err as Error)?.message ?? "删除代理商失败",
       });
+    }
+  };
+
+  const buildReferralUrl = (token?: string | null) => {
+    if (!token) return "";
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    return origin ? `${origin}/?ref=${token}` : "";
+  };
+
+  const handleCopyReferralLink = async (agent: AdminAgent) => {
+    if (agent.referralLinkStatus && agent.referralLinkStatus !== "active") {
+      setState({ status: "error", message: "注册链接已停用，无法复制" });
+      return;
+    }
+    const url = buildReferralUrl(agent.referralLinkToken);
+    if (!url) {
+      setState({ status: "error", message: "暂无可复制的注册链接" });
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedAgentId(agent.id);
+      setTimeout(() => setCopiedAgentId(null), 1500);
+    } catch (err) {
+      setState({ status: "error", message: "复制失败，请手动复制" });
+    }
+  };
+
+  const handleRotateReferralLink = async (agent: AdminAgent) => {
+    if (!accessToken) return;
+    setRotatingLinkId(agent.id);
+    try {
+      await adminRotateAgentReferralLink(agent.id, accessToken);
+      await loadData();
+    } catch (err) {
+      setState({
+        status: "error",
+        message: (err as Error)?.message ?? "重置注册链接失败",
+      });
+    } finally {
+      setRotatingLinkId(null);
     }
   };
 
@@ -456,6 +500,7 @@ const AdminAgentInvitationManager: React.FC = () => {
                 <th className="px-3 py-2 text-left font-medium text-gray-600">绑定用户</th>
                 <th className="px-3 py-2 text-left font-medium text-gray-600">用户数</th>
                 <th className="px-3 py-2 text-left font-medium text-gray-600">邀请码</th>
+                <th className="px-3 py-2 text-left font-medium text-gray-600">注册链接</th>
                 <th className="px-3 py-2 text-left font-medium text-gray-600">联系人</th>
                 <th className="px-3 py-2 text-left font-medium text-gray-600">状态</th>
                 <th className="px-3 py-2 text-right font-medium text-gray-600">操作</th>
@@ -480,6 +525,27 @@ const AdminAgentInvitationManager: React.FC = () => {
                   <td className="px-3 py-2">
                     <div className="font-semibold text-gray-900">{agent.invitationCode || "—"}</div>
                   </td>
+                  <td className="px-3 py-2">
+                    <div className="flex flex-col gap-1">
+                      <span className="font-semibold text-gray-900">{agent.referralLinkToken || "—"}</span>
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <button
+                          type="button"
+                          onClick={() => handleCopyReferralLink(agent)}
+                          className="text-blue-600 hover:text-blue-800"
+                          disabled={
+                            !agent.referralLinkToken ||
+                            (agent.referralLinkStatus && agent.referralLinkStatus !== "active")
+                          }
+                        >
+                          {copiedAgentId === agent.id ? "已复制" : "复制链接"}
+                        </button>
+                        {agent.referralLinkStatus && agent.referralLinkStatus !== "active" && (
+                          <span className="text-amber-600">已停用</span>
+                        )}
+                      </div>
+                    </div>
+                  </td>
                   <td className="px-3 py-2 text-gray-700">
                     {agent.contact || "-"}
                   </td>
@@ -502,6 +568,14 @@ const AdminAgentInvitationManager: React.FC = () => {
                       >
                         {agent.status === "active" ? "停用" : "启用"}
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRotateReferralLink(agent)}
+                        className="text-xs font-medium text-emerald-600 hover:text-emerald-800 disabled:opacity-50"
+                        disabled={state.status === "loading" || rotatingLinkId === agent.id}
+                      >
+                        {rotatingLinkId === agent.id ? "重置中..." : "重置链接"}
+                      </button>
                       {agent.status === "disabled" && (
                         <button
                           type="button"
@@ -518,7 +592,7 @@ const AdminAgentInvitationManager: React.FC = () => {
               ))}
               {agents.length === 0 && (
                 <tr>
-                  <td className="px-3 py-4 text-center text-sm text-gray-500" colSpan={7}>
+                  <td className="px-3 py-4 text-center text-sm text-gray-500" colSpan={8}>
                     暂无代理商，请先创建。
                   </td>
                 </tr>

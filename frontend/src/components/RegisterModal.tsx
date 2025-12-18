@@ -1,14 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import PhoneVerification from './PhoneVerification';
 
 interface RegisterModalProps {
   isOpen: boolean;
   isSubmitting: boolean;
   errorMessage?: string;
+  agentLinkToken?: string | null;
   onClose: () => void;
-  onSubmit: (payload: { phone: string; password: string; confirmPassword: string; nickname?: string; email?: string; invitationCode: string }) => Promise<void>;
+  onSubmit: (payload: { phone: string; password: string; confirmPassword: string; nickname?: string; email?: string; invitationCode?: string; agentLinkToken?: string }) => Promise<void>;
   onSwitchToLogin: () => void;
 }
 
@@ -16,6 +17,7 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
   isOpen, 
   isSubmitting, 
   errorMessage, 
+  agentLinkToken,
   onClose, 
   onSubmit,
   onSwitchToLogin
@@ -34,6 +36,13 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
   const [verificationCooldownSeconds, setVerificationCooldownSeconds] = useState(60);
   const [initialVerificationCountdown, setInitialVerificationCountdown] = useState(0);
   const [showOptionalFields, setShowOptionalFields] = useState(false);
+
+  useEffect(() => {
+    if (agentLinkToken) {
+      setInvitationCode("");
+      if (localError) setLocalError("");
+    }
+  }, [agentLinkToken, localError]);
 
   if (!isOpen) {
     return null;
@@ -64,8 +73,8 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
   };
 
   const validateForm = () => {
-    if (!phone || !password || !confirmPassword || !invitationCode) {
-      setLocalError('请填写所有必填字段（手机号、密码、确认密码、邀请码）');
+    if (!phone || !password || !confirmPassword || (!agentLinkToken && !invitationCode)) {
+      setLocalError(agentLinkToken ? '请填写所有必填字段（手机号、密码、确认密码）' : '请填写所有必填字段（手机号、密码、确认密码、邀请码）');
       return false;
     }
 
@@ -126,7 +135,8 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
         confirmPassword,
         nickname: nickname || undefined,
         email: email || undefined,
-        invitationCode: invitationCode.trim()
+        invitationCode: invitationCode.trim() || undefined,
+        agentLinkToken: agentLinkToken || undefined,
       });
       console.log('RegisterModal: onSubmit completed successfully');
       setPhone('');
@@ -235,28 +245,34 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
             )}
           </div>
 
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700" htmlFor="register-invite-code">
-              邀请码 <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="register-invite-code"
-              type="text"
-              inputMode="text"
-              autoComplete="off"
-              spellCheck={false}
-              value={invitationCode}
-              onChange={(event) => {
-                setInvitationCode(event.target.value.toUpperCase());
-                if (localError) setLocalError('');
-              }}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 uppercase"
-              placeholder="请输入邀请码"
-              disabled={isSubmitting}
-              required
-            />
-            <p className="text-xs text-gray-500">没有可填写MDXR</p>
-          </div>
+          {!agentLinkToken ? (
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700" htmlFor="register-invite-code">
+                邀请码 <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="register-invite-code"
+                type="text"
+                inputMode="text"
+                autoComplete="off"
+                spellCheck={false}
+                value={invitationCode}
+                onChange={(event) => {
+                  setInvitationCode(event.target.value.toUpperCase());
+                  if (localError) setLocalError('');
+                }}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 uppercase"
+                placeholder="请输入邀请码"
+                disabled={isSubmitting}
+                required
+              />
+              <p className="text-xs text-gray-500">没有可填写MDXR</p>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+              已通过链接进入，将自动绑定
+            </div>
+          )}
 
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700" htmlFor="register-password">
