@@ -13,6 +13,7 @@ import {
   X,
   MessageCircle,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react';
 import { ProcessingMethod } from '../lib/processing';
 import HistoryList from './HistoryList';
@@ -508,16 +509,25 @@ const HomeView: React.FC<HomeViewProps> = ({
                   <MessageCircle className="h-4 w-4 text-green-500 mr-2" />
                   联系方式
                 </h3>
-                <button
-                  onClick={() => {
-                    setShowWechatModal(true);
-                    setSidebarOpen(false);
-                  }}
-                  className="w-full bg-green-500 hover:bg-green-600 text-white p-3 rounded-lg text-xs font-medium transition-all flex items-center justify-center space-x-2"
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  <span>微信扫码</span>
-                </button>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => {
+                      setShowWechatModal(true);
+                      setSidebarOpen(false);
+                    }}
+                    className="w-full bg-green-500 hover:bg-green-600 text-white p-3 rounded-lg text-xs font-medium transition-all flex items-center justify-center space-x-2"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    <span>微信扫码</span>
+                  </button>
+                  <div className="inline-flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 px-3 py-2 text-[11px] font-semibold shadow-sm">
+                    <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                    <span className="leading-tight">加管理员微信</span>
+                    <span className="text-[10px] font-medium bg-white/70 px-2 py-0.5 rounded-lg tracking-wide text-amber-700">
+                      多领取3试用积分
+                    </span>
+                  </div>
+                </div>
               </section>
 
               {isLoggedIn && onLogout && (
@@ -627,13 +637,22 @@ const HomeView: React.FC<HomeViewProps> = ({
               <MessageCircle className="h-4 w-4 md:h-5 md:w-5 text-green-500 mr-2" />
               联系方式
             </h3>
-            <button
-              onClick={() => setShowWechatModal(true)}
-              className="w-full bg-green-500 hover:bg-green-600 text-white p-3 md:p-3.5 rounded-lg text-xs md:text-sm font-medium transition-all flex items-center justify-center space-x-2 shadow-sm"
-            >
-              <MessageCircle className="h-4 w-4 md:h-5 md:w-5" />
-              <span>微信扫码</span>
-            </button>
+            <div className="space-y-3">
+              <button
+                onClick={() => setShowWechatModal(true)}
+                className="w-full bg-green-500 hover:bg-green-600 text-white p-3 md:p-3.5 rounded-lg text-xs md:text-sm font-medium transition-all flex items-center justify-center space-x-2 shadow-sm"
+              >
+                <MessageCircle className="h-4 w-4 md:h-5 md:w-5" />
+                <span>微信扫码</span>
+              </button>
+              <div className="inline-flex items-center gap-2 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 px-3.5 py-2.5 text-[11px] md:text-xs font-semibold shadow-sm">
+                <Sparkles className="h-3.5 w-3.5 md:h-4 md:w-4 text-amber-500" />
+                <span className="leading-tight">加管理员微信</span>
+                <span className="text-[10px] md:text-[11px] font-medium bg-white/70 px-2.5 py-0.5 rounded-lg tracking-wide text-amber-700">
+                  多领取3试用积分
+                </span>
+              </div>
+            </div>
           </section>
         </aside>
 
