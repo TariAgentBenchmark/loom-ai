@@ -135,7 +135,7 @@ def normalize_link_status(engine: Engine) -> None:
                 """
                 UPDATE agent_referral_links
                 SET status = UPPER(status)
-                WHERE status IN ('active','disabled','expired')
+                WHERE status::text IN ('active','disabled','expired')
                 """
             )
         )

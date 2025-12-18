@@ -176,7 +176,7 @@ def main() -> None:
                 """
                 UPDATE agent_referral_links
                 SET status = 'ACTIVE'
-                WHERE status = 'active'
+                WHERE status::text = 'active'
                 """
             )
         )
@@ -185,7 +185,7 @@ def main() -> None:
                 """
                 UPDATE agent_referral_links
                 SET status = 'DISABLED'
-                WHERE status = 'disabled'
+                WHERE status::text = 'disabled'
                 """
             )
         )
@@ -194,7 +194,7 @@ def main() -> None:
                 """
                 UPDATE agent_referral_links
                 SET status = 'EXPIRED'
-                WHERE status = 'expired'
+                WHERE status::text = 'expired'
                 """
             )
         )
