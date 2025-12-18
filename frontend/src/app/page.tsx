@@ -3,6 +3,7 @@
 import {
   ChangeEvent,
   DragEvent,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -128,7 +129,7 @@ const clearPersistedProcessingTasks = () => {
   window.localStorage.removeItem(ACTIVE_TASK_STORAGE_KEY);
 };
 
-export default function Home() {
+function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [authState, setAuthState] = useState(createLoggedOutState());
@@ -1171,5 +1172,19 @@ export default function Home() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center py-16 text-sm text-gray-500">
+          页面加载中...
+        </div>
+      }
+    >
+      <HomeContent />
+    </Suspense>
   );
 }
