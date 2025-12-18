@@ -1285,6 +1285,7 @@ export interface AdminAgent {
   referralLinkUsageCount?: number | null;
   referralLinkMaxUses?: number | null;
   referralLinkExpiresAt?: string | null;
+  commissionMode?: string | null;
   invitationCount: number;
   userCount: number;
 }
@@ -1660,13 +1661,20 @@ export const adminGetAgents = (
 };
 
 export const adminCreateAgent = (
-  payload: { name: string; userIdentifier: string; contact?: string; notes?: string; status?: string },
+  payload: {
+    name: string;
+    userIdentifier: string;
+    contact?: string;
+    notes?: string;
+    status?: string;
+    commissionMode?: string;
+  },
   accessToken: string,
 ) => postJson<AdminAgent, typeof payload>("/admin/agents", payload, accessToken);
 
 export const adminUpdateAgent = (
   agentId: number,
-  payload: { name?: string; contact?: string; notes?: string; status?: string },
+  payload: { name?: string; contact?: string; notes?: string; status?: string; commissionMode?: string },
   accessToken: string,
 ) =>
   putJson<AdminAgent, typeof payload>(

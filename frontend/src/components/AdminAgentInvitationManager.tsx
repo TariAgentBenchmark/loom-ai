@@ -55,11 +55,15 @@ const AdminAgentInvitationManager: React.FC = () => {
   const COMMISSION_PAGE_SIZE = 10;
   const [copiedAgentId, setCopiedAgentId] = useState<number | null>(null);
   const [rotatingLinkId, setRotatingLinkId] = useState<number | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingAgent, setEditingAgent] = useState<AdminAgent | null>(null);
+  const [commissionModeDraft, setCommissionModeDraft] = useState<string>("TIERED");
   const [agentForm, setAgentForm] = useState({
     name: "",
     userIdentifier: "",
     contact: "",
     notes: "",
+    commissionMode: "TIERED",
   });
   const [selectedUser, setSelectedUser] = useState<AdminUserLookupItem | null>(null);
   const [userOptions, setUserOptions] = useState<AdminUserLookupItem[]>([]);
@@ -200,10 +204,17 @@ const AdminAgentInvitationManager: React.FC = () => {
           userIdentifier: agentForm.userIdentifier.trim(),
           contact: agentForm.contact.trim() || undefined,
           notes: agentForm.notes.trim() || undefined,
+          commissionMode: agentForm.commissionMode,
         },
         accessToken,
       );
-      setAgentForm({ name: "", userIdentifier: "", contact: "", notes: "" });
+      setAgentForm({
+        name: "",
+        userIdentifier: "",
+        contact: "",
+        notes: "",
+        commissionMode: "TIERED",
+      });
       setSelectedUser(null);
       setShowCreateModal(false);
       await loadData();
@@ -279,6 +290,10 @@ const AdminAgentInvitationManager: React.FC = () => {
 
   const handleRotateReferralLink = async (agent: AdminAgent) => {
     if (!accessToken) return;
+    const confirmed = window.confirm(
+      `确认重置「${agent.name}」的注册链接？旧链接将失效，新链接生成后需要重新分发。`,
+    );
+    if (!confirmed) return;
     setRotatingLinkId(agent.id);
     try {
       await adminRotateAgentReferralLink(agent.id, accessToken);
@@ -290,6 +305,45 @@ const AdminAgentInvitationManager: React.FC = () => {
       });
     } finally {
       setRotatingLinkId(null);
+    }
+  };
+
+  const openEditModal = (agent: AdminAgent) => {
+    setEditingAgent(agent);
+    setCommissionModeDraft(agent.commissionMode || "TIERED");
+    setShowEditModal(true);
+  };
+
+  const handleUpdateCommissionMode = async () => {
+    if (!accessToken || !editingAgent) return;
+    if (!commissionModeDraft) {
+      setState({ status: "error", message: "请选择佣金模式" });
+      return;
+    }
+    const readable =
+      commissionModeDraft === "FIXED_30" ? "固定30%" : "阶梯20/25%";
+    const confirmed = window.confirm(
+      `确认将「${editingAgent.name}」的佣金模式调整为：${readable}？\n已结算订单金额不会变，未结算将按新模式计算。`,
+    );
+    if (!confirmed) return;
+
+    setState({ status: "loading" });
+    try {
+      await adminUpdateAgent(
+        editingAgent.id,
+        { commissionMode: commissionModeDraft },
+        accessToken,
+      );
+      await loadData();
+      setShowEditModal(false);
+      setEditingAgent(null);
+    } catch (err) {
+      setState({
+        status: "error",
+        message: (err as Error)?.message ?? "更新佣金模式失败",
+      });
+    } finally {
+      setState({ status: "ready" });
     }
   };
 
@@ -449,6 +503,17 @@ const AdminAgentInvitationManager: React.FC = () => {
                     placeholder="选填"
                   />
                 </div>
+                <div className="sm:col-span-2">
+                  <label className="text-xs text-gray-500">佣金模式</label>
+                  <select
+                    value={agentForm.commissionMode}
+                    onChange={(e) => setAgentForm({ ...agentForm, commissionMode: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  >
+                    <option value="TIERED">阶梯：3万以内20%，超出25%</option>
+                    <option value="FIXED_30">固定30%</option>
+                  </select>
+                </div>
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button
@@ -501,6 +566,7 @@ const AdminAgentInvitationManager: React.FC = () => {
                 <th className="px-3 py-2 text-left font-medium text-gray-600">用户数</th>
                 <th className="px-3 py-2 text-left font-medium text-gray-600">邀请码</th>
                 <th className="px-3 py-2 text-left font-medium text-gray-600">注册链接</th>
+                <th className="px-3 py-2 text-left font-medium text-gray-600">佣金模式</th>
                 <th className="px-3 py-2 text-left font-medium text-gray-600">联系人</th>
                 <th className="px-3 py-2 text-left font-medium text-gray-600">状态</th>
                 <th className="px-3 py-2 text-right font-medium text-gray-600">操作</th>
@@ -547,6 +613,9 @@ const AdminAgentInvitationManager: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-3 py-2 text-gray-700">
+                    {agent.commissionMode === "FIXED_30" ? "固定30%" : "阶梯20/25%"}
+                  </td>
+                  <td className="px-3 py-2 text-gray-700">
                     {agent.contact || "-"}
                   </td>
                   <td className="px-3 py-2">{statusBadge(agent.status)}</td>
@@ -570,11 +639,11 @@ const AdminAgentInvitationManager: React.FC = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleRotateReferralLink(agent)}
-                        className="text-xs font-medium text-emerald-600 hover:text-emerald-800 disabled:opacity-50"
-                        disabled={state.status === "loading" || rotatingLinkId === agent.id}
+                        onClick={() => openEditModal(agent)}
+                        className="text-xs font-medium text-gray-700 hover:text-gray-900"
+                        disabled={state.status === "loading"}
                       >
-                        {rotatingLinkId === agent.id ? "重置中..." : "重置链接"}
+                        编辑
                       </button>
                       {agent.status === "disabled" && (
                         <button
@@ -592,7 +661,7 @@ const AdminAgentInvitationManager: React.FC = () => {
               ))}
               {agents.length === 0 && (
                 <tr>
-                  <td className="px-3 py-4 text-center text-sm text-gray-500" colSpan={8}>
+                  <td className="px-3 py-4 text-center text-sm text-gray-500" colSpan={9}>
                     暂无代理商，请先创建。
                   </td>
                 </tr>
@@ -767,6 +836,88 @@ const AdminAgentInvitationManager: React.FC = () => {
       )}
 
       {/* 邀请码列表简化后移除，邀请码随代理商自动生成 */}
+
+      {showEditModal && editingAgent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">编辑代理</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingAgent(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label="close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <div className="text-sm text-gray-500">名称</div>
+                <div className="font-semibold text-gray-900">{editingAgent.name}</div>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">佣金模式</label>
+                <select
+                  value={commissionModeDraft}
+                  onChange={(e) => setCommissionModeDraft(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                >
+                  <option value="TIERED">阶梯：3万以内20%，超出25%</option>
+                  <option value="FIXED_30">固定30%</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  已结算订单金额保持不变，未结算订单会按新模式计算。
+                </p>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">注册链接</label>
+                <div className="mt-1 flex items-center gap-3">
+                  <div className="text-sm text-gray-800 font-mono break-all">
+                    {editingAgent.referralLinkToken || "—"}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRotateReferralLink(editingAgent)}
+                    className="text-xs font-medium text-emerald-600 hover:text-emerald-800 disabled:opacity-50"
+                    disabled={rotatingLinkId === editingAgent.id || state.status === "loading"}
+                  >
+                    {rotatingLinkId === editingAgent.id ? "重置中..." : "重置链接"}
+                  </button>
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  重置后旧链接立即失效，请重新分发新链接。
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingAgent(null);
+                }}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleUpdateCommissionMode}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+                disabled={state.status === "loading"}
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
