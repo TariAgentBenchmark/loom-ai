@@ -129,7 +129,7 @@ const AgentManagementModal: React.FC<AgentManagementModalProps> = ({ open, acces
                     className="ml-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
                     disabled={
                       !agentInfo.referralLinkToken ||
-                      (agentInfo.referralLinkStatus && agentInfo.referralLinkStatus !== "active")
+                      (agentInfo.referralLinkStatus ? agentInfo.referralLinkStatus !== "active" : false)
                     }
                   >
                     {copied ? "已复制" : "复制链接"}
