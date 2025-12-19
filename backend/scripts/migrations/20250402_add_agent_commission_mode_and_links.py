@@ -130,24 +130,57 @@ def ensure_referral_links(engine: Engine) -> None:
 
 def normalize_link_status(engine: Engine) -> None:
     with engine.begin() as conn:
-        conn.execute(
-            text(
-                """
-                UPDATE agent_referral_links
-                SET status = UPPER(status)
-                WHERE status::text IN ('active','disabled','expired')
-                """
+        if engine.dialect.name == "postgresql":
+            conn.execute(
+                text(
+                    """
+                    UPDATE agent_referral_links
+                    SET status = (
+                        CASE
+                            WHEN status::text = 'active' THEN 'ACTIVE'
+                            WHEN status::text = 'disabled' THEN 'DISABLED'
+                            WHEN status::text = 'expired' THEN 'EXPIRED'
+                            ELSE status::text
+                        END
+                    )::agentreferrallinkstatus
+                    WHERE status::text IN ('active','disabled','expired')
+                    """
+                )
             )
-        )
-        conn.execute(
-            text(
-                """
-                UPDATE agents
-                SET commission_mode = UPPER(commission_mode)
-                WHERE commission_mode IN ('tiered','fixed_30')
-                """
+            conn.execute(
+                text(
+                    """
+                    UPDATE agents
+                    SET commission_mode = (
+                        CASE
+                            WHEN commission_mode::text = 'tiered' THEN 'TIERED'
+                            WHEN commission_mode::text = 'fixed_30' THEN 'FIXED_30'
+                            ELSE commission_mode::text
+                        END
+                    )::agentcommissionmode
+                    WHERE commission_mode::text IN ('tiered','fixed_30')
+                    """
+                )
             )
-        )
+        else:
+            conn.execute(
+                text(
+                    """
+                    UPDATE agent_referral_links
+                    SET status = UPPER(status)
+                    WHERE status IN ('active','disabled','expired')
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    """
+                    UPDATE agents
+                    SET commission_mode = UPPER(commission_mode)
+                    WHERE commission_mode IN ('tiered','fixed_30')
+                    """
+                )
+            )
     print("✅ normalized agent_referral_links.status to uppercase values")
     print("✅ normalized agents.commission_mode to uppercase values")
 
