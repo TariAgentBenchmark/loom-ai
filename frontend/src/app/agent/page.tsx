@@ -16,6 +16,11 @@ type AsyncState =
   | { status: "submitting" };
 
 const yuan = (cents?: number) => ((cents || 0) / 100).toFixed(2);
+const buildReferralUrl = (token?: string | null) => {
+  if (!token) return "";
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  return origin ? `${origin}/?ref=${token}` : "";
+};
 
 const AgentPage: React.FC = () => {
   const router = useRouter();
@@ -37,6 +42,7 @@ const AgentPage: React.FC = () => {
   });
   const [filters, setFilters] = useState<{ startDate?: string; endDate?: string }>({});
   const [noAgent, setNoAgent] = useState(false);
+  const referralUrl = useMemo(() => buildReferralUrl(agentInfo?.referralLinkToken), [agentInfo?.referralLinkToken]);
 
   const loadSession = useCallback(async () => {
     const restored = restoreSession();
@@ -163,50 +169,23 @@ const AgentPage: React.FC = () => {
 
         {agentInfo && (
           <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="space-y-1">
-                <div className="text-sm text-gray-500">代理商</div>
-                <div className="text-xl font-semibold text-gray-900">{agentInfo.name}</div>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
-                  <span className="rounded-full bg-gray-100 px-2 py-1 font-semibold text-gray-700">
-                    {agentInfo.status === "active" ? "启用" : "停用"}
-                  </span>
-                </div>
+            <div className="grid grid-cols-1 gap-3 text-sm text-gray-700 md:grid-cols-2">
+              <div>
+                <div className="text-xs text-gray-500">邀请注册人数</div>
+                <div className="text-lg font-semibold text-gray-900">{agentInfo.invitedCount ?? 0}</div>
               </div>
-              <div className="grid grid-cols-2 gap-3 text-sm text-gray-700 md:grid-cols-4">
-                <div>
-                  <div className="text-xs text-gray-500">绑定用户</div>
-                  <div className="font-semibold text-gray-900">{agentInfo.ownerUserPhone || agentInfo.ownerUserId || "—"}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-gray-500">联系方式</div>
-                  <div className="font-semibold text-gray-900">{agentInfo.contact || "—"}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-gray-500">创建时间</div>
-                  <div className="font-semibold text-gray-900">
-                    {agentInfo.createdAt?.slice(0, 16).replace("T", " ") || "—"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-gray-500">邀请注册人数</div>
-                  <div className="font-semibold text-gray-900">{agentInfo.invitedCount ?? 0}</div>
-                </div>
-              </div>
-            </div>
-            <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-gray-700">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500">邀请码</span>
+                <span className="text-xs text-gray-500">邀请链接</span>
                 <span className="rounded bg-gray-100 px-2 py-1 font-semibold text-gray-900">
-                  {agentInfo.invitationCode || "—"}
+                  {referralUrl || "—"}
                 </span>
-                {agentInfo.invitationCode && (
+                {referralUrl && (
                   <button
                     type="button"
                     onClick={async () => {
-                      if (!agentInfo.invitationCode) return;
+                      if (!referralUrl) return;
                       try {
-                        await navigator.clipboard.writeText(agentInfo.invitationCode);
+                        await navigator.clipboard.writeText(referralUrl);
                         setInviteCopied(true);
                         setTimeout(() => setInviteCopied(false), 1500);
                       } catch {
