@@ -236,9 +236,7 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
           </div>
 
           <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
-            {prefilledInvitationCode
-              ? `已通过链接进入，将自动绑定（邀请码：${prefilledInvitationCode}）`
-              : "系统将自动分配管理员邀请码绑定"}
+            已通过链接进入，将自动绑定
           </div>
 
           <div className="space-y-2">
