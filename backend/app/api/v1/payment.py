@@ -104,6 +104,8 @@ async def create_counter_order(
                 order.status = OrderStatus.PAID.value
                 order.paid_at = datetime.utcnow()
                 order.transaction_id = "TEST-PAID"
+                if order.agent_id_snapshot is None:
+                    order.agent_id_snapshot = current_user.agent_id
                 meta = order.extra_metadata or {}
                 meta["test_user"] = True
                 order.extra_metadata = meta
@@ -331,6 +333,9 @@ async def lakala_counter_notify(
     order.status = OrderStatus.PAID.value
     order.transaction_id = pay_order_no or order.transaction_id
     order.paid_at = datetime.utcnow()
+    if order.agent_id_snapshot is None:
+        user = db.query(User).filter(User.id == order.user_id).first()
+        order.agent_id_snapshot = user.agent_id if user else None
     meta = order.extra_metadata or {}
     meta["lakala_notify"] = notify_data
     order.extra_metadata = meta

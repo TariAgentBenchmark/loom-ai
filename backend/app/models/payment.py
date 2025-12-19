@@ -34,6 +34,7 @@ class Order(Base):
     id = Column(Integer, primary_key=True, index=True)
     order_id = Column(String(50), unique=True, index=True, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    agent_id_snapshot = Column(Integer, ForeignKey("agents.id"), nullable=True, index=True)
     
     # 套餐信息
     package_id = Column(String(50), nullable=False)

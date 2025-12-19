@@ -969,6 +969,77 @@ async def update_user_status(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class UserAgentUpdate(BaseModel):
+    agentId: Optional[int] = Field(None, description="新的代理商ID，空表示解绑")
+    reason: Optional[str] = Field(None, max_length=500, description="调整原因（可选）")
+
+
+@router.put("/users/{user_id}/agent", dependencies=[Depends(admin_route())])
+async def update_user_agent(
+    user_id: str,
+    agent_update: UserAgentUpdate,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin),
+):
+    """更新用户归属代理（管理员专用）"""
+    try:
+        user = db.query(User).filter(User.user_id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="用户不存在")
+
+        old_agent_id = user.agent_id
+        new_agent_id = agent_update.agentId
+
+        if new_agent_id is None:
+            user.agent_id = None
+            user.invitation_code_id = None
+            user.agent_referral_link_id = None
+        else:
+            agent = (
+                db.query(Agent)
+                .filter(Agent.id == new_agent_id, Agent.is_deleted.is_(False))
+                .first()
+            )
+            if not agent:
+                raise HTTPException(status_code=404, detail="代理商不存在")
+            if agent.status != AgentStatus.ACTIVE:
+                raise HTTPException(status_code=400, detail="代理商不可用")
+
+            user.agent_id = agent.id
+            user.invitation_code_id = None
+            user.agent_referral_link_id = None
+
+        db.commit()
+
+        await log_admin_action(
+            db=db,
+            admin=current_admin,
+            action="update_user_agent",
+            target_type="user",
+            target_id=user.user_id,
+            details={
+                "oldAgentId": old_agent_id,
+                "newAgentId": new_agent_id,
+                "reason": agent_update.reason,
+            },
+        )
+
+        return SuccessResponse(
+            data={
+                "userId": user.user_id,
+                "oldAgentId": old_agent_id,
+                "newAgentId": new_agent_id,
+            },
+            message="用户代理归属已更新",
+        )
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.delete("/users/{user_id}", dependencies=[Depends(admin_route())])
 async def delete_user(
     user_id: str,
@@ -1760,6 +1831,9 @@ async def update_order_status(
         # 如果标记为已支付，记录支付时间
         if status_update.status == OrderStatus.PAID.value and old_status != OrderStatus.PAID.value:
             order.paid_at = datetime.utcnow()
+            if order.agent_id_snapshot is None:
+                user = db.query(User).filter(User.id == order.user_id).first()
+                order.agent_id_snapshot = user.agent_id if user else None
 
             # 如果是积分套餐或之前遗留的未标记套餐，但携带积分数量，则加积分
             if order.credits_amount and order.credits_amount > 0:
@@ -2324,11 +2398,15 @@ async def settle_agent_commissions(
     end_dt = datetime.fromisoformat(payload.endDate) if payload.endDate else None
 
     # 找到已付款订单
+    agent_filter = or_(
+        Order.agent_id_snapshot == agent.id,
+        and_(Order.agent_id_snapshot.is_(None), User.agent_id == agent.id),
+    )
     order_query = (
         db.query(Order, User)
         .join(User, User.id == Order.user_id)
         .filter(
-            User.agent_id == agent.id,
+            agent_filter,
             Order.status == OrderStatus.PAID.value,
         )
     )
@@ -2419,11 +2497,15 @@ async def get_agent_commissions(
     start_dt = _parse_iso_datetime(startDate)
     end_dt = _parse_iso_datetime(endDate)
 
+    agent_filter = or_(
+        Order.agent_id_snapshot == agent.id,
+        and_(Order.agent_id_snapshot.is_(None), User.agent_id == agent.id),
+    )
     order_query = (
         db.query(Order, User)
         .join(User, User.id == Order.user_id)
         .filter(
-            User.agent_id == agent.id,
+            agent_filter,
             Order.status == OrderStatus.PAID.value,
         )
     )
@@ -2553,11 +2635,15 @@ async def settle_single_commission(
     if not agent:
         raise HTTPException(status_code=404, detail="代理商不存在")
 
+    agent_filter = or_(
+        Order.agent_id_snapshot == agent.id,
+        and_(Order.agent_id_snapshot.is_(None), User.agent_id == agent.id),
+    )
     order_rows = (
         db.query(Order, User)
         .join(User, User.id == Order.user_id)
         .filter(
-            User.agent_id == agent.id,
+            agent_filter,
             Order.status == OrderStatus.PAID.value,
         )
         .all()
@@ -2569,7 +2655,12 @@ async def settle_single_commission(
     commission_map = _compute_commission_running_total(order_rows, fixed_rate)
     order = (
         db.query(Order)
-        .filter(Order.order_id == order_id, Order.status == OrderStatus.PAID.value)
+        .join(User, User.id == Order.user_id)
+        .filter(
+            Order.order_id == order_id,
+            Order.status == OrderStatus.PAID.value,
+            agent_filter,
+        )
         .first()
     )
     if not order:

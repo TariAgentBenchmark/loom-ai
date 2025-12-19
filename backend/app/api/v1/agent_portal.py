@@ -4,7 +4,7 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import desc
+from sqlalchemy import desc, and_, or_
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_active_user
@@ -219,12 +219,16 @@ async def get_agent_ledger(
     start_dt = datetime.fromisoformat(startDate) if startDate else None
     end_dt = datetime.fromisoformat(endDate) if endDate else None
 
+    agent_filter = or_(
+        Order.agent_id_snapshot == agent.id,
+        and_(Order.agent_id_snapshot.is_(None), User.agent_id == agent.id),
+    )
     base_query = (
         db.query(Order, User)
         .join(User, User.id == Order.user_id)
         .filter(
             Order.status == OrderStatus.PAID.value,
-            User.agent_id == agent.id,
+            agent_filter,
         )
     )
     if start_dt:

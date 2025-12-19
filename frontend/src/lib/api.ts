@@ -1507,6 +1507,22 @@ export const adminUpdateUserStatus = (
     accessToken,
   );
 
+export interface AdminUserAgentUpdatePayload {
+  agentId?: number | null;
+  reason?: string;
+}
+
+export const adminUpdateUserAgent = (
+  userId: string,
+  payload: AdminUserAgentUpdatePayload,
+  accessToken: string,
+) =>
+  putJson<{ userId: string; oldAgentId?: number | null; newAgentId?: number | null }, AdminUserAgentUpdatePayload>(
+    `/admin/users/${userId}/agent`,
+    payload,
+    accessToken,
+  );
+
 export interface AdminDeleteUserPayload {
   reason?: string;
 }

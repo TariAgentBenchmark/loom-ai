@@ -5,10 +5,13 @@ import { useParams, useRouter } from "next/navigation";
 import {
   adminGetUserDetail,
   adminUpdateUserStatus,
+  adminGetAgents,
+  adminUpdateUserAgent,
   adminGetUserTransactions,
   adminAdjustUserCredits,
   adminGetUserTasks,
   type AdminUserDetail,
+  type AdminAgent,
   type AdminCreditTransaction,
   type AdminCreditTransactionsResponse,
   type AdminUserTask,
@@ -64,6 +67,12 @@ const AdminUserDetail: React.FC = () => {
   const [userTasks, setUserTasks] = useState<AdminUserTask[]>([]);
   const [taskPage, setTaskPage] = useState(1);
   const [taskTotalPages, setTaskTotalPages] = useState(1);
+  const [agents, setAgents] = useState<AdminAgent[]>([]);
+  const [showAgentModal, setShowAgentModal] = useState(false);
+  const [agentSelection, setAgentSelection] = useState("");
+  const [agentReason, setAgentReason] = useState("");
+  const [agentError, setAgentError] = useState<string | null>(null);
+  const [isUpdatingAgent, setIsUpdatingAgent] = useState(false);
 
   const fetchUserDetail = useCallback(async () => {
     if (!accessToken || !userId) return;
@@ -108,11 +117,22 @@ const AdminUserDetail: React.FC = () => {
     [accessToken, userId],
   );
 
+  const fetchAgents = useCallback(async () => {
+    if (!accessToken) return;
+    try {
+      const response = await adminGetAgents(accessToken, { status: "active" });
+      setAgents(response.data.agents);
+    } catch (err) {
+      console.error("获取代理商列表失败:", err);
+    }
+  }, [accessToken]);
+
   useEffect(() => {
     fetchUserDetail();
     fetchUserTransactions();
     fetchUserTasks(1);
-  }, [fetchUserDetail, fetchUserTransactions, fetchUserTasks]);
+    fetchAgents();
+  }, [fetchUserDetail, fetchUserTransactions, fetchUserTasks, fetchAgents]);
 
   const handleUpdateStatus = useCallback(async () => {
     if (!accessToken || !userId || !newStatus || !statusReason) return;
@@ -154,6 +174,27 @@ const AdminUserDetail: React.FC = () => {
       setIsAdjustingCredits(false);
     }
   }, [accessToken, creditAdjustment, fetchUserDetail, fetchUserTransactions, userId]);
+
+  const handleUpdateAgent = useCallback(async () => {
+    if (!accessToken || !userId) return;
+    try {
+      setIsUpdatingAgent(true);
+      setAgentError(null);
+      const agentId = agentSelection ? Number(agentSelection) : null;
+      await adminUpdateUserAgent(
+        userId,
+        { agentId, reason: agentReason || undefined },
+        accessToken,
+      );
+      await fetchUserDetail();
+      setShowAgentModal(false);
+      setAgentReason("");
+    } catch (err) {
+      setAgentError(err instanceof Error ? err.message : "更新代理归属失败");
+    } finally {
+      setIsUpdatingAgent(false);
+    }
+  }, [accessToken, agentReason, agentSelection, fetchUserDetail, userId]);
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -519,6 +560,31 @@ const AdminUserDetail: React.FC = () => {
       {activeTab === "actions" && (
         <div className="space-y-6">
           <div className="bg-white shadow rounded-lg p-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">代理归属</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  当前代理商
+                </label>
+                <p className="text-lg font-semibold text-gray-900">
+                  {user.agentName || "未绑定代理"}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setAgentSelection(user.agentId ? String(user.agentId) : "");
+                  setAgentReason("");
+                  setAgentError(null);
+                  setShowAgentModal(true);
+                }}
+                className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+              >
+                <Edit className="h-4 w-4 mr-1" />
+                修改代理归属
+              </button>
+            </div>
+          </div>
+          <div className="bg-white shadow rounded-lg p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">积分调整</h3>
             <div className="space-y-4">
               <div>
@@ -680,6 +746,73 @@ const AdminUserDetail: React.FC = () => {
                   className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
                 >
                   {isAdjustingCredits ? "调整中..." : "确认"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Agent Update Modal */}
+      {showAgentModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                修改代理归属
+              </h3>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  选择代理商
+                </label>
+                <select
+                  value={agentSelection}
+                  onChange={(e) => setAgentSelection(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">不绑定代理</option>
+                  {agents.map((agent) => (
+                    <option key={agent.id} value={agent.id}>
+                      {agent.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  仅支持启用状态代理商
+                </p>
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  原因（可选）
+                </label>
+                <textarea
+                  value={agentReason}
+                  onChange={(e) => setAgentReason(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="请输入代理归属变更原因"
+                />
+              </div>
+              {agentError && (
+                <div className="mb-4 text-sm text-red-600">{agentError}</div>
+              )}
+              <div className="flex justify-end space-x-2">
+                <button
+                  onClick={() => {
+                    setShowAgentModal(false);
+                    setAgentReason("");
+                    setAgentError(null);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleUpdateAgent}
+                  disabled={isUpdatingAgent}
+                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isUpdatingAgent ? "更新中..." : "确认"}
                 </button>
               </div>
             </div>
