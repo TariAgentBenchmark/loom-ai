@@ -170,7 +170,7 @@ class Settings(BaseSettings):
 
     # 基础URL配置
     base_url: str = "http://localhost:8000"
-    default_invitation_code: str = "MDXR"
+    default_invitation_code: str = ""
     default_admin_email: str = "admin@loom-ai.com"
 
     # 邮件配置

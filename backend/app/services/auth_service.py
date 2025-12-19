@@ -1,5 +1,6 @@
 import uuid
 import secrets
+import string
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
@@ -79,16 +80,35 @@ class AuthService:
         return agent
 
     def _get_or_create_default_invitation_code(self, db: Session, agent: Agent) -> InvitationCode:
-        code_value = (settings.default_invitation_code or "MDXR").strip().upper()
-        code_record = (
-            db.query(InvitationCode)
-            .filter(InvitationCode.code == code_value, InvitationCode.is_deleted.is_(False))
-            .first()
-        )
-        if code_record:
-            if code_record.agent_id != agent.id:
-                raise Exception("默认邀请码已被占用，请联系管理员处理")
-            return code_record
+        preferred_code = (settings.default_invitation_code or "").strip().upper()
+        if preferred_code:
+            code_record = (
+                db.query(InvitationCode)
+                .filter(InvitationCode.code == preferred_code, InvitationCode.is_deleted.is_(False))
+                .first()
+            )
+            if code_record:
+                if code_record.agent_id == agent.id:
+                    return code_record
+            else:
+                code_record = InvitationCode(
+                    code=preferred_code,
+                    agent_id=agent.id,
+                    status=InvitationCodeStatus.ACTIVE,
+                )
+                db.add(code_record)
+                db.flush()
+                return code_record
+
+        while True:
+            code_value = "".join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(4))
+            exists = (
+                db.query(InvitationCode.id)
+                .filter(InvitationCode.code == code_value, InvitationCode.is_deleted.is_(False))
+                .first()
+            )
+            if not exists:
+                break
 
         code_record = InvitationCode(
             code=code_value,
