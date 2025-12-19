@@ -881,7 +881,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm md:text-base font-semibold text-gray-900">
-                    接缝拟合度
+                    相似度调整
                   </h4>
                   <span className="text-xs md:text-sm font-medium text-blue-600">
                     {seamFitValue.toFixed(2)}
@@ -909,7 +909,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
             <div className="mb-4 md:mb-6 space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm md:text-base font-semibold text-gray-900">
-                  接缝拟合度
+                  相似度调整
                 </h4>
                 <span className="text-xs md:text-sm font-medium text-blue-600">
                   {denoiseValue.toFixed(2)}
@@ -927,7 +927,6 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                 className="w-full accent-blue-500"
               />
               <p className="text-xs text-gray-500">
-                调高可强化过渡与融合，调低保留细节，默认 0.50。
               </p>
             </div>
           )}

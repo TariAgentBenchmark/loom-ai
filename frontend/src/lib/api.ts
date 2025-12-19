@@ -77,7 +77,6 @@ const parseErrorBody = async (
       const candidates = [
         payload.error?.message,
         payload.message,
-        payload.error?.code,
         payload.detail,
         payload.error?.detail,
       ].filter(
@@ -134,15 +133,21 @@ const ensureSuccess = async (
     return Promise.reject(new Error("图片文件过大，请上传小于50MB的图片"));
   }
 
-  const statusText = response.statusText ? ` ${response.statusText}` : "";
-  const fallbackMessage = `请求失败：${response.status}${statusText}`;
+  const fallbackMessage = "请求失败";
   const parsed = await parseErrorBody(response);
   const parsedMessages = [parsed.primary, parsed.secondary]
     .filter(
       (value): value is string =>
         typeof value === "string" && value.trim().length > 0,
     )
-    .map((value) => value.trim());
+    .map((value) => value.trim())
+    .map((value) =>
+      value
+        .replace(/HTTP\s*\d+/gi, "")
+        .replace(/请求失败[:：]?\s*\d+/g, "")
+        .trim(),
+    )
+    .filter((value) => value.length > 0);
 
   const creditErrorMessages = parsedMessages.filter(
     (value) => value.includes("积分不足") || value.includes("积分余额不足"),
@@ -167,9 +172,11 @@ const ensureSuccess = async (
     );
   }
 
-  const messageParts = [...parsedMessages, fallbackMessage].filter(
-    (value, index, list): value is string =>
-      Boolean(value) && list.indexOf(value) === index,
+  const messageParts = (parsedMessages.length > 0
+    ? parsedMessages
+    : [fallbackMessage]
+  ).filter((value, index, list): value is string =>
+    Boolean(value) && list.indexOf(value) === index,
   );
 
   // Improve error message for common cases

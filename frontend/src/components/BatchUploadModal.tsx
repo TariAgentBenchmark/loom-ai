@@ -464,7 +464,7 @@ export default function BatchUploadModal({
                             </div>
                             <div>
                                 <label className="text-sm font-semibold text-gray-900 mb-2 block">
-                                    接缝拟合度
+                                    相似度调整
                                 </label>
                                 <input
                                     type="range"
