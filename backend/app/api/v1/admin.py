@@ -2268,13 +2268,9 @@ async def create_agent(
         )
         db.add(invite)
 
-        referral_link = _create_referral_link(db, agent.id)
-
         db.commit()
         db.refresh(agent)
         db.refresh(invite)
-        if referral_link:
-            db.refresh(referral_link)
 
         await log_admin_action(
             db=db,
@@ -2303,11 +2299,11 @@ async def create_agent(
                 createdAt=agent.created_at.isoformat() if agent.created_at else "",
                 updatedAt=agent.updated_at.isoformat() if agent.updated_at else None,
                 invitationCode=invite.code,
-                referralLinkToken=referral_link.token if referral_link else None,
-                referralLinkStatus=referral_link.status.value if referral_link and referral_link.status else None,
-                referralLinkUsageCount=referral_link.usage_count if referral_link else None,
-                referralLinkMaxUses=referral_link.max_uses if referral_link else None,
-                referralLinkExpiresAt=referral_link.expires_at.isoformat() if referral_link and referral_link.expires_at else None,
+                referralLinkToken=None,
+                referralLinkStatus=None,
+                referralLinkUsageCount=None,
+                referralLinkMaxUses=None,
+                referralLinkExpiresAt=None,
                 commissionMode=agent.commission_mode.value if agent.commission_mode else AgentCommissionMode.TIERED.value,
                 invitationCount=0,
                 userCount=0,
@@ -2819,6 +2815,7 @@ async def rotate_agent_referral_link(
     current_admin: User = Depends(get_current_active_admin),
 ):
     """重置代理注册链接"""
+    raise HTTPException(status_code=410, detail="代理注册链接功能已停用")
     try:
         agent = (
             db.query(Agent)

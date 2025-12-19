@@ -141,7 +141,7 @@ function HomeContent() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
-  const [prefilledAgentLinkToken, setPrefilledAgentLinkToken] = useState<string | null>(null);
+  const [prefilledInvitationCode, setPrefilledInvitationCode] = useState<string | null>(null);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
@@ -188,20 +188,20 @@ function HomeContent() {
   const currentMethodTask = currentMethod ? activeTasks[currentMethod] : undefined;
   const isCurrentMethodProcessing = Boolean(currentMethodTask);
   const currentTaskId = currentMethodTask?.taskId ?? null;
-  const referralToken = useMemo(() => {
-    const token = searchParams.get('ref') || searchParams.get('agent');
+  const inviteCode = useMemo(() => {
+    const token = searchParams.get('invite');
     return token ? token.trim() : '';
   }, [searchParams]);
 
   useEffect(() => {
-    if (!referralToken || isLoggedIn) {
+    if (!inviteCode || isLoggedIn) {
       return;
     }
-    setPrefilledAgentLinkToken(referralToken.toUpperCase());
+    setPrefilledInvitationCode(inviteCode.toUpperCase());
     setShowRegisterModal(true);
     setShowLoginModal(false);
     setRegisterError('');
-  }, [isLoggedIn, referralToken]);
+  }, [inviteCode, isLoggedIn]);
   const applyStoredMethodUiState = useCallback(
     (method: ProcessingMethod) => {
       const hasActiveTask = Boolean(activeTasks[method]);
@@ -1122,7 +1122,7 @@ function HomeContent() {
         isOpen={showRegisterModal}
         isSubmitting={authState.status === 'authenticating'}
         errorMessage={registerError}
-        agentLinkToken={prefilledAgentLinkToken}
+        prefilledInvitationCode={prefilledInvitationCode}
         onClose={() => {
           if (authState.status !== 'authenticating') {
             setShowRegisterModal(false);

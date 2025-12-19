@@ -11,7 +11,6 @@ import {
   adminSettleAgentCommissions,
   adminGetAgentCommissions,
   adminSettleAgentOrder,
-  adminRotateAgentReferralLink,
   type AdminAgent,
   type AdminUserLookupItem,
   type AdminCommissionItem,
@@ -54,7 +53,6 @@ const AdminAgentInvitationManager: React.FC = () => {
   const [commissionPage, setCommissionPage] = useState(1);
   const COMMISSION_PAGE_SIZE = 10;
   const [copiedAgentId, setCopiedAgentId] = useState<number | null>(null);
-  const [rotatingLinkId, setRotatingLinkId] = useState<number | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingAgent, setEditingAgent] = useState<AdminAgent | null>(null);
   const [commissionModeDraft, setCommissionModeDraft] = useState<string>("TIERED");
@@ -263,20 +261,16 @@ const AdminAgentInvitationManager: React.FC = () => {
     }
   };
 
-  const buildReferralUrl = (token?: string | null) => {
-    if (!token) return "";
+  const buildInviteUrl = (code?: string | null) => {
+    if (!code) return "";
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    return origin ? `${origin}/?ref=${token}` : "";
+    return origin ? `${origin}/login?invite=${encodeURIComponent(code)}` : "";
   };
 
   const handleCopyReferralLink = async (agent: AdminAgent) => {
-    if (agent.referralLinkStatus && agent.referralLinkStatus !== "active") {
-      setState({ status: "error", message: "注册链接已停用，无法复制" });
-      return;
-    }
-    const url = buildReferralUrl(agent.referralLinkToken);
+    const url = buildInviteUrl(agent.invitationCode);
     if (!url) {
-      setState({ status: "error", message: "暂无可复制的注册链接" });
+      setState({ status: "error", message: "暂无可复制的邀请链接" });
       return;
     }
     try {
@@ -285,26 +279,6 @@ const AdminAgentInvitationManager: React.FC = () => {
       setTimeout(() => setCopiedAgentId(null), 1500);
     } catch (err) {
       setState({ status: "error", message: "复制失败，请手动复制" });
-    }
-  };
-
-  const handleRotateReferralLink = async (agent: AdminAgent) => {
-    if (!accessToken) return;
-    const confirmed = window.confirm(
-      `确认重置「${agent.name}」的注册链接？旧链接将失效，新链接生成后需要重新分发。`,
-    );
-    if (!confirmed) return;
-    setRotatingLinkId(agent.id);
-    try {
-      await adminRotateAgentReferralLink(agent.id, accessToken);
-      await loadData();
-    } catch (err) {
-      setState({
-        status: "error",
-        message: (err as Error)?.message ?? "重置注册链接失败",
-      });
-    } finally {
-      setRotatingLinkId(null);
     }
   };
 
@@ -565,7 +539,7 @@ const AdminAgentInvitationManager: React.FC = () => {
                 <th className="px-3 py-2 text-left font-medium text-gray-600">绑定用户</th>
                 <th className="px-3 py-2 text-left font-medium text-gray-600">用户数</th>
                 <th className="px-3 py-2 text-left font-medium text-gray-600">邀请码</th>
-                <th className="px-3 py-2 text-left font-medium text-gray-600">注册链接</th>
+                <th className="px-3 py-2 text-left font-medium text-gray-600">邀请链接</th>
                 <th className="px-3 py-2 text-left font-medium text-gray-600">佣金模式</th>
                 <th className="px-3 py-2 text-left font-medium text-gray-600">联系人</th>
                 <th className="px-3 py-2 text-left font-medium text-gray-600">状态</th>
@@ -593,22 +567,18 @@ const AdminAgentInvitationManager: React.FC = () => {
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex flex-col gap-1">
-                      <span className="font-semibold text-gray-900">{agent.referralLinkToken || "—"}</span>
+                      <span className="font-semibold text-gray-900">
+                        {buildInviteUrl(agent.invitationCode) || "—"}
+                      </span>
                       <div className="flex items-center gap-2 text-xs text-gray-500">
                         <button
                           type="button"
                           onClick={() => handleCopyReferralLink(agent)}
                           className="text-blue-600 hover:text-blue-800"
-                          disabled={
-                            !agent.referralLinkToken ||
-                            (agent.referralLinkStatus ? agent.referralLinkStatus !== "active" : false)
-                          }
+                          disabled={!agent.invitationCode}
                         >
                           {copiedAgentId === agent.id ? "已复制" : "复制链接"}
                         </button>
-                        {agent.referralLinkStatus && agent.referralLinkStatus !== "active" && (
-                          <span className="text-amber-600">已停用</span>
-                        )}
                       </div>
                     </div>
                   </td>
@@ -875,23 +845,10 @@ const AdminAgentInvitationManager: React.FC = () => {
                 </p>
               </div>
               <div>
-                <label className="text-xs text-gray-500">注册链接</label>
-                <div className="mt-1 flex items-center gap-3">
-                  <div className="text-sm text-gray-800 font-mono break-all">
-                    {editingAgent.referralLinkToken || "—"}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleRotateReferralLink(editingAgent)}
-                    className="text-xs font-medium text-emerald-600 hover:text-emerald-800 disabled:opacity-50"
-                    disabled={rotatingLinkId === editingAgent.id || state.status === "loading"}
-                  >
-                    {rotatingLinkId === editingAgent.id ? "重置中..." : "重置链接"}
-                  </button>
+                <label className="text-xs text-gray-500">邀请链接</label>
+                <div className="mt-1 text-sm text-gray-800 font-mono break-all">
+                  {buildInviteUrl(editingAgent.invitationCode) || "—"}
                 </div>
-                <p className="mt-1 text-xs text-gray-500">
-                  重置后旧链接立即失效，请重新分发新链接。
-                </p>
               </div>
             </div>
 

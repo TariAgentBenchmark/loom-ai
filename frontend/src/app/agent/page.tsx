@@ -16,10 +16,10 @@ type AsyncState =
   | { status: "submitting" };
 
 const yuan = (cents?: number) => ((cents || 0) / 100).toFixed(2);
-const buildReferralUrl = (token?: string | null) => {
-  if (!token) return "";
+const buildInviteUrl = (code?: string | null) => {
+  if (!code) return "";
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  return origin ? `${origin}/?ref=${token}` : "";
+  return origin ? `${origin}/login?invite=${encodeURIComponent(code)}` : "";
 };
 
 const AgentPage: React.FC = () => {
@@ -42,7 +42,7 @@ const AgentPage: React.FC = () => {
   });
   const [filters, setFilters] = useState<{ startDate?: string; endDate?: string }>({});
   const [noAgent, setNoAgent] = useState(false);
-  const referralUrl = useMemo(() => buildReferralUrl(agentInfo?.referralLinkToken), [agentInfo?.referralLinkToken]);
+  const referralUrl = useMemo(() => buildInviteUrl(agentInfo?.invitationCode), [agentInfo?.invitationCode]);
 
   const loadSession = useCallback(async () => {
     const restored = restoreSession();

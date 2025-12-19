@@ -11,10 +11,8 @@ from app.models.user import User, MembershipType, UserStatus
 from app.models.agent import (
     Agent,
     InvitationCode,
-    AgentReferralLink,
     AgentStatus,
     InvitationCodeStatus,
-    AgentReferralLinkStatus,
 )
 from app.services.credit_math import to_decimal
 
@@ -106,64 +104,33 @@ class AuthService:
         link_record = None
 
         if agent_link_token and agent_link_token.strip():
-            token_value = agent_link_token.strip().upper()
-            link_record = (
-                db.query(AgentReferralLink)
-                .filter(AgentReferralLink.token == token_value, AgentReferralLink.is_deleted.is_(False))
-                .first()
-            )
-            if not link_record:
-                raise Exception("代理注册链接无效")
-            if link_record.status != AgentReferralLinkStatus.ACTIVE:
-                raise Exception("代理注册链接已被停用")
-            if link_record.expires_at and link_record.expires_at <= datetime.utcnow():
-                raise Exception("代理注册链接已过期")
-            if link_record.max_uses not in (None, 0) and (link_record.usage_count or 0) >= link_record.max_uses:
-                raise Exception("代理注册链接已达使用上限")
+            raise Exception("代理注册链接已停用，请使用邀请码注册")
 
-            agent = (
-                db.query(Agent)
-                .filter(Agent.id == link_record.agent_id, Agent.is_deleted.is_(False))
-                .first()
-            )
-            if not agent or agent.status != AgentStatus.ACTIVE:
-                raise Exception("所属代理商不可用")
+        if not invitation_code or not invitation_code.strip():
+            raise Exception("邀请码不能为空")
 
-            if invitation_code and invitation_code.strip():
-                code_value = invitation_code.strip().upper()
-                code_record = (
-                    db.query(InvitationCode)
-                    .filter(InvitationCode.code == code_value, InvitationCode.is_deleted.is_(False))
-                    .first()
-                )
-                if not code_record or code_record.agent_id != agent.id:
-                    raise Exception("邀请码与代理链接不匹配")
-        else:
-            if not invitation_code or not invitation_code.strip():
-                raise Exception("邀请码或代理链接不能为空")
+        code_value = invitation_code.strip().upper()
+        code_record = (
+            db.query(InvitationCode)
+            .filter(InvitationCode.code == code_value, InvitationCode.is_deleted.is_(False))
+            .first()
+        )
+        if not code_record:
+            raise Exception("邀请码无效")
+        if code_record.status != InvitationCodeStatus.ACTIVE:
+            raise Exception("邀请码已被停用")
+        if code_record.expires_at and code_record.expires_at <= datetime.utcnow():
+            raise Exception("邀请码已过期")
+        if code_record.max_uses not in (None, 0) and (code_record.usage_count or 0) >= code_record.max_uses:
+            raise Exception("邀请码已达使用上限")
 
-            code_value = invitation_code.strip().upper()
-            code_record = (
-                db.query(InvitationCode)
-                .filter(InvitationCode.code == code_value, InvitationCode.is_deleted.is_(False))
-                .first()
-            )
-            if not code_record:
-                raise Exception("邀请码无效")
-            if code_record.status != InvitationCodeStatus.ACTIVE:
-                raise Exception("邀请码已被停用")
-            if code_record.expires_at and code_record.expires_at <= datetime.utcnow():
-                raise Exception("邀请码已过期")
-            if code_record.max_uses not in (None, 0) and (code_record.usage_count or 0) >= code_record.max_uses:
-                raise Exception("邀请码已达使用上限")
-
-            agent = (
-                db.query(Agent)
-                .filter(Agent.id == code_record.agent_id, Agent.is_deleted.is_(False))
-                .first()
-            )
-            if not agent or agent.status != AgentStatus.ACTIVE:
-                raise Exception("所属代理商不可用")
+        agent = (
+            db.query(Agent)
+            .filter(Agent.id == code_record.agent_id, Agent.is_deleted.is_(False))
+            .first()
+        )
+        if not agent or agent.status != AgentStatus.ACTIVE:
+            raise Exception("所属代理商不可用")
         
         # 创建新用户
         user = User(

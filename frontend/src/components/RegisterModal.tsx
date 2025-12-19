@@ -7,9 +7,9 @@ interface RegisterModalProps {
   isOpen: boolean;
   isSubmitting: boolean;
   errorMessage?: string;
-  agentLinkToken?: string | null;
+  prefilledInvitationCode?: string | null;
   onClose: () => void;
-  onSubmit: (payload: { phone: string; password: string; confirmPassword: string; nickname?: string; email?: string; invitationCode?: string; agentLinkToken?: string }) => Promise<void>;
+  onSubmit: (payload: { phone: string; password: string; confirmPassword: string; nickname?: string; email?: string; invitationCode?: string }) => Promise<void>;
   onSwitchToLogin: () => void;
 }
 
@@ -17,7 +17,7 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
   isOpen, 
   isSubmitting, 
   errorMessage, 
-  agentLinkToken,
+  prefilledInvitationCode,
   onClose, 
   onSubmit,
   onSwitchToLogin
@@ -38,11 +38,11 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
   const [showOptionalFields, setShowOptionalFields] = useState(false);
 
   useEffect(() => {
-    if (agentLinkToken) {
-      setInvitationCode("");
+    if (prefilledInvitationCode) {
+      setInvitationCode(prefilledInvitationCode.toUpperCase());
       if (localError) setLocalError("");
     }
-  }, [agentLinkToken, localError]);
+  }, [localError, prefilledInvitationCode]);
 
   if (!isOpen) {
     return null;
@@ -73,8 +73,8 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
   };
 
   const validateForm = () => {
-    if (!phone || !password || !confirmPassword || (!agentLinkToken && !invitationCode)) {
-      setLocalError(agentLinkToken ? '请填写所有必填字段（手机号、密码、确认密码）' : '请填写所有必填字段（手机号、密码、确认密码、邀请码）');
+    if (!phone || !password || !confirmPassword || !invitationCode) {
+      setLocalError('请填写所有必填字段（手机号、密码、确认密码、邀请码）');
       return false;
     }
 
@@ -136,7 +136,6 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
         nickname: nickname || undefined,
         email: email || undefined,
         invitationCode: invitationCode.trim() || undefined,
-        agentLinkToken: agentLinkToken || undefined,
       });
       console.log('RegisterModal: onSubmit completed successfully');
       setPhone('');
@@ -245,7 +244,7 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
             )}
           </div>
 
-          {!agentLinkToken ? (
+          {!prefilledInvitationCode ? (
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700" htmlFor="register-invite-code">
                 邀请码 <span className="text-red-500">*</span>
@@ -270,7 +269,7 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
             </div>
           ) : (
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
-              已通过链接进入，将自动绑定
+              已通过链接进入，将自动绑定（邀请码：{prefilledInvitationCode}）
             </div>
           )}
 

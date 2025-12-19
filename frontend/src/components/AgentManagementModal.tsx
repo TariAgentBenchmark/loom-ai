@@ -41,20 +41,16 @@ const AgentManagementModal: React.FC<AgentManagementModalProps> = ({ open, acces
     loadData();
   }, [loadData]);
 
-  const buildReferralUrl = (token?: string | null) => {
-    if (!token) return "";
+  const buildInviteUrl = (code?: string | null) => {
+    if (!code) return "";
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    return origin ? `${origin}/?ref=${token}` : "";
+    return origin ? `${origin}/login?invite=${encodeURIComponent(code)}` : "";
   };
 
   const handleCopyReferralLink = async () => {
-    if (agentInfo?.referralLinkStatus && agentInfo.referralLinkStatus !== "active") {
-      setState({ status: "error", message: "注册链接已停用，无法复制" });
-      return;
-    }
-    const url = buildReferralUrl(agentInfo?.referralLinkToken);
+    const url = buildInviteUrl(agentInfo?.invitationCode);
     if (!url) {
-      setState({ status: "error", message: "暂无可复制的注册链接" });
+      setState({ status: "error", message: "暂无可复制的邀请链接" });
       return;
     }
     try {
@@ -122,14 +118,13 @@ const AgentManagementModal: React.FC<AgentManagementModalProps> = ({ open, acces
                   邀请码：<span className="font-semibold text-gray-900">{agentInfo.invitationCode || "—"}</span>
                 </div>
                 <div className="mt-2 text-sm text-gray-600">
-                  注册链接：
+                  邀请链接：
                   <button
                     type="button"
                     onClick={handleCopyReferralLink}
                     className="ml-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
                     disabled={
-                      !agentInfo.referralLinkToken ||
-                      (agentInfo.referralLinkStatus ? agentInfo.referralLinkStatus !== "active" : false)
+                      !agentInfo.invitationCode
                     }
                   >
                     {copied ? "已复制" : "复制链接"}
