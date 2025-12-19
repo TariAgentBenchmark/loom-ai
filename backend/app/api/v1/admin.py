@@ -2104,6 +2104,7 @@ async def list_agents(
 ):
     """代理商列表"""
     try:
+        AuthService().ensure_default_admin_invite(db)
         _normalize_agent_commission_mode_db(db)
 
         query = db.query(Agent).filter(Agent.is_deleted.is_(False))

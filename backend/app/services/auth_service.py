@@ -12,6 +12,7 @@ from app.models.agent import (
     Agent,
     InvitationCode,
     AgentStatus,
+    AgentCommissionMode,
     InvitationCodeStatus,
 )
 from app.services.credit_math import to_decimal
@@ -28,6 +29,82 @@ class AuthService:
         self.algorithm = settings.algorithm
         self.access_token_expire_minutes = settings.access_token_expire_minutes
         self.refresh_token_expire_days = settings.refresh_token_expire_days
+
+    def _get_default_admin_user(self, db: Session) -> User:
+        admin_user = None
+        if settings.default_admin_email:
+            admin_user = (
+                db.query(User)
+                .filter(User.email == settings.default_admin_email, User.is_admin.is_(True))
+                .first()
+            )
+        if not admin_user:
+            admin_user = (
+                db.query(User)
+                .filter(User.is_admin.is_(True))
+                .order_by(User.id.asc())
+                .first()
+            )
+        if not admin_user:
+            raise Exception("未配置管理员账号")
+        return admin_user
+
+    def _get_or_create_admin_agent(self, db: Session, admin_user: User) -> Agent:
+        agent = (
+            db.query(Agent)
+            .filter(Agent.owner_user_id == admin_user.id, Agent.is_deleted.is_(False))
+            .first()
+        )
+        if agent:
+            return agent
+
+        base_name = "管理员"
+        name = base_name
+        existing_name = (
+            db.query(Agent)
+            .filter(Agent.name == name, Agent.is_deleted.is_(False))
+            .first()
+        )
+        if existing_name:
+            name = f"{base_name}-{admin_user.id}"
+
+        agent = Agent(
+            name=name,
+            owner_user_id=admin_user.id,
+            status=AgentStatus.ACTIVE,
+            commission_mode=AgentCommissionMode.TIERED,
+        )
+        db.add(agent)
+        db.flush()
+        return agent
+
+    def _get_or_create_default_invitation_code(self, db: Session, agent: Agent) -> InvitationCode:
+        code_value = (settings.default_invitation_code or "MDXR").strip().upper()
+        code_record = (
+            db.query(InvitationCode)
+            .filter(InvitationCode.code == code_value, InvitationCode.is_deleted.is_(False))
+            .first()
+        )
+        if code_record:
+            if code_record.agent_id != agent.id:
+                raise Exception("默认邀请码已被占用，请联系管理员处理")
+            return code_record
+
+        code_record = InvitationCode(
+            code=code_value,
+            agent_id=agent.id,
+            status=InvitationCodeStatus.ACTIVE,
+        )
+        db.add(code_record)
+        db.flush()
+        return code_record
+
+    def ensure_default_admin_invite(self, db: Session) -> None:
+        """Ensure default admin agent and invitation code exist."""
+        admin_user = self._get_default_admin_user(db)
+        admin_agent = self._get_or_create_admin_agent(db, admin_user)
+        self._get_or_create_default_invitation_code(db, admin_agent)
+        db.commit()
 
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
         """验证密码"""
@@ -106,17 +183,20 @@ class AuthService:
         if agent_link_token and agent_link_token.strip():
             raise Exception("代理注册链接已停用，请使用邀请码注册")
 
-        if not invitation_code or not invitation_code.strip():
-            raise Exception("邀请码不能为空")
+        if invitation_code and invitation_code.strip():
+            code_value = invitation_code.strip().upper()
+            code_record = (
+                db.query(InvitationCode)
+                .filter(InvitationCode.code == code_value, InvitationCode.is_deleted.is_(False))
+                .first()
+            )
+            if not code_record:
+                raise Exception("邀请码无效")
+        else:
+            admin_user = self._get_default_admin_user(db)
+            admin_agent = self._get_or_create_admin_agent(db, admin_user)
+            code_record = self._get_or_create_default_invitation_code(db, admin_agent)
 
-        code_value = invitation_code.strip().upper()
-        code_record = (
-            db.query(InvitationCode)
-            .filter(InvitationCode.code == code_value, InvitationCode.is_deleted.is_(False))
-            .first()
-        )
-        if not code_record:
-            raise Exception("邀请码无效")
         if code_record.status != InvitationCodeStatus.ACTIVE:
             raise Exception("邀请码已被停用")
         if code_record.expires_at and code_record.expires_at <= datetime.utcnow():

@@ -27,7 +27,6 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [nickname, setNickname] = useState('');
   const [email, setEmail] = useState('');
-  const [invitationCode, setInvitationCode] = useState('');
   const [localError, setLocalError] = useState('');
   const [showPhoneVerification, setShowPhoneVerification] = useState(false);
   const [isPhoneVerified, setIsPhoneVerified] = useState(false);
@@ -36,13 +35,6 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
   const [verificationCooldownSeconds, setVerificationCooldownSeconds] = useState(60);
   const [initialVerificationCountdown, setInitialVerificationCountdown] = useState(0);
   const [showOptionalFields, setShowOptionalFields] = useState(false);
-
-  useEffect(() => {
-    if (prefilledInvitationCode) {
-      setInvitationCode(prefilledInvitationCode.toUpperCase());
-      if (localError) setLocalError("");
-    }
-  }, [localError, prefilledInvitationCode]);
 
   if (!isOpen) {
     return null;
@@ -73,8 +65,8 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
   };
 
   const validateForm = () => {
-    if (!phone || !password || !confirmPassword || !invitationCode) {
-      setLocalError('请填写所有必填字段（手机号、密码、确认密码、邀请码）');
+    if (!phone || !password || !confirmPassword) {
+      setLocalError('请填写所有必填字段（手机号、密码、确认密码）');
       return false;
     }
 
@@ -135,7 +127,7 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
         confirmPassword,
         nickname: nickname || undefined,
         email: email || undefined,
-        invitationCode: invitationCode.trim() || undefined,
+        invitationCode: prefilledInvitationCode?.trim().toUpperCase() || undefined,
       });
       console.log('RegisterModal: onSubmit completed successfully');
       setPhone('');
@@ -143,7 +135,6 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
       setConfirmPassword('');
       setNickname('');
       setEmail('');
-      setInvitationCode('');
       setIsPhoneVerified(false);
     } catch (error) {
       console.error('RegisterModal: onSubmit failed', error);
@@ -244,34 +235,11 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
             )}
           </div>
 
-          {!prefilledInvitationCode ? (
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700" htmlFor="register-invite-code">
-                邀请码 <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="register-invite-code"
-                type="text"
-                inputMode="text"
-                autoComplete="off"
-                spellCheck={false}
-                value={invitationCode}
-                onChange={(event) => {
-                  setInvitationCode(event.target.value.toUpperCase());
-                  if (localError) setLocalError('');
-                }}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 uppercase"
-                placeholder="请输入邀请码"
-                disabled={isSubmitting}
-                required
-              />
-              <p className="text-xs text-gray-500">没有可填写MDXR</p>
-            </div>
-          ) : (
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
-              已通过链接进入，将自动绑定（邀请码：{prefilledInvitationCode}）
-            </div>
-          )}
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+            {prefilledInvitationCode
+              ? `已通过链接进入，将自动绑定（邀请码：${prefilledInvitationCode}）`
+              : "系统将自动分配管理员邀请码绑定"}
+          </div>
 
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700" htmlFor="register-password">

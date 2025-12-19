@@ -134,6 +134,20 @@ def create_admin_user():
     finally:
         db.close()
 
+def ensure_admin_invite():
+    """确保管理员代理与默认邀请码存在"""
+    db = SessionLocal()
+    auth_service = AuthService()
+    try:
+        auth_service.ensure_default_admin_invite(db)
+        logger.info("✅ 管理员代理与默认邀请码就绪")
+    except Exception as e:
+        logger.error(f"❌ 初始化管理员邀请码失败: {e}")
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
 
 def create_membership_data():
     """初始化会员套餐、服务价格及新用户福利数据"""
@@ -196,6 +210,7 @@ def main():
         create_sample_packages()
         create_membership_data()
         create_admin_user()
+        ensure_admin_invite()
         
         print("\n🎉 数据库初始化完成!")
         print("📖 现在可以启动服务器了: python run_server.py")

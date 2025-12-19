@@ -89,9 +89,6 @@ async def register(
 
         if user_data.agent_link_token and user_data.agent_link_token.strip():
             raise HTTPException(status_code=400, detail="代理注册链接已停用，请使用邀请码注册")
-
-        if not user_data.invitation_code or not user_data.invitation_code.strip():
-            raise HTTPException(status_code=400, detail="邀请码不能为空")
         
         # 注册用户
         user = await auth_service.register_user(
