@@ -36,4 +36,4 @@ RUN mkdir -p uploads/originals uploads/results uploads/temp data
 EXPOSE 8000
 
 # 初始化数据库并启动服务（使用Gunicorn多进程）
-CMD ["sh", "-c", "uv run init_db.py && uv run gunicorn app.main:app -k uvicorn.workers.UvicornWorker -w ${GUNICORN_WORKERS:-4} -b 0.0.0.0:8000 --timeout 120 --graceful-timeout 30 --keep-alive 30"]
+CMD ["sh", "-c", "uv run gunicorn app.main:app -k uvicorn.workers.UvicornWorker -w ${GUNICORN_WORKERS:-4} -b 0.0.0.0:8000 --timeout 120 --graceful-timeout 30 --keep-alive 30"]
