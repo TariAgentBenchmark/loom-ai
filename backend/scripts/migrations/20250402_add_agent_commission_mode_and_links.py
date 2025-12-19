@@ -129,8 +129,9 @@ def ensure_referral_links(engine: Engine) -> None:
 
 
 def normalize_link_status(engine: Engine) -> None:
+    dialect = engine.dialect.name.lower()
     with engine.begin() as conn:
-        if engine.dialect.name == "postgresql":
+        if "postgres" in dialect:
             conn.execute(
                 text(
                     """
