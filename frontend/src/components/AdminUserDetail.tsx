@@ -10,6 +10,7 @@ import {
   adminGetUserTransactions,
   adminAdjustUserCredits,
   adminGetUserTasks,
+  resolveFileUrl,
   type AdminUserDetail,
   type AdminAgent,
   type AdminCreditTransaction,
@@ -73,6 +74,38 @@ const AdminUserDetail: React.FC = () => {
   const [agentReason, setAgentReason] = useState("");
   const [agentError, setAgentError] = useState<string | null>(null);
   const [isUpdatingAgent, setIsUpdatingAgent] = useState(false);
+
+  const resolveFirstImageUrl = (value?: string | null) => {
+    if (!value) return "";
+    return value.split(",")[0]?.trim() ?? "";
+  };
+
+  const renderTaskImage = (image?: AdminUserTask["originalImage"] | null) => {
+    const rawUrl = resolveFirstImageUrl(image?.url);
+    if (!rawUrl) {
+      return <span className="text-xs text-gray-400">—</span>;
+    }
+    const url = resolveFileUrl(rawUrl);
+    return (
+      <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center">
+        <img
+          src={url}
+          alt={image?.filename || "image"}
+          className="h-10 w-10 rounded border border-gray-200 object-cover"
+        />
+      </a>
+    );
+  };
+
+  const getTaskStatusLabel = (status: string) => {
+    const mapping: Record<string, string> = {
+      completed: "已完成",
+      failed: "失败",
+      processing: "处理中",
+      queued: "排队中",
+    };
+    return mapping[status] || status;
+  };
 
   const fetchUserDetail = useCallback(async () => {
     if (!accessToken || !userId) return;
@@ -476,6 +509,12 @@ const AdminUserDetail: React.FC = () => {
                     状态
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    原图
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    结果图
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     积分
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -490,7 +529,9 @@ const AdminUserDetail: React.FC = () => {
                 {userTasks.map((task) => (
                   <tr key={task.taskId}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{task.taskId}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{task.type}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {task.typeName || task.type}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       <span
                         className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -501,8 +542,14 @@ const AdminUserDetail: React.FC = () => {
                             : "bg-gray-100 text-gray-800"
                         }`}
                       >
-                        {task.status}
+                        {getTaskStatusLabel(task.status)}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {renderTaskImage(task.originalImage)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {renderTaskImage(task.resultImage)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {Number.isFinite(task.creditsUsed) ? task.creditsUsed : 0}
@@ -517,7 +564,7 @@ const AdminUserDetail: React.FC = () => {
                 ))}
                 {userTasks.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
+                    <td colSpan={8} className="px-6 py-4 text-center text-sm text-gray-500">
                       暂无历史任务
                     </td>
                   </tr>

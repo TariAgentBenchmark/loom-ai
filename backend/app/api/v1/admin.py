@@ -18,7 +18,7 @@ from app.core.config import settings
 from app.models.user import User, MembershipType, UserStatus
 from app.models.credit import CreditTransaction, CreditSource, TransactionType, CreditTransfer, CreditAlert
 from app.models.payment import Order, Refund, OrderStatus, PackageType, PaymentMethod, Package
-from app.models.task import Task
+from app.models.task import Task, TaskStatus
 from app.models.agent import (
     Agent,
     InvitationCode,
@@ -31,7 +31,8 @@ from app.models.agent import (
 from app.models.agent_commission import AgentCommission, AgentCommissionStatus
 from app.api.dependencies import get_current_active_admin
 from app.api.decorators import admin_required, admin_route
-from app.schemas.common import SuccessResponse, PaginationMeta
+from app.schemas.common import SuccessResponse, PaginationMeta, FileInfo
+from app.utils.result_filter import filter_result_strings
 from app.services.auth_service import AuthService
 from app.services.api_limiter import api_limiter
 from app.services.credit_math import to_decimal, to_float
@@ -114,7 +115,7 @@ class UserSubscriptionResponse(BaseModel):
 class AdminCreditTransactionResponse(BaseModel):
     transactionId: str
     userId: str
-    userEmail: str
+    userEmail: Optional[str]
     type: str
     amount: float
     balanceAfter: float
@@ -134,12 +135,15 @@ class AdminCreditTransactionListResponse(BaseModel):
 class AdminUserTaskResponse(BaseModel):
     taskId: str
     type: str
+    typeName: Optional[str] = None
     status: str
     creditsUsed: float
     createdAt: Optional[str]
     completedAt: Optional[str]
     originalFilename: Optional[str]
     resultFilename: Optional[str]
+    originalImage: Optional[FileInfo] = None
+    resultImage: Optional[FileInfo] = None
 
 
 class AdminUserTaskListResponse(BaseModel):
@@ -531,6 +535,60 @@ def _normalize_agent_commission_mode_db(db: Session) -> None:
     db.commit()
 
 
+async def _format_admin_task(task: Task) -> AdminUserTaskResponse:
+    from app.services.file_service import FileService
+
+    file_service = FileService()
+    credits_used_value = to_float(task.credits_used)
+    if task.status == TaskStatus.FAILED.value:
+        credits_used_value = 0.0
+
+    original_image_url = task.original_image_url
+    if original_image_url:
+        original_image_url = await file_service.ensure_accessible_url(original_image_url)
+
+    original_image = FileInfo(
+        url=original_image_url or "",
+        filename=task.original_filename,
+        size=task.original_file_size or 0,
+        dimensions=task.original_dimensions,
+    )
+
+    result_image = None
+    if task.result_image_url:
+        filtered_urls, filtered_filenames = filter_result_strings(
+            task.type,
+            task.result_image_url,
+            task.result_filename,
+        )
+        signed_urls = []
+        for url in filtered_urls:
+            clean_url = url.strip()
+            accessible_url = await file_service.ensure_accessible_url(clean_url)
+            signed_urls.append(accessible_url or clean_url)
+
+        result_image = FileInfo(
+            url=",".join(signed_urls) if signed_urls else task.result_image_url,
+            filename=",".join(filtered_filenames) if filtered_filenames else (task.result_filename or ""),
+            size=task.result_file_size or 0,
+            dimensions=task.result_dimensions,
+        )
+
+    return AdminUserTaskResponse(
+        taskId=task.task_id,
+        type=task.type,
+        typeName=task.type_name,
+        status=task.status,
+        creditsUsed=credits_used_value,
+        createdAt=task.created_at.isoformat() if task.created_at else None,
+        completedAt=task.completed_at.isoformat() if task.completed_at else None,
+        originalFilename=task.original_filename,
+        resultFilename=task.result_filename,
+        originalImage=original_image,
+        resultImage=result_image,
+    )
+
+
 @router.get("/users", dependencies=[Depends(admin_route())])
 async def get_all_users(
     page: int = Query(1, ge=1, description="Page number"),
@@ -770,16 +828,7 @@ async def get_user_tasks(
         return SuccessResponse(
             data=AdminUserTaskListResponse(
                 tasks=[
-                    AdminUserTaskResponse(
-                        taskId=task.task_id,
-                        type=task.type,
-                        status=task.status,
-                        creditsUsed=to_float(task.credits_used),
-                        createdAt=task.created_at.isoformat() if task.created_at else None,
-                        completedAt=task.completed_at.isoformat() if task.completed_at else None,
-                        originalFilename=task.original_filename,
-                        resultFilename=task.result_filename,
-                    )
+                    await _format_admin_task(task)
                     for task in tasks
                 ],
                 pagination=PaginationMeta(

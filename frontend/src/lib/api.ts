@@ -1111,7 +1111,7 @@ export interface AdminUserDetail extends AdminUser { }
 export interface AdminCreditTransaction {
   transactionId: string;
   userId: string;
-  userEmail: string;
+  userEmail: string | null;
   type: string;
   amount: number;
   balanceAfter: number;
@@ -1125,12 +1125,25 @@ export interface AdminCreditTransaction {
 export interface AdminUserTask {
   taskId: string;
   type: string;
+  typeName?: string | null;
   status: string;
   creditsUsed: number;
   createdAt?: string | null;
   completedAt?: string | null;
   originalFilename?: string | null;
   resultFilename?: string | null;
+  originalImage?: {
+    url: string;
+    filename: string;
+    size: number;
+    dimensions?: { width: number; height: number };
+  } | null;
+  resultImage?: {
+    url: string;
+    filename: string;
+    size: number;
+    dimensions?: { width: number; height: number };
+  } | null;
 }
 
 export interface AdminUserTaskListResponse {
