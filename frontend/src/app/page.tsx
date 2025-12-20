@@ -198,9 +198,6 @@ function HomeContent() {
       return;
     }
     setPrefilledInvitationCode(inviteCode.toUpperCase());
-    setShowRegisterModal(true);
-    setShowLoginModal(false);
-    setRegisterError('');
   }, [inviteCode, isLoggedIn]);
   const applyStoredMethodUiState = useCallback(
     (method: ProcessingMethod) => {
