@@ -127,6 +127,8 @@ class AdminCreditTransactionResponse(BaseModel):
 
 class AdminCreditTransactionListResponse(BaseModel):
     transactions: List[AdminCreditTransactionResponse]
+    pagination: Optional[PaginationMeta] = None
+    summary: Optional[Dict[str, Any]] = None
 
 
 class AdminUserTaskResponse(BaseModel):
@@ -143,8 +145,7 @@ class AdminUserTaskResponse(BaseModel):
 class AdminUserTaskListResponse(BaseModel):
     tasks: List[AdminUserTaskResponse]
     pagination: PaginationMeta
-    pagination: PaginationMeta
-    summary: Dict[str, Any]
+    summary: Optional[Dict[str, Any]] = None
 
 
 class CreditAdjustmentRequest(BaseModel):
@@ -787,6 +788,9 @@ async def get_user_tasks(
                     total=total,
                     total_pages=(total + limit - 1) // limit,
                 ),
+                summary={
+                    "totalTasks": total,
+                },
             ).dict(),
             message="获取用户任务历史成功",
         )
