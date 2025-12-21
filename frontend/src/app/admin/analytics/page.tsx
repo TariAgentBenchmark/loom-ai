@@ -5,6 +5,7 @@ import { useAdminIsAuthenticated, useAdminAccessToken } from "../../../contexts/
 import { useRouter } from "next/navigation";
 import AdminLayout from "../../../components/AdminLayout";
 import { adminGetAllTasks, adminSearchUserSuggestions, type AdminUserTask, type HistoryTask, type UserSuggestion, resolveFileUrl } from "../../../lib/api";
+import { formatDateTime } from "../../../lib/datetime";
 import { Search, Filter, ChevronLeft, ChevronRight, Calendar, User, Layers, AlertCircle, X } from "lucide-react";
 import ImagePreview from "../../../components/ImagePreview";
 
@@ -182,8 +183,7 @@ export default function AdminTaskBrowserPage() {
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "-";
-    const date = new Date(dateString);
-    return date.toLocaleString("zh-CN", {
+    return formatDateTime(dateString, {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",

@@ -4,6 +4,7 @@ import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { X, Download, ZoomIn, ZoomOut, RotateCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { HistoryTask } from '../lib/api';
 import { resolveFileUrl } from '../lib/api';
+import { formatDateTime } from '../lib/datetime';
 
 interface ImagePreviewProps {
   task: HistoryTask | null;
@@ -482,10 +483,10 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
             <div className="flex flex-col md:flex-row md:items-center space-y-1 md:space-y-0 md:space-x-4">
               <span className="truncate">任务ID: {task.taskId}</span>
               <span>状态: {task.status === 'completed' ? '已完成' : task.status}</span>
-              <span className="truncate">创建时间: {new Date(task.createdAt).toLocaleString('zh-CN')}</span>
+              <span className="truncate">创建时间: {formatDateTime(task.createdAt)}</span>
             </div>
             {task.completedAt && (
-              <span className="truncate">完成时间: {new Date(task.completedAt).toLocaleString('zh-CN')}</span>
+              <span className="truncate">完成时间: {formatDateTime(task.completedAt)}</span>
             )}
           </div>
         </div>

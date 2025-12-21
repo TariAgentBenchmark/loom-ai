@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { HistoryTask, getHistoryTasks, getTaskDetail, downloadTaskFile } from '../lib/api';
 import { resolveFileUrl } from '../lib/api';
+import { formatDateTime } from '../lib/datetime';
 
 interface HistoryListProps {
   accessToken: string;
@@ -157,8 +158,7 @@ const HistoryList: React.FC<HistoryListProps> = ({
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('zh-CN', {
+    return formatDateTime(dateString, {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',

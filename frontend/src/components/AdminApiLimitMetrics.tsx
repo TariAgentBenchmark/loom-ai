@@ -7,6 +7,7 @@ import {
   type AdminApiLimitMetric,
 } from "../lib/api";
 import { useAdminAccessToken } from "../contexts/AdminAuthContext";
+import { formatDateTime } from "../lib/datetime";
 
 const formatPercent = (value: number) =>
   `${Math.min(100, Math.max(0, Math.round(value)))}%`;
@@ -52,7 +53,12 @@ const AdminApiLimitMetrics: React.FC = () => {
           ...m,
           leasedTokens: m.leasedTokens ?? m.leased_tokens ?? 0,
         })),
-        fetchedAt: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
+        fetchedAt: formatDateTime(new Date(), {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        }),
       });
     } catch (err) {
       setState({
