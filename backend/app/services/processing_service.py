@@ -439,13 +439,29 @@ class ProcessingService:
                 logger.info(f"Task {task_id} completed successfully")
 
             except Exception as e:
-                # 处理失败
+                # 处理失败 - 保存详细错误信息供管理员查看
+                import traceback
                 error_msg = str(e)
-                task.mark_as_failed("服务器火爆，重试一下。", "P006")
+                error_traceback = traceback.format_exc()
+
+                # 区分下游API错误和服务自身错误
+                error_code = "P006"  # 默认错误代码
+                user_friendly_msg = "服务器火爆，重试一下。"  # 给用户看的友好提示
+
+                # 判断是否是下游API错误
+                if any(keyword in error_msg for keyword in ["API", "即梦", "jimeng", "Liblib", "Meitu", "Vectorizer", "GQCH", "RunningHub"]):
+                    error_code = "API_ERROR"
+                    admin_error_msg = f"[下游API错误] {error_msg}\n\n调用栈:\n{error_traceback}"
+                else:
+                    error_code = "SERVICE_ERROR"
+                    admin_error_msg = f"[服务内部错误] {error_msg}\n\n调用栈:\n{error_traceback}"
+
+                # 保存详细错误信息到数据库（供管理员查看）
+                task.mark_as_failed(admin_error_msg, error_code)
                 task.credits_used = to_decimal(0)
 
                 db.commit()
-                logger.error(f"Task {task_id} failed: {error_msg}")
+                logger.error(f"Task {task_id} failed with {error_code}: {error_msg}\n{error_traceback}")
 
         except Exception as e:
             logger.error(f"Unexpected error processing task {task_id}: {str(e)}")

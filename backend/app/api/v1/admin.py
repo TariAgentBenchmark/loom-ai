@@ -144,6 +144,8 @@ class AdminUserTaskResponse(BaseModel):
     resultFilename: Optional[str]
     originalImage: Optional[FileInfo] = None
     resultImage: Optional[FileInfo] = None
+    errorMessage: Optional[str] = None
+    errorCode: Optional[str] = None
 
 
 class AdminUserTaskListResponse(BaseModel):
@@ -586,6 +588,8 @@ async def _format_admin_task(task: Task) -> AdminUserTaskResponse:
         resultFilename=task.result_filename,
         originalImage=original_image,
         resultImage=result_image,
+        errorMessage=task.error_message if task.status == TaskStatus.FAILED.value else None,
+        errorCode=task.error_code if task.status == TaskStatus.FAILED.value else None,
     )
 
 

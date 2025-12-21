@@ -5,7 +5,7 @@ import { useAdminIsAuthenticated, useAdminAccessToken } from "../../../contexts/
 import { useRouter } from "next/navigation";
 import AdminLayout from "../../../components/AdminLayout";
 import { adminGetAllTasks, type AdminUserTask, type HistoryTask, resolveFileUrl } from "../../../lib/api";
-import { Search, Filter, ChevronLeft, ChevronRight, Calendar, User, Layers } from "lucide-react";
+import { Search, Filter, ChevronLeft, ChevronRight, Calendar, User, Layers, AlertCircle, X } from "lucide-react";
 import ImagePreview from "../../../components/ImagePreview";
 
 export default function AdminTaskBrowserPage() {
@@ -17,6 +17,7 @@ export default function AdminTaskBrowserPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<HistoryTask | null>(null);
+  const [errorDetailTask, setErrorDetailTask] = useState<AdminUserTask & { user?: { userId: string; email?: string; nickname?: string } } | null>(null);
 
   // 筛选条件
   const [filters, setFilters] = useState({
@@ -360,7 +361,21 @@ export default function AdminTaskBrowserPage() {
                               {task.typeName}
                             </td>
                             <td className="whitespace-nowrap px-6 py-4 text-sm">
-                              {getStatusBadge(task.status)}
+                              <div className="flex items-center gap-2">
+                                {getStatusBadge(task.status)}
+                                {task.status === "failed" && task.errorMessage && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setErrorDetailTask(task);
+                                    }}
+                                    className="text-red-500 hover:text-red-700"
+                                    title="查看错误详情"
+                                  >
+                                    <AlertCircle className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </div>
                             </td>
                             <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
                               {task.creditsUsed.toFixed(2)}
@@ -417,6 +432,68 @@ export default function AdminTaskBrowserPage() {
           onClose={() => setSelectedTask(null)}
           accessToken={accessToken}
         />
+      )}
+
+      {/* 错误详情模态框 */}
+      {errorDetailTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="mx-4 w-full max-w-3xl rounded-lg bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-red-500" />
+                <h3 className="text-lg font-semibold text-gray-900">任务错误详情</h3>
+              </div>
+              <button
+                onClick={() => setErrorDetailTask(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="px-6 py-4">
+              <div className="mb-4 space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="font-medium text-gray-700">任务ID:</span>
+                  <span className="text-gray-600">{errorDetailTask.taskId}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="font-medium text-gray-700">任务类型:</span>
+                  <span className="text-gray-600">{errorDetailTask.typeName}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="font-medium text-gray-700">用户:</span>
+                  <span className="text-gray-600">
+                    {errorDetailTask.user?.nickname || errorDetailTask.user?.email || "-"}
+                  </span>
+                </div>
+                {errorDetailTask.errorCode && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="font-medium text-gray-700">错误代码:</span>
+                    <span className="rounded bg-red-100 px-2 py-1 font-mono text-xs text-red-800">
+                      {errorDetailTask.errorCode}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div>
+                <div className="mb-2 font-medium text-gray-700">错误信息:</div>
+                <div className="max-h-96 overflow-y-auto rounded border border-gray-200 bg-gray-50 p-4">
+                  <pre className="whitespace-pre-wrap font-mono text-xs text-gray-800">
+                    {errorDetailTask.errorMessage}
+                  </pre>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-200 px-6 py-4">
+              <button
+                onClick={() => setErrorDetailTask(null)}
+                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </AdminLayout>
   );

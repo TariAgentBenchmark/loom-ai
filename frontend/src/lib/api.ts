@@ -1144,6 +1144,8 @@ export interface AdminUserTask {
     size: number;
     dimensions?: { width: number; height: number };
   } | null;
+  errorMessage?: string | null;
+  errorCode?: string | null;
 }
 
 export interface AdminUserTaskListResponse {
