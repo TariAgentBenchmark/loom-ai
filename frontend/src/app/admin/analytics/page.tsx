@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useAdminIsAuthenticated, useAdminAccessToken } from "../../../contexts/AdminAuthContext";
 import { useRouter } from "next/navigation";
 import AdminLayout from "../../../components/AdminLayout";
-import { adminGetAllTasks, type AdminUserTask, type HistoryTask, resolveFileUrl } from "../../../lib/api";
+import { adminGetAllTasks, adminSearchUserSuggestions, type AdminUserTask, type HistoryTask, type UserSuggestion, resolveFileUrl } from "../../../lib/api";
 import { Search, Filter, ChevronLeft, ChevronRight, Calendar, User, Layers, AlertCircle, X } from "lucide-react";
 import ImagePreview from "../../../components/ImagePreview";
 
@@ -19,9 +19,17 @@ export default function AdminTaskBrowserPage() {
   const [selectedTask, setSelectedTask] = useState<HistoryTask | null>(null);
   const [errorDetailTask, setErrorDetailTask] = useState<AdminUserTask & { user?: { userId: string; email?: string; nickname?: string } } | null>(null);
 
+  // 用户搜索自动完成
+  const [userSearchInput, setUserSearchInput] = useState("");
+  const [userSuggestions, setUserSuggestions] = useState<UserSuggestion[]>([]);
+  const [selectedUser, setSelectedUser] = useState<UserSuggestion | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+
   // 筛选条件
   const [filters, setFilters] = useState({
-    userId: "",
+    userSearch: "",
     taskType: "",
     status: "",
     startDate: "",
@@ -46,6 +54,49 @@ export default function AdminTaskBrowserPage() {
     }
   }, [isAuthenticated, accessToken, page, filters]);
 
+  // 搜索用户建议
+  useEffect(() => {
+    const searchUsers = async () => {
+      // 如果已选择用户或输入为空，不进行搜索
+      if (selectedUser || !accessToken || !userSearchInput || userSearchInput.length < 2) {
+        setUserSuggestions([]);
+        return;
+      }
+
+      try {
+        setSearchLoading(true);
+        setSearchError(null);
+        const response = await adminSearchUserSuggestions(accessToken, userSearchInput, 10);
+        if (response.success && response.data) {
+          setUserSuggestions(response.data.suggestions);
+        }
+      } catch (err) {
+        console.error("搜索用户失败:", err);
+        setSearchError("搜索用户失败，请稍后重试");
+      } finally {
+        setSearchLoading(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(searchUsers, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [userSearchInput, accessToken, selectedUser]);
+
+  // 点击外部关闭建议框
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.user-search-container')) {
+        setShowSuggestions(false);
+      }
+    };
+
+    if (showSuggestions) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showSuggestions]);
+
   const fetchTasks = async () => {
     if (!accessToken) return;
 
@@ -56,7 +107,7 @@ export default function AdminTaskBrowserPage() {
       const response = await adminGetAllTasks(accessToken, {
         page,
         limit,
-        userId: filters.userId || undefined,
+        userSearch: filters.userSearch || undefined,
         taskType: filters.taskType || undefined,
         status: filters.status || undefined,
         startDate: filters.startDate || undefined,
@@ -82,12 +133,32 @@ export default function AdminTaskBrowserPage() {
 
   const handleResetFilters = () => {
     setFilters({
-      userId: "",
+      userSearch: "",
       taskType: "",
       status: "",
       startDate: "",
       endDate: "",
     });
+    setSelectedUser(null);
+    setUserSearchInput("");
+    setUserSuggestions([]);
+    setPage(1);
+  };
+
+  const handleSelectSuggestion = (suggestion: UserSuggestion) => {
+    setSelectedUser(suggestion);
+    setUserSearchInput("");
+    setFilters((prev) => ({ ...prev, userSearch: suggestion.displayText }));
+    setShowSuggestions(false);
+    setUserSuggestions([]);
+    setPage(1);
+  };
+
+  const handleClearUserSearch = () => {
+    setSelectedUser(null);
+    setUserSearchInput("");
+    setFilters((prev) => ({ ...prev, userSearch: "" }));
+    setUserSuggestions([]);
     setPage(1);
   };
 
@@ -202,17 +273,71 @@ export default function AdminTaskBrowserPage() {
             筛选条件
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <div>
+            <div className="user-search-container relative">
               <label className="mb-1 block text-sm font-medium text-gray-700">
-                <User className="mb-1 inline h-4 w-4" /> 用户ID
+                <User className="mb-1 inline h-4 w-4" /> 用户搜索
               </label>
-              <input
-                type="text"
-                placeholder="输入用户ID"
-                value={filters.userId}
-                onChange={(e) => handleFilterChange("userId", e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
+              {selectedUser ? (
+                <div className="mt-1 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
+                  <div className="flex-1">
+                    <div className="font-semibold text-gray-900">
+                      {selectedUser.nickname || selectedUser.email || selectedUser.phone || selectedUser.userId}
+                    </div>
+                    <div className="text-xs text-gray-700">
+                      {selectedUser.email && <div>邮箱：{selectedUser.email}</div>}
+                      {selectedUser.phone && <div>手机：{selectedUser.phone}</div>}
+                      <div>ID：{selectedUser.userId}</div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleClearUserSearch}
+                    className="text-gray-500 hover:text-gray-700"
+                    title="清除"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="输入用户名、邮箱或手机号"
+                    value={userSearchInput}
+                    onChange={(e) => {
+                      setUserSearchInput(e.target.value);
+                      setShowSuggestions(true);
+                    }}
+                    onFocus={() => setShowSuggestions(true)}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 pr-8 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  {searchLoading && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-r-transparent"></div>
+                    </div>
+                  )}
+                  {showSuggestions && userSuggestions.length > 0 && (
+                    <div className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-200 bg-white shadow-lg">
+                      {userSuggestions.map((suggestion) => (
+                        <button
+                          key={suggestion.userId}
+                          onClick={() => handleSelectSuggestion(suggestion)}
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50"
+                        >
+                          <div className="font-medium text-gray-900">{suggestion.displayText}</div>
+                          <div className="text-xs text-gray-500">
+                            {suggestion.email && <span>邮箱: {suggestion.email} · </span>}
+                            {suggestion.phone && <span>手机: {suggestion.phone} · </span>}
+                            <span>ID: {suggestion.userId}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {searchError && (
+                    <div className="mt-1 text-xs text-red-600">{searchError}</div>
+                  )}
+                </div>
+              )}
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">

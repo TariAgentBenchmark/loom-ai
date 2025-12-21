@@ -758,6 +758,56 @@ async def search_users(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/users/search-suggestions", dependencies=[Depends(admin_route())])
+async def search_user_suggestions(
+    q: str = Query(..., min_length=1, description="搜索关键词"),
+    limit: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db),
+):
+    """搜索用户建议（管理员专用）- 支持用户名、邮箱、手机号模糊搜索"""
+    try:
+        # 构建搜索条件
+        search_pattern = f"%{q}%"
+        query = db.query(User).filter(
+            or_(
+                User.nickname.ilike(search_pattern),
+                User.email.ilike(search_pattern),
+                User.phone.ilike(search_pattern),
+                User.user_id.ilike(search_pattern),
+            )
+        ).limit(limit)
+
+        users = query.all()
+
+        suggestions = []
+        for user in users:
+            # 构建显示文本
+            display_parts = []
+            if user.nickname:
+                display_parts.append(user.nickname)
+            if user.email:
+                display_parts.append(user.email)
+            elif user.phone:
+                display_parts.append(user.phone)
+
+            display_text = " - ".join(display_parts) if display_parts else user.user_id
+
+            suggestions.append({
+                "userId": user.user_id,
+                "displayText": display_text,
+                "nickname": user.nickname,
+                "email": user.email,
+                "phone": user.phone,
+            })
+
+        return SuccessResponse(
+            data={"suggestions": suggestions},
+            message="搜索成功",
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/users/{user_id}", dependencies=[Depends(admin_route())])
 async def get_user_detail(
     user_id: str,
@@ -3386,9 +3436,59 @@ async def get_api_limit_metrics(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/users/search-suggestions", dependencies=[Depends(admin_route())])
+async def search_user_suggestions(
+    q: str = Query(..., min_length=1, description="搜索关键词"),
+    limit: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db),
+):
+    """搜索用户建议（管理员专用）- 支持用户名、邮箱、手机号模糊搜索"""
+    try:
+        # 构建搜索条件
+        search_pattern = f"%{q}%"
+        query = db.query(User).filter(
+            or_(
+                User.nickname.ilike(search_pattern),
+                User.email.ilike(search_pattern),
+                User.phone.ilike(search_pattern),
+                User.user_id.ilike(search_pattern),
+            )
+        ).limit(limit)
+
+        users = query.all()
+
+        suggestions = []
+        for user in users:
+            # 构建显示文本
+            display_parts = []
+            if user.nickname:
+                display_parts.append(user.nickname)
+            if user.email:
+                display_parts.append(user.email)
+            elif user.phone:
+                display_parts.append(user.phone)
+
+            display_text = " - ".join(display_parts) if display_parts else user.user_id
+
+            suggestions.append({
+                "userId": user.user_id,
+                "displayText": display_text,
+                "nickname": user.nickname,
+                "email": user.email,
+                "phone": user.phone,
+            })
+
+        return SuccessResponse(
+            data={"suggestions": suggestions},
+            message="搜索成功",
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/tasks", dependencies=[Depends(admin_route())])
 async def get_all_tasks(
-    user_id: Optional[str] = Query(None, description="用户ID"),
+    user_search: Optional[str] = Query(None, description="用户搜索（支持用户名、邮箱、手机号）"),
     task_type: Optional[str] = Query(None, description="任务类型"),
     status: Optional[str] = Query(None, description="任务状态"),
     start_date: Optional[str] = Query(None, description="开始日期 (YYYY-MM-DD)"),
@@ -3401,11 +3501,21 @@ async def get_all_tasks(
     try:
         query = db.query(Task)
 
-        # 按用户筛选
-        if user_id:
-            user = db.query(User).filter(User.user_id == user_id).first()
-            if user:
-                query = query.filter(Task.user_id == user.id)
+        # 按用户筛选 - 支持用户名、邮箱、手机号模糊搜索
+        if user_search:
+            search_pattern = f"%{user_search}%"
+            user_query = db.query(User).filter(
+                or_(
+                    User.nickname.ilike(search_pattern),
+                    User.email.ilike(search_pattern),
+                    User.phone.ilike(search_pattern),
+                    User.user_id.ilike(search_pattern),
+                )
+            )
+            user_ids = [user.id for user in user_query.all()]
+
+            if user_ids:
+                query = query.filter(Task.user_id.in_(user_ids))
             else:
                 # 用户不存在，返回空结果
                 return SuccessResponse(

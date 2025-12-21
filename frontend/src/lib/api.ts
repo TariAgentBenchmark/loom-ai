@@ -1694,7 +1694,7 @@ export const adminGetAllTasks = (
   options?: {
     page?: number;
     limit?: number;
-    userId?: string;
+    userSearch?: string;
     taskType?: string;
     status?: string;
     startDate?: string;
@@ -1704,7 +1704,7 @@ export const adminGetAllTasks = (
   const params = new URLSearchParams();
   if (options?.page) params.append("page", options.page.toString());
   if (options?.limit) params.append("limit", options.limit.toString());
-  if (options?.userId) params.append("user_id", options.userId);
+  if (options?.userSearch) params.append("user_search", options.userSearch);
   if (options?.taskType) params.append("task_type", options.taskType);
   if (options?.status) params.append("status", options.status);
   if (options?.startDate) params.append("start_date", options.startDate);
@@ -1713,6 +1713,28 @@ export const adminGetAllTasks = (
   const query = params.toString();
   const path = `/admin/tasks${query ? `?${query}` : ""}`;
   return getJson<AdminUserTaskListResponse>(path, accessToken);
+};
+
+export interface UserSuggestion {
+  userId: string;
+  displayText: string;
+  nickname: string | null;
+  email: string | null;
+  phone: string | null;
+}
+
+export const adminSearchUserSuggestions = (
+  accessToken: string,
+  query: string,
+  limit?: number,
+) => {
+  const params = new URLSearchParams();
+  params.append("q", query);
+  if (limit) params.append("limit", limit.toString());
+
+  const queryString = params.toString();
+  const path = `/admin/users/search-suggestions?${queryString}`;
+  return getJson<{ suggestions: UserSuggestion[] }>(path, accessToken);
 };
 
 export const adminGetAgents = (
