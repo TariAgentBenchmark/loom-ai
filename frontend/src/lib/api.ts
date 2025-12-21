@@ -1687,6 +1687,32 @@ export const adminGetDashboardStats = (accessToken: string) =>
 export const adminGetApiLimitMetrics = (accessToken: string) =>
   getJson<AdminApiLimitMetricsResponse>("/admin/limits/metrics", accessToken);
 
+export const adminGetAllTasks = (
+  accessToken: string,
+  options?: {
+    page?: number;
+    limit?: number;
+    userId?: string;
+    taskType?: string;
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+  },
+) => {
+  const params = new URLSearchParams();
+  if (options?.page) params.append("page", options.page.toString());
+  if (options?.limit) params.append("limit", options.limit.toString());
+  if (options?.userId) params.append("user_id", options.userId);
+  if (options?.taskType) params.append("task_type", options.taskType);
+  if (options?.status) params.append("status", options.status);
+  if (options?.startDate) params.append("start_date", options.startDate);
+  if (options?.endDate) params.append("end_date", options.endDate);
+
+  const query = params.toString();
+  const path = `/admin/tasks${query ? `?${query}` : ""}`;
+  return getJson<AdminUserTaskListResponse>(path, accessToken);
+};
+
 export const adminGetAgents = (
   accessToken: string,
   options?: { status?: string },

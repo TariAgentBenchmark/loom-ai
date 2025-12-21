@@ -3380,3 +3380,108 @@ async def get_api_limit_metrics(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/tasks", dependencies=[Depends(admin_route())])
+async def get_all_tasks(
+    user_id: Optional[str] = Query(None, description="用户ID"),
+    task_type: Optional[str] = Query(None, description="任务类型"),
+    status: Optional[str] = Query(None, description="任务状态"),
+    start_date: Optional[str] = Query(None, description="开始日期 (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="结束日期 (YYYY-MM-DD)"),
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    """获取所有任务列表，支持按时间、用户、功能筛选（管理员专用）"""
+    try:
+        query = db.query(Task)
+
+        # 按用户筛选
+        if user_id:
+            user = db.query(User).filter(User.user_id == user_id).first()
+            if user:
+                query = query.filter(Task.user_id == user.id)
+            else:
+                # 用户不存在，返回空结果
+                return SuccessResponse(
+                    data=AdminUserTaskListResponse(
+                        tasks=[],
+                        pagination=PaginationMeta(
+                            page=page,
+                            limit=limit,
+                            total=0,
+                            total_pages=0,
+                        ),
+                        summary={"totalTasks": 0},
+                    ).dict(),
+                    message="获取任务列表成功",
+                )
+
+        # 按任务类型筛选
+        if task_type:
+            query = query.filter(Task.type == task_type)
+
+        # 按状态筛选
+        if status:
+            query = query.filter(Task.status == status)
+
+        # 按时间范围筛选
+        if start_date:
+            try:
+                start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+                query = query.filter(Task.created_at >= start_dt)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="开始日期格式错误，请使用 YYYY-MM-DD")
+
+        if end_date:
+            try:
+                end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+                # 结束日期包含当天全天
+                end_dt = end_dt.replace(hour=23, minute=59, second=59)
+                query = query.filter(Task.created_at <= end_dt)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="结束日期格式错误，请使用 YYYY-MM-DD")
+
+        # 按时间倒序排列
+        query = query.order_by(desc(Task.created_at))
+
+        # 分页
+        total = query.count()
+        tasks = query.offset((page - 1) * limit).limit(limit).all()
+
+        # 格式化任务数据，包含用户信息
+        formatted_tasks = []
+        for task in tasks:
+            task_data = await _format_admin_task(task)
+            # 添加用户信息
+            if task.user:
+                task_dict = task_data.dict()
+                task_dict["user"] = {
+                    "userId": task.user.user_id,
+                    "email": task.user.email,
+                    "nickname": task.user.nickname,
+                }
+                formatted_tasks.append(task_dict)
+            else:
+                formatted_tasks.append(task_data.dict())
+
+        return SuccessResponse(
+            data={
+                "tasks": formatted_tasks,
+                "pagination": PaginationMeta(
+                    page=page,
+                    limit=limit,
+                    total=total,
+                    total_pages=(total + limit - 1) // limit,
+                ).dict(),
+                "summary": {
+                    "totalTasks": total,
+                },
+            },
+            message="获取任务列表成功",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

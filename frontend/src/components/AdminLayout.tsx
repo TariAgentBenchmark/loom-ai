@@ -61,7 +61,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       current: pathname === "/admin/services" || pathname.startsWith("/admin/services/"),
     },
     {
-      name: "统计分析",
+      name: "任务浏览器",
       href: "/admin/analytics",
       icon: BarChart3,
       current: pathname === "/admin/analytics",
