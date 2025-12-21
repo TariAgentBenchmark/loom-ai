@@ -184,12 +184,13 @@ class ImageProcessingUtils:
         if pattern_type == "positioning":
             # 线条/矢量类型
             prompt = (
-                "生成图片："
-                "衣服的图案展开平铺。将图案设计的风格和内容元索还原为填充整个画面的平面印刷图像，"
-                "将图案所有设计元素和形状：比例、位置、形态完全匹配。去掉皱褶，干净底色，增强细节，"
-                "以你的能力极限生成一张超高清8K分辨率、锐利对焦, 超高清、高度详细, 复杂的细节、"
-                "杰作，最高品质，照片级写实的印刷级品质无缝图案。"
-                "特写镜头, 放大视角，平滑，矢量风格，无颗粒感，无模糊。1:1"
+                "将衣服上的印花图案提取出来，我要求提取出来的图案跟衣服上的图案一模一样，细节一模一样，"
+                "平整图案，拉平褶皱，不能改变图案，我要求把褶皱的地方展开，补全褶皱缺失的图案，"
+                "我要求图案不能少，图案要完整，不能缺失，要求把图案补充完整，"
+                "我要求位置不能变，不要改变印花图案的排布，按照原有的图案排布输出，底色不变，颜色不变 "
+                "要求图案清晰 要求补齐图案，要一模一样 要求卡位置 把图片补全 不要少内容 ，"
+                "图案对比度拉高，图案优化清晰，图案排版一样，提取出来的图案要与衣服上的图案一致，"
+                "图案要补全。图案要协调，噪点要磨平，图案上下左右都要扩展出去"
             )
         elif pattern_type == "fine":
             # 烫画/胸前花类型
@@ -257,14 +258,22 @@ class ImageProcessingUtils:
                     resolution="4K",
                 )
             else:
-                result = await self.apyi_gemini_client.process_image(
-                    image_bytes,
-                    prompt,
-                    "image/png",
-                    aspect_ratio=aspect_ratio,
-                    width=width,
-                    height=height
-                )
+                if pattern_type == "positioning":
+                    result = await self.apyi_gemini_client.generate_image_preview(
+                        image_bytes,
+                        prompt,
+                        "image/png",
+                        aspect_ratio=aspect_ratio,
+                    )
+                else:
+                    result = await self.apyi_gemini_client.process_image(
+                        image_bytes,
+                        prompt,
+                        "image/png",
+                        aspect_ratio=aspect_ratio,
+                        width=width,
+                        height=height
+                    )
             return self.apyi_gemini_client._extract_image_url(result)
 
     async def denoise_image(
