@@ -43,7 +43,7 @@ const ExpandEdgeControls = forwardRef<ExpandEdgeControlsHandle, ExpandEdgeContro
       expandPrompt,
       onExpandPromptChange,
       isProcessing,
-      showPrompt = true,
+      showPrompt = false,
       showRatio = true,
     },
     ref,
