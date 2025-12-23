@@ -18,6 +18,7 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
   const [rotation, setRotation] = useState(0);
   const [showOriginal, setShowOriginal] = useState(true);
   const [currentResultIndex, setCurrentResultIndex] = useState(0);
+  const [resultPage, setResultPage] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -85,6 +86,22 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
   }, [task]);
 
   const hasMultipleResults = resultUrls.length > 1;
+  const resultsPerPage = 6;
+  const totalResultPages = Math.max(1, Math.ceil(resultUrls.length / resultsPerPage));
+  const pagedResults = useMemo(() => {
+    if (!resultUrls.length) {
+      return [];
+    }
+    const start = (resultPage - 1) * resultsPerPage;
+    return resultUrls.slice(start, start + resultsPerPage).map((url, index) => {
+      const absoluteIndex = start + index;
+      return {
+        url,
+        filename: resultFilenames[absoluteIndex] || `result_${absoluteIndex + 1}.png`,
+        index: absoluteIndex,
+      };
+    });
+  }, [resultFilenames, resultPage, resultUrls]);
 
   const handleDownload = useCallback(async (imageUrl: string, filename: string) => {
     try {
@@ -204,6 +221,7 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
     // 切换任务或结果变化时重置索引，并默认展示结果图（有结果时）
     setCurrentResultIndex(0);
     setShowOriginal(!task?.resultImage);
+    setResultPage(1);
   }, [task?.resultImage, task?.taskId, resultUrls.length]);
 
   const handleNavigateResult = useCallback((direction: number) => {
@@ -216,6 +234,17 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
       return next;
     });
   }, [hasMultipleResults, resultUrls.length]);
+
+  useEffect(() => {
+    if (!resultUrls.length) {
+      setResultPage(1);
+      return;
+    }
+    const nextPage = Math.floor(currentResultIndex / resultsPerPage) + 1;
+    if (nextPage !== resultPage) {
+      setResultPage(nextPage);
+    }
+  }, [currentResultIndex, resultPage, resultUrls.length]);
 
   useEffect(() => {
     if (!currentImageUrl) {
@@ -476,6 +505,62 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
             </>
           )}
         </div>
+
+        {/* 结果缩略图分页 */}
+        {hasMultipleResults && !showOriginal && (
+          <div className="bg-black bg-opacity-70 px-3 py-2 md:px-4 md:py-3">
+            <div className="flex items-center justify-between text-white text-xs md:text-sm">
+              <span>
+                结果 {currentResultIndex + 1}/{resultUrls.length}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setResultPage((p) => Math.max(1, p - 1))}
+                  disabled={resultPage === 1}
+                  className="rounded px-2 py-1 text-white hover:bg-white hover:bg-opacity-20 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  上一页
+                </button>
+                <span>
+                  {resultPage}/{totalResultPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setResultPage((p) => Math.min(totalResultPages, p + 1))}
+                  disabled={resultPage === totalResultPages}
+                  className="rounded px-2 py-1 text-white hover:bg-white hover:bg-opacity-20 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  下一页
+                </button>
+              </div>
+            </div>
+            <div className="mt-2 grid grid-cols-3 gap-2 md:grid-cols-6">
+              {pagedResults.map((item) => (
+                <button
+                  key={`${item.url}-${item.index}`}
+                  type="button"
+                  onClick={() => {
+                    setShowOriginal(false);
+                    setCurrentResultIndex(item.index);
+                  }}
+                  className={`overflow-hidden rounded border ${
+                    item.index === currentResultIndex
+                      ? 'border-blue-400'
+                      : 'border-transparent'
+                  }`}
+                  title={`结果 ${item.index + 1}`}
+                >
+                  <img
+                    src={resolveFileUrl(item.url)}
+                    alt={item.filename}
+                    className="h-16 w-full object-cover md:h-20"
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* 底部信息栏 */}
         <div className="p-2 md:p-4 bg-black bg-opacity-50">
