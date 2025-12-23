@@ -130,6 +130,54 @@ class RunningHubClient:
         task_id = await self._submit_task(node_info_list, resolved_workflow_id)
         return await self._poll_task(task_id)
 
+    async def run_seamless_loop_workflow(
+        self,
+        image_bytes: bytes,
+        workflow_id: str,
+        image_node_id: str,
+        image_field_name: str,
+        direction_node_id: str,
+        direction_field_name: str,
+        direction_value: int,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> List[str]:
+        """
+        Run seamless loop workflow with image and direction parameters.
+
+        Args:
+            image_bytes: 待处理图片字节
+            workflow_id: RunningHub工作流ID
+            image_node_id: 图片输入节点ID
+            image_field_name: 图片字段名称
+            direction_node_id: 方向控制节点ID
+            direction_field_name: 方向字段名称
+            direction_value: 方向值 (1=四周, 2=上下, 3=左右)
+            options: 额外参数
+        """
+        resolved_workflow_id = self._ensure_configured(workflow_id)
+        options = options or {}
+        filename = options.get("original_filename") or "seamless_loop.png"
+
+        # Upload image
+        uploaded_name = await self._upload_file(image_bytes, filename)
+
+        # Build node info list with both image and direction nodes
+        node_info_list = [
+            {
+                "nodeId": str(image_node_id),
+                "fieldName": image_field_name,
+                "fieldValue": uploaded_name,
+            },
+            {
+                "nodeId": str(direction_node_id),
+                "fieldName": direction_field_name,
+                "fieldValue": str(direction_value),
+            },
+        ]
+
+        task_id = await self._submit_task(node_info_list, resolved_workflow_id)
+        return await self._poll_task(task_id)
+
     async def _upload_file(self, image_bytes: bytes, filename: str) -> str:
         url = f"{self.base_url}/task/openapi/upload"
         mime_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
