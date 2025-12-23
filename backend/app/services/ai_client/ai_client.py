@@ -554,9 +554,38 @@ class AIClient:
         options: Optional[Dict[str, Any]] = None,
         original_filename: Optional[str] = None,
     ) -> str:
-        """调用GQCH实现智能扩图"""
-        filename = original_filename or "upload.png"
-        return await self.gqch_client.expand_image(image_bytes, filename, options)
+        """调用RunningHub实现智能扩图"""
+        # 获取扩展边距参数
+        expand_top = float(options.get("expand_top", 0)) if options else 0
+        expand_bottom = float(options.get("expand_bottom", 0)) if options else 0
+        expand_left = float(options.get("expand_left", 0)) if options else 0
+        expand_right = float(options.get("expand_right", 0)) if options else 0
+
+        rh_options = dict(options or {})
+        rh_options["original_filename"] = original_filename or "expand_image.png"
+
+        result_urls = await self.runninghub_client.run_expand_image_workflow(
+            image_bytes=image_bytes,
+            workflow_id=settings.runninghub_workflow_id_expand_image,
+            image_node_id=settings.runninghub_expand_image_node_id,
+            image_field_name=settings.runninghub_expand_image_field_name,
+            expand_top=expand_top,
+            expand_bottom=expand_bottom,
+            expand_left=expand_left,
+            expand_right=expand_right,
+            top_node_id=settings.runninghub_expand_top_node_id,
+            bottom_node_id=settings.runninghub_expand_bottom_node_id,
+            left_node_id=settings.runninghub_expand_left_node_id,
+            right_node_id=settings.runninghub_expand_right_node_id,
+            margin_field_name=settings.runninghub_expand_margin_field_name,
+            options=rh_options,
+        )
+
+        cleaned_urls = [url.strip() for url in result_urls if url and url.strip()]
+        if not cleaned_urls:
+            raise Exception("RunningHub扩图未返回结果图片")
+
+        return ",".join(cleaned_urls)
 
     # 矢量化相关方法
     async def vectorize_image(

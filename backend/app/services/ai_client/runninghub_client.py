@@ -178,6 +178,90 @@ class RunningHubClient:
         task_id = await self._submit_task(node_info_list, resolved_workflow_id)
         return await self._poll_task(task_id)
 
+    async def run_expand_image_workflow(
+        self,
+        image_bytes: bytes,
+        workflow_id: str,
+        image_node_id: str,
+        image_field_name: str,
+        expand_top: float,
+        expand_bottom: float,
+        expand_left: float,
+        expand_right: float,
+        top_node_id: str,
+        bottom_node_id: str,
+        left_node_id: str,
+        right_node_id: str,
+        margin_field_name: str,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> List[str]:
+        """
+        Run expand image workflow with image and margin parameters.
+
+        Args:
+            image_bytes: 待处理图片字节
+            workflow_id: RunningHub工作流ID
+            image_node_id: 图片输入节点ID
+            image_field_name: 图片字段名称
+            expand_top: 上边距
+            expand_bottom: 下边距
+            expand_left: 左边距
+            expand_right: 右边距
+            top_node_id: 上边距节点ID
+            bottom_node_id: 下边距节点ID
+            left_node_id: 左边距节点ID
+            right_node_id: 右边距节点ID
+            margin_field_name: 边距字段名称
+            options: 额外参数
+        """
+        resolved_workflow_id = self._ensure_configured(workflow_id)
+        options = options or {}
+        filename = options.get("original_filename") or "expand_image.png"
+
+        # Upload image
+        uploaded_name = await self._upload_file(image_bytes, filename)
+
+        # Build node info list with image and all margin nodes
+        node_info_list = [
+            {
+                "nodeId": str(image_node_id),
+                "fieldName": image_field_name,
+                "fieldValue": uploaded_name,
+            },
+        ]
+
+        # Add margin nodes (only if value > 0)
+        if expand_top > 0:
+            node_info_list.append({
+                "nodeId": str(top_node_id),
+                "fieldName": margin_field_name,
+                "fieldValue": str(expand_top),
+            })
+
+        if expand_bottom > 0:
+            node_info_list.append({
+                "nodeId": str(bottom_node_id),
+                "fieldName": margin_field_name,
+                "fieldValue": str(expand_bottom),
+            })
+
+        if expand_left > 0:
+            node_info_list.append({
+                "nodeId": str(left_node_id),
+                "fieldName": margin_field_name,
+                "fieldValue": str(expand_left),
+            })
+
+        if expand_right > 0:
+            node_info_list.append({
+                "nodeId": str(right_node_id),
+                "fieldName": margin_field_name,
+                "fieldValue": str(expand_right),
+            })
+
+        task_id = await self._submit_task(node_info_list, resolved_workflow_id)
+        return await self._poll_task(task_id)
+
     async def _upload_file(self, image_bytes: bytes, filename: str) -> str:
         url = f"{self.base_url}/task/openapi/upload"
         mime_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"

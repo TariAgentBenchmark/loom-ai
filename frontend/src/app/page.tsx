@@ -199,6 +199,77 @@ function HomeContent() {
     }
     setPrefilledInvitationCode(inviteCode.toUpperCase());
   }, [inviteCode, isLoggedIn]);
+
+  // 比例换算：当选择扩图比例时，根据原图尺寸自动计算边距
+  useEffect(() => {
+    if (expandRatio === 'original' || !primaryImageDimensions) {
+      return;
+    }
+
+    const { width, height } = primaryImageDimensions;
+
+    // 解析目标比例
+    const parseRatio = (ratioStr: string): { width: number; height: number } | null => {
+      const parts = ratioStr.split(':');
+      if (parts.length !== 2) return null;
+      const w = parseFloat(parts[0]);
+      const h = parseFloat(parts[1]);
+      if (isNaN(w) || isNaN(h) || w <= 0 || h <= 0) return null;
+      return { width: w, height: h };
+    };
+
+    const targetRatio = parseRatio(expandRatio);
+    if (!targetRatio) return;
+
+    const currentRatio = width / height;
+    const desiredRatio = targetRatio.width / targetRatio.height;
+
+    let expandTop = 0;
+    let expandBottom = 0;
+    let expandLeft = 0;
+    let expandRight = 0;
+
+    if (Math.abs(currentRatio - desiredRatio) < 0.001) {
+      // 已经是目标比例，不需要扩展
+      setExpandEdges({
+        top: '0.00',
+        bottom: '0.00',
+        left: '0.00',
+        right: '0.00',
+      });
+      return;
+    }
+
+    if (currentRatio > desiredRatio) {
+      // 当前图片太宽，需要在上下扩展
+      const targetHeight = width / desiredRatio;
+      const totalExpand = (targetHeight - height) / height;
+      expandTop = totalExpand / 2;
+      expandBottom = totalExpand / 2;
+
+      // 限制在最大值范围内
+      expandTop = Math.min(0.5, expandTop);
+      expandBottom = Math.min(0.5, expandBottom);
+    } else {
+      // 当前图片太高，需要在左右扩展
+      const targetWidth = height * desiredRatio;
+      const totalExpand = (targetWidth - width) / width;
+      expandLeft = totalExpand / 2;
+      expandRight = totalExpand / 2;
+
+      // 限制在最大值范围内
+      expandLeft = Math.min(1.0, expandLeft);
+      expandRight = Math.min(1.0, expandRight);
+    }
+
+    setExpandEdges({
+      top: expandTop.toFixed(2),
+      bottom: expandBottom.toFixed(2),
+      left: expandLeft.toFixed(2),
+      right: expandRight.toFixed(2),
+    });
+  }, [expandRatio, primaryImageDimensions]);
+
   const applyStoredMethodUiState = useCallback(
     (method: ProcessingMethod) => {
       const hasActiveTask = Boolean(activeTasks[method]);
