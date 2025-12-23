@@ -462,24 +462,6 @@ export default function BatchUploadModal({
                                     ))}
                                 </div>
                             </div>
-                            <div>
-                                <label className="text-sm font-semibold text-gray-900 mb-2 block">
-                                    相似度调整
-                                </label>
-                                <input
-                                    type="range"
-                                    min="0"
-                                    max="1"
-                                    step="0.01"
-                                    value={Math.max(0, Math.min(1, seamFit ?? 0.5))}
-                                    onChange={(event) => onSeamFitChange?.(parseFloat(event.target.value))}
-                                    className="w-full"
-                                    disabled={isProcessing}
-                                />
-                                <p className="text-xs text-gray-500 mt-1">
-                                    当前：{(seamFit ?? 0.5).toFixed(2)}
-                                </p>
-                            </div>
                         </div>
                     )}
 

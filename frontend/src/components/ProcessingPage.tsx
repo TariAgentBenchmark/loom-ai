@@ -877,59 +877,9 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                   选择需要保持无缝的方向，默认处理四周接缝，也可仅调整单向拼接效果。
                 </p>
               </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm md:text-base font-semibold text-gray-900">
-                    相似度调整
-                  </h4>
-                  <span className="text-xs md:text-sm font-medium text-blue-600">
-                    {seamFitValue.toFixed(2)}
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={seamFitValue}
-                  onChange={(event) =>
-                    onSeamFitChange?.(parseFloat(event.target.value))
-                  }
-                  className="w-full accent-blue-500"
-                />
-                <p className="text-xs text-gray-500 mt-2">
-                  当原图拼合差异较大时，可以调大此参数加强过渡；若需要保留细节，可适当调小。
-                </p>
-              </div>
             </div>
           )}
 
-          {method === "similar_image" && (
-            <div className="mb-4 md:mb-6 space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm md:text-base font-semibold text-gray-900">
-                  相似度调整
-                </h4>
-                <span className="text-xs md:text-sm font-medium text-blue-600">
-                  {denoiseValue.toFixed(2)}
-                </span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.05}
-                value={denoiseValue}
-                onChange={(event) =>
-                  onDenoiseChange?.(parseFloat(event.target.value))
-                }
-                className="w-full accent-blue-500"
-              />
-              <p className="text-xs text-gray-500">
-              </p>
-            </div>
-          )}
 
           {method === "extract_pattern" && (
             <div className="mb-4 md:mb-6">
