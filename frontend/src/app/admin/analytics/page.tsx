@@ -522,11 +522,12 @@ export default function AdminTaskBrowserPage() {
 
             {/* 分页 */}
             {totalPages > 1 && (
-              <div className="mt-4 flex items-center justify-between">
+              <div className="mt-4 flex items-center justify-between flex-wrap gap-4">
                 <div className="text-sm text-gray-700">
-                  第 {page} 页，共 {totalPages} 页
+                  第 {page} 页，共 {totalPages} 页，总计 {total} 条记录
                 </div>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* 上一页 */}
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page === 1}
@@ -535,6 +536,58 @@ export default function AdminTaskBrowserPage() {
                     <ChevronLeft className="h-4 w-4" />
                     上一页
                   </button>
+
+                  {/* 首页 */}
+                  {page > 3 && (
+                    <>
+                      <button
+                        onClick={() => setPage(1)}
+                        className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 min-w-[40px]"
+                      >
+                        1
+                      </button>
+                      {page > 4 && (
+                        <span className="px-2 text-gray-500">...</span>
+                      )}
+                    </>
+                  )}
+
+                  {/* 页码按钮 */}
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((pageNum) => {
+                      // 显示当前页前后2页
+                      return pageNum >= page - 2 && pageNum <= page + 2;
+                    })
+                    .map((pageNum) => (
+                      <button
+                        key={pageNum}
+                        onClick={() => setPage(pageNum)}
+                        className={`inline-flex items-center justify-center rounded-md border px-3 py-2 text-sm font-medium min-w-[40px] ${
+                          pageNum === page
+                            ? "border-blue-500 bg-blue-50 text-blue-600"
+                            : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    ))}
+
+                  {/* 末页 */}
+                  {page < totalPages - 2 && (
+                    <>
+                      {page < totalPages - 3 && (
+                        <span className="px-2 text-gray-500">...</span>
+                      )}
+                      <button
+                        onClick={() => setPage(totalPages)}
+                        className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 min-w-[40px]"
+                      >
+                        {totalPages}
+                      </button>
+                    </>
+                  )}
+
+                  {/* 下一页 */}
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={page === totalPages}
@@ -543,6 +596,28 @@ export default function AdminTaskBrowserPage() {
                     下一页
                     <ChevronRight className="h-4 w-4" />
                   </button>
+
+                  {/* 快速跳转 */}
+                  <div className="flex items-center gap-2 ml-4">
+                    <span className="text-sm text-gray-600">跳转到</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={totalPages}
+                      placeholder={String(page)}
+                      className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm text-center"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          const value = parseInt(e.currentTarget.value);
+                          if (value >= 1 && value <= totalPages) {
+                            setPage(value);
+                            e.currentTarget.value = "";
+                          }
+                        }
+                      }}
+                    />
+                    <span className="text-sm text-gray-600">页</span>
+                  </div>
                 </div>
               </div>
             )}

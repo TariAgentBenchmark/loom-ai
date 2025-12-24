@@ -1,6 +1,12 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Any, Optional, List, Dict
 from datetime import datetime
+
+
+def to_camel(string: str) -> str:
+    """Convert snake_case to camelCase"""
+    components = string.split('_')
+    return components[0] + ''.join(x.capitalize() for x in components[1:])
 
 
 class BaseResponse(BaseModel):
@@ -24,6 +30,11 @@ class ErrorResponse(BaseResponse):
 
 class PaginationMeta(BaseModel):
     """分页元数据"""
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
     page: int
     limit: int
     total: int

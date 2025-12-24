@@ -894,7 +894,7 @@ async def get_user_tasks(
                 summary={
                     "totalTasks": total,
                 },
-            ).dict(),
+            ).model_dump(by_alias=True),
             message="获取用户任务历史成功",
         )
     except HTTPException:
@@ -3528,7 +3528,7 @@ async def get_all_tasks(
                             total_pages=0,
                         ),
                         summary={"totalTasks": 0},
-                    ).dict(),
+                    ).model_dump(by_alias=True),
                     message="获取任务列表成功",
                 )
 
@@ -3588,7 +3588,7 @@ async def get_all_tasks(
                     limit=limit,
                     total=total,
                     total_pages=(total + limit - 1) // limit,
-                ).dict(),
+                ).model_dump(by_alias=True),
                 "summary": {
                     "totalTasks": total,
                 },
