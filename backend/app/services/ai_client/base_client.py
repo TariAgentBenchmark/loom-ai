@@ -13,6 +13,7 @@ from PIL import Image
 from app.core.config import settings
 from app.services.oss_service import oss_service
 from app.services.api_limiter import api_limiter
+from app.services.ai_client.exceptions import AIClientException
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +109,13 @@ class BaseAIClient:
                         _summarize_payload(body),
                         _summarize_payload(data),
                     )
-                    raise Exception(f"AI服务请求失败: {status}")
+                    raise AIClientException(
+                        message=f"AI服务请求失败: {status}",
+                        api_name=self.api_name,
+                        status_code=status,
+                        response_body=body,
+                        request_data=data,
+                    )
 
                 except httpx.RequestError as exc:
                     if attempt < max_retries:
@@ -130,10 +137,18 @@ class BaseAIClient:
                         str(exc),
                         _summarize_payload(data),
                     )
-                    raise Exception(f"AI服务连接失败: {str(exc)}")
+                    raise AIClientException(
+                        message=f"AI服务连接失败: {str(exc)}",
+                        api_name=self.api_name,
+                        request_data=data,
+                    )
 
             # 理论上不会到达这里，保留兜底处理
-            raise Exception("AI服务连接失败: 未知错误")
+            raise AIClientException(
+                message="AI服务连接失败: 未知错误",
+                api_name=self.api_name,
+                request_data=data,
+            )
 
         if self.api_name:
             return await api_limiter.run(self.api_name, _do_request)

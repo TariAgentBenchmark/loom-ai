@@ -8,6 +8,7 @@ import httpx
 
 from app.core.config import settings
 from app.services.api_limiter import api_limiter
+from app.services.ai_client.exceptions import AIClientException
 
 
 class RunningHubClient:
@@ -363,32 +364,62 @@ class RunningHubClient:
             "nodeInfoList": node_info_list,
         }
 
-        data = await self._post_json(
-            url,
-            json=payload,
-            action="create task",
-        )
-
-        if data.get("code") != 0:
-            msg = data.get("msg") or "创建任务失败"
-            self.logger.warning(
-                "RunningHub task create failed: workflow_id=%s node_ids=%s response=%s",
-                workflow_id,
-                [item.get("nodeId") for item in node_info_list],
-                data,
+        try:
+            data = await self._post_json(
+                url,
+                json=payload,
+                action="create task",
             )
-            raise Exception(f"RunningHub任务创建失败: {msg}")
 
-        task_data = data.get("data") or {}
-        task_id = task_data.get("taskId")
-        if not task_id:
-            raise Exception("RunningHub任务创建响应缺少taskId")
+            if data.get("code") != 0:
+                msg = data.get("msg") or "创建任务失败"
+                raise AIClientException(
+                    message=f"RunningHub任务创建失败: {msg}",
+                    api_name="RunningHub",
+                    status_code=200,
+                    response_body=data,
+                    request_data={"workflow_id": workflow_id, "node_info": node_info_list},
+                )
 
-        prompt_tips = task_data.get("promptTips")
-        if prompt_tips:
-            self.logger.debug("RunningHub prompt tips: %s", prompt_tips)
+            task_data = data.get("data") or {}
+            task_id = task_data.get("taskId")
+            if not task_id:
+                raise AIClientException(
+                    message="RunningHub任务创建响应缺少taskId",
+                    api_name="RunningHub",
+                    status_code=200,
+                    response_body=data,
+                    request_data={"workflow_id": workflow_id, "node_info": node_info_list},
+                )
 
-        return task_id
+            prompt_tips = task_data.get("promptTips")
+            if prompt_tips:
+                self.logger.debug("RunningHub prompt tips: %s", prompt_tips)
+
+            return task_id
+
+        except AIClientException:
+            raise
+        except httpx.HTTPStatusError as e:
+            raise AIClientException(
+                message=f"RunningHub HTTP错误: {e.response.status_code}",
+                api_name="RunningHub",
+                status_code=e.response.status_code,
+                response_body=e.response.text,
+                request_data={"workflow_id": workflow_id, "node_info": node_info_list},
+            ) from e
+        except httpx.RequestError as e:
+            raise AIClientException(
+                message=f"RunningHub请求异常: {str(e)}",
+                api_name="RunningHub",
+                request_data={"workflow_id": workflow_id, "node_info": node_info_list},
+            ) from e
+        except Exception as e:
+            raise AIClientException(
+                message=f"RunningHub请求异常: {str(e)}",
+                api_name="RunningHub",
+                request_data={"workflow_id": workflow_id, "node_info": node_info_list},
+            ) from e
 
     async def _poll_task(self, task_id: str) -> List[str]:
         url = f"{self.base_url}/task/openapi/outputs"

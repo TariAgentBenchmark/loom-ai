@@ -10,6 +10,7 @@ import httpx
 from app.core.config import settings
 from app.services.sign_meitu import Signer
 from app.services.api_limiter import api_limiter
+from app.services.ai_client.exceptions import AIClientException
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +77,13 @@ class MeituClient:
                         continue
 
                     logger.error(f"Meitu API request failed: {status} - {body}")
-                    raise Exception(f"美图API请求失败: {status}")
+                    raise AIClientException(
+                        message=f"美图API请求失败: {status}",
+                        api_name="Meitu",
+                        status_code=status,
+                        response_body=body,
+                        request_data=data,
+                    )
 
                 except httpx.RequestError as exc:
                     if attempt < max_retries:
@@ -92,10 +99,18 @@ class MeituClient:
                         continue
 
                     logger.error(f"Meitu API request error: {str(exc)}")
-                    raise Exception(f"美图API连接失败: {str(exc)}")
+                    raise AIClientException(
+                        message=f"美图API连接失败: {str(exc)}",
+                        api_name="Meitu",
+                        request_data=data,
+                    )
 
             # 理论上不会到达这里，保留兜底处理
-            raise Exception("美图API连接失败: 未知错误")
+            raise AIClientException(
+                message="美图API连接失败: 未知错误",
+                api_name="Meitu",
+                request_data=data,
+            )
 
         return await api_limiter.run("meitu", _do_request)
 
@@ -176,10 +191,20 @@ class MeituClient:
                 result = response.json()
         except httpx.HTTPStatusError as exc:
             logger.error("Meitu AI超清V2请求失败: %s - %s", exc.response.status_code, exc.response.text)
-            raise Exception(f"美图AI超清V2请求失败: {exc.response.status_code}")
+            raise AIClientException(
+                message=f"美图AI超清V2请求失败: {exc.response.status_code}",
+                api_name="Meitu",
+                status_code=exc.response.status_code,
+                response_body=exc.response.text,
+                request_data={"image_url": image_url, "params": request_body},
+            )
         except httpx.RequestError as exc:
             logger.error("Meitu AI超清V2网络错误: %s", str(exc))
-            raise Exception(f"美图AI超清V2网络错误: {str(exc)}")
+            raise AIClientException(
+                message=f"美图AI超清V2网络错误: {str(exc)}",
+                api_name="Meitu",
+                request_data={"image_url": image_url, "params": request_body},
+            )
 
         # 业务错误码处理
         code_value = result.get("code")
@@ -189,9 +214,21 @@ class MeituClient:
 
             # 特殊处理违规/敏感内容（10025）
             if str(code_value) == "10025":
-                raise Exception("图片涉及政治敏感内容或者侵权，请更换图片后重试。")
+                raise AIClientException(
+                    message="图片涉及政治敏感内容或者侵权，请更换图片后重试。",
+                    api_name="Meitu",
+                    status_code=200,
+                    response_body=result,
+                    request_data={"image_url": image_url, "params": request_body},
+                )
 
-            raise Exception(result.get("message") or f"AI超清V2返回错误码: {code_value}；响应: {summary}")
+            raise AIClientException(
+                message=result.get("message") or f"AI超清V2返回错误码: {code_value}",
+                api_name="Meitu",
+                status_code=200,
+                response_body=result,
+                request_data={"image_url": image_url, "params": request_body},
+            )
 
         data = result.get("data") or {}
         status = data.get("status")
@@ -200,16 +237,40 @@ class MeituClient:
         if status == 10:
             urls = data.get("result", {}).get("urls") or []
             if not urls:
-                raise Exception("美图AI超清V2未返回结果图片")
+                raise AIClientException(
+                    message="美图AI超清V2未返回结果图片",
+                    api_name="Meitu",
+                    status_code=200,
+                    response_body=result,
+                    request_data={"image_url": image_url, "params": request_body},
+                )
             return ",".join(urls)
 
         if status == 9:
             logger.error("Meitu AI超清V2处理超时: %s | image_url=%s", summary, image_url)
-            raise Exception(f"美图AI超清V2处理超时，请稍后重试；响应: {summary}")
+            raise AIClientException(
+                message="美图AI超清V2处理超时，请稍后重试",
+                api_name="Meitu",
+                status_code=200,
+                response_body=result,
+                request_data={"image_url": image_url, "params": request_body},
+            )
 
         if status == 2:
             logger.error("Meitu AI超清V2处理失败: %s | image_url=%s", summary, image_url)
-            raise Exception(data.get("msg") or f"美图AI超清V2处理失败；响应: {summary}")
+            raise AIClientException(
+                message=data.get("msg") or "美图AI超清V2处理失败",
+                api_name="Meitu",
+                status_code=200,
+                response_body=result,
+                request_data={"image_url": image_url, "params": request_body},
+            )
 
         logger.error("美图AI超清V2返回未知状态: %s | image_url=%s", summary, image_url)
-        raise Exception(f"美图AI超清V2处理未完成，状态码: {status}；响应: {summary}")
+        raise AIClientException(
+            message=f"美图AI超清V2处理未完成，状态码: {status}",
+            api_name="Meitu",
+            status_code=200,
+            response_body=result,
+            request_data={"image_url": image_url, "params": request_body},
+        )

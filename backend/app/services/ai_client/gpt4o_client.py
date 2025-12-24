@@ -8,6 +8,7 @@ import httpx
 
 from app.services.ai_client.base_client import BaseAIClient
 from app.services.api_limiter import api_limiter
+from app.services.ai_client.exceptions import AIClientException
 
 logger = logging.getLogger(__name__)
 
@@ -86,8 +87,14 @@ class GPT4oClient(BaseAIClient):
                         continue
                     
                     logger.error(f"GPT-4o API request failed: {status} - {body}")
-                    raise Exception(f"GPT-4o服务请求失败: {status}")
-                
+                    raise AIClientException(
+                        message=f"GPT-4o服务请求失败: {status}",
+                        api_name="GPT4o",
+                        status_code=status,
+                        response_body=body,
+                        request_data=data,
+                    )
+
                 except httpx.RequestError as exc:
                     if attempt < max_retries:
                         wait_seconds = backoff_base * (2 ** (attempt - 1)) + uniform(0, 0.5)
@@ -100,10 +107,18 @@ class GPT4oClient(BaseAIClient):
                         )
                         await asyncio.sleep(wait_seconds)
                         continue
-                    
+
                     logger.error(f"GPT-4o API request error: {str(exc)}")
-                    raise Exception(f"GPT-4o服务连接失败: {str(exc)}")
-        
-            raise Exception("GPT-4o服务连接失败: 未知错误")
+                    raise AIClientException(
+                        message=f"GPT-4o服务连接失败: {str(exc)}",
+                        api_name="GPT4o",
+                        request_data=data,
+                    )
+
+            raise AIClientException(
+                message="GPT-4o服务连接失败: 未知错误",
+                api_name="GPT4o",
+                request_data=data,
+            )
 
         return await api_limiter.run("gpt4o", _do_request)

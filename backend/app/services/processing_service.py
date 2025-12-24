@@ -441,6 +441,8 @@ class ProcessingService:
             except Exception as e:
                 # 处理失败 - 保存详细错误信息供管理员查看
                 import traceback
+                from app.services.ai_client.exceptions import AIClientException
+
                 error_msg = str(e)
                 error_traceback = traceback.format_exc()
 
@@ -448,8 +450,14 @@ class ProcessingService:
                 error_code = "P006"  # 默认错误代码
                 user_friendly_msg = "服务器火爆，重试一下。"  # 给用户看的友好提示
 
-                # 判断是否是下游API错误
-                if any(keyword in error_msg for keyword in ["API", "即梦", "jimeng", "Liblib", "Meitu", "Vectorizer", "GQCH", "RunningHub"]):
+                # 检查是否是AIClientException，包含API响应详情
+                if isinstance(e, AIClientException):
+                    error_code = "API_ERROR"
+                    # 获取详细的API错误信息（包含请求和响应）
+                    detailed_error = e.get_detailed_error(truncate_large_fields=True)
+                    admin_error_msg = f"[下游API错误]\n\n{detailed_error}\n\n调用栈:\n{error_traceback}"
+                # 判断是否是下游API错误（旧方式，兼容未使用AIClientException的代码）
+                elif any(keyword in error_msg for keyword in ["API", "即梦", "jimeng", "Liblib", "Meitu", "Vectorizer", "GQCH", "RunningHub"]):
                     error_code = "API_ERROR"
                     admin_error_msg = f"[下游API错误] {error_msg}\n\n调用栈:\n{error_traceback}"
                 else:

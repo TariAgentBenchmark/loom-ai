@@ -7,6 +7,7 @@ import httpx
 
 from app.core.config import settings
 from app.services.api_limiter import api_limiter
+from app.services.ai_client.exceptions import AIClientException
 
 
 logger = logging.getLogger(__name__)
@@ -43,17 +44,37 @@ class GQCHClient:
                     return response.json()
             except httpx.TimeoutException as exc:
                 logger.error("GQCH API request timed out: %s", exc)
-                raise Exception("GQCH 接口请求超时，请稍后再试")
+                raise AIClientException(
+                    message="GQCH 接口请求超时，请稍后再试",
+                    api_name="GQCH",
+                    request_data=data,
+                ) from exc
             except httpx.HTTPStatusError as exc:
                 body = exc.response.text
                 logger.error("GQCH API returned HTTP %s: %s", exc.response.status_code, body)
-                raise Exception("GQCH 接口请求失败，请联系管理员或稍后再试")
+                raise AIClientException(
+                    message="GQCH 接口请求失败，请联系管理员或稍后再试",
+                    api_name="GQCH",
+                    status_code=exc.response.status_code,
+                    response_body=body,
+                    request_data=data,
+                ) from exc
             except httpx.RequestError as exc:
                 logger.error("GQCH API request error: %s", exc)
-                raise Exception("无法连接到 GQCH 接口，请检查网络或配置")
+                raise AIClientException(
+                    message="无法连接到 GQCH 接口，请检查网络或配置",
+                    api_name="GQCH",
+                    request_data=data,
+                ) from exc
+            except AIClientException:
+                raise
             except Exception as exc:  # noqa: BLE001
                 logger.error("Unexpected error when calling GQCH API: %s", exc)
-                raise
+                raise AIClientException(
+                    message=f"GQCH 接口未知错误: {str(exc)}",
+                    api_name="GQCH",
+                    request_data=data,
+                ) from exc
 
         result = await api_limiter.run("gqch", _do_request)
 
@@ -61,7 +82,13 @@ class GQCHClient:
         if err_code != 0:
             message = result.get("err_msg") or "GQCH 接口返回错误"
             logger.error("GQCH API responded with err_code=%s, message=%s", err_code, message)
-            raise Exception(message)
+            raise AIClientException(
+                message=message,
+                api_name="GQCH",
+                status_code=200,
+                response_body=result,
+                request_data=data,
+            )
 
         return result
 
@@ -134,7 +161,13 @@ class GQCHClient:
 
         task_id = submit_response.get("task_id")
         if not task_id:
-            raise Exception("GQCH 接口未返回任务ID")
+            raise AIClientException(
+                message="GQCH 接口未返回任务ID",
+                api_name="GQCH",
+                status_code=200,
+                response_body=submit_response,
+                request_data=form_data,
+            )
 
         status_payload = await self._poll_task_status(task_id)
         return self._extract_result_urls(status_payload)
@@ -161,9 +194,19 @@ class GQCHClient:
 
             if status_value in {"failed", "error", "expired"}:
                 message = status_response.get("err_msg") or "GQCH 任务处理失败"
-                raise Exception(message)
+                raise AIClientException(
+                    message=message,
+                    api_name="GQCH",
+                    status_code=200,
+                    response_body=status_response,
+                    request_data=data,
+                )
 
-        raise Exception("GQCH 任务处理超时，请稍后在历史记录中查看")
+        raise AIClientException(
+            message="GQCH 任务处理超时，请稍后在历史记录中查看",
+            api_name="GQCH",
+            request_data=data,
+        )
 
     def _extract_result_urls(self, payload: Dict[str, Any]) -> str:
         candidates: List[str] = []
@@ -184,7 +227,12 @@ class GQCHClient:
                 candidates.append(extra_url.strip())
 
         if not candidates:
-            raise Exception("GQCH 任务未返回可用的结果链接")
+            raise AIClientException(
+                message="GQCH 任务未返回可用的结果链接",
+                api_name="GQCH",
+                status_code=200,
+                response_body=payload,
+            )
 
         # 去重，保持顺序
         unique_urls: List[str] = []

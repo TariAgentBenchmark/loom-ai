@@ -9,6 +9,7 @@ import httpx
 from app.core.config import settings
 from app.services.ai_client.base_client import BaseAIClient
 from app.services.api_limiter import api_limiter
+from app.services.ai_client.exceptions import AIClientException
 
 logger = logging.getLogger(__name__)
 
@@ -53,35 +54,65 @@ class DewatermarkClient(BaseAIClient):
             }
             
             logger.info("Sending request to Dewatermark.ai API")
-            
+
             # 发送请求
-            async with api_limiter.slot("dewatermark"):
-                async with httpx.AsyncClient(timeout=300.0) as client:
-                    response = await client.post(
-                        self.dewatermark_url,
-                        headers=headers,
-                        files=files
-                    )
-                    response.raise_for_status()
-                    result = response.json()
-            
-            # 关闭打开的文件
-            if "mask_brush" in files and hasattr(files["mask_brush"][1], 'close'):
-                files["mask_brush"][1].close()
-            
+            try:
+                async with api_limiter.slot("dewatermark"):
+                    async with httpx.AsyncClient(timeout=300.0) as client:
+                        response = await client.post(
+                            self.dewatermark_url,
+                            headers=headers,
+                            files=files
+                        )
+                        response.raise_for_status()
+                        result = response.json()
+            except httpx.HTTPStatusError as e:
+                raise AIClientException(
+                    message=f"Dewatermark请求失败: {e.response.status_code}",
+                    api_name="Dewatermark",
+                    status_code=e.response.status_code,
+                    response_body=e.response.text,
+                    request_data={"has_mask_brush": "mask_brush" in files},
+                ) from e
+            except httpx.RequestError as e:
+                raise AIClientException(
+                    message=f"Dewatermark网络错误: {str(e)}",
+                    api_name="Dewatermark",
+                    request_data={"has_mask_brush": "mask_brush" in files},
+                ) from e
+            finally:
+                # 关闭打开的文件
+                if "mask_brush" in files and hasattr(files["mask_brush"][1], 'close'):
+                    files["mask_brush"][1].close()
+
             # 检查响应
             if "edited_image" not in result:
                 logger.error(f"Dewatermark.ai API unexpected response: {result}")
-                raise Exception("Dewatermark.ai API响应格式错误")
-            
+                raise AIClientException(
+                    message="Dewatermark.ai API响应格式错误",
+                    api_name="Dewatermark",
+                    status_code=200,
+                    response_body=result,
+                )
+
             # 提取处理后的图片数据
             edited_image = result["edited_image"]
             if "image" in edited_image:
                 # 保存处理后的图片并返回URL
                 return self._save_base64_image(edited_image["image"])
-            
-            raise Exception("无法从Dewatermark.ai API响应中提取处理后的图片")
-            
+
+            raise AIClientException(
+                message="无法从Dewatermark.ai API响应中提取处理后的图片",
+                api_name="Dewatermark",
+                status_code=200,
+                response_body=result,
+            )
+
+        except AIClientException:
+            raise
         except Exception as e:
             logger.error(f"Remove watermark failed: {str(e)}")
-            raise Exception(f"智能去水印失败: {str(e)}")
+            raise AIClientException(
+                message=f"智能去水印失败: {str(e)}",
+                api_name="Dewatermark",
+            ) from e

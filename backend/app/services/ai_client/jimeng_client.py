@@ -12,6 +12,7 @@ import httpx
 
 from app.core.config import settings
 from app.services.api_limiter import api_limiter
+from app.services.ai_client.exceptions import AIClientException
 
 logger = logging.getLogger(__name__)
 
@@ -169,7 +170,13 @@ class JimengClient:
                         continue
 
                     logger.error(f"Jimeng API request failed: {status} - {body}")
-                    raise Exception(f"即梦API请求失败: {status}")
+                    raise AIClientException(
+                        message=f"即梦API请求失败: {status}",
+                        api_name="Jimeng",
+                        status_code=status,
+                        response_body=body,
+                        request_data=request_data,
+                    )
 
                 except httpx.RequestError as exc:
                     if attempt < max_retries:
@@ -185,10 +192,18 @@ class JimengClient:
                         continue
 
                     logger.error(f"Jimeng API request error: {str(exc)}")
-                    raise Exception(f"即梦API连接失败: {str(exc)}")
+                    raise AIClientException(
+                        message=f"即梦API连接失败: {str(exc)}",
+                        api_name="Jimeng",
+                        request_data=request_data,
+                    )
 
             # 理论上不会到达这里，保留兜底处理
-            raise Exception("即梦API连接失败: 未知错误")
+            raise AIClientException(
+                message="即梦API连接失败: 未知错误",
+                api_name="Jimeng",
+                request_data=request_data,
+            )
 
         return await api_limiter.run("jimeng", _do_request)
     

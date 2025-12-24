@@ -11,6 +11,7 @@ import httpx
 
 from app.core.config import settings
 from app.services.api_limiter import api_limiter
+from app.services.ai_client.exceptions import AIClientException
 
 logger = logging.getLogger(__name__)
 
@@ -88,14 +89,29 @@ class LiblibUpscaleAPI:
         
         # 获取签名参数
         params = self._get_common_params(url_path)
-        
+
         # 发送请求
-        async with api_limiter.slot("liblib"):
-            async with httpx.AsyncClient(timeout=300.0) as client:
-                response = await client.post(full_url, params=params, json=payload)
-                response.raise_for_status()
-                return response.json()
-    
+        try:
+            async with api_limiter.slot("liblib"):
+                async with httpx.AsyncClient(timeout=300.0) as client:
+                    response = await client.post(full_url, params=params, json=payload)
+                    response.raise_for_status()
+                    return response.json()
+        except httpx.HTTPStatusError as e:
+            raise AIClientException(
+                message=f"Liblib生成图片请求失败: {e.response.status_code}",
+                api_name="Liblib",
+                status_code=e.response.status_code,
+                response_body=e.response.text,
+                request_data={"image_url": image_url, "megapixels": megapixels},
+            ) from e
+        except httpx.RequestError as e:
+            raise AIClientException(
+                message=f"Liblib生成图片网络错误: {str(e)}",
+                api_name="Liblib",
+                request_data={"image_url": image_url, "megapixels": megapixels},
+            ) from e
+
     async def get_generate_status(self, generate_uuid: str) -> Dict:
         """
         查询生图任务状态
@@ -116,14 +132,29 @@ class LiblibUpscaleAPI:
         
         # 获取签名参数
         params = self._get_common_params(url_path)
-        
+
         # 发送请求
-        async with api_limiter.slot("liblib"):
-            async with httpx.AsyncClient(timeout=300.0) as client:
-                response = await client.post(full_url, params=params, json=payload)
-                response.raise_for_status()
-                return response.json()
-    
+        try:
+            async with api_limiter.slot("liblib"):
+                async with httpx.AsyncClient(timeout=300.0) as client:
+                    response = await client.post(full_url, params=params, json=payload)
+                    response.raise_for_status()
+                    return response.json()
+        except httpx.HTTPStatusError as e:
+            raise AIClientException(
+                message=f"Liblib查询状态请求失败: {e.response.status_code}",
+                api_name="Liblib",
+                status_code=e.response.status_code,
+                response_body=e.response.text,
+                request_data={"generate_uuid": generate_uuid},
+            ) from e
+        except httpx.RequestError as e:
+            raise AIClientException(
+                message=f"Liblib查询状态网络错误: {str(e)}",
+                api_name="Liblib",
+                request_data={"generate_uuid": generate_uuid},
+            ) from e
+
     async def wait_for_completion(self, generate_uuid: str, poll_interval: int = 5, timeout: int = 300) -> Dict:
         """
         等待任务完成
@@ -148,7 +179,13 @@ class LiblibUpscaleAPI:
             
             # 检查状态码
             if status_data.get("code") != 0:
-                raise Exception(f"API错误: {status_data.get('msg', '未知错误')}")
+                raise AIClientException(
+                    message=f"Liblib API错误: {status_data.get('msg', '未知错误')}",
+                    api_name="Liblib",
+                    status_code=200,
+                    response_body=status_data,
+                    request_data={"generate_uuid": generate_uuid},
+                )
             
             data = status_data.get("data", {})
             generate_status = data.get("generateStatus")
@@ -177,9 +214,15 @@ class LiblibUpscaleAPI:
         """
         # 1. 提交生成任务
         generate_response = await self.generate_image(image_url, megapixels)
-        
+
         if generate_response.get("code") != 0:
-            raise Exception(f"提交任务失败: {generate_response.get('msg', '未知错误')}")
+            raise AIClientException(
+                message=f"Liblib提交任务失败: {generate_response.get('msg', '未知错误')}",
+                api_name="Liblib",
+                status_code=200,
+                response_body=generate_response,
+                request_data={"image_url": image_url, "megapixels": megapixels},
+            )
         
         generate_uuid = generate_response["data"]["generateUuid"]
         logger.info(f"任务已提交，UUID: {generate_uuid}")

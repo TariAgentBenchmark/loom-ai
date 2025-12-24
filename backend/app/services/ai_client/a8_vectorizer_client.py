@@ -9,6 +9,7 @@ import urllib3
 
 from app.services.file_service import FileService
 from app.services.api_limiter import api_limiter
+from app.services.ai_client.exceptions import AIClientException
 
 # 禁用SSL警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -64,15 +65,33 @@ class A8VectorizerClient:
                     )
 
             if response.status_code != 200:
-                raise Exception("服务异常，联系管理员")
+                raise AIClientException(
+                    message="A8矢量化服务异常，联系管理员",
+                    api_name="A8Vectorizer",
+                    status_code=response.status_code,
+                    response_body=response.text,
+                    request_data={"format": fmt},
+                )
 
             data = response.json()
             if data.get('code') != 0:
-                raise Exception(data.get('message') or "服务异常，联系管理员")
+                raise AIClientException(
+                    message=data.get('message') or "A8矢量化服务异常，联系管理员",
+                    api_name="A8Vectorizer",
+                    status_code=200,
+                    response_body=data,
+                    request_data={"format": fmt},
+                )
 
             taskid = data.get('id') or data.get('taskid')
             if not taskid:
-                raise Exception("服务异常，联系管理员")
+                raise AIClientException(
+                    message="A8矢量化任务创建失败",
+                    api_name="A8Vectorizer",
+                    status_code=200,
+                    response_body=data,
+                    request_data={"format": fmt},
+                )
 
             logger.info(f"Task created successfully: {taskid}")
 
@@ -87,17 +106,33 @@ class A8VectorizerClient:
                         )
 
                 if response.status_code != 200:
-                    raise Exception("服务异常，联系管理员")
+                    raise AIClientException(
+                        message="A8矢量化查询状态失败",
+                        api_name="A8Vectorizer",
+                        status_code=response.status_code,
+                        response_body=response.text,
+                        request_data={"taskid": taskid},
+                    )
 
                 result = response.json()
                 if result.get('code') == 0:
                     logger.info(f"Task {taskid} completed successfully")
                     break
                 elif result.get('code') == -1:
-                    raise Exception(result.get('message') or "服务异常，联系管理员")
+                    raise AIClientException(
+                        message=result.get('message') or "A8矢量化任务失败",
+                        api_name="A8Vectorizer",
+                        status_code=200,
+                        response_body=result,
+                        request_data={"taskid": taskid},
+                    )
 
                 if time.time() - t0 > timeout:
-                    raise Exception("任务超时，请稍后重试")
+                    raise AIClientException(
+                        message="A8矢量化任务超时，请稍后重试",
+                        api_name="A8Vectorizer",
+                        request_data={"taskid": taskid, "timeout": timeout},
+                    )
 
                 logger.info(f"Task {taskid} still processing, waiting {poll_interval}s...")
                 await asyncio.sleep(poll_interval)
@@ -111,7 +146,13 @@ class A8VectorizerClient:
                     )
 
             if response.status_code != 200:
-                raise Exception("服务异常，联系管理员")
+                raise AIClientException(
+                    message="A8矢量化下载文件失败",
+                    api_name="A8Vectorizer",
+                    status_code=response.status_code,
+                    response_body=response.text,
+                    request_data={"taskid": taskid},
+                )
 
             filename = f"vectorized_{uuid.uuid4().hex[:8]}.{fmt}"
             file_service = FileService()
@@ -123,9 +164,14 @@ class A8VectorizerClient:
             logger.info("Vector file saved to storage: %s", saved_url)
             return saved_url
 
+        except AIClientException:
+            raise
         except Exception as e:
             logger.error(f"Vectorize image failed: {str(e)}")
-            raise Exception(f"矢量化失败: {str(e)}")
+            raise AIClientException(
+                message=f"A8矢量化失败: {str(e)}",
+                api_name="A8Vectorizer",
+            ) from e
 
     # 兼容旧方法：仍然可用
     async def image_to_eps(

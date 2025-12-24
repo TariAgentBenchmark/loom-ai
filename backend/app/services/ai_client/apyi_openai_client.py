@@ -7,6 +7,7 @@ import httpx
 
 from app.services.ai_client.base_client import BaseAIClient
 from app.core.config import settings
+from app.services.ai_client.exceptions import AIClientException
 
 logger = logging.getLogger(__name__)
 
@@ -270,7 +271,13 @@ class ApyiOpenAIClient(BaseAIClient):
                     continue
 
                 logger.error(f"Apyi OpenAI API request failed: {status} - {body}")
-                raise Exception(f"Apyi OpenAI服务请求失败: {status}")
+                raise AIClientException(
+                    message=f"Apyi OpenAI服务请求失败: {status}",
+                    api_name="ApyiOpenAI",
+                    status_code=status,
+                    response_body=body,
+                    request_data=data,
+                )
 
             except httpx.RequestError as exc:
                 if attempt < max_retries:
@@ -286,9 +293,17 @@ class ApyiOpenAIClient(BaseAIClient):
                     continue
 
                 logger.error(f"Apyi OpenAI API request error: {str(exc)}")
-                raise Exception(f"Apyi OpenAI服务连接失败: {str(exc)}")
+                raise AIClientException(
+                    message=f"Apyi OpenAI服务连接失败: {str(exc)}",
+                    api_name="ApyiOpenAI",
+                    request_data=data,
+                )
 
-        raise Exception("Apyi OpenAI服务连接失败: 未知错误")
+        raise AIClientException(
+            message="Apyi OpenAI服务连接失败: 未知错误",
+            api_name="ApyiOpenAI",
+            request_data=data,
+        )
 
     @staticmethod
     def create_mask_for_rectangle(

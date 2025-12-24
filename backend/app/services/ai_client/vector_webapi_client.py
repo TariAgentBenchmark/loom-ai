@@ -10,6 +10,7 @@ import httpx
 from app.core.config import settings
 from app.services.file_service import FileService
 from app.services.api_limiter import api_limiter
+from app.services.ai_client.exceptions import AIClientException
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,11 @@ class VectorWebAPIClient:
 
         while True:
             if time.time() > deadline:
-                raise Exception("矢量化任务超时，请稍后重试")
+                raise AIClientException(
+                    message="矢量化任务超时，请稍后重试",
+                    api_name="VectorWebAPI",
+                    request_data={"task_id": task_id},
+                )
 
             response = await client.get(self.base_url, params={"bianhao": task_id})
             if response.status_code != 200:
@@ -74,7 +79,13 @@ class VectorWebAPIClient:
                     if result_url:
                         return result_url
                 elif data.get("code") in (400, 404):
-                    raise Exception(data.get("msg") or "矢量化任务不存在")
+                    raise AIClientException(
+                        message=data.get("msg") or "矢量化任务不存在",
+                        api_name="VectorWebAPI",
+                        status_code=200,
+                        response_body=data,
+                        request_data={"task_id": task_id},
+                    )
 
             await asyncio.sleep(interval)
 
@@ -144,14 +155,26 @@ class VectorWebAPIClient:
                     payload = response.json()
 
                     if payload.get("code") != 200:
-                        raise Exception(payload.get("msg") or "矢量化服务异常")
+                        raise AIClientException(
+                            message=payload.get("msg") or "矢量化服务异常",
+                            api_name="VectorWebAPI",
+                            status_code=200,
+                            response_body=payload,
+                            request_data=data,
+                        )
 
                     # 如果直接返回了结果URL，直接下载保存
                     result_url = self._extract_result_url(payload)
                     if not result_url:
                         task_id = payload.get("bianhao")
                         if not task_id:
-                            raise Exception("矢量化任务创建失败，缺少任务编号")
+                            raise AIClientException(
+                                message="矢量化任务创建失败，缺少任务编号",
+                                api_name="VectorWebAPI",
+                                status_code=200,
+                                response_body=payload,
+                                request_data=data,
+                            )
 
                         logger.info("Vector task created: %s, start polling", task_id)
                         result_url = await self._poll_result_url(
@@ -165,6 +188,25 @@ class VectorWebAPIClient:
                 finally:
                     await client.aclose()
 
+        except httpx.HTTPStatusError as e:
+            raise AIClientException(
+                message=f"矢量化请求失败: {e.response.status_code}",
+                api_name="VectorWebAPI",
+                status_code=e.response.status_code,
+                response_body=e.response.text,
+                request_data=data,
+            ) from e
+        except httpx.RequestError as e:
+            raise AIClientException(
+                message=f"矢量化网络错误: {str(e)}",
+                api_name="VectorWebAPI",
+                request_data=data,
+            ) from e
+        except AIClientException:
+            raise
         except Exception as exc:
             logger.error("Vector conversion failed: %s", str(exc))
-            raise Exception(f"矢量化失败: {str(exc)}")
+            raise AIClientException(
+                message=f"矢量化失败: {str(exc)}",
+                api_name="VectorWebAPI",
+            ) from exc
