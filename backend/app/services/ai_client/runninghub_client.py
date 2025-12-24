@@ -203,10 +203,10 @@ class RunningHubClient:
             workflow_id: RunningHub工作流ID
             image_node_id: 图片输入节点ID
             image_field_name: 图片字段名称
-            expand_top: 上边距
-            expand_bottom: 下边距
-            expand_left: 左边距
-            expand_right: 右边距
+            expand_top: 上边距比例（如0.5表示扩展原高度的50%）
+            expand_bottom: 下边距比例
+            expand_left: 左边距比例
+            expand_right: 右边距比例
             top_node_id: 上边距节点ID
             bottom_node_id: 下边距节点ID
             left_node_id: 左边距节点ID
@@ -214,50 +214,62 @@ class RunningHubClient:
             margin_field_name: 边距字段名称
             options: 额外参数
         """
+        from PIL import Image
+        from io import BytesIO
+
         resolved_workflow_id = self._ensure_configured(workflow_id)
         options = options or {}
         filename = options.get("original_filename") or "expand_image.png"
 
+        # Get image dimensions
+        img = Image.open(BytesIO(image_bytes))
+        width, height = img.size
+
+        # Convert ratio to pixels
+        top_pixels = int(height * expand_top)
+        bottom_pixels = int(height * expand_bottom)
+        left_pixels = int(width * expand_left)
+        right_pixels = int(width * expand_right)
+
         # Upload image
         uploaded_name = await self._upload_file(image_bytes, filename)
 
-        # Build node info list with image and all margin nodes
+        # Build node info list with image and all margin nodes (in pixels)
         node_info_list = [
             {
                 "nodeId": str(image_node_id),
                 "fieldName": image_field_name,
                 "fieldValue": uploaded_name,
             },
-        ]
-
-        # Add margin nodes (only if value > 0)
-        if expand_top > 0:
-            node_info_list.append({
+            {
                 "nodeId": str(top_node_id),
                 "fieldName": margin_field_name,
-                "fieldValue": str(expand_top),
-            })
-
-        if expand_bottom > 0:
-            node_info_list.append({
+                "fieldValue": top_pixels,
+            },
+            {
                 "nodeId": str(bottom_node_id),
                 "fieldName": margin_field_name,
-                "fieldValue": str(expand_bottom),
-            })
-
-        if expand_left > 0:
-            node_info_list.append({
+                "fieldValue": bottom_pixels,
+            },
+            {
                 "nodeId": str(left_node_id),
                 "fieldName": margin_field_name,
-                "fieldValue": str(expand_left),
-            })
-
-        if expand_right > 0:
-            node_info_list.append({
+                "fieldValue": left_pixels,
+            },
+            {
                 "nodeId": str(right_node_id),
                 "fieldName": margin_field_name,
-                "fieldValue": str(expand_right),
-            })
+                "fieldValue": right_pixels,
+            },
+        ]
+
+        self.logger.info(
+            "Submitting expand image workflow %s (image: %dx%d) with nodes: %s",
+            resolved_workflow_id,
+            width,
+            height,
+            node_info_list,
+        )
 
         task_id = await self._submit_task(node_info_list, resolved_workflow_id)
         return await self._poll_task(task_id)
