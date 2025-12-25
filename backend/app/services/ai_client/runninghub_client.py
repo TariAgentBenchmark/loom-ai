@@ -29,6 +29,59 @@ class RunningHubClient:
         self.poll_interval = max(1, settings.runninghub_poll_interval_seconds)
         self.poll_timeout = max(self.poll_interval, settings.runninghub_poll_timeout_seconds)
 
+    def _truncate_text(self, text: str, limit: int = 2000) -> str:
+        if not text:
+            return ""
+        if len(text) <= limit:
+            return text
+        return f"{text[:limit]}...(truncated)"
+
+    def _log_http_error(self, action: str, exc: httpx.HTTPStatusError) -> None:
+        response = exc.response
+        body = self._truncate_text(response.text or "")
+        self.logger.warning(
+            "RunningHub %s HTTP %s: %s",
+            action,
+            response.status_code,
+            body,
+        )
+
+    def _parse_response_json(self, action: str, response: httpx.Response) -> Dict[str, Any]:
+        try:
+            return response.json()
+        except ValueError:
+            body = self._truncate_text(response.text or "")
+            self.logger.warning(
+                "RunningHub %s invalid JSON response: status=%s body=%s",
+                action,
+                response.status_code,
+                body,
+            )
+            raise
+
+    async def _post_json(
+        self,
+        url: str,
+        *,
+        data: Optional[Dict[str, Any]] = None,
+        json: Optional[Dict[str, Any]] = None,
+        files: Optional[Dict[str, Any]] = None,
+        action: str,
+    ) -> Dict[str, Any]:
+        try:
+            async with api_limiter.slot("runninghub"):
+                async with httpx.AsyncClient(timeout=60.0) as client:
+                    response = await client.post(url, data=data, json=json, files=files)
+                    response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            self._log_http_error(action, exc)
+            raise
+        except httpx.RequestError as exc:
+            self.logger.warning("RunningHub %s request error: %s", action, str(exc))
+            raise
+
+        return self._parse_response_json(action, response)
+
     def _ensure_configured(self, workflow_id: Optional[str] = None) -> str:
         if not self.api_key:
             raise Exception("RunningHub API尚未配置，请设置API_KEY环境变量")
@@ -280,14 +333,21 @@ class RunningHubClient:
         data = {"apiKey": self.api_key, "fileType": "input"}
         files = {"file": (filename, image_bytes, mime_type)}
 
-        async with api_limiter.slot("runninghub"):
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                response = await client.post(url, data=data, files=files)
-                response.raise_for_status()
-                payload = response.json()
+        payload = await self._post_json(
+            url,
+            data=data,
+            files=files,
+            action="upload",
+        )
 
         if payload.get("code") != 0:
             msg = payload.get("msg") or "上传失败"
+            self.logger.warning(
+                "RunningHub upload failed: filename=%s size=%s response=%s",
+                filename,
+                len(image_bytes),
+                payload,
+            )
             raise Exception(f"RunningHub文件上传失败: {msg}")
 
         file_name = (payload.get("data") or {}).get("fileName")
@@ -303,14 +363,20 @@ class RunningHubClient:
             "nodeInfoList": node_info_list,
         }
 
-        async with api_limiter.slot("runninghub"):
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                response = await client.post(url, json=payload)
-                response.raise_for_status()
-                data = response.json()
+        data = await self._post_json(
+            url,
+            json=payload,
+            action="create task",
+        )
 
         if data.get("code") != 0:
             msg = data.get("msg") or "创建任务失败"
+            self.logger.warning(
+                "RunningHub task create failed: workflow_id=%s node_ids=%s response=%s",
+                workflow_id,
+                [item.get("nodeId") for item in node_info_list],
+                data,
+            )
             raise Exception(f"RunningHub任务创建失败: {msg}")
 
         task_data = data.get("data") or {}
@@ -330,11 +396,11 @@ class RunningHubClient:
 
         start_time = time.monotonic()
         while True:
-            async with api_limiter.slot("runninghub"):
-                async with httpx.AsyncClient(timeout=60.0) as client:
-                    response = await client.post(url, json=payload)
-                    response.raise_for_status()
-                    data = response.json()
+            data = await self._post_json(
+                url,
+                json=payload,
+                action=f"poll task {task_id}",
+            )
 
             code = data.get("code")
             result_data = data.get("data")
@@ -342,11 +408,21 @@ class RunningHubClient:
             if code == 0 and result_data:
                 urls = [item.get("fileUrl") for item in result_data if item.get("fileUrl")]
                 if not urls:
+                    self.logger.warning(
+                        "RunningHub task returned no URLs: task_id=%s response=%s",
+                        task_id,
+                        data,
+                    )
                     raise Exception("RunningHub任务成功但未返回结果URL")
                 return urls
 
             if code == 805:
                 failed_reason = (result_data or {}).get("failedReason") if isinstance(result_data, dict) else None
+                self.logger.warning(
+                    "RunningHub task failed: task_id=%s response=%s",
+                    task_id,
+                    data,
+                )
                 raise Exception(
                     f"RunningHub任务失败: {data.get('msg') or ''} {failed_reason or ''}".strip()
                 )
@@ -357,4 +433,9 @@ class RunningHubClient:
                 await asyncio.sleep(self.poll_interval)
                 continue
 
+            self.logger.warning(
+                "RunningHub task returned unknown status: task_id=%s response=%s",
+                task_id,
+                data,
+            )
             raise Exception(f"RunningHub返回未知状态: {data}")
