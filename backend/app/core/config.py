@@ -111,7 +111,7 @@ class Settings(BaseSettings):
     runninghub_expand_left_node_id: str = "202"
     runninghub_expand_right_node_id: str = "203"
     runninghub_expand_bottom_node_id: str = "201"
-    runninghub_expand_margin_field_name: str = "整数"
+    runninghub_expand_margin_field_name: str = "value"
     runninghub_workflow_id_similar_image: str = ""
     runninghub_consistent_similar_image_node_id: str = "65"
     runninghub_consistent_similar_image_field_name: str = "image"
