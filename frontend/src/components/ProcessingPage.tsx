@@ -283,6 +283,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     [
       { value: "general", label: "通用模型" },
       { value: "combined", label: "综合模型" },
+      { value: "denim", label: "牛仔风格专用" },
     ];
   const effectivePatternType = patternType ?? "general";
   const selectedUpscaleOption =

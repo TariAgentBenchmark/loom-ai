@@ -198,6 +198,13 @@ class ImageProcessingUtils:
                 "生成图片："
                 "从提供的图片中严格提取图案，将图案设计的风格和内容元索还原为填充整个画面的平面印刷图像，准确识别并完整还原图案、纹理、颜色,等设计元素。2 1：1"
             )
+        elif pattern_type == "denim":
+            # 牛仔风格专用类型
+            prompt = (
+                "从整条牛仔裤中提取完整的牛仔面料质感，包括裤腿、腰带、口袋、接缝和褶皱细节，还有花型。"
+                "保持纹理结构和比例准确，没有遗漏区域或失真。在画布上无缝地展平和平铺整个牛仔纹理。"
+                "输出具有逼真织物纹理、照明和编织细节的高分辨率数字纺织品印花，适用于纺织品或图案设计。"
+            )
         else:
             # 通用类型（默认）
             prompt = (
@@ -248,6 +255,14 @@ class ImageProcessingUtils:
             image_urls = self.apyi_openai_client._extract_image_urls(result)
             # 返回逗号分隔的URL字符串
             return ",".join(image_urls)
+        elif pattern_type == "denim":
+            result = await self.gpt4o_client.process_image(
+                image_bytes,
+                prompt,
+                "image/png",
+                n=1,
+            )
+            return self.gpt4o_client._extract_image_url(result)
         else:
             if pattern_type == "general_2" and quality_mode == "4k":
                 result = await self.apyi_gemini_client.generate_image_preview(

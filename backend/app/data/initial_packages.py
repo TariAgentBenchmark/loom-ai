@@ -195,6 +195,13 @@ SERVICE_PRICES = [
         "price_credits": 1.5,
     },
     {
+        "service_id": "extract_pattern_denim",
+        "service_name": "提取花型-牛仔风格",
+        "service_key": "extract_pattern_denim",
+        "description": "AI提取花型（牛仔风格专用）",
+        "price_credits": 1.5,
+    },
+    {
         "service_id": "watermark_removal",
         "service_name": "去水印",
         "service_key": "watermark_removal",
