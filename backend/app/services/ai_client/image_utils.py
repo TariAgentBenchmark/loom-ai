@@ -208,9 +208,23 @@ class ImageProcessingUtils:
         else:
             # 通用类型（默认）
             prompt = (
-                "生成图片："
-                "从输入图片中精准提取印花图案，保持原始位置与比例。完整还原所有纹理、颜色与细节，自动修复缺失部分并去除褶皱。确保颜色亮丽饱满、不失真。输出为高分辨率平面印刷效果图，排除所有服装形状，适当补充缺失图案填充画面，避免过度平铺，构图协调完整。"
-                "请根据要求提取图案，并生成高质量图片"
+                "核心任务： 全幅宽定位印花画稿生成 (密度控制 + 智能扩展) 角色设定： 您是顶级印花设计专家。您的目标是生成一张**\"准备上机打印\"**的、构图完美的数码印花源文件。\n"
+                "\n"
+                "核心指令 (必须严格执行)：\n"
+                "\n"
+                "定位花布局与密度控制 (Engineered Layout & Density - 核心加强)\n"
+                "\n"
+                "定位逻辑： 严格遵循\"定位印花\"的设计原则。花型的位置是经过精心设计的，而非随机平铺。保持原图特有的花位布局（如：花朵在特定位置的聚散）。\n"
+                "\n"
+                "呼吸感与留白 (Neg平面。\n"
+                "\n"
+                "顺势排列： 图案走势顺应版型（裤装垂直），但不画出任何物理轮廓线。\n"
+                "\n"
+                "画质：超高清印花级\n"
+                "\n"
+                "刀锋锐利： 8K+分辨率，边缘锐利，无模糊，保留手绘/数码原稿的细腻笔触。\n"
+                "\n"
+                "排除列表 (加强版)： 排除：图案拥挤，花型被切断，边缘残缺，腰部假性密集，裤子/裙子轮廓，缝隙，阴影，模糊"
             )
 
         # 提取分辨率参数
@@ -264,31 +278,27 @@ class ImageProcessingUtils:
             )
             return self.gpt4o_client._extract_image_url(result)
         else:
-            if pattern_type == "general_2" and quality_mode == "4k":
+            # general_2 和 positioning 模式都使用 gemini-3-pro-image-preview
+            if pattern_type in ["general_2", "positioning"]:
+                # general_2 使用 4K，positioning 使用 2K
+                resolution = "4K" if pattern_type == "general_2" else "2K"
                 result = await self.apyi_gemini_client.generate_image_preview(
                     image_bytes,
                     prompt,
                     "image/png",
                     aspect_ratio=aspect_ratio,
-                    resolution="4K",
+                    resolution=resolution,
                 )
             else:
-                if pattern_type == "positioning":
-                    result = await self.apyi_gemini_client.generate_image_preview(
-                        image_bytes,
-                        prompt,
-                        "image/png",
-                        aspect_ratio=aspect_ratio,
-                    )
-                else:
-                    result = await self.apyi_gemini_client.process_image(
-                        image_bytes,
-                        prompt,
-                        "image/png",
-                        aspect_ratio=aspect_ratio,
-                        width=width,
-                        height=height
-                    )
+                # 其他模式使用 gemini-2.5-flash-image
+                result = await self.apyi_gemini_client.process_image(
+                    image_bytes,
+                    prompt,
+                    "image/png",
+                    aspect_ratio=aspect_ratio,
+                    width=width,
+                    height=height
+                )
             return self.apyi_gemini_client._extract_image_url(result)
 
     async def denoise_image(
