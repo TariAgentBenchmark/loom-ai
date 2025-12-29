@@ -128,6 +128,11 @@ class Settings(BaseSettings):
     runninghub_workflow_id_extract_general1_4: str = ""
     runninghub_extract_general1_node_id_4: str = ""
     runninghub_extract_general1_field_name_4: str = "image"
+    # 提取花型综合模式 RunningHub 工作流（第三、四张）
+    runninghub_workflow_id_extract_combined_3: str = "2004397396601831426"
+    runninghub_workflow_id_extract_combined_4: str = "2004397501203578882"
+    runninghub_extract_combined_node_id: str = "184"
+    runninghub_extract_combined_field_name: str = "image"
     runninghub_poll_interval_seconds: int = 5
     runninghub_poll_timeout_seconds: int = 600
 

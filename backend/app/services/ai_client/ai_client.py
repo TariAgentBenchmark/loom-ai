@@ -326,36 +326,38 @@ class AIClient:
                     logger.warning("Combined pattern variant %s failed: %s", pt, str(exc))
                     return None
 
-            async def _run_gemini3_custom() -> Optional[str]:
-                custom_prompt = (
-                    "核心任务： 全幅宽定位印花画稿生成 (密度控制 + 智能扩展) 角色设定： 您是顶级印花设计专家。您的目标是生成一张“准备上机打印”的、构图完美的数码印花源文件。\n"
-                    "定位花布局与密度控制：严格遵循定位印花原则，保持原图特有的花位布局和疏密节奏，保留干净背景与呼吸感，禁止为填满画布堆砌图案；若原设计有局部密/疏变化需严格保持。\n"
-                    "四周扩展与完整性：扩展边缘时保证花朵/几何图形结构完整，禁止半截、切断或破碎的花型。\n"
-                    "腰头区域去褶皱：识别腰部高密由挤压造成，将图案拉开摊平，恢复自然间距与大小，与主体一致。\n"
-                    "裤装/裙装处理：忽略裤腿缝隙，合并为连续宽幅平面；顺势排列但不画版型轮廓或缝线。\n"
-                    "画质要求：8K+超清，边缘锐利，无模糊，保留原稿细腻笔触。\n"
-                    "排除：图案拥挤、花型被切断、边缘残缺、腰部假性密集、裤子/裙子轮廓、缝隙、阴影、模糊。"
-                )
+            async def _run_runninghub(workflow_id: str) -> Optional[str]:
                 try:
-                    aspect_ratio = options.get("aspect_ratio") if isinstance(options, dict) else None
-                    result = await self.apyi_gemini_client.generate_image_preview(
-                        image_bytes,
-                        custom_prompt,
-                        "image/png",
-                        aspect_ratio=aspect_ratio,
-                        resolution="4K",
+                    result_urls = await self.runninghub_client.run_workflow_with_custom_nodes(
+                        image_bytes=image_bytes,
+                        workflow_id=workflow_id,
+                        node_ids=settings.runninghub_extract_combined_node_id,
+                        field_name=settings.runninghub_extract_combined_field_name,
+                        options=options,
                     )
-                    url = self.apyi_gemini_client._extract_image_url(result)
-                    return url.strip() if url else None
+                    if not result_urls:
+                        return None
+                    return result_urls[0].strip()
                 except Exception as exc:
-                    logger.warning("Combined pattern Gemini-3 generation failed: %s", str(exc))
+                    logger.warning(
+                        "Combined pattern RunningHub workflow %s failed: %s",
+                        workflow_id,
+                        str(exc),
+                    )
                     return None
 
-            variants = ["general_2", "positioning", "fine"]
+            variants = ["general_2", "positioning"]
             variant_tasks = [asyncio.create_task(_run_variant(pt)) for pt in variants]
-            gemini3_task = asyncio.create_task(_run_gemini3_custom())
+            runninghub_tasks = [
+                asyncio.create_task(
+                    _run_runninghub(settings.runninghub_workflow_id_extract_combined_3)
+                ),
+                asyncio.create_task(
+                    _run_runninghub(settings.runninghub_workflow_id_extract_combined_4)
+                ),
+            ]
             variant_urls: List[str] = []
-            for task in variant_tasks + [gemini3_task]:
+            for task in variant_tasks + runninghub_tasks:
                 url = await task
                 if url:
                     variant_urls.append(url)
