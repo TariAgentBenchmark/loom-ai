@@ -18,6 +18,8 @@ interface BatchProcessingWrapperProps {
     onHistoryRefresh?: () => void;
     promptInstruction?: string;
     patternType?: string;
+    denimAspectRatio?: string;
+    denimImageCount?: number;
     upscaleEngine?: 'meitu_v2' | 'runninghub_vr2';
     expandRatio?: string;
     expandEdges?: { top: string; bottom: string; left: string; right: string };
@@ -38,6 +40,8 @@ export default function BatchProcessingWrapper({
     onHistoryRefresh,
     promptInstruction,
     patternType,
+    denimAspectRatio,
+    denimImageCount,
     upscaleEngine,
     expandRatio,
     expandEdges,
@@ -136,6 +140,14 @@ export default function BatchProcessingWrapper({
 
             if (method === 'extract_pattern') {
                 payload.patternType = patternType;
+                if (patternType === 'denim') {
+                    if (denimAspectRatio) {
+                        payload.aspectRatio = denimAspectRatio;
+                    }
+                    if (typeof denimImageCount === 'number') {
+                        payload.numImages = denimImageCount;
+                    }
+                }
             }
 
             if (method === 'upscale') {
@@ -165,7 +177,7 @@ export default function BatchProcessingWrapper({
         } finally {
             setIsCreatingBatch(false);
         }
-    }, [method, accessToken, batchInstruction, patternType, upscaleEngine, expandRatio, expandEdges, expandPrompt, seamDirection, seamFit]);
+    }, [method, accessToken, batchInstruction, patternType, denimAspectRatio, denimImageCount, upscaleEngine, expandRatio, expandEdges, expandPrompt, seamDirection, seamFit]);
 
     const handleComplete = useCallback(() => {
         // Batch processing completed

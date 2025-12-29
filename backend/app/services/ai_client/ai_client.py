@@ -479,13 +479,20 @@ class AIClient:
         if not result_urls:
             raise Exception("AI提取花型失败：结果URL无效")
 
-        if pattern_type in {"general_2", "denim"}:
+        if pattern_type == "general_2":
             logger.info(
                 "Pattern type %s returns base result without secondary enhancement. urls=%s",
                 pattern_type,
                 len(result_urls),
             )
             return result_urls[0]
+        if pattern_type == "denim":
+            logger.info(
+                "Pattern type %s returns base result without secondary enhancement. urls=%s",
+                pattern_type,
+                len(result_urls),
+            )
+            return ",".join(result_urls)
 
         async def _enhance_url(url: str) -> List[str]:
             try:

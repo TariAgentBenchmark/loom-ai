@@ -737,6 +737,10 @@ export interface ProcessingRequestPayload {
   instruction?: string;
   model?: "new" | "original";
   patternType?: string;
+  aspectRatio?: string;
+  width?: number;
+  height?: number;
+  numImages?: number;
   upscaleEngine?: "meitu_v2" | "runninghub_vr2";
   expandRatio?: string;
   expandTop?: number;
@@ -758,6 +762,10 @@ export const createProcessingTask = (payload: ProcessingRequestPayload) => {
     instruction,
     model,
     patternType,
+    aspectRatio,
+    width,
+    height,
+    numImages,
     upscaleEngine,
     expandRatio,
     expandTop,
@@ -783,6 +791,18 @@ export const createProcessingTask = (payload: ProcessingRequestPayload) => {
 
   if (method === "extract_pattern") {
     formData.append("pattern_type", patternType ?? "general");
+    if (aspectRatio) {
+      formData.append("aspect_ratio", aspectRatio);
+    }
+    if (typeof width === "number" && Number.isFinite(width)) {
+      formData.append("width", width.toString());
+    }
+    if (typeof height === "number" && Number.isFinite(height)) {
+      formData.append("height", height.toString());
+    }
+    if (typeof numImages === "number" && Number.isFinite(numImages)) {
+      formData.append("num_images", numImages.toString());
+    }
   }
 
   if (method === "upscale" && upscaleEngine) {
@@ -1968,6 +1988,10 @@ export interface BatchProcessingRequestPayload {
   accessToken: string;
   instruction?: string;
   patternType?: string;
+  aspectRatio?: string;
+  width?: number;
+  height?: number;
+  numImages?: number;
   upscaleEngine?: "meitu_v2" | "runninghub_vr2";
   expandRatio?: string;
   expandTop?: string;
@@ -1987,6 +2011,10 @@ export const createBatchTask = (payload: BatchProcessingRequestPayload) => {
     accessToken,
     instruction,
     patternType,
+    aspectRatio,
+    width,
+    height,
+    numImages,
     upscaleEngine,
     expandRatio,
     expandTop,
@@ -2025,6 +2053,18 @@ export const createBatchTask = (payload: BatchProcessingRequestPayload) => {
 
   if (method === "extract_pattern") {
     formData.append("pattern_type", patternType ?? "general");
+    if (aspectRatio) {
+      formData.append("aspect_ratio", aspectRatio);
+    }
+    if (typeof width === "number" && Number.isFinite(width)) {
+      formData.append("width", width.toString());
+    }
+    if (typeof height === "number" && Number.isFinite(height)) {
+      formData.append("height", height.toString());
+    }
+    if (typeof numImages === "number" && Number.isFinite(numImages)) {
+      formData.append("num_images", numImages.toString());
+    }
   }
 
   if (method === "upscale" && upscaleEngine) {

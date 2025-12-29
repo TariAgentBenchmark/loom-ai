@@ -32,7 +32,14 @@ class GPT4oClient(BaseAIClient):
         logger.info(f"Generating image with GPT-4o: {prompt[:100]}...")
         return await self._make_request("POST", endpoint, data)
 
-    async def process_image(self, image_bytes: bytes, prompt: str, mime_type: str = "image/jpeg", n: int = 1) -> Dict[str, Any]:
+    async def process_image(
+        self,
+        image_bytes: bytes,
+        prompt: str,
+        mime_type: str = "image/jpeg",
+        n: int = 1,
+        size: str = "1024x1024",
+    ) -> Dict[str, Any]:
         """使用GPT-4o-image-vip处理图片"""
         url = f"{self.base_url}/v1/images/edits"
         
@@ -45,7 +52,7 @@ class GPT4oClient(BaseAIClient):
             'model': 'gpt-4o-image-vip',
             'prompt': prompt,
             'n': str(n),
-            'size': '1024x1024'
+            'size': size,
         }
         
         headers = {

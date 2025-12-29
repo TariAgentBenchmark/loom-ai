@@ -154,6 +154,8 @@ function HomeContent() {
   const [currentPage, setCurrentPage] = useState<PageState>('home');
   const [promptInstruction, setPromptInstruction] = useState<string>('');
   const [patternType, setPatternType] = useState<string>('general');
+  const [denimAspectRatio, setDenimAspectRatio] = useState<string>('1:1');
+  const [denimImageCount, setDenimImageCount] = useState<number>(2);
   const [upscaleEngine, setUpscaleEngine] = useState<'meitu_v2' | 'runninghub_vr2'>('meitu_v2');
   const [expandRatio, setExpandRatio] = useState<string>('original');
   const [expandEdges, setExpandEdges] = useState<ExpandEdgesState>({
@@ -849,6 +851,10 @@ function HomeContent() {
 
     if (currentPage === 'extract_pattern') {
       payload.patternType = patternType;
+      if (patternType === 'denim') {
+        payload.aspectRatio = denimAspectRatio;
+        payload.numImages = denimImageCount;
+      }
     }
 
     if (currentPage === 'upscale') {
@@ -974,6 +980,8 @@ function HomeContent() {
               setBatchMode(false);
               setPromptInstruction('');
               setPatternType('general');
+              setDenimAspectRatio('1:1');
+              setDenimImageCount(2);
               setUpscaleEngine('meitu_v2');
               setExpandRatio('original');
               setExpandEdges({ top: '0.00', bottom: '0.00', left: '0.00', right: '0.00' });
@@ -1005,6 +1013,10 @@ function HomeContent() {
             promptInstruction={promptInstruction}
             onPromptInstructionChange={setPromptInstruction}
             patternType={patternType}
+            denimAspectRatio={denimAspectRatio}
+            onDenimAspectRatioChange={setDenimAspectRatio}
+            denimImageCount={denimImageCount}
+            onDenimImageCountChange={setDenimImageCount}
             onPatternTypeChange={(value) => {
               setPatternType(value);
               if (currentPage === 'extract_pattern') {
@@ -1041,6 +1053,8 @@ function HomeContent() {
               onHistoryRefresh={() => setHistoryRefreshToken((token) => token + 1)}
               promptInstruction={promptInstruction}
               patternType={patternType}
+              denimAspectRatio={denimAspectRatio}
+              denimImageCount={denimImageCount}
               upscaleEngine={upscaleEngine}
               expandRatio={expandRatio}
               expandEdges={expandEdges}
@@ -1075,6 +1089,8 @@ function HomeContent() {
             }
             if (method === 'extract_pattern') {
               setPatternType('general');
+              setDenimAspectRatio('1:1');
+              setDenimImageCount(2);
             }
             if (method === 'expand_image') {
               setExpandRatio('original');

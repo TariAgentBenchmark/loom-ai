@@ -28,6 +28,7 @@ async def create_batch_task(
     aspect_ratio: Optional[str] = Form(None),
     width: Optional[int] = Form(None),
     height: Optional[int] = Form(None),
+    num_images: Optional[int] = Form(None),
     upscale_engine: Optional[str] = Form(None),
     scale_factor: Optional[int] = Form(None),
     expand_top: Optional[float] = Form(None),
@@ -81,6 +82,8 @@ async def create_batch_task(
         if task_type == "extract_pattern":
             options["pattern_type"] = pattern_type or "general_2"
             options["quality"] = quality or "standard"
+            if num_images is not None:
+                options["num_images"] = num_images
         
         if task_type == "upscale":
             options["engine"] = upscale_engine or "meitu_v2"

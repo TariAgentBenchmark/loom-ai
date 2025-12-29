@@ -253,6 +253,30 @@ class ImageProcessingUtils:
 
             return "1024x1024"
 
+        def _build_denim_size() -> str:
+            width_value = _coerce_positive_int(width)
+            height_value = _coerce_positive_int(height)
+
+            if width_value and height_value:
+                return f"{width_value}x{height_value}"
+
+            size_option = options.get("size")
+            if isinstance(size_option, str) and "x" in size_option:
+                return size_option
+
+            if isinstance(aspect_ratio, str):
+                ratio = aspect_ratio.strip()
+                ratio_map = {
+                    "1:1": "1024x1024",
+                    "2:3": "1024x1536",
+                    "3:2": "1536x1024",
+                }
+                mapped = ratio_map.get(ratio)
+                if mapped:
+                    return mapped
+
+            return "1024x1024"
+
         # 烫画/胸前花类型使用Apyi OpenAI模型，生成2张图片
         if pattern_type == "fine":
             size = _build_size()
@@ -270,12 +294,23 @@ class ImageProcessingUtils:
             # 返回逗号分隔的URL字符串
             return ",".join(image_urls)
         elif pattern_type == "denim":
+            num_images = _coerce_positive_int(options.get("num_images"))
+            if num_images is None:
+                num_images = _coerce_positive_int(options.get("n"))
+            if num_images is None:
+                num_images = 1
+
+            size = _build_denim_size()
             result = await self.gpt4o_client.process_image(
                 image_bytes,
                 prompt,
                 "image/png",
-                n=1,
+                n=num_images,
+                size=size,
             )
+            image_urls = self.gpt4o_client._extract_image_urls(result)
+            if image_urls:
+                return ",".join(image_urls)
             return self.gpt4o_client._extract_image_url(result)
         else:
             # general_2 和 positioning 模式都使用 gemini-3-pro-image-preview

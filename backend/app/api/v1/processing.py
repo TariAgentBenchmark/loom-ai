@@ -205,6 +205,7 @@ async def extract_pattern(
     aspect_ratio: Optional[str] = Form(None),
     width: Optional[int] = Form(None),
     height: Optional[int] = Form(None),
+    num_images: Optional[int] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -234,6 +235,8 @@ async def extract_pattern(
             options["width"] = width
         if height:
             options["height"] = height
+        if num_images is not None:
+            options["num_images"] = num_images
 
         logger.info(f"[{request_id}] Creating task with options: {options}")
         task = await processing_service.create_task(

@@ -182,6 +182,10 @@ interface ProcessingPageProps {
   onPromptInstructionChange?: (value: string) => void;
   patternType?: string;
   onPatternTypeChange?: (value: string) => void;
+  denimAspectRatio?: string;
+  onDenimAspectRatioChange?: (value: string) => void;
+  denimImageCount?: number;
+  onDenimImageCountChange?: (value: number) => void;
   upscaleEngine?: "meitu_v2" | "runninghub_vr2";
   onUpscaleEngineChange?: (value: "meitu_v2" | "runninghub_vr2") => void;
   expandRatio?: string;
@@ -230,6 +234,10 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   onPromptInstructionChange,
   patternType,
   onPatternTypeChange,
+  denimAspectRatio,
+  onDenimAspectRatioChange,
+  denimImageCount,
+  onDenimImageCountChange,
   upscaleEngine,
   onUpscaleEngineChange,
   expandRatio,
@@ -285,7 +293,15 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
       { value: "combined", label: "综合模型" },
       { value: "denim", label: "牛仔风格专用" },
     ];
+  const denimSizeOptions: { value: string; label: string }[] = [
+    { value: "1:1", label: "方形 1:1" },
+    { value: "2:3", label: "竖版 2:3" },
+    { value: "3:2", label: "横版 3:2" },
+  ];
   const effectivePatternType = patternType ?? "general";
+  const effectiveDenimAspectRatio = denimAspectRatio ?? "1:1";
+  const effectiveDenimImageCount =
+    typeof denimImageCount === "number" ? denimImageCount : 2;
   const selectedUpscaleOption =
     upscaleOptions.find(
       (option) => option.value === (upscaleEngine || "meitu_v2"),
@@ -909,6 +925,60 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                   );
                 })}
               </div>
+              {effectivePatternType === "denim" && (
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2">
+                      图片尺寸
+                    </h4>
+                    <div className="grid grid-cols-3 gap-2">
+                      {denimSizeOptions.map((option) => {
+                        const isActive =
+                          effectiveDenimAspectRatio === option.value;
+                        return (
+                          <button
+                            type="button"
+                            key={option.value}
+                            onClick={() =>
+                              onDenimAspectRatioChange?.(option.value)
+                            }
+                            className={`rounded-lg border px-3 py-2 text-xs md:text-sm font-medium transition ${isActive
+                              ? "border-blue-500 bg-blue-50 text-blue-600 shadow-sm"
+                              : "border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50/60"
+                              }`}
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2">
+                      数量
+                    </h4>
+                    <select
+                      value={effectiveDenimImageCount}
+                      onChange={(event) => {
+                        const value = Number.parseInt(
+                          event.target.value,
+                          10,
+                        );
+                        if (Number.isFinite(value)) {
+                          onDenimImageCountChange?.(value);
+                        }
+                      }}
+                      className="w-full rounded-lg md:rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+                    >
+                      {[1, 2, 3, 4].map((count) => (
+                        <option key={count} value={count}>
+                          {count} 张
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1031,16 +1101,14 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                     .split(",")
                     .map((value) => value.trim())
                     .filter(Boolean);
-                  const useGeneralGallery =
-                    method === "extract_pattern" &&
-                    patternType === "general" &&
-                    imageUrls.length > 0;
+                  const useResultGallery =
+                    method === "extract_pattern" && imageUrls.length > 1;
 
                   const shouldOffsetPreview = Boolean(
                     successMessage && !errorMessage,
                   );
-                  if (useGeneralGallery) {
-                    const galleryUrls = imageUrls.slice(0, 4);
+                  if (useResultGallery) {
+                    const galleryUrls = imageUrls;
                     const safeIndex = Math.min(
                       Math.max(selectedResultIndex, 0),
                       galleryUrls.length - 1,
