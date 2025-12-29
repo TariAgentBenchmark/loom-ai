@@ -184,8 +184,6 @@ interface ProcessingPageProps {
   onPatternTypeChange?: (value: string) => void;
   denimAspectRatio?: string;
   onDenimAspectRatioChange?: (value: string) => void;
-  denimImageCount?: number;
-  onDenimImageCountChange?: (value: number) => void;
   upscaleEngine?: "meitu_v2" | "runninghub_vr2";
   onUpscaleEngineChange?: (value: "meitu_v2" | "runninghub_vr2") => void;
   expandRatio?: string;
@@ -236,8 +234,6 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   onPatternTypeChange,
   denimAspectRatio,
   onDenimAspectRatioChange,
-  denimImageCount,
-  onDenimImageCountChange,
   upscaleEngine,
   onUpscaleEngineChange,
   expandRatio,
@@ -300,8 +296,6 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   ];
   const effectivePatternType = patternType ?? "general";
   const effectiveDenimAspectRatio = denimAspectRatio ?? "1:1";
-  const effectiveDenimImageCount =
-    typeof denimImageCount === "number" ? denimImageCount : 2;
   const selectedUpscaleOption =
     upscaleOptions.find(
       (option) => option.value === (upscaleEngine || "meitu_v2"),
@@ -952,30 +946,6 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                         );
                       })}
                     </div>
-                  </div>
-                  <div>
-                    <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2">
-                      数量
-                    </h4>
-                    <select
-                      value={effectiveDenimImageCount}
-                      onChange={(event) => {
-                        const value = Number.parseInt(
-                          event.target.value,
-                          10,
-                        );
-                        if (Number.isFinite(value)) {
-                          onDenimImageCountChange?.(value);
-                        }
-                      }}
-                      className="w-full rounded-lg md:rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
-                    >
-                      {[1, 2, 3, 4].map((count) => (
-                        <option key={count} value={count}>
-                          {count} 张
-                        </option>
-                      ))}
-                    </select>
                   </div>
                 </div>
               )}

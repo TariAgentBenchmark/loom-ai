@@ -1015,8 +1015,6 @@ function HomeContent() {
             patternType={patternType}
             denimAspectRatio={denimAspectRatio}
             onDenimAspectRatioChange={setDenimAspectRatio}
-            denimImageCount={denimImageCount}
-            onDenimImageCountChange={setDenimImageCount}
             onPatternTypeChange={(value) => {
               setPatternType(value);
               if (currentPage === 'extract_pattern') {
@@ -1053,7 +1051,9 @@ function HomeContent() {
               onHistoryRefresh={() => setHistoryRefreshToken((token) => token + 1)}
               promptInstruction={promptInstruction}
               patternType={patternType}
+              onPatternTypeChange={setPatternType}
               denimAspectRatio={denimAspectRatio}
+              onDenimAspectRatioChange={setDenimAspectRatio}
               denimImageCount={denimImageCount}
               upscaleEngine={upscaleEngine}
               expandRatio={expandRatio}

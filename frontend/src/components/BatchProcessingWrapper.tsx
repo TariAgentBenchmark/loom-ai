@@ -18,7 +18,9 @@ interface BatchProcessingWrapperProps {
     onHistoryRefresh?: () => void;
     promptInstruction?: string;
     patternType?: string;
+    onPatternTypeChange?: (value: string) => void;
     denimAspectRatio?: string;
+    onDenimAspectRatioChange?: (value: string) => void;
     denimImageCount?: number;
     upscaleEngine?: 'meitu_v2' | 'runninghub_vr2';
     expandRatio?: string;
@@ -40,7 +42,9 @@ export default function BatchProcessingWrapper({
     onHistoryRefresh,
     promptInstruction,
     patternType,
+    onPatternTypeChange,
     denimAspectRatio,
+    onDenimAspectRatioChange,
     denimImageCount,
     upscaleEngine,
     expandRatio,
@@ -238,6 +242,10 @@ export default function BatchProcessingWrapper({
                 showReferenceImage={method === 'prompt_edit'}
                 instruction={batchInstruction}
                 onInstructionChange={setBatchInstruction}
+                patternType={patternType}
+                onPatternTypeChange={onPatternTypeChange}
+                denimAspectRatio={denimAspectRatio}
+                onDenimAspectRatioChange={onDenimAspectRatioChange}
                 maxFileSizeMB={maxFileSizeMB}
                 method={method}
                 expandRatio={expandRatio}
