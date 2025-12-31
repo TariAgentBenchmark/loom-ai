@@ -377,7 +377,7 @@ class AIClient:
         # 通用1：直接使用RunningHub工作流生成四张结果，不再走Gemini/美图
         if pattern_type == "general_1":
             ordered_results: List[str] = []
-            max_general1_results = 4
+            max_general1_results = 2
             runninghub_workflows = [
                 {
                     "workflow_id": settings.runninghub_workflow_id_extract_general1_1,
@@ -390,18 +390,6 @@ class AIClient:
                     "node_ids": settings.runninghub_extract_general1_node_id_2,
                     "field_name": settings.runninghub_extract_general1_field_name_2,
                     "label": "提取花型-通用1-工作流2",
-                },
-                {
-                    "workflow_id": settings.runninghub_workflow_id_extract_general1_3,
-                    "node_ids": settings.runninghub_extract_general1_node_id_3,
-                    "field_name": settings.runninghub_extract_general1_field_name_3,
-                    "label": "提取花型-通用1-工作流3",
-                },
-                {
-                    "workflow_id": settings.runninghub_workflow_id_extract_general1_4,
-                    "node_ids": settings.runninghub_extract_general1_node_id_4,
-                    "field_name": settings.runninghub_extract_general1_field_name_4,
-                    "label": "提取花型-通用1-工作流4",
                 },
             ]
 
