@@ -1409,6 +1409,14 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                   );
                 })()}
               </div>
+            ) : method === "extract_pattern" ? (
+              <div className="text-center w-full flex flex-col items-center justify-center gap-4 md:gap-5">
+                <img
+                  src="/AI提取花型用法说明.jpg"
+                  alt="AI提取花型用法说明"
+                  className="w-full max-w-5xl max-h-[75vh] object-contain"
+                />
+              </div>
             ) : (
               <div className="text-center w-full flex flex-col items-center justify-center gap-4 md:gap-5">
                 <CloudLoader
