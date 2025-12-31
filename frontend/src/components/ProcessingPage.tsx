@@ -891,6 +891,33 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
             </div>
           )}
 
+          {method === "similar_image" && (
+            <div className="mb-4 md:mb-6">
+              <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2">
+                相似强度
+              </h4>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={denoiseValue}
+                  onChange={(event) =>
+                    onDenoiseChange?.(Number(event.target.value))
+                  }
+                  disabled={isProcessing}
+                  className="w-full accent-blue-500 disabled:opacity-60"
+                />
+                <span className="text-xs md:text-sm text-gray-600 w-12 text-right">
+                  {denoiseValue.toFixed(2)}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                数值越高越接近参考图，数值越低变化越明显。
+              </p>
+            </div>
+          )}
 
           {method === "extract_pattern" && (
             <div className="mb-4 md:mb-6">
