@@ -790,7 +790,7 @@ export const createProcessingTask = (payload: ProcessingRequestPayload) => {
   }
 
   if (method === "extract_pattern") {
-    formData.append("pattern_type", patternType ?? "general");
+    formData.append("pattern_type", patternType ?? "combined");
     if (aspectRatio) {
       formData.append("aspect_ratio", aspectRatio);
     }
@@ -2052,7 +2052,7 @@ export const createBatchTask = (payload: BatchProcessingRequestPayload) => {
   }
 
   if (method === "extract_pattern") {
-    formData.append("pattern_type", patternType ?? "general");
+    formData.append("pattern_type", patternType ?? "combined");
     if (aspectRatio) {
       formData.append("aspect_ratio", aspectRatio);
     }
