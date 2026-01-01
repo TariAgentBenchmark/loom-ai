@@ -105,9 +105,9 @@ Authorization: Bearer your-access-token-here
 
 ## 限制说明
 
-- 单次上传图片大小限制：50MB
+- 单次上传图片大小限制：15MB
 - 支持的图片格式：PNG, JPG, JPEG, GIF, BMP
-- 图片分辨率建议：1024-4096px
+- 图片分辨率建议：1024-3000px
 - API请求频率限制：100次/分钟
 
 ## 更新日志

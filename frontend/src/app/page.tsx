@@ -77,7 +77,8 @@ const AUTH_DEMO_CREDENTIALS = {
   rememberMe: true,
 };
 
-const GQCH_MAX_FILE_SIZE_BYTES = 16 * 1024 * 1024; // 16MB 限制
+const MAX_IMAGE_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15MB 限制
+const MAX_IMAGE_DIMENSION = 3000;
 
 const POLLING_INTERVAL_MS = 3000;
 const ACTIVE_TASK_STORAGE_KEY = 'loomai:active-processing-task';
@@ -562,13 +563,22 @@ function HomeContent() {
     [],
   );
 
-  const applyFileSelection = (file: File, slot: 'primary' | 'secondary' = 'primary') => {
+  const applyFileSelection = (
+    file: File,
+    slot: 'primary' | 'secondary' = 'primary',
+    dimensions?: { width: number; height: number } | null,
+  ) => {
     if (slot === 'primary') {
       setUploadedImage(file);
+      setPrimaryImageDimensions(dimensions ?? null);
       const reader = new FileReader();
       reader.onload = (e) => {
         const result = e.target?.result as string;
         setImagePreview(result);
+
+        if (dimensions) {
+          return;
+        }
 
         // 读取图片尺寸，便于做前端校验
         const img = new Image();
@@ -592,12 +602,60 @@ function HomeContent() {
     }
   };
 
-  const handleImageUpload = (
+  const getImageDimensions = useCallback((file: File) => {
+    if (file.type === 'image/svg+xml') {
+      return Promise.resolve(null);
+    }
+
+    return new Promise<{ width: number; height: number } | null>((resolve) => {
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve({ width: img.naturalWidth, height: img.naturalHeight });
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve(null);
+      };
+
+      img.src = objectUrl;
+    });
+  }, []);
+
+  const validateImageFile = useCallback(
+    async (file: File) => {
+      if (!file.type.startsWith('image/')) {
+        return { ok: false, message: '请上传有效的图片文件' };
+      }
+
+      if (file.size > MAX_IMAGE_FILE_SIZE_BYTES) {
+        return { ok: false, message: '图片大小不能超过15MB，请重新上传。' };
+      }
+
+      const dimensions = await getImageDimensions(file);
+      if (
+        dimensions &&
+        (dimensions.width > MAX_IMAGE_DIMENSION ||
+          dimensions.height > MAX_IMAGE_DIMENSION)
+      ) {
+        return {
+          ok: false,
+          message: `图片分辨率不能超过${MAX_IMAGE_DIMENSION}x${MAX_IMAGE_DIMENSION}，请重新上传。`,
+        };
+      }
+
+      return { ok: true, dimensions };
+    },
+    [getImageDimensions],
+  );
+
+  const handleImageUpload = async (
     event: ChangeEvent<HTMLInputElement>,
     slot: 'primary' | 'secondary' = 'primary',
   ) => {
-    const isGqchMethod = currentMethod === 'seamless_loop' || currentMethod === 'expand_image';
-
     if (isCurrentMethodProcessing) {
       setErrorMessage('当前任务正在处理中，请等待完成后再上传新图片');
       if (event.target) {
@@ -609,25 +667,27 @@ function HomeContent() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (isGqchMethod && slot === 'primary' && file.size > GQCH_MAX_FILE_SIZE_BYTES) {
-      setErrorMessage('图片大小不能超过16MB，请重新上传。');
-      if (event.target) {
-        event.target.value = '';
-      }
+    const input = event.target;
+    const validation = await validateImageFile(file);
+    if (!validation.ok) {
+      setErrorMessage(validation.message);
+      input.value = '';
       return;
     }
 
     setErrorMessage('');
-    applyFileSelection(file, slot);
+    applyFileSelection(file, slot, validation.dimensions);
   };
 
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
   };
 
-  const handleDrop = (event: DragEvent<HTMLDivElement>, slot: 'primary' | 'secondary' = 'primary') => {
+  const handleDrop = async (
+    event: DragEvent<HTMLDivElement>,
+    slot: 'primary' | 'secondary' = 'primary',
+  ) => {
     event.preventDefault();
-    const isGqchMethod = currentMethod === 'seamless_loop' || currentMethod === 'expand_image';
 
     if (isCurrentMethodProcessing) {
       setErrorMessage('当前任务正在处理中，请等待完成后再上传新图片');
@@ -635,12 +695,14 @@ function HomeContent() {
     }
     const file = event.dataTransfer.files[0];
     if (file && file.type.startsWith('image/')) {
-      if (isGqchMethod && slot === 'primary' && file.size > GQCH_MAX_FILE_SIZE_BYTES) {
-        setErrorMessage('图片大小不能超过16MB，请重新上传。');
+      const validation = await validateImageFile(file);
+      if (!validation.ok) {
+        setErrorMessage(validation.message);
         return;
       }
+
       setErrorMessage('');
-      applyFileSelection(file, slot);
+      applyFileSelection(file, slot, validation.dimensions);
     }
   };
 

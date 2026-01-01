@@ -39,6 +39,8 @@ interface FileWithPreview {
     id: string;
 }
 
+const MAX_IMAGE_DIMENSION = 3000;
+
 const formatCredits = (value: number) => {
     if (Number.isInteger(value)) {
         return value.toString();
@@ -95,6 +97,59 @@ export default function BatchUploadModal({
     const effectivePatternType = patternType ?? 'combined';
     const effectiveDenimAspectRatio = denimAspectRatio ?? '1:1';
 
+    const loadImageDimensions = useCallback((file: File) => {
+        if (file.type === 'image/svg+xml') {
+            return Promise.resolve(null);
+        }
+
+        return new Promise<{ width: number; height: number } | null>((resolve) => {
+            const img = new Image();
+            const objectUrl = URL.createObjectURL(file);
+
+            img.onload = () => {
+                URL.revokeObjectURL(objectUrl);
+                resolve({ width: img.naturalWidth, height: img.naturalHeight });
+            };
+
+            img.onerror = () => {
+                URL.revokeObjectURL(objectUrl);
+                resolve(null);
+            };
+
+            img.src = objectUrl;
+        });
+    }, []);
+
+    const validateImageFile = useCallback(
+        async (file: File, sizeLimitBytes: number | null) => {
+            if (!file.type.startsWith('image/')) {
+                return { ok: false, message: `${file.name} 不是有效的图片文件` };
+            }
+
+            if (sizeLimitBytes && file.size > sizeLimitBytes) {
+                return {
+                    ok: false,
+                    message: `${file.name} 超过大小限制（最大 ${maxFileSizeMB}MB）`,
+                };
+            }
+
+            const dimensions = await loadImageDimensions(file);
+            if (
+                dimensions &&
+                (dimensions.width > MAX_IMAGE_DIMENSION ||
+                    dimensions.height > MAX_IMAGE_DIMENSION)
+            ) {
+                return {
+                    ok: false,
+                    message: `${file.name} 分辨率超过限制（最大 ${MAX_IMAGE_DIMENSION}x${MAX_IMAGE_DIMENSION}）`,
+                };
+            }
+
+            return { ok: true };
+        },
+        [loadImageDimensions, maxFileSizeMB],
+    );
+
     const generatePreview = useCallback((file: File): Promise<string> => {
         return new Promise((resolve) => {
             const reader = new FileReader();
@@ -117,18 +172,16 @@ export default function BatchUploadModal({
 
         const sizeLimitBytes = maxFileSizeMB ? maxFileSizeMB * 1024 * 1024 : null;
 
-        // Validate file types and size
-        const validFiles = newFiles.filter(file => {
-            if (!file.type.startsWith('image/')) {
-                setError(`${file.name} 不是有效的图片文件`);
-                return false;
+        // Validate file types, size, and resolution
+        const validFiles: File[] = [];
+        for (const file of newFiles) {
+            const validation = await validateImageFile(file, sizeLimitBytes);
+            if (!validation.ok) {
+                setError(validation.message);
+                continue;
             }
-            if (sizeLimitBytes && file.size > sizeLimitBytes) {
-                setError(`${file.name} 超过大小限制（最大 ${maxFileSizeMB}MB）`);
-                return false;
-            }
-            return true;
-        });
+            validFiles.push(file);
+        }
 
         // Generate previews and add to list
         const filesWithPreviews = await Promise.all(
@@ -140,7 +193,7 @@ export default function BatchUploadModal({
         );
 
         setFiles(prev => [...prev, ...filesWithPreviews]);
-    }, [files.length, maxFiles, maxFileSizeMB, generatePreview]);
+    }, [files.length, maxFiles, maxFileSizeMB, generatePreview, validateImageFile]);
 
     const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
         e.preventDefault();
@@ -181,9 +234,10 @@ export default function BatchUploadModal({
 
         setError('');
 
-        // Validate file type
-        if (!selectedFile.type.startsWith('image/')) {
-            setError(`${selectedFile.name} 不是有效的图片文件`);
+        const sizeLimitBytes = maxFileSizeMB ? maxFileSizeMB * 1024 * 1024 : null;
+        const validation = await validateImageFile(selectedFile, sizeLimitBytes);
+        if (!validation.ok) {
+            setError(validation.message);
             return;
         }
 
@@ -199,7 +253,7 @@ export default function BatchUploadModal({
         if (e.target) {
             e.target.value = '';
         }
-    }, [generatePreview]);
+    }, [generatePreview, maxFileSizeMB, validateImageFile]);
 
     const removeReferenceImage = useCallback(() => {
         setReferenceImage(null);

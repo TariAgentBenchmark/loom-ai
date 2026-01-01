@@ -21,6 +21,8 @@ class FileService:
     def __init__(self):
         self.upload_path = settings.upload_path
         self.max_file_size = settings.max_file_size
+        self.max_image_width = settings.max_image_width
+        self.max_image_height = settings.max_image_height
         self.allowed_extensions = settings.allowed_extensions_list
         
         # 确保上传目录存在
@@ -139,6 +141,10 @@ class FileService:
         try:
             image = Image.open(BytesIO(file_bytes))
             width, height = image.size
+            if width > self.max_image_width or height > self.max_image_height:
+                raise UserFacingException(
+                    f"图片分辨率超过限制 (最大 {self.max_image_width}x{self.max_image_height})"
+                )
             logger.debug("Validated image dimensions: %sx%s", width, height)
             
             return {

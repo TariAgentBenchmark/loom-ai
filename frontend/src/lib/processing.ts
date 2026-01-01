@@ -28,7 +28,7 @@ export const processingMethodInfo: Record<
       "上传需要修改的图片，输入一句中文指令即可完成智能修图，快速得到前后对比效果。",
     icon: "/optimized/AI用嘴改图.webp",
     examples: [
-      "上传需要修改的图片（支持JPG/PNG，推荐小于5MB）",
+      "上传需要修改的图片（支持JPG/PNG，推荐小于15MB）",
       "确保图片主体清晰，避免重要元素被裁切",
       "用一句话描述想要修改的细节，例如“把裙子换成白色”",
       "点击开始处理，等待AI返回修改后的图片",
@@ -154,7 +154,7 @@ export const processingMethodInfo: Record<
     icon: "/optimized/AI智能去水印.webp",
     examples: [
       "上传清晰的参考图片，主体尽量完整",
-      "保持5MB以内便于快速处理",
+      "保持15MB以内便于快速处理",
       "系统会调用相似图工作流生成候选结果",
       "下载生成的相似图片",
     ],

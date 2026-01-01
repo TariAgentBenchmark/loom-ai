@@ -955,7 +955,7 @@ async def estimate_credits(
         logger.info(f"Estimate: Uploaded file size: {file_size / 1024 / 1024:.2f} MB, filename: {image.filename}")
         from app.services.file_service import FileService
         file_service = FileService()
-        image_info = await file_service.get_image_info(image_bytes)
+        image_info = file_service.validate_file(image_bytes, image.filename or "")
         
         # 预估积分
         estimation = await processing_service.estimate_credits(
