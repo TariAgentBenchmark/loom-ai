@@ -626,7 +626,12 @@ function HomeContent() {
   }, []);
 
   const validateImageFile = useCallback(
-    async (file: File) => {
+    async (
+      file: File,
+    ): Promise<
+      | { ok: true; dimensions: { width: number; height: number } | null }
+      | { ok: false; message: string }
+    > => {
       if (!file.type.startsWith('image/')) {
         return { ok: false, message: '请上传有效的图片文件' };
       }
@@ -670,7 +675,7 @@ function HomeContent() {
     const input = event.target;
     const validation = await validateImageFile(file);
     if (!validation.ok) {
-      setErrorMessage(validation.message);
+    setErrorMessage(validation.message);
       input.value = '';
       return;
     }
