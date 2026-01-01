@@ -121,7 +121,10 @@ export default function BatchUploadModal({
     }, []);
 
     const validateImageFile = useCallback(
-        async (file: File, sizeLimitBytes: number | null) => {
+        async (
+            file: File,
+            sizeLimitBytes: number | null,
+        ): Promise<{ ok: true } | { ok: false; message: string }> => {
             if (!file.type.startsWith('image/')) {
                 return { ok: false, message: `${file.name} 不是有效的图片文件` };
             }
