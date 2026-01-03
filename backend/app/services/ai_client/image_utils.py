@@ -22,6 +22,71 @@ class ImageProcessingUtils:
         self.apyi_gemini_client = ApyiGeminiClient()
         self.apyi_openai_client = ApyiOpenAIClient()
 
+    def _normalize_pattern_type(self, raw_value: Optional[str]) -> str:
+        normalized = (raw_value or "general_2").strip().lower().replace("-", "_")
+        if normalized in {"general", "general_model", "general1"}:
+            return "general_2"
+        if normalized.startswith("general") and normalized[-1].isdigit():
+            return f"general_{normalized[-1]}"
+        return normalized
+
+    @staticmethod
+    def _coerce_positive_int(value: Any) -> Optional[int]:
+        try:
+            value_int = int(value)
+        except (TypeError, ValueError):
+            return None
+        return value_int if value_int > 0 else None
+
+    def _build_pattern_prompt(self, pattern_type: str) -> str:
+        if pattern_type == "positioning":
+            return (
+                "将衣服上的印花图案提取出来，我要求提取出来的图案跟衣服上的图案一模一样，细节一模一样，"
+                "平整图案，拉平褶皱，不能改变图案，我要求把褶皱的地方展开，补全褶皱缺失的图案，"
+                "我要求图案不能少，图案要完整，不能缺失，要求把图案补充完整，"
+                "我要求位置不能变，不要改变印花图案的排布，按照原有的图案排布输出，底色不变，颜色不变 "
+                "要求图案清晰 要求补齐图案，要一模一样 要求卡位置 把图片补全 不要少内容 ，"
+                "图案对比度拉高，图案优化清晰，图案排版一样，提取出来的图案要与衣服上的图案一致，"
+                "图案要补全。图案要协调，噪点要磨平，图案上下左右都要扩展出去"
+            )
+        if pattern_type == "combined_detail":
+            return (
+                "把衣服图案展开，分析图案，提炼图案，图案细节图案密度一致，去掉皱褶，干净底色，无阴影。"
+                "线条清晰，增强细节，生成8K分辨率、干净底色，超高清、高细节、照片级写实的印刷级品质2d平面图案。"
+                "以你的能力极限生成一张超高清8K分辨率、锐利对焦, 高度详细, 复杂的细节、杰作，最高品质，使用虚幻引擎5渲染。"
+                "确保生成的的是一个完整的、无缺失的图案。务必确保图像中只包含图案本身，排除图案以外内容。排除生成衣服形状。"
+            )
+        if pattern_type == "fine":
+            return (
+                "生成图片："
+                "从提供的图片中严格提取图案，将图案设计的风格和内容元索还原为填充整个画面的平面印刷图像，准确识别并完整还原图案、纹理、颜色,等设计元素。2 1：1"
+            )
+        if pattern_type == "denim":
+            return (
+                "从整条牛仔裤中提取完整的牛仔面料质感，包括裤腿、腰带、口袋、接缝和褶皱细节，还有花型。"
+                "保持纹理结构和比例准确，没有遗漏区域或失真。在画布上无缝地展平和平铺整个牛仔纹理。"
+                "输出具有逼真织物纹理、照明和编织细节的高分辨率数字纺织品印花，适用于纺织品或图案设计。"
+            )
+        return (
+            "核心任务： 全幅宽定位印花画稿生成 (密度控制 + 智能扩展) 角色设定： 您是顶级印花设计专家。您的目标是生成一张**\"准备上机打印\"**的、构图完美的数码印花源文件。\n"
+            "\n"
+            "核心指令 (必须严格执行)：\n"
+            "\n"
+            "定位花布局与密度控制 (Engineered Layout & Density - 核心加强)\n"
+            "\n"
+            "定位逻辑： 严格遵循\"定位印花\"的设计原则。花型的位置是经过精心设计的，而非随机平铺。保持原图特有的花位布局（如：花朵在特定位置的聚散）。\n"
+            "\n"
+            "呼吸感与留白 (Neg平面。\n"
+            "\n"
+            "顺势排列： 图案走势顺应版型（裤装垂直），但不画出任何物理轮廓线。\n"
+            "\n"
+            "画质：超高清印花级\n"
+            "\n"
+            "刀锋锐利： 8K+分辨率，边缘锐利，无模糊，保留手绘/数码原稿的细腻笔触。\n"
+            "\n"
+            "排除列表 (加强版)： 排除：图案拥挤，花型被切断，边缘残缺，腰部假性密集，裤子/裙子轮廓，缝隙，阴影，模糊"
+        )
+
     async def _process_image_with_retry(
         self,
         image_bytes: bytes,
@@ -170,79 +235,18 @@ class ImageProcessingUtils:
         注意：当pattern_type为"fine"（烫画/胸前花）时，返回的字符串是逗号分隔的多个URL
         """
         options = options or {}
-        pattern_type_raw = (options.get("pattern_type") or "general").strip().lower()
-        normalized_pattern_type = pattern_type_raw.replace("-", "_")
-        if normalized_pattern_type == "general":
-            pattern_type = "general_2"
-        elif normalized_pattern_type.startswith("general") and normalized_pattern_type[-1].isdigit():
-            pattern_type = f"general_{normalized_pattern_type[-1]}"
-        else:
-            pattern_type = normalized_pattern_type
-        quality_mode = (options.get("quality") or "standard").strip().lower()
-        
-        # 根据不同的花型类型使用不同的提示词
-        if pattern_type == "positioning":
-            # 线条/矢量类型
-            prompt = (
-                "将衣服上的印花图案提取出来，我要求提取出来的图案跟衣服上的图案一模一样，细节一模一样，"
-                "平整图案，拉平褶皱，不能改变图案，我要求把褶皱的地方展开，补全褶皱缺失的图案，"
-                "我要求图案不能少，图案要完整，不能缺失，要求把图案补充完整，"
-                "我要求位置不能变，不要改变印花图案的排布，按照原有的图案排布输出，底色不变，颜色不变 "
-                "要求图案清晰 要求补齐图案，要一模一样 要求卡位置 把图片补全 不要少内容 ，"
-                "图案对比度拉高，图案优化清晰，图案排版一样，提取出来的图案要与衣服上的图案一致，"
-                "图案要补全。图案要协调，噪点要磨平，图案上下左右都要扩展出去"
-            )
-        elif pattern_type == "fine":
-            # 烫画/胸前花类型
-            prompt = (
-                "生成图片："
-                "从提供的图片中严格提取图案，将图案设计的风格和内容元索还原为填充整个画面的平面印刷图像，准确识别并完整还原图案、纹理、颜色,等设计元素。2 1：1"
-            )
-        elif pattern_type == "denim":
-            # 牛仔风格专用类型
-            prompt = (
-                "从整条牛仔裤中提取完整的牛仔面料质感，包括裤腿、腰带、口袋、接缝和褶皱细节，还有花型。"
-                "保持纹理结构和比例准确，没有遗漏区域或失真。在画布上无缝地展平和平铺整个牛仔纹理。"
-                "输出具有逼真织物纹理、照明和编织细节的高分辨率数字纺织品印花，适用于纺织品或图案设计。"
-            )
-        else:
-            # 通用类型（默认）
-            prompt = (
-                "核心任务： 全幅宽定位印花画稿生成 (密度控制 + 智能扩展) 角色设定： 您是顶级印花设计专家。您的目标是生成一张**\"准备上机打印\"**的、构图完美的数码印花源文件。\n"
-                "\n"
-                "核心指令 (必须严格执行)：\n"
-                "\n"
-                "定位花布局与密度控制 (Engineered Layout & Density - 核心加强)\n"
-                "\n"
-                "定位逻辑： 严格遵循\"定位印花\"的设计原则。花型的位置是经过精心设计的，而非随机平铺。保持原图特有的花位布局（如：花朵在特定位置的聚散）。\n"
-                "\n"
-                "呼吸感与留白 (Neg平面。\n"
-                "\n"
-                "顺势排列： 图案走势顺应版型（裤装垂直），但不画出任何物理轮廓线。\n"
-                "\n"
-                "画质：超高清印花级\n"
-                "\n"
-                "刀锋锐利： 8K+分辨率，边缘锐利，无模糊，保留手绘/数码原稿的细腻笔触。\n"
-                "\n"
-                "排除列表 (加强版)： 排除：图案拥挤，花型被切断，边缘残缺，腰部假性密集，裤子/裙子轮廓，缝隙，阴影，模糊"
-            )
+        pattern_type = self._normalize_pattern_type(options.get("pattern_type"))
+        prompt = self._build_pattern_prompt(pattern_type)
 
         # 提取分辨率参数
         aspect_ratio = options.get("aspect_ratio")
         width = options.get("width")
         height = options.get("height")
 
-        def _coerce_positive_int(value: Any) -> Optional[int]:
-            try:
-                value_int = int(value)
-            except (TypeError, ValueError):
-                return None
-            return value_int if value_int > 0 else None
-
         def _build_size() -> str:
             """Return OpenAI size string when width/height valid."""
-            width_value = _coerce_positive_int(width)
-            height_value = _coerce_positive_int(height)
+            width_value = self._coerce_positive_int(width)
+            height_value = self._coerce_positive_int(height)
 
             if width_value and height_value:
                 return f"{width_value}x{height_value}"
@@ -254,8 +258,8 @@ class ImageProcessingUtils:
             return "1024x1024"
 
         def _build_denim_size() -> str:
-            width_value = _coerce_positive_int(width)
-            height_value = _coerce_positive_int(height)
+            width_value = self._coerce_positive_int(width)
+            height_value = self._coerce_positive_int(height)
 
             if width_value and height_value:
                 return f"{width_value}x{height_value}"
@@ -294,9 +298,9 @@ class ImageProcessingUtils:
             # 返回逗号分隔的URL字符串
             return ",".join(image_urls)
         elif pattern_type == "denim":
-            num_images = _coerce_positive_int(options.get("num_images"))
+            num_images = self._coerce_positive_int(options.get("num_images"))
             if num_images is None:
-                num_images = _coerce_positive_int(options.get("n"))
+                num_images = self._coerce_positive_int(options.get("n"))
             if num_images is None:
                 num_images = 1
 
@@ -313,10 +317,10 @@ class ImageProcessingUtils:
                 return ",".join(image_urls)
             return self.gpt4o_client._extract_image_url(result)
         else:
-            # general_2 和 positioning 模式都使用 gemini-3-pro-image-preview
-            if pattern_type in ["general_2", "positioning"]:
-                # general_2 使用 4K，positioning 使用 2K
-                resolution = "4K" if pattern_type == "general_2" else "2K"
+            # general_2/positioning/combined_detail 模式都使用 gemini-3-pro-image-preview
+            if pattern_type in ["general_2", "positioning", "combined_detail"]:
+                # positioning 使用 2K，其余使用 4K
+                resolution = "2K" if pattern_type == "positioning" else "4K"
                 result = await self.apyi_gemini_client.generate_image_preview(
                     image_bytes,
                     prompt,

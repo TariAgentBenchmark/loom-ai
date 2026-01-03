@@ -23,6 +23,20 @@ from app.services.file_service import FileService
 
 logger = logging.getLogger(__name__)
 
+# Frontend surfaces combined/general/denim; aliases keep legacy pattern_type values compatible.
+_PATTERN_TYPE_ALIASES = {
+    "general": "general_1",
+    "general1": "general_1",
+    "general_1": "general_1",
+    "general_model": "general_1",
+    "general2": "general_2",
+    "general_2": "general_2",
+    "combined": "combined",
+    "composite": "combined",
+}
+
+_COMBINED_VARIANTS = ("general_2", "combined_detail")
+
 
 class AIClient:
     """AI服务客户端 - 模块化版本"""
@@ -297,194 +311,172 @@ class AIClient:
         """根据自然语言指令编辑图片"""
         return await self.image_utils.prompt_edit_image(image_bytes, options)
 
-    async def extract_pattern(
+    def _normalize_pattern_type(self, raw_value: Optional[str]) -> str:
+        normalized = (raw_value or "general").strip().lower().replace("-", "_")
+        alias = _PATTERN_TYPE_ALIASES.get(normalized)
+        if alias:
+            return alias
+        if normalized.startswith("general") and normalized[-1].isdigit():
+            return f"general_{normalized[-1]}"
+        return normalized or "general_1"
+
+    @staticmethod
+    def _split_urls(raw_result: str) -> List[str]:
+        return [url.strip() for url in raw_result.split(",") if url and url.strip()]
+
+    async def _extract_pattern_combined(
         self,
         image_bytes: bytes,
-        options: Optional[Dict[str, Any]] = None,
+        options: Dict[str, Any],
     ) -> str:
-        """AI提取花型，并按需进行高清增强"""
-        options = options or {}
-        pattern_type_raw = (options.get("pattern_type") or "general").strip().lower()
-        normalized_pattern_type = pattern_type_raw.replace("-", "_")
-        if normalized_pattern_type in {"general", "general1", "general_1", "general_model"}:
-            pattern_type = "general_1"
-        elif normalized_pattern_type.startswith("general") and normalized_pattern_type[-1].isdigit():
-            pattern_type = f"general_{normalized_pattern_type[-1]}"
-        else:
-            pattern_type = normalized_pattern_type
-
-        if pattern_type == "combined":
-            async def _run_variant(pt: str) -> Optional[str]:
-                try:
-                    merged_options = dict(options or {})
-                    merged_options["pattern_type"] = pt
-                    result = await self.image_utils.extract_pattern(image_bytes, merged_options)
-                    if not result:
-                        return None
-                    return result.split(",")[0].strip()
-                except Exception as exc:
-                    logger.warning("Combined pattern variant %s failed: %s", pt, str(exc))
+        async def _run_variant(pt: str) -> Optional[str]:
+            try:
+                merged_options = dict(options or {})
+                merged_options["pattern_type"] = pt
+                result = await self.image_utils.extract_pattern(image_bytes, merged_options)
+                if not result:
                     return None
+                return result.split(",")[0].strip()
+            except Exception as exc:
+                logger.warning("Combined pattern variant %s failed: %s", pt, str(exc))
+                return None
 
-            async def _run_runninghub(workflow_id: str) -> Optional[str]:
-                try:
-                    result_urls = await self.runninghub_client.run_workflow_with_custom_nodes(
-                        image_bytes=image_bytes,
-                        workflow_id=workflow_id,
-                        node_ids=settings.runninghub_extract_combined_node_id,
-                        field_name=settings.runninghub_extract_combined_field_name,
-                        options=options,
-                    )
-                    if not result_urls:
-                        return None
-                    return result_urls[0].strip()
-                except Exception as exc:
-                    logger.warning(
-                        "Combined pattern RunningHub workflow %s failed: %s",
-                        workflow_id,
-                        str(exc),
-                    )
+        async def _run_runninghub(workflow_id: str) -> Optional[str]:
+            try:
+                result_urls = await self.runninghub_client.run_workflow_with_custom_nodes(
+                    image_bytes=image_bytes,
+                    workflow_id=workflow_id,
+                    node_ids=settings.runninghub_extract_combined_node_id,
+                    field_name=settings.runninghub_extract_combined_field_name,
+                    options=options,
+                )
+                if not result_urls:
                     return None
-
-            variants = ["general_2", "positioning"]
-            variant_tasks = [asyncio.create_task(_run_variant(pt)) for pt in variants]
-            runninghub_tasks = [
-                asyncio.create_task(
-                    _run_runninghub(settings.runninghub_workflow_id_extract_combined_3)
-                ),
-                asyncio.create_task(
-                    _run_runninghub(settings.runninghub_workflow_id_extract_combined_4)
-                ),
-            ]
-            variant_urls: List[str] = []
-            for task in variant_tasks + runninghub_tasks:
-                url = await task
-                if url:
-                    variant_urls.append(url)
-
-            if not variant_urls:
-                raise Exception("AI提取花型失败：综合模型未获得结果")
-
-            logger.info("Combined pattern produced %s urls", len(variant_urls))
-            return ",".join(variant_urls[:4])
-
-        if pattern_type == "positioning":
-            return await self.runninghub_client.run_positioning_workflow(
-                image_bytes,
-                options,
-            )
-
-        # 通用1：直接使用RunningHub工作流生成四张结果，不再走Gemini/美图
-        if pattern_type == "general_1":
-            ordered_results: List[str] = []
-            max_general1_results = 2
-            runninghub_workflows = [
-                {
-                    "workflow_id": settings.runninghub_workflow_id_extract_general1_1,
-                    "node_ids": settings.runninghub_extract_general1_node_id_1,
-                    "field_name": settings.runninghub_extract_general1_field_name_1,
-                    "label": "提取花型-通用1-工作流1",
-                },
-                {
-                    "workflow_id": settings.runninghub_workflow_id_extract_general1_2,
-                    "node_ids": settings.runninghub_extract_general1_node_id_2,
-                    "field_name": settings.runninghub_extract_general1_field_name_2,
-                    "label": "提取花型-通用1-工作流2",
-                },
-            ]
-
-            runninghub_tasks: List[Tuple[Dict[str, Any], asyncio.Task]] = []
-            for workflow in runninghub_workflows:
-                workflow_id = (workflow.get("workflow_id") or "").strip()
-                if not workflow_id:
-                    logger.debug(
-                        "Skipping RunningHub workflow %s: workflow_id not configured",
-                        workflow["label"],
-                    )
-                    continue
-
-                logger.info(
-                    "Submitting RunningHub workflow %s (%s) with nodes=%s",
-                    workflow["label"],
+                return result_urls[0].strip()
+            except Exception as exc:
+                logger.warning(
+                    "Combined pattern RunningHub workflow %s failed: %s",
                     workflow_id,
-                    workflow.get("node_ids"),
+                    str(exc),
                 )
+                return None
 
-                task = asyncio.create_task(
-                    self.runninghub_client.run_workflow_with_custom_nodes(
-                        image_bytes=image_bytes,
-                        workflow_id=workflow_id,
-                        node_ids=workflow.get("node_ids"),
-                        field_name=workflow.get("field_name"),
-                        options=options,
-                    )
+        variant_tasks = [
+            asyncio.create_task(_run_variant(pt)) for pt in _COMBINED_VARIANTS
+        ]
+        runninghub_tasks = [
+            asyncio.create_task(
+                _run_runninghub(settings.runninghub_workflow_id_extract_combined_3)
+            ),
+            asyncio.create_task(
+                _run_runninghub(settings.runninghub_workflow_id_extract_combined_4)
+            ),
+        ]
+
+        variant_urls: List[str] = []
+        for task in variant_tasks + runninghub_tasks:
+            url = await task
+            if url:
+                variant_urls.append(url)
+
+        if not variant_urls:
+            raise Exception("AI提取花型失败：综合模型未获得结果")
+
+        logger.info("Combined pattern produced %s urls", len(variant_urls))
+        return ",".join(variant_urls[:4])
+
+    async def _extract_pattern_general_1(
+        self,
+        image_bytes: bytes,
+        options: Dict[str, Any],
+    ) -> str:
+        ordered_results: List[str] = []
+        max_general1_results = 2
+        runninghub_workflows = [
+            {
+                "workflow_id": settings.runninghub_workflow_id_extract_general1_1,
+                "node_ids": settings.runninghub_extract_general1_node_id_1,
+                "field_name": settings.runninghub_extract_general1_field_name_1,
+                "label": "提取花型-通用1-工作流1",
+            },
+            {
+                "workflow_id": settings.runninghub_workflow_id_extract_general1_2,
+                "node_ids": settings.runninghub_extract_general1_node_id_2,
+                "field_name": settings.runninghub_extract_general1_field_name_2,
+                "label": "提取花型-通用1-工作流2",
+            },
+        ]
+
+        runninghub_tasks: List[Tuple[Dict[str, Any], asyncio.Task]] = []
+        for workflow in runninghub_workflows:
+            workflow_id = (workflow.get("workflow_id") or "").strip()
+            if not workflow_id:
+                logger.debug(
+                    "Skipping RunningHub workflow %s: workflow_id not configured",
+                    workflow["label"],
                 )
-                runninghub_tasks.append((workflow, task))
-
-            for workflow, task in runninghub_tasks:
-                try:
-                    rh_results = await task
-                    logger.info(
-                        "RunningHub workflow %s returned %s urls",
-                        workflow["label"],
-                        len(rh_results),
-                    )
-                    for rh_url in rh_results:
-                        cleaned = rh_url.strip()
-                        if cleaned:
-                            ordered_results.append(cleaned)
-                            if len(ordered_results) >= max_general1_results:
-                                break
-                except Exception as exc:
-                    logger.warning(
-                        "RunningHub workflow %s failed: %s",
-                        workflow["label"],
-                        str(exc),
-                    )
-                finally:
-                    if len(ordered_results) >= max_general1_results:
-                        break
-
-            if not ordered_results:
-                raise Exception("AI提取花型失败：通用1未获得结果")
+                continue
 
             logger.info(
-                "Final general-1 pattern output prepared (RunningHub only): %s urls",
-                len(ordered_results),
+                "Submitting RunningHub workflow %s (%s) with nodes=%s",
+                workflow["label"],
+                workflow_id,
+                workflow.get("node_ids"),
             )
 
-            return ",".join(ordered_results)
-
-        raw_result = await self.image_utils.extract_pattern(image_bytes, options)
-        if not raw_result:
-            raise Exception("AI提取花型失败：未获得结果")
-
-        # 精细模式直接返回原结果，多张图已在上游处理
-        if pattern_type == "fine":
-            return raw_result
-
-        result_urls = [url.strip() for url in raw_result.split(",") if url.strip()]
-        if not result_urls:
-            raise Exception("AI提取花型失败：结果URL无效")
-
-        if pattern_type == "general_2":
-            logger.info(
-                "Pattern type %s returns base result without secondary enhancement. urls=%s",
-                pattern_type,
-                len(result_urls),
+            task = asyncio.create_task(
+                self.runninghub_client.run_workflow_with_custom_nodes(
+                    image_bytes=image_bytes,
+                    workflow_id=workflow_id,
+                    node_ids=workflow.get("node_ids"),
+                    field_name=workflow.get("field_name"),
+                    options=options,
+                )
             )
-            return result_urls[0]
-        if pattern_type == "denim":
-            logger.info(
-                "Pattern type %s returns base result without secondary enhancement. urls=%s",
-                pattern_type,
-                len(result_urls),
-            )
-            return ",".join(result_urls)
+            runninghub_tasks.append((workflow, task))
 
+        for workflow, task in runninghub_tasks:
+            try:
+                rh_results = await task
+                logger.info(
+                    "RunningHub workflow %s returned %s urls",
+                    workflow["label"],
+                    len(rh_results),
+                )
+                for rh_url in rh_results:
+                    cleaned = rh_url.strip()
+                    if cleaned:
+                        ordered_results.append(cleaned)
+                        if len(ordered_results) >= max_general1_results:
+                            break
+            except Exception as exc:
+                logger.warning(
+                    "RunningHub workflow %s failed: %s",
+                    workflow["label"],
+                    str(exc),
+                )
+            finally:
+                if len(ordered_results) >= max_general1_results:
+                    break
+
+        if not ordered_results:
+            raise Exception("AI提取花型失败：通用1未获得结果")
+
+        logger.info(
+            "Final general-1 pattern output prepared (RunningHub only): %s urls",
+            len(ordered_results),
+        )
+
+        return ",".join(ordered_results)
+
+    async def _enhance_pattern_urls(
+        self,
+        urls: List[str],
+        pattern_type: str,
+        options: Dict[str, Any],
+    ) -> List[str]:
         async def _enhance_url(url: str) -> List[str]:
             try:
-                # 通用模式：调用高清模型增强
                 meitu_options = {
                     "engine": "meitu_v2",
                     "sr_num": 4,
@@ -511,12 +503,12 @@ class AIClient:
         logger.debug(
             "Extract pattern (%s) received %s raw URLs for enhancement",
             pattern_type,
-            len(result_urls),
+            len(urls),
         )
 
         enhancement_tasks = [
             asyncio.create_task(_enhance_url(url))
-            for url in result_urls
+            for url in urls
         ]
         enhanced_urls: List[str] = []
         for task in enhancement_tasks:
@@ -525,18 +517,88 @@ class AIClient:
             "Enhanced %s URLs for pattern_type=%s (input=%s)",
             len(enhanced_urls),
             pattern_type,
-            len(result_urls),
+            len(urls),
         )
+        return enhanced_urls
 
+    async def _extract_pattern_with_image_utils(
+        self,
+        image_bytes: bytes,
+        pattern_type: str,
+        options: Dict[str, Any],
+    ) -> str:
+        raw_result = await self.image_utils.extract_pattern(image_bytes, options)
+        if not raw_result:
+            raise Exception("AI提取花型失败：未获得结果")
+
+        if pattern_type == "fine":
+            return raw_result
+
+        result_urls = self._split_urls(raw_result)
+        if not result_urls:
+            raise Exception("AI提取花型失败：结果URL无效")
+
+        if pattern_type == "general_2":
+            logger.info(
+                "Pattern type %s returns base result without secondary enhancement. urls=%s",
+                pattern_type,
+                len(result_urls),
+            )
+            return result_urls[0]
+
+        if pattern_type == "denim":
+            logger.info(
+                "Pattern type %s returns base result without secondary enhancement. urls=%s",
+                pattern_type,
+                len(result_urls),
+            )
+            return ",".join(result_urls)
+
+        enhanced_urls = await self._enhance_pattern_urls(
+            result_urls,
+            pattern_type,
+            options,
+        )
         final_result_pool = enhanced_urls or result_urls
-
-        # 非通用模式直接返回高清增强后的结果
-        if pattern_type not in {"general_2"}:
-            return ",".join(final_result_pool)
-
         if not final_result_pool:
             raise Exception("AI提取花型失败：通用模式未获得结果")
         return ",".join(final_result_pool)
+
+    async def extract_pattern(
+        self,
+        image_bytes: bytes,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """AI提取花型，并按需进行高清增强"""
+        options = dict(options or {})
+        raw_pattern_type = options.get("pattern_type")
+        pattern_type = self._normalize_pattern_type(raw_pattern_type)
+        options["pattern_type"] = pattern_type
+
+        if raw_pattern_type and raw_pattern_type != pattern_type:
+            logger.debug(
+                "Normalized extract_pattern type %s -> %s",
+                raw_pattern_type,
+                pattern_type,
+            )
+
+        if pattern_type == "combined":
+            return await self._extract_pattern_combined(image_bytes, options)
+
+        if pattern_type == "positioning":
+            return await self.runninghub_client.run_positioning_workflow(
+                image_bytes,
+                options,
+            )
+
+        if pattern_type == "general_1":
+            return await self._extract_pattern_general_1(image_bytes, options)
+
+        return await self._extract_pattern_with_image_utils(
+            image_bytes,
+            pattern_type,
+            options,
+        )
 
     async def denoise_image(
         self,
