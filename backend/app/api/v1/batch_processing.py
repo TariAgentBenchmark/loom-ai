@@ -11,6 +11,7 @@ from app.models.user import User
 from app.services.batch_processing_service import BatchProcessingService
 from app.api.dependencies import get_current_user
 from app.schemas.common import SuccessResponse
+from app.utils.task_errors import mask_task_error_message
 
 router = APIRouter()
 batch_processing_service = BatchProcessingService()
@@ -161,6 +162,14 @@ async def get_batch_status(
         
         if not status:
             raise HTTPException(status_code=404, detail="批量任务不存在")
+
+        if not current_user.is_admin and status.get("tasks"):
+            for task in status["tasks"]:
+                task["errorMessage"] = mask_task_error_message(
+                    task.get("errorMessage"),
+                    None,
+                    is_admin=False,
+                )
         
         return SuccessResponse(
             data=status,

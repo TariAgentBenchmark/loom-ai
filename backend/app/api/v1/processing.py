@@ -14,6 +14,7 @@ from app.utils.result_filter import (
     split_and_clean_csv,
 )
 from app.utils.exceptions import UserFacingException
+from app.utils.task_errors import mask_task_error_message
 
 from app.core.database import get_db
 from app.models.user import User
@@ -764,8 +765,13 @@ async def get_task_status(
         
         # 如果任务失败，包含错误信息
         if task.is_failed:
+            error_message = mask_task_error_message(
+                task.error_message,
+                task.error_code,
+                is_admin=current_user.is_admin,
+            )
             response_data["error"] = {
-                "message": task.error_message,
+                "message": error_message,
                 "code": task.error_code
             }
         
