@@ -361,20 +361,66 @@ class AIClient:
                 )
                 return None
 
+        def _coerce_positive_int(value: Any) -> Optional[int]:
+            try:
+                value_int = int(value)
+            except (TypeError, ValueError):
+                return None
+            return value_int if value_int > 0 else None
+
+        def _build_gpt4o_size() -> str:
+            width_value = _coerce_positive_int(options.get("width"))
+            height_value = _coerce_positive_int(options.get("height"))
+            if width_value and height_value:
+                return f"{width_value}x{height_value}"
+
+            size_option = options.get("size")
+            if isinstance(size_option, str) and "x" in size_option:
+                return size_option
+
+            aspect_ratio = options.get("aspect_ratio")
+            if isinstance(aspect_ratio, str):
+                ratio_map = {
+                    "1:1": "1024x1024",
+                    "2:3": "1024x1536",
+                    "3:2": "1536x1024",
+                }
+                mapped = ratio_map.get(aspect_ratio.strip())
+                if mapped:
+                    return mapped
+
+            return "1024x1024"
+
+        async def _run_gpt4o_extract() -> Optional[str]:
+            try:
+                prompt = (
+                    "从提供的图片中严格提取图案，将图案设计的风格和内容元索还原为填充整个画面的平面印刷图像，准确识别并完整还原图案、纹理、颜色,等设计元素。"
+                )
+                result = await self.gpt4o_client.process_image(
+                    image_bytes,
+                    prompt,
+                    "image/png",
+                    n=1,
+                    size=_build_gpt4o_size(),
+                )
+                url = self.gpt4o_client._extract_image_url(result)
+                return url.strip() if isinstance(url, str) and url.strip() else None
+            except Exception as exc:
+                logger.warning("Combined pattern GPT-4o failed: %s", str(exc))
+                return None
+
         variant_tasks = [
             asyncio.create_task(_run_variant(pt)) for pt in _COMBINED_VARIANTS
         ]
+        gpt4o_task = asyncio.create_task(_run_gpt4o_extract())
         runninghub_tasks = [
-            asyncio.create_task(
-                _run_runninghub(settings.runninghub_workflow_id_extract_combined_3)
-            ),
             asyncio.create_task(
                 _run_runninghub(settings.runninghub_workflow_id_extract_combined_4)
             ),
         ]
 
         variant_urls: List[str] = []
-        for task in variant_tasks + runninghub_tasks:
+        for task in variant_tasks + [gpt4o_task] + runninghub_tasks:
             url = await task
             if url:
                 variant_urls.append(url)
