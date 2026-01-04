@@ -94,7 +94,7 @@ export default function BatchUploadModal({
         { value: '2:3', label: '竖版 2:3' },
         { value: '3:2', label: '横版 3:2' },
     ];
-    const effectivePatternType = patternType ?? 'general';
+    const effectivePatternType = patternType ?? 'combined';
     const effectiveDenimAspectRatio = denimAspectRatio ?? '1:1';
 
     const loadImageDimensions = useCallback((file: File) => {
