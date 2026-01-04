@@ -285,8 +285,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     ];
   const patternTypeOptions: { value: string; label: string; hint?: string }[] =
     [
-      { value: "general", label: "通用模型" },
       { value: "combined", label: "综合模型" },
+      { value: "general", label: "通用模型" },
       { value: "denim", label: "牛仔风格专用" },
     ];
   const denimSizeOptions: { value: string; label: string }[] = [
