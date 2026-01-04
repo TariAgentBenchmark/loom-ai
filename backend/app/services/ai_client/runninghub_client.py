@@ -60,6 +60,52 @@ class RunningHubClient:
             )
             raise
 
+    def _mask_payload(self, payload: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        if payload is None:
+            return None
+        if not isinstance(payload, dict):
+            return payload
+        masked = dict(payload)
+        for key in ("apiKey", "api_key"):
+            if key in masked and masked[key]:
+                masked[key] = "<redacted>"
+        return masked
+
+    def _summarize_files(self, files: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        if not files:
+            return None
+        summary: Dict[str, Any] = {}
+        for field, value in files.items():
+            if isinstance(value, (tuple, list)) and value:
+                filename = value[0] if len(value) > 0 else None
+                content = value[1] if len(value) > 1 else None
+                content_type = value[2] if len(value) > 2 else None
+                size = len(content) if isinstance(content, (bytes, bytearray)) else None
+                summary[field] = {
+                    "filename": filename,
+                    "size": size,
+                    "content_type": content_type,
+                }
+            else:
+                summary[field] = {"type": type(value).__name__}
+        return summary
+
+    def _build_request_context(
+        self,
+        url: str,
+        data: Optional[Dict[str, Any]],
+        json: Optional[Dict[str, Any]],
+        files: Optional[Dict[str, Any]],
+        action: str,
+    ) -> Dict[str, Any]:
+        return {
+            "action": action,
+            "url": url,
+            "data": self._mask_payload(data),
+            "json": self._mask_payload(json),
+            "files": self._summarize_files(files),
+        }
+
     async def _post_json(
         self,
         url: str,
@@ -69,6 +115,7 @@ class RunningHubClient:
         files: Optional[Dict[str, Any]] = None,
         action: str,
     ) -> Dict[str, Any]:
+        request_context = self._build_request_context(url, data, json, files, action)
         try:
             async with api_limiter.slot("runninghub"):
                 async with httpx.AsyncClient(timeout=60.0) as client:
@@ -76,12 +123,33 @@ class RunningHubClient:
                     response.raise_for_status()
         except httpx.HTTPStatusError as exc:
             self._log_http_error(action, exc)
-            raise
+            raise AIClientException(
+                message=f"RunningHub HTTP错误: {exc.response.status_code}",
+                api_name="RunningHub",
+                status_code=exc.response.status_code,
+                response_body=self._truncate_text(exc.response.text or ""),
+                request_data=request_context,
+            ) from exc
         except httpx.RequestError as exc:
-            self.logger.warning("RunningHub %s request error: %s", action, str(exc))
-            raise
+            self.logger.warning(
+                "RunningHub %s request error: %s", action, repr(exc)
+            )
+            raise AIClientException(
+                message=f"RunningHub请求异常: {repr(exc)}",
+                api_name="RunningHub",
+                request_data=request_context,
+            ) from exc
 
-        return self._parse_response_json(action, response)
+        try:
+            return self._parse_response_json(action, response)
+        except ValueError as exc:
+            raise AIClientException(
+                message=f"RunningHub响应解析失败: {str(exc)}",
+                api_name="RunningHub",
+                status_code=response.status_code,
+                response_body=self._truncate_text(response.text or ""),
+                request_data=request_context,
+            ) from exc
 
     def _ensure_configured(self, workflow_id: Optional[str] = None) -> str:
         if not self.api_key:
@@ -349,11 +417,23 @@ class RunningHubClient:
                 len(image_bytes),
                 payload,
             )
-            raise Exception(f"RunningHub文件上传失败: {msg}")
+            raise AIClientException(
+                message=f"RunningHub文件上传失败: {msg}",
+                api_name="RunningHub",
+                status_code=200,
+                response_body=payload,
+                request_data={"filename": filename, "size": len(image_bytes)},
+            )
 
         file_name = (payload.get("data") or {}).get("fileName")
         if not file_name:
-            raise Exception("RunningHub上传响应缺少fileName")
+            raise AIClientException(
+                message="RunningHub上传响应缺少fileName",
+                api_name="RunningHub",
+                status_code=200,
+                response_body=payload,
+                request_data={"filename": filename, "size": len(image_bytes)},
+            )
         return file_name
 
     async def _submit_task(self, node_info_list: List[Dict[str, Any]], workflow_id: str) -> str:
@@ -439,12 +519,18 @@ class RunningHubClient:
             if code == 0 and result_data:
                 urls = [item.get("fileUrl") for item in result_data if item.get("fileUrl")]
                 if not urls:
-                    self.logger.warning(
-                        "RunningHub task returned no URLs: task_id=%s response=%s",
-                        task_id,
-                        data,
-                    )
-                    raise Exception("RunningHub任务成功但未返回结果URL")
+                self.logger.warning(
+                    "RunningHub task returned no URLs: task_id=%s response=%s",
+                    task_id,
+                    data,
+                )
+                raise AIClientException(
+                    message="RunningHub任务成功但未返回结果URL",
+                    api_name="RunningHub",
+                    status_code=200,
+                    response_body=data,
+                    request_data={"task_id": task_id},
+                )
                 return urls
 
             if code == 805:
@@ -454,8 +540,12 @@ class RunningHubClient:
                     task_id,
                     data,
                 )
-                raise Exception(
-                    f"RunningHub任务失败: {data.get('msg') or ''} {failed_reason or ''}".strip()
+                raise AIClientException(
+                    message=f"RunningHub任务失败: {data.get('msg') or ''} {failed_reason or ''}".strip(),
+                    api_name="RunningHub",
+                    status_code=200,
+                    response_body=data,
+                    request_data={"task_id": task_id},
                 )
 
             if code in {804, 813}:
@@ -469,4 +559,10 @@ class RunningHubClient:
                 task_id,
                 data,
             )
-            raise Exception(f"RunningHub返回未知状态: {data}")
+            raise AIClientException(
+                message=f"RunningHub返回未知状态: {data}",
+                api_name="RunningHub",
+                status_code=200,
+                response_body=data,
+                request_data={"task_id": task_id},
+            )
