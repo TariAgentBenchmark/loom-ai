@@ -317,8 +317,8 @@ class ImageProcessingUtils:
                 return ",".join(image_urls)
             return self.gpt4o_client._extract_image_url(result)
         else:
-            # general_2/positioning/combined_detail 模式都使用 gemini-3-pro-image-preview
-            if pattern_type in ["general_2", "positioning", "combined_detail"]:
+            # general_2/positioning 模式使用 gemini-3-pro-image-preview
+            if pattern_type in ["general_2", "positioning"]:
                 # positioning 使用 2K，其余使用 4K
                 resolution = "2K" if pattern_type == "positioning" else "4K"
                 result = await self.apyi_gemini_client.generate_image_preview(
@@ -329,7 +329,7 @@ class ImageProcessingUtils:
                     resolution=resolution,
                 )
             else:
-                # 其他模式使用 gemini-2.5-flash-image
+                # 其他模式（含 combined_detail）使用 gemini-2.5-flash-image
                 result = await self.apyi_gemini_client.process_image(
                     image_bytes,
                     prompt,
