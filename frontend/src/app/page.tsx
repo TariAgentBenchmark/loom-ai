@@ -154,7 +154,7 @@ function HomeContent() {
   const [showCreditHistoryModal, setShowCreditHistoryModal] = useState(false);
   const [currentPage, setCurrentPage] = useState<PageState>('home');
   const [promptInstruction, setPromptInstruction] = useState<string>('');
-  const [patternType, setPatternType] = useState<string>('combined');
+  const [patternType, setPatternType] = useState<string>('general');
   const [denimAspectRatio, setDenimAspectRatio] = useState<string>('1:1');
   const [denimImageCount, setDenimImageCount] = useState<number>(2);
   const [upscaleEngine, setUpscaleEngine] = useState<'meitu_v2' | 'runninghub_vr2'>('meitu_v2');
@@ -1046,7 +1046,7 @@ function HomeContent() {
               setCurrentPage('home');
               setBatchMode(false);
               setPromptInstruction('');
-              setPatternType('combined');
+              setPatternType('general');
               setDenimAspectRatio('1:1');
               setDenimImageCount(2);
               setUpscaleEngine('meitu_v2');
@@ -1155,7 +1155,7 @@ function HomeContent() {
               setPromptInstruction('');
             }
             if (method === 'extract_pattern') {
-              setPatternType('combined');
+              setPatternType('general');
               setDenimAspectRatio('1:1');
               setDenimImageCount(2);
             }

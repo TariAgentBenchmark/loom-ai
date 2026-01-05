@@ -85,8 +85,8 @@ export default function BatchUploadModal({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const referenceInputRef = useRef<HTMLInputElement>(null);
     const patternTypeOptions: { value: string; label: string }[] = [
-        { value: 'combined', label: '综合模型' },
         { value: 'general', label: '通用模型' },
+        { value: 'combined', label: '综合模型' },
         { value: 'denim', label: '牛仔风格专用' },
     ];
     const denimSizeOptions: { value: string; label: string }[] = [
@@ -94,7 +94,7 @@ export default function BatchUploadModal({
         { value: '2:3', label: '竖版 2:3' },
         { value: '3:2', label: '横版 3:2' },
     ];
-    const effectivePatternType = patternType ?? 'combined';
+    const effectivePatternType = patternType ?? 'general';
     const effectiveDenimAspectRatio = denimAspectRatio ?? '1:1';
 
     const loadImageDimensions = useCallback((file: File) => {
