@@ -519,18 +519,18 @@ class RunningHubClient:
             if code == 0 and result_data:
                 urls = [item.get("fileUrl") for item in result_data if item.get("fileUrl")]
                 if not urls:
-                self.logger.warning(
-                    "RunningHub task returned no URLs: task_id=%s response=%s",
-                    task_id,
-                    data,
-                )
-                raise AIClientException(
-                    message="RunningHub任务成功但未返回结果URL",
-                    api_name="RunningHub",
-                    status_code=200,
-                    response_body=data,
-                    request_data={"task_id": task_id},
-                )
+                    self.logger.warning(
+                        "RunningHub task returned no URLs: task_id=%s response=%s",
+                        task_id,
+                        data,
+                    )
+                    raise AIClientException(
+                        message="RunningHub任务成功但未返回结果URL",
+                        api_name="RunningHub",
+                        status_code=200,
+                        response_body=data,
+                        request_data={"task_id": task_id},
+                    )
                 return urls
 
             if code == 805:
