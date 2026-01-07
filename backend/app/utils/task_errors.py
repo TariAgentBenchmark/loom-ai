@@ -13,6 +13,8 @@ def mask_task_error_message(
         return message or DEFAULT_USER_ERROR_MESSAGE
 
     if message:
+        if "AI响应解析失败" in message or "AI响应缺少可用的图片数据" in message:
+            return "错误或图片侵权，请调整重试。"
         if "积分不足" in message:
             return "积分不足，请充值后再试"
         if code in {"API_ERROR", "SERVICE_ERROR", "P006"}:
