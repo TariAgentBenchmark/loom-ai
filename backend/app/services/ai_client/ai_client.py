@@ -540,7 +540,7 @@ class AIClient:
                     "sr_num": 4,
                     "task": options.get("task", "/v1/Ultra_High_Definition_V2/478332"),
                     "task_type": options.get("task_type", "formula"),
-                    "sync_timeout": options.get("sync_timeout", 30),
+                    "sync_timeout": options.get("sync_timeout", 120),
                     "rsp_media_type": options.get("rsp_media_type", "url"),
                 }
                 enhanced = await self.upscale_image(
