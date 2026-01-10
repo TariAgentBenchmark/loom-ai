@@ -13,6 +13,7 @@ import {
   X,
   MessageCircle,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react';
 import { ProcessingMethod } from '../lib/processing';
 import HistoryList from './HistoryList';
@@ -197,6 +198,13 @@ const HomeView: React.FC<HomeViewProps> = ({
               <MessageCircle className="h-4 w-4" />
               <span>微信扫码</span>
             </button>
+            <div className="hidden md:inline-flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 px-3 py-1.5 text-[11px] font-semibold shadow-sm">
+              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+              <span className="leading-tight">加管理员微信</span>
+              <span className="text-[10px] font-medium bg-white/70 px-2 py-0.5 rounded-lg tracking-wide text-amber-700">
+                多领取3试用积分
+              </span>
+            </div>
             {isLoggedIn && (
               <button
                 onClick={onOpenPricingModal}
