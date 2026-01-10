@@ -392,10 +392,19 @@ class AIClient:
             return "1024x1024"
 
         async def _run_gemini3_extract() -> Optional[str]:
-            """使用 Gemini-3-pro-image-preview 提取花型（原4o提示词）"""
+            """使用 Gemini-3-pro-image-preview 提取花型"""
             try:
                 prompt = (
-                    "从提供的图片中严格提取图案，将图案设计的风格和内容元索还原为填充整个画面的平面印刷图像，准确识别并完整还原图案、纹理、颜色,等设计元素。"
+                    "整性 (Outpainting & Integrity - 核心加强)\n\n"
+                    "拒绝残缺： 确保画面边缘和扩展区域的所有花朵/几何图形都是结构完整的。严禁出现只有一半、被切断或破碎的花型。\n\n"
+                    "腰头区域：去褶皱还原 (保持不变)\n\n"
+                    "数字解压： 识别腰部的高密度是物理挤压造成的。必须将挤在一起的图案"拉开"、"摊平"，恢复其原本的自然间距和大小，与主体图案保持一致。\n\n"
+                    "裤装/裙装隐形合并逻辑 (保持不变)\n\n"
+                    "裤装缝合： 彻底忽略裤腿缝隙，将双腿图案合并为连续宽幅平面。\n\n"
+                    "顺势排列： 图案走势顺应版型（裤装垂直），但不画出任何物理轮廓线。\n\n"
+                    "画质：超高清印花级\n\n"
+                    "刀锋锐利： 8K+分辨率，边缘锐利，无模糊，保留手绘/数码原稿的细腻笔触。\n\n"
+                    "排除列表 (加强版)： 排除：图案拥挤，花型被切断，边缘残缺，腰部假性密集，裤子/裙子轮廓，缝隙，阴影，模糊"
                 )
                 aspect_ratio = options.get("aspect_ratio")
                 result = await self.image_utils.apyi_gemini_client.generate_image_preview(
