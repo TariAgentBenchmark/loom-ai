@@ -181,19 +181,6 @@ const HomeView: React.FC<HomeViewProps> = ({
             </div>
           </div>
 
-          <div className="hidden md:flex flex-1 justify-center px-4">
-            <div className="inline-flex items-center gap-3 bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-50 border border-blue-100 rounded-full px-4 py-2 shadow-sm">
-              <span className="text-sm font-semibold text-gray-900">免费招代理</span>
-              <span className="text-xs text-gray-600">有想法可联系管理员，一起拓展业务</span>
-              <button
-                onClick={() => setShowWechatModal(true)}
-                className="text-xs font-medium text-blue-600 border border-blue-200 bg-white px-3 py-1 rounded-full hover:border-blue-300 hover:bg-blue-50 transition"
-              >
-                联系管理员
-              </button>
-            </div>
-          </div>
-
           <div className="flex items-center space-x-2 md:space-x-4">
             <a
               href="https://jcnra80wsnt6.feishu.cn/wiki/Z3gyw5r6IiauObkUyo5cIaShniA?from=from_copylink"

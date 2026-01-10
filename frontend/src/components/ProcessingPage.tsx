@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { History, Eye, ChevronLeft, ChevronRight } from "lucide-react";
+import { History, Eye, ChevronLeft, ChevronRight, X } from "lucide-react";
 import {
   ProcessingMethod,
   getProcessingMethodInfo,
@@ -261,6 +261,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   } | null>(null);
   const [isDownloadingResult, setIsDownloadingResult] = useState(false);
   const [selectedResultIndex, setSelectedResultIndex] = useState(0);
+  const [showWechatModal, setShowWechatModal] = useState(false);
   const isPromptReady =
     method !== "prompt_edit" || Boolean(promptInstruction?.trim());
   const isActionDisabled = !hasUploadedImage || isProcessing || !isPromptReady;
@@ -644,6 +645,19 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
           </div>
         </div>
       </header>
+
+      {/* 提示横幅 */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 px-4 py-2">
+        <div className="flex items-center justify-center gap-2 text-sm">
+          <span className="text-gray-600">出图效果不好或有任何问题请联系管理员（免费重跑出图  解答任何网站内问题）</span>
+          <button
+            onClick={() => setShowWechatModal(true)}
+            className="text-blue-600 hover:text-blue-700 font-medium underline"
+          >
+            联系管理员
+          </button>
+        </div>
+      </div>
 
       <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
         <div className="w-full md:w-96 bg-white border-r border-gray-200 p-4 md:p-6 overflow-y-auto order-2 md:order-1">
@@ -1513,6 +1527,31 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
             return currentIndex !== -1 && currentIndex < urls.length - 1;
           })()}
         />
+      )}
+
+      {/* 微信二维码弹窗 */}
+      {showWechatModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg w-80 max-w-sm shadow-2xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-gray-900">添加微信</h3>
+              <button
+                onClick={() => setShowWechatModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 mb-3">扫码添加微信，获取快速支持。</p>
+            <div className="w-full flex justify-center">
+              <img
+                src="/qrcode.png"
+                alt="微信二维码"
+                className="w-48 h-48 object-contain"
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
