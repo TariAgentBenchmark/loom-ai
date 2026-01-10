@@ -239,7 +239,7 @@ class AuthService:
             hashed_password=self.get_password_hash(password),
             nickname=nickname or phone,  # 如果没有昵称，使用手机号
             phone=phone,  # 现在是必需的
-            credits=to_decimal(5),  # 新用户赠送5积分
+            credits=to_decimal(3),  # 新用户赠送3积分
             membership_type=MembershipType.FREE,
             status=UserStatus.ACTIVE,
             agent_id=agent.id if agent else None,
