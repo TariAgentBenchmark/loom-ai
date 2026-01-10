@@ -267,10 +267,8 @@ SERVICE_PRICES = [
 ]
 
 # 新用户福利配置
-NEW_USER_BONUS = {"bonus_credits": 10, "active": True}
-# 新用户福利配置
 NEW_USER_BONUS = {
-    "bonus_credits": 10,
+    "bonus_credits": 3,
     "active": True
 }
 

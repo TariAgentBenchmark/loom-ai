@@ -112,7 +112,7 @@ async def register(
                 "agentId": user.agent_id,
                 "invitationCodeId": user.invitation_code_id,
             },
-            message="注册成功，已赠送10积分"
+            message="注册成功，已赠送3积分"
         )
         
     except Exception as e:

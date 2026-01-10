@@ -264,7 +264,7 @@ class AuthService:
         await credit_service.record_transaction(
             db=db,
             user_id=user.id,
-            amount=to_decimal(5),
+            amount=to_decimal(3),
             source="registration",
             description="新用户注册赠送"
         )
