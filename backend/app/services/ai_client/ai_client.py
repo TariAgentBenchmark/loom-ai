@@ -412,15 +412,17 @@ class AIClient:
         variant_tasks = [
             asyncio.create_task(_run_variant(pt)) for pt in _COMBINED_VARIANTS
         ]
-        gpt4o_task = asyncio.create_task(_run_gpt4o_extract())
         runninghub_tasks = [
+            asyncio.create_task(
+                _run_runninghub(settings.runninghub_workflow_id_extract_combined_3)
+            ),
             asyncio.create_task(
                 _run_runninghub(settings.runninghub_workflow_id_extract_combined_4)
             ),
         ]
 
         variant_urls: List[str] = []
-        for task in variant_tasks + [gpt4o_task] + runninghub_tasks:
+        for task in variant_tasks + runninghub_tasks:
             url = await task
             if url:
                 variant_urls.append(url)
