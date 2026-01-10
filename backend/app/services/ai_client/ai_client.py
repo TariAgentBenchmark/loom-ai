@@ -391,38 +391,38 @@ class AIClient:
 
             return "1024x1024"
 
-        async def _run_gpt4o_extract() -> Optional[str]:
+        async def _run_gemini3_extract() -> Optional[str]:
+            """使用 Gemini-3-pro-image-preview 提取花型（原4o提示词）"""
             try:
                 prompt = (
                     "从提供的图片中严格提取图案，将图案设计的风格和内容元索还原为填充整个画面的平面印刷图像，准确识别并完整还原图案、纹理、颜色,等设计元素。"
                 )
-                result = await self.gpt4o_client.process_image(
+                aspect_ratio = options.get("aspect_ratio")
+                result = await self.image_utils.apyi_gemini_client.generate_image_preview(
                     image_bytes,
                     prompt,
                     "image/png",
-                    n=1,
-                    size=_build_gpt4o_size(),
+                    aspect_ratio=aspect_ratio,
+                    resolution="4K",
                 )
-                url = self.gpt4o_client._extract_image_url(result)
+                url = self.image_utils.apyi_gemini_client._extract_image_url(result)
                 return url.strip() if isinstance(url, str) and url.strip() else None
             except Exception as exc:
-                logger.warning("Combined pattern GPT-4o failed: %s", str(exc))
+                logger.warning("Combined pattern Gemini-3 failed: %s", str(exc))
                 return None
 
         variant_tasks = [
             asyncio.create_task(_run_variant(pt)) for pt in _COMBINED_VARIANTS
         ]
+        gemini3_task = asyncio.create_task(_run_gemini3_extract())
         runninghub_tasks = [
-            asyncio.create_task(
-                _run_runninghub(settings.runninghub_workflow_id_extract_combined_3)
-            ),
             asyncio.create_task(
                 _run_runninghub(settings.runninghub_workflow_id_extract_combined_4)
             ),
         ]
 
         variant_urls: List[str] = []
-        for task in variant_tasks + runninghub_tasks:
+        for task in variant_tasks + [gemini3_task] + runninghub_tasks:
             url = await task
             if url:
                 variant_urls.append(url)
