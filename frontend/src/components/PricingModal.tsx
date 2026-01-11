@@ -106,7 +106,7 @@ const PricingModal: React.FC<PricingModalProps> = ({
                 <h4 className="mt-2 text-2xl font-bold text-gray-900">{pkg.name}</h4>
                 <div className="mt-4 flex flex-col items-center gap-2">
                   <div className="flex items-baseline justify-center gap-2">
-                    <span className="rounded-md bg-blue-100 px-4 py-2 text-2xl font-extrabold text-blue-600 shadow">
+                    <span className="rounded-md border-2 border-blue-300 bg-blue-100 px-4 py-2 text-2xl font-bold text-blue-600 shadow">
                       {pkg.total_credits} 积分
                     </span>
                   </div>
