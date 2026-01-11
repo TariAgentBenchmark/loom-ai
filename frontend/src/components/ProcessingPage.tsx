@@ -1106,7 +1106,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                 </p>
               </div>
             ) : processedImage ? (
-              <div className="text-center w-full h-full flex flex-col items-center justify-center">
+              <div className="w-full h-full flex flex-col items-center justify-center">
                 {(() => {
                   const imageUrls = processedImage
                     .split(",")
@@ -1128,10 +1128,10 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
 
                     return (
                       <div
-                        className={`flex flex-col md:flex-row gap-2 md:gap-3 w-full max-w-2xl mx-auto ${shouldOffsetPreview ? "mt-3 md:mt-4" : ""
+                        className={`flex flex-col md:flex-row gap-2 md:gap-4 w-full h-full ${shouldOffsetPreview ? "mt-3 md:mt-4" : ""
                           }`}
                       >
-                        <div className="flex md:flex-col gap-1.5 md:w-20 w-full md:flex-none overflow-x-auto md:overflow-visible">
+                        <div className="flex md:flex-col gap-1.5 md:w-24 w-full md:flex-none overflow-x-auto md:overflow-y-auto md:max-h-full shrink-0">
                           {galleryUrls.map((url, index) => {
                             const isActive = index === safeIndex;
                             return (
@@ -1139,13 +1139,13 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                                 key={url + index}
                                 type="button"
                                 onClick={() => setSelectedResultIndex(index)}
-                                className={`flex flex-col items-center rounded border px-1 py-1 text-xs transition ${isActive
+                                className={`flex flex-col items-center rounded border px-1 py-1 text-xs transition shrink-0 ${isActive
                                   ? "border-blue-500 bg-blue-50 shadow-sm"
                                   : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
                                   }`}
                                 title={`查看图 ${index + 1}`}
                               >
-                                <div className="w-10 h-14 md:w-12 md:h-16 rounded overflow-hidden border border-dashed border-gray-200 bg-white flex items-center justify-center">
+                                <div className="w-12 h-16 md:w-16 md:h-20 rounded overflow-hidden border border-dashed border-gray-200 bg-white flex items-center justify-center">
                                   <img
                                     src={resolveFileUrl(url)}
                                     alt={`图 ${index + 1} 缩略图`}
@@ -1160,12 +1160,12 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                           })}
                         </div>
 
-                        <div className="flex-1 flex flex-col items-center justify-center gap-2">
-                          <div className="relative group w-full flex justify-center">
+                        <div className="flex-1 flex flex-col items-center justify-center gap-3 min-h-0">
+                          <div className="relative group w-full h-full flex items-center justify-center min-h-0">
                             <img
                               src={resolveFileUrl(activeUrl)}
                               alt={`处理结果图 ${safeIndex + 1}`}
-                              className="max-w-full max-h-[50vh] w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-md cursor-pointer hover:shadow-lg transition-shadow"
+                              className="max-w-full max-h-full w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-md cursor-pointer hover:shadow-lg transition-shadow"
                               onClick={() =>
                                 handleProcessedImagePreview(
                                   activeUrl,
@@ -1180,7 +1180,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                                   safeIndex,
                                 )
                               }
-                              className="absolute top-1.5 right-1.5 p-1.5 bg-black bg-opacity-50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-opacity-70"
+                              className="absolute top-2 right-2 p-1.5 bg-black bg-opacity-50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-opacity-70"
                               title="放大查看"
                             >
                               <Eye className="h-4 w-4" />
@@ -1193,10 +1193,10 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                                     e.stopPropagation();
                                     handleNavigateResult(-1, galleryUrls.length);
                                   }}
-                                  className="absolute left-1 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black bg-opacity-40 text-white hover:bg-opacity-70 transition"
+                                  className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black bg-opacity-40 text-white hover:bg-opacity-70 transition"
                                   title="上一张"
                                 >
-                                  <ChevronLeft className="h-4 w-4" />
+                                  <ChevronLeft className="h-5 w-5" />
                                 </button>
                                 <button
                                   type="button"
@@ -1204,22 +1204,22 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                                     e.stopPropagation();
                                     handleNavigateResult(1, galleryUrls.length);
                                   }}
-                                  className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black bg-opacity-40 text-white hover:bg-opacity-70 transition"
+                                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black bg-opacity-40 text-white hover:bg-opacity-70 transition"
                                   title="下一张"
                                 >
-                                  <ChevronRight className="h-4 w-4" />
+                                  <ChevronRight className="h-5 w-5" />
                                 </button>
                               </>
                             )}
                           </div>
-                          <div className="flex flex-wrap items-center justify-center gap-2">
+                          <div className="flex flex-wrap items-center justify-center gap-2 shrink-0">
                             <button
                               type="button"
                               onClick={() =>
                                 handleDownloadSingleImage(activeUrl, safeIndex)
                               }
                               disabled={isDownloadingResult}
-                              className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 disabled:bg-green-400 text-white px-3 py-1.5 rounded-md text-sm font-medium transition shadow disabled:opacity-70 disabled:cursor-not-allowed"
+                              className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 disabled:bg-green-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow disabled:opacity-70 disabled:cursor-not-allowed"
                             >
                               {isDownloadingResult
                                 ? "下载中…"
@@ -1229,7 +1229,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                               type="button"
                               onClick={handleBatchDownload}
                               disabled={isDownloadingResult}
-                              className="inline-flex items-center justify-center bg-blue-500 hover:bg-blue-600 disabled:bg-blue-400 text-white px-4 py-1.5 rounded-md text-sm font-medium transition shadow disabled:opacity-70 disabled:cursor-not-allowed"
+                              className="inline-flex items-center justify-center bg-blue-500 hover:bg-blue-600 disabled:bg-blue-400 text-white px-5 py-2 rounded-lg text-sm font-medium transition shadow disabled:opacity-70 disabled:cursor-not-allowed"
                             >
                               {isDownloadingResult ? "下载中…" : "下载全部结果"}
                             </button>
