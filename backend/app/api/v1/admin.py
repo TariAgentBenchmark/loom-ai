@@ -3992,9 +3992,7 @@ async def admin_create_notification(
         )
 
         db.add(notification)
-
-        if settings.database_url.startswith("sqlite"):
-            db.flush()
+        db.flush()
 
         users = db.query(User).all()
         from app.models.notification import UserNotification
