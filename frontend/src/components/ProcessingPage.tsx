@@ -1089,12 +1089,12 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
         <div className="flex-1 p-4 md:p-8 order-1 md:order-2">
           <div className="flex flex-col items-center justify-center h-full space-y-3 md:space-y-4">
             {errorMessage && (
-              <div className="w-full max-w-md md:max-w-lg rounded-lg md:rounded-xl border border-red-200 bg-red-50 px-4 py-3 md:px-6 md:py-4 text-xs md:text-sm text-red-600">
+              <div className="w-full max-w-md md:max-w-lg mx-auto rounded-lg md:rounded-xl border border-red-200 bg-red-50 px-4 py-3 md:px-6 md:py-4 text-xs md:text-sm text-red-600 text-center">
                 {errorMessage}
               </div>
             )}
             {successMessage && !errorMessage && (
-              <div className="w-full max-w-md md:max-w-lg rounded-lg md:rounded-xl border border-green-200 bg-green-50 px-4 py-3 md:px-6 md:py-4 text-xs md:text-sm text-green-600">
+              <div className="w-full max-w-md md:max-w-lg mx-auto rounded-lg md:rounded-xl border border-green-200 bg-green-50 px-4 py-3 md:px-6 md:py-4 text-xs md:text-sm text-green-600 text-center">
                 {successMessage}
               </div>
             )}
@@ -1128,10 +1128,10 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
 
                     return (
                       <div
-                        className={`flex flex-col md:flex-row gap-4 md:gap-6 w-full max-w-5xl ${shouldOffsetPreview ? "mt-4 md:mt-6" : ""
+                        className={`flex flex-col md:flex-row gap-3 md:gap-4 w-full max-w-3xl mx-auto ${shouldOffsetPreview ? "mt-4 md:mt-6" : ""
                           }`}
                       >
-                        <div className="flex md:flex-col gap-3 md:w-32 w-full md:flex-none overflow-x-auto md:overflow-visible">
+                        <div className="flex md:flex-col gap-2 md:w-24 w-full md:flex-none overflow-x-auto md:overflow-visible">
                           {galleryUrls.map((url, index) => {
                             const isActive = index === safeIndex;
                             return (
@@ -1139,20 +1139,20 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                                 key={url + index}
                                 type="button"
                                 onClick={() => setSelectedResultIndex(index)}
-                                className={`flex flex-col items-center rounded-lg border px-2 py-2 text-xs md:text-sm transition ${isActive
+                                className={`flex flex-col items-center rounded-md border px-1.5 py-1.5 text-xs transition ${isActive
                                   ? "border-blue-500 bg-blue-50 shadow-sm"
                                   : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
                                   }`}
                                 title={`查看图 ${index + 1}`}
                               >
-                                <div className="w-16 h-24 md:w-20 md:h-28 rounded-md overflow-hidden border border-dashed border-gray-200 bg-white flex items-center justify-center mb-1">
+                                <div className="w-12 h-16 md:w-14 md:h-20 rounded overflow-hidden border border-dashed border-gray-200 bg-white flex items-center justify-center mb-0.5">
                                   <img
                                     src={resolveFileUrl(url)}
                                     alt={`图 ${index + 1} 缩略图`}
                                     className="w-full h-full object-cover"
                                   />
                                 </div>
-                                <span className="font-medium text-gray-700">
+                                <span className="font-medium text-gray-700 text-xs">
                                   图 {index + 1}
                                 </span>
                               </button>
@@ -1160,12 +1160,12 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                           })}
                         </div>
 
-                        <div className="flex-1 flex flex-col items-center justify-center gap-4">
+                        <div className="flex-1 flex flex-col items-center justify-center gap-3">
                           <div className="relative group w-full flex justify-center">
                             <img
                               src={resolveFileUrl(activeUrl)}
                               alt={`处理结果图 ${safeIndex + 1}`}
-                              className="max-w-[95%] max-h-[75vh] w-auto h-auto object-contain rounded-xl border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+                              className="max-w-full max-h-[55vh] w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-md cursor-pointer hover:shadow-lg transition-shadow"
                               onClick={() =>
                                 handleProcessedImagePreview(
                                   activeUrl,
@@ -1212,14 +1212,14 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                               </>
                             )}
                           </div>
-                          <div className="flex flex-wrap items-center justify-center gap-3">
+                          <div className="flex flex-wrap items-center justify-center gap-2">
                             <button
                               type="button"
                               onClick={() =>
                                 handleDownloadSingleImage(activeUrl, safeIndex)
                               }
                               disabled={isDownloadingResult}
-                              className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 disabled:bg-green-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
+                              className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 disabled:bg-green-400 text-white px-3 py-1.5 rounded-md text-sm font-medium transition shadow disabled:opacity-70 disabled:cursor-not-allowed"
                             >
                               {isDownloadingResult
                                 ? "下载中…"
@@ -1229,7 +1229,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                               type="button"
                               onClick={handleBatchDownload}
                               disabled={isDownloadingResult}
-                              className="inline-flex items-center justify-center bg-blue-500 hover:bg-blue-600 disabled:bg-blue-400 text-white px-5 py-2 rounded-lg text-sm font-medium transition shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
+                              className="inline-flex items-center justify-center bg-blue-500 hover:bg-blue-600 disabled:bg-blue-400 text-white px-4 py-1.5 rounded-md text-sm font-medium transition shadow disabled:opacity-70 disabled:cursor-not-allowed"
                             >
                               {isDownloadingResult ? "下载中…" : "下载全部结果"}
                             </button>
@@ -1248,10 +1248,10 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
 
                     return (
                       <div
-                        className={`flex flex-col md:flex-row gap-4 md:gap-6 w-full max-w-5xl ${shouldOffsetPreview ? "mt-4 md:mt-6" : ""
+                        className={`flex flex-col md:flex-row gap-3 md:gap-4 w-full max-w-3xl mx-auto ${shouldOffsetPreview ? "mt-4 md:mt-6" : ""
                           }`}
                       >
-                        <div className="flex md:flex-col gap-3 md:w-32 w-full md:flex-none overflow-x-auto md:overflow-visible">
+                        <div className="flex md:flex-col gap-2 md:w-24 w-full md:flex-none overflow-x-auto md:overflow-visible">
                           {imageUrls.map((url, index) => {
                             const isActive = index === safeIndex;
                             return (
@@ -1259,20 +1259,20 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                                 key={url + index}
                                 type="button"
                                 onClick={() => setSelectedResultIndex(index)}
-                                className={`flex flex-col items-center rounded-lg border px-2 py-2 text-xs md:text-sm transition ${isActive
+                                className={`flex flex-col items-center rounded-md border px-1.5 py-1.5 text-xs transition ${isActive
                                   ? "border-blue-500 bg-blue-50 shadow-sm"
                                   : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
                                   }`}
                                 title={`查看图 ${index + 1}`}
                               >
-                                <div className="w-16 h-24 md:w-20 md:h-28 rounded-md overflow-hidden border border-dashed border-gray-200 bg-white flex items-center justify-center mb-1">
+                                <div className="w-12 h-16 md:w-14 md:h-20 rounded overflow-hidden border border-dashed border-gray-200 bg-white flex items-center justify-center mb-0.5">
                                   <img
                                     src={resolveFileUrl(url)}
                                     alt={`图 ${index + 1} 缩略图`}
                                     className="w-full h-full object-cover"
                                   />
                                 </div>
-                                <span className="font-medium text-gray-700">
+                                <span className="font-medium text-gray-700 text-xs">
                                   图 {index + 1}
                                 </span>
                               </button>
@@ -1280,12 +1280,12 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                           })}
                         </div>
 
-                        <div className="flex-1 flex flex-col items-center justify-center gap-4">
+                        <div className="flex-1 flex flex-col items-center justify-center gap-3">
                           <div className="relative group w-full flex justify-center">
                             <img
                               src={resolveFileUrl(activeUrl)}
                               alt={`处理结果图 ${safeIndex + 1}`}
-                              className="max-w-[95%] max-h-[75vh] w-auto h-auto object-contain rounded-xl border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+                              className="max-w-full max-h-[55vh] w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-md cursor-pointer hover:shadow-lg transition-shadow"
                               onClick={() =>
                                 handleProcessedImagePreview(
                                   activeUrl,
@@ -1332,14 +1332,14 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                               </>
                             )}
                           </div>
-                          <div className="flex flex-wrap items-center justify-center gap-3">
+                          <div className="flex flex-wrap items-center justify-center gap-2">
                             <button
                               type="button"
                               onClick={() =>
                                 handleDownloadSingleImage(activeUrl, safeIndex)
                               }
                               disabled={isDownloadingResult}
-                              className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 disabled:bg-green-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
+                              className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 disabled:bg-green-400 text-white px-3 py-1.5 rounded-md text-sm font-medium transition shadow disabled:opacity-70 disabled:cursor-not-allowed"
                             >
                               {isDownloadingResult
                                 ? "下载中…"
@@ -1349,7 +1349,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                               type="button"
                               onClick={handleBatchDownload}
                               disabled={isDownloadingResult}
-                              className="inline-flex items-center justify-center bg-blue-500 hover:bg-blue-600 disabled:bg-blue-400 text-white px-6 py-2 md:px-8 md:py-3 rounded-lg md:rounded-xl font-medium transition shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
+                              className="inline-flex items-center justify-center bg-blue-500 hover:bg-blue-600 disabled:bg-blue-400 text-white px-4 py-1.5 rounded-md text-sm font-medium transition shadow disabled:opacity-70 disabled:cursor-not-allowed"
                             >
                               {isDownloadingResult ? "下载中…" : "批量下载全部"}
                             </button>
@@ -1362,8 +1362,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                   // 单张图片
                   return (
                     <>
-                      <div className="relative group mb-4 md:mb-6 w-full flex justify-center">
-                        <div className="w-full max-w-5xl h-[60vh] md:h-[70vh] flex items-center justify-center">
+                      <div className="relative group mb-3 md:mb-4 w-full flex justify-center">
+                        <div className="w-full max-w-3xl h-[50vh] md:h-[55vh] flex items-center justify-center">
                           {(() => {
                             const resolvedUrl = resolveFileUrl(processedImage);
                             console.log(
