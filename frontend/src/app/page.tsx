@@ -1031,7 +1031,8 @@ function HomeContent() {
   );
 
   return (
-    <div className="notranslate pb-24 md:pb-28">
+    <div className="notranslate min-h-screen flex flex-col">
+      <div className="flex-1">
       {currentPage !== 'home' ? (
         <>
           <ProcessingPage
@@ -1237,6 +1238,7 @@ function HomeContent() {
           hasAgentManagement={hasAgentManagement}
         />
       )}
+      </div>
 
       <DisclaimerBar />
       {renderPricingModal()}
