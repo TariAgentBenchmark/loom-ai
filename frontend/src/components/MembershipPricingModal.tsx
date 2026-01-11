@@ -155,11 +155,14 @@ const MembershipPricingModal: React.FC<MembershipPricingModalProps> = ({ onClose
 
                     <div className="text-center mb-6">
                       <h4 className="text-xl font-bold text-gray-900 mb-2">{pkg.name}</h4>
-                      <div className="text-4xl font-bold text-gray-900 mb-2">
+                      <div className="rounded-md bg-blue-100 px-4 py-2 text-3xl font-extrabold text-blue-600 mb-3">
+                        {pkg.total_credits} 积分
+                      </div>
+                      <div className="rounded-md bg-blue-50 px-3 py-1 text-lg text-gray-700 mb-2">
                         ¥{pkg.price_yuan}
                       </div>
                       <div className="text-sm text-gray-600">
-                        赠送 {pkg.bonus_credits} 积分 | 实得 {pkg.total_credits} 积分
+                        {pkg.bonus_credits > 0 ? `赠送 ${pkg.bonus_credits} 积分` : ''}
                       </div>
                       
                     </div>
@@ -206,11 +209,14 @@ const MembershipPricingModal: React.FC<MembershipPricingModalProps> = ({ onClose
 
                     <div className="text-center mb-6">
                       <h4 className="text-xl font-bold text-gray-900 mb-2">{pkg.name}</h4>
-                      <div className="text-4xl font-bold text-gray-900 mb-2">
+                      <div className="rounded-md bg-blue-100 px-4 py-2 text-3xl font-extrabold text-blue-600 mb-3">
+                        {pkg.total_credits} 积分
+                      </div>
+                      <div className="rounded-md bg-blue-50 px-3 py-1 text-lg text-gray-700 mb-2">
                         ¥{pkg.price_yuan}
                       </div>
                       <div className="text-sm text-gray-600">
-                        赠送 {pkg.bonus_credits} 积分 | 实得 {pkg.total_credits} 积分
+                        {pkg.bonus_credits > 0 ? `赠送 ${pkg.bonus_credits} 积分` : ''}
                       </div>
                       
                     </div>

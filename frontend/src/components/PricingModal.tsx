@@ -105,11 +105,14 @@ const PricingModal: React.FC<PricingModalProps> = ({
                 <p className="text-sm text-gray-500">{pkg.category === 'membership' ? '积分灵活使用' : '积分灵活使用'}</p>
                 <h4 className="mt-2 text-2xl font-bold text-gray-900">{pkg.name}</h4>
                 <div className="mt-4 flex flex-col items-center gap-2">
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="text-4xl font-extrabold text-gray-900">{formatPrice(pkg.price_yuan)}</span>
-                    <span className="rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">
-                      {pkg.gift_label || `到手${pkg.total_credits}分 送${Math.round((pkg.bonus_credits / Math.max(pkg.price_yuan, 1)) * 100)}%`}
+                  <div className="flex items-baseline justify-center gap-2">
+                    <span className="rounded-md bg-blue-100 px-4 py-2 text-2xl font-extrabold text-blue-600 shadow">
+                      {pkg.total_credits} 积分
                     </span>
+                  </div>
+                  <div className="rounded-md bg-blue-50 px-3 py-1 text-sm text-gray-700">
+                    {formatPrice(pkg.price_yuan)}
+                    {pkg.bonus_credits > 0 && ` · 送 ${Math.round((pkg.bonus_credits / Math.max(pkg.price_yuan, 1)) * 100)}%`}
                   </div>
                 </div>
                 <div className="mt-6 space-y-2 text-left w-full">{renderPrivileges(pkg.privileges)}</div>
