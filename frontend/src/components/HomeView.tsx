@@ -18,7 +18,7 @@ import {
 import { ProcessingMethod } from '../lib/processing';
 import HistoryList from './HistoryList';
 import ImagePreview from './ImagePreview';
-import { HistoryTask, type CreditBalanceResponse } from '../lib/api';
+import { HistoryTask, type CreditBalanceResponse, getNotifications, markNotificationRead, markAllNotificationsRead } from '../lib/api';
 
 type MembershipTag = 'free' | 'basic' | 'premium' | 'enterprise' | string | undefined;
 
@@ -98,6 +98,8 @@ const HomeView: React.FC<HomeViewProps> = ({
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showWechatModal, setShowWechatModal] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const creditsLabel = formatNumber(
     creditBalance?.credits ?? accountSummary?.credits,
     isLoggedIn ? '0.00' : '--',
@@ -123,6 +125,23 @@ const HomeView: React.FC<HomeViewProps> = ({
     return undefined;
   }, [showBatchDownload, showHistory]);
 
+  // 获取通知
+  useEffect(() => {
+    if (isLoggedIn && accessToken) {
+      getNotifications(accessToken, { page: 1, page_size: 10 })
+        .then((response) => {
+          setNotifications(response.data.notifications);
+          setUnreadCount(response.data.unreadCount);
+        })
+        .catch((error) => {
+          console.error('Failed to fetch notifications:', error);
+        });
+    } else {
+      setNotifications([]);
+      setUnreadCount(0);
+    }
+  }, [isLoggedIn, accessToken]);
+
   const handleLogout = () => {
     if (onLogout) {
       onLogout();
@@ -134,7 +153,18 @@ const HomeView: React.FC<HomeViewProps> = ({
     setSidebarOpen(false);
   };
 
-  const handleNotificationClick = () => {
+  const handleNotificationClick = async () => {
+    if (!showNotifications && unreadCount > 0 && accessToken) {
+      try {
+        await markAllNotificationsRead(accessToken);
+        setUnreadCount(0);
+        setNotifications((prev) =>
+          prev.map((n) => ({ ...n, isRead: true }))
+        );
+      } catch (error) {
+        console.error('Failed to mark notifications as read:', error);
+      }
+    }
     setShowNotifications(!showNotifications);
     setShowUserMenu(false);
   };
@@ -236,7 +266,11 @@ const HomeView: React.FC<HomeViewProps> = ({
                       className="relative p-1 text-gray-600 hover:text-gray-900 transition"
                     >
                       <Bell className="h-4 w-4 md:h-5 md:w-5" />
-                      <span className="absolute top-0 right-0 h-2 w-2 bg-red-500 rounded-full"></span>
+                      {unreadCount > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white">
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      )}
                     </button>
                   </div>
                   <div className="user-menu">
@@ -256,36 +290,42 @@ const HomeView: React.FC<HomeViewProps> = ({
                       </div>
                       <div className="max-h-96 overflow-y-auto">
                         <div className="p-4 space-y-3">
-                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                            <div className="flex items-start space-x-3">
-                              <div className="flex-shrink-0">
-                                <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center">
-                                  <span className="text-white text-sm font-medium">系</span>
+                          {notifications.length === 0 ? (
+                            <div className="text-center text-sm text-gray-500 py-8">
+                              暂无通知
+                            </div>
+                          ) : (
+                            notifications.map((notification) => (
+                              <div
+                                key={notification.notificationId}
+                                className={`${notification.isRead ? 'bg-gray-50 border-gray-200' : 'bg-blue-50 border-blue-200'} border rounded-lg p-3`}
+                              >
+                                <div className="flex items-start space-x-3">
+                                  <div className="flex-shrink-0">
+                                    <div className={`h-8 w-8 rounded-full flex items-center justify-center ${notification.isRead ? 'bg-gray-400' : 'bg-blue-500'}`}>
+                                      <span className="text-white text-sm font-medium">
+                                        {notification.type === 'system' ? '系' : '通'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className={`text-sm font-medium ${notification.isRead ? 'text-gray-700' : 'text-gray-900'}`}>
+                                      {notification.title}
+                                    </p>
+                                    <p className="text-xs text-gray-600 mt-1">{notification.content}</p>
+                                    <p className="text-xs text-gray-500 mt-2">
+                                      {new Date(notification.createdAt).toLocaleString('zh-CN', {
+                                        month: 'numeric',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                      })}
+                                    </p>
+                                  </div>
                                 </div>
                               </div>
-                              <div className="flex-1">
-                                <p className="text-sm font-medium text-gray-900">系统通知</p>
-                                <p className="text-xs text-gray-600 mt-1">欢迎使用AI图像处理平台！您现在可以体验多种AI图像处理功能。</p>
-                                <p className="text-xs text-gray-500 mt-2">刚刚</p>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                            <div className="flex items-start space-x-3">
-                              <div className="flex-shrink-0">
-                                <div className="h-8 w-8 bg-green-500 rounded-full flex items-center justify-center">
-                                  <span className="text-white text-sm font-medium">成</span>
-                                </div>
-                              </div>
-                              <div className="flex-1">
-                                <p className="text-sm font-medium text-gray-900">处理完成</p>
-                                <p className="text-xs text-gray-600 mt-1">您的图像处理任务已完成，可以查看结果了。</p>
-                                <p className="text-xs text-gray-500 mt-2">5分钟前</p>
-                              </div>
-                            </div>
-                          </div>
-
+                            ))
+                          )}
                         </div>
                       </div>
                       <div className="p-3 border-t border-gray-200 text-center">

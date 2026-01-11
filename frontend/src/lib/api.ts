@@ -2122,3 +2122,123 @@ export const downloadBatchResults = async (
 
   return response.data.files;
 };
+
+export interface AdminNotification {
+  notificationId: string;
+  title: string;
+  content: string;
+  type: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminNotificationListResponse {
+  notifications: AdminNotification[];
+  pagination: PaginationMeta;
+}
+
+export const adminGetNotifications = (
+  accessToken: string,
+  options?: {
+    page?: number;
+    page_size?: number;
+    include_inactive?: boolean;
+  },
+) => {
+  const params = new URLSearchParams();
+  if (options?.page) params.append("page", options.page.toString());
+  if (options?.page_size)
+    params.append("page_size", options.page_size.toString());
+  if (options?.include_inactive)
+    params.append("include_inactive", options.include_inactive.toString());
+
+  const query = params.toString();
+  const path = `/admin/notifications${query ? `?${query}` : ""}`;
+
+  return getJson<AdminNotificationListResponse>(path, accessToken);
+};
+
+export const adminCreateNotification = (
+  data: { title: string; content: string; type?: string },
+  accessToken: string,
+) =>
+  postJson<any, { title: string; content: string; type?: string }>(
+    "/admin/notifications",
+    data,
+    accessToken,
+  );
+
+export const adminUpdateNotification = (
+  notificationId: string,
+  data: { title: string; content: string; type?: string },
+  accessToken: string,
+) =>
+  putJson<any, { title: string; content: string; type?: string }>(
+    `/admin/notifications/${notificationId}`,
+    data,
+    accessToken,
+  );
+
+export const adminUpdateNotificationStatus = (
+  notificationId: string,
+  active: boolean,
+  accessToken: string,
+) =>
+  putJson<any, { active: boolean }>(
+    `/admin/notifications/${notificationId}/status`,
+    { active },
+    accessToken,
+  );
+
+export const adminDeleteNotification = (
+  notificationId: string,
+  accessToken: string,
+) => deleteJson(`/admin/notifications/${notificationId}`, accessToken);
+
+export interface UserNotification {
+  notificationId: string;
+  title: string;
+  content: string;
+  type: string;
+  isRead: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserNotificationListResponse {
+  notifications: UserNotification[];
+  unreadCount: number;
+  pagination: PaginationMeta;
+}
+
+export const getNotifications = (
+  accessToken: string,
+  options?: {
+    page?: number;
+    page_size?: number;
+    unread_only?: boolean;
+  },
+) => {
+  const params = new URLSearchParams();
+  if (options?.page) params.append("page", options.page.toString());
+  if (options?.page_size)
+    params.append("page_size", options.page_size.toString());
+  if (options?.unread_only)
+    params.append("unread_only", options.unread_only.toString());
+
+  const query = params.toString();
+  const path = `/notifications${query ? `?${query}` : ""}`;
+
+  return getJson<UserNotificationListResponse>(path, accessToken);
+};
+
+export const markNotificationRead = (
+  notificationId: string,
+  accessToken: string,
+) =>
+  putJson<any, {}>(`/notifications/${notificationId}/mark-read`, {}, accessToken);
+
+export const markAllNotificationsRead = (accessToken: string) =>
+  putJson<any, {}>("/notifications/mark-all-read", {}, accessToken);
+

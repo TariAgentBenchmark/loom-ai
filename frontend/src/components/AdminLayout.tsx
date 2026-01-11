@@ -15,6 +15,7 @@ import {
   X,
   Gauge,
   KeyRound,
+  Bell,
 } from "lucide-react";
 
 interface AdminLayoutProps {
@@ -77,6 +78,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       href: "/admin/limits",
       icon: Gauge,
       current: pathname === "/admin/limits",
+    },
+    {
+      name: "系统通知",
+      href: "/admin/notifications",
+      icon: Bell,
+      current: pathname === "/admin/notifications",
     },
   ];
 

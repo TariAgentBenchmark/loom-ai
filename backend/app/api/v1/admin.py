@@ -16,8 +16,21 @@ import re
 from app.core.database import get_db
 from app.core.config import settings
 from app.models.user import User, MembershipType, UserStatus
-from app.models.credit import CreditTransaction, CreditSource, TransactionType, CreditTransfer, CreditAlert
-from app.models.payment import Order, Refund, OrderStatus, PackageType, PaymentMethod, Package
+from app.models.credit import (
+    CreditTransaction,
+    CreditSource,
+    TransactionType,
+    CreditTransfer,
+    CreditAlert,
+)
+from app.models.payment import (
+    Order,
+    Refund,
+    OrderStatus,
+    PackageType,
+    PaymentMethod,
+    Package,
+)
 from app.models.task import Task, TaskStatus
 from app.models.agent import (
     Agent,
@@ -29,6 +42,7 @@ from app.models.agent import (
     AgentReferralLinkStatus,
 )
 from app.models.agent_commission import AgentCommission, AgentCommissionStatus
+from app.models.notification import Notification, NotificationType
 from app.api.dependencies import get_current_active_admin
 from app.api.decorators import admin_required, admin_route
 from app.schemas.common import SuccessResponse, PaginationMeta, FileInfo
@@ -68,12 +82,22 @@ class AdminUserListResponse(BaseModel):
 
 
 class AdminCreateUserRequest(BaseModel):
-    phone: str = Field(..., min_length=5, max_length=20, description="User phone number")
-    password: str = Field(..., min_length=6, max_length=128, description="Initial login password")
+    phone: str = Field(
+        ..., min_length=5, max_length=20, description="User phone number"
+    )
+    password: str = Field(
+        ..., min_length=6, max_length=128, description="Initial login password"
+    )
     email: Optional[EmailStr] = Field(None, description="User email address")
-    nickname: Optional[str] = Field(None, max_length=100, description="Display nickname")
-    initialCredits: CreditBalance = Field(Decimal("0.00"), description="Initial credit balance")
-    isAdmin: bool = Field(False, description="Whether the user should have admin permissions")
+    nickname: Optional[str] = Field(
+        None, max_length=100, description="Display nickname"
+    )
+    initialCredits: CreditBalance = Field(
+        Decimal("0.00"), description="Initial credit balance"
+    )
+    isAdmin: bool = Field(
+        False, description="Whether the user should have admin permissions"
+    )
     invitationCode: Optional[str] = Field(None, description="注册邀请码（可选）")
     isTestUser: bool = Field(False, description="是否为测试用户")
 
@@ -90,13 +114,17 @@ class AdminUserLookupResponse(BaseModel):
 
 
 class AdminDeleteUserRequest(BaseModel):
-    reason: Optional[str] = Field(None, max_length=500, description="Reason for deleting the user")
+    reason: Optional[str] = Field(
+        None, max_length=500, description="Reason for deleting the user"
+    )
 
 
 # Subscription Management Models
 class UserSubscriptionUpdate(BaseModel):
     membershipType: str = Field(..., description="New membership type")
-    duration: Optional[int] = Field(None, description="Duration in days, None for lifetime")
+    duration: Optional[int] = Field(
+        None, description="Duration in days, None for lifetime"
+    )
     reason: str = Field(..., description="Reason for subscription change")
 
 
@@ -155,7 +183,9 @@ class AdminUserTaskListResponse(BaseModel):
 
 
 class CreditAdjustmentRequest(BaseModel):
-    amount: CreditDelta = Field(..., description="Amount to adjust (positive to add, negative to deduct)")
+    amount: CreditDelta = Field(
+        ..., description="Amount to adjust (positive to add, negative to deduct)"
+    )
     reason: str = Field(..., description="Reason for adjustment")
     sendNotification: bool = Field(True, description="Send notification to user")
 
@@ -177,7 +207,9 @@ class AdminServicePriceListResponse(BaseModel):
 
 class AdminServicePriceUpdateRequest(BaseModel):
     priceCredits: condecimal(max_digits=12, decimal_places=2, ge=0)
-    serviceName: Optional[str] = Field(None, max_length=100, description="Updated display name for the service")
+    serviceName: Optional[str] = Field(
+        None, max_length=100, description="Updated display name for the service"
+    )
     description: Optional[str] = Field(None, description="Service description")
     active: Optional[bool] = Field(None, description="Whether the service is active")
 
@@ -242,7 +274,9 @@ class RefundActionRequest(BaseModel):
     action: str = Field(..., description="Action: approve, reject, complete")
     reason: Optional[str] = Field(None, description="Reason for action")
     adminNotes: Optional[str] = Field(None, description="Admin notes")
-    externalRefundId: Optional[str] = Field(None, description="External refund ID for completion")
+    externalRefundId: Optional[str] = Field(
+        None, description="External refund ID for completion"
+    )
 
 
 # Audit Log Models
@@ -304,11 +338,15 @@ class AdminAgentListResponse(BaseModel):
 
 class AdminCreateAgentRequest(BaseModel):
     name: str = Field(..., max_length=100, description="代理商名称")
-    userIdentifier: str = Field(..., description="绑定的已注册用户标识（userId/手机号/邮箱）")
+    userIdentifier: str = Field(
+        ..., description="绑定的已注册用户标识（userId/手机号/邮箱）"
+    )
     contact: Optional[str] = Field(None, max_length=100, description="联系人/联系方式")
     notes: Optional[str] = Field(None, max_length=500, description="备注")
     status: Optional[str] = Field(AgentStatus.ACTIVE.value, description="代理商状态")
-    commissionMode: Optional[str] = Field(AgentCommissionMode.TIERED.value, description="佣金模式：tiered 或 fixed_30")
+    commissionMode: Optional[str] = Field(
+        AgentCommissionMode.TIERED.value, description="佣金模式：tiered 或 fixed_30"
+    )
 
 
 class AdminDeleteAgentResponse(BaseModel):
@@ -361,7 +399,9 @@ class AdminUpdateAgentRequest(BaseModel):
     contact: Optional[str] = Field(None, max_length=100)
     notes: Optional[str] = Field(None, max_length=500)
     status: Optional[str] = Field(None, description="代理商状态")
-    commissionMode: Optional[str] = Field(None, description="佣金模式：tiered 或 fixed_30")
+    commissionMode: Optional[str] = Field(
+        None, description="佣金模式：tiered 或 fixed_30"
+    )
 
 
 class AdminInvitationCodeResponse(BaseModel):
@@ -387,13 +427,17 @@ class AdminCreateInvitationCodeRequest(BaseModel):
     description: Optional[str] = Field(None, max_length=255)
     maxUses: Optional[int] = Field(None, ge=0, description="最大使用次数，0或空为不限")
     expiresAt: Optional[str] = Field(None, description="过期时间，ISO8601")
-    code: Optional[str] = Field(None, max_length=32, description="自定义邀请码，可留空自动生成")
+    code: Optional[str] = Field(
+        None, max_length=32, description="自定义邀请码，可留空自动生成"
+    )
 
 
 class AdminUpdateInvitationCodeRequest(BaseModel):
     description: Optional[str] = Field(None, max_length=255)
     maxUses: Optional[int] = Field(None, ge=0)
-    expiresAt: Optional[str] = Field(None, description="过期时间，ISO8601，空字符串可清空")
+    expiresAt: Optional[str] = Field(
+        None, description="过期时间，ISO8601，空字符串可清空"
+    )
     status: Optional[str] = Field(None, description="邀请码状态")
 
 
@@ -440,21 +484,27 @@ def _create_referral_link(db: Session, agent_id: int) -> AgentReferralLink:
     return link
 
 
-def _compute_commission_cents(amount_cents: int, fixed_rate: Optional[Decimal] = None) -> (int, float):
+def _compute_commission_cents(
+    amount_cents: int, fixed_rate: Optional[Decimal] = None
+) -> (int, float):
     """计算佣金，支持固定比例或阶梯比例。"""
     amt = Decimal(amount_cents or 0)
     if amt <= 0:
         return 0, 0.0
     if fixed_rate is not None:
         commission = (amt * fixed_rate).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-        eff_rate = float((commission / amt).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
+        eff_rate = float(
+            (commission / amt).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
+        )
         return int(commission), eff_rate
     threshold_cents = Decimal("30000") * 100
     lower = min(amt, threshold_cents)
     higher = max(amt - threshold_cents, 0)
     commission = lower * Decimal("0.20") + higher * Decimal("0.25")
     commission = commission.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-    eff_rate = float((commission / amt).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
+    eff_rate = float(
+        (commission / amt).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
+    )
     return int(commission), eff_rate
 
 
@@ -478,8 +528,14 @@ def _compute_commission_running_total(
             if amount <= 0:
                 result[order.id] = {"commission": 0, "rate": 0.0}
                 continue
-            commission = (amount * fixed_rate).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-            eff_rate = float((commission / amount).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
+            commission = (amount * fixed_rate).quantize(
+                Decimal("1"), rounding=ROUND_HALF_UP
+            )
+            eff_rate = float(
+                (commission / amount).quantize(
+                    Decimal("0.0001"), rounding=ROUND_HALF_UP
+                )
+            )
             result[order.id] = {"commission": int(commission), "rate": eff_rate}
         return result
 
@@ -496,7 +552,9 @@ def _compute_commission_running_total(
         higher_part = max(amount - remaining_lower, Decimal("0"))
         commission = lower_part * Decimal("0.20") + higher_part * Decimal("0.25")
         commission = commission.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-        eff_rate = float((commission / amount).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
+        eff_rate = float(
+            (commission / amount).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
+        )
 
         result[order.id] = {"commission": int(commission), "rate": eff_rate}
         cumulative += amount
@@ -506,7 +564,11 @@ def _compute_commission_running_total(
 
 def _agent_fixed_rate(agent: Agent) -> Optional[Decimal]:
     try:
-        mode = AgentCommissionMode(agent.commission_mode) if isinstance(agent.commission_mode, str) else agent.commission_mode
+        mode = (
+            AgentCommissionMode(agent.commission_mode)
+            if isinstance(agent.commission_mode, str)
+            else agent.commission_mode
+        )
     except Exception:
         mode = None
     if mode == AgentCommissionMode.FIXED_30:
@@ -547,7 +609,9 @@ async def _format_admin_task(task: Task) -> AdminUserTaskResponse:
 
     original_image_url = task.original_image_url
     if original_image_url:
-        original_image_url = await file_service.ensure_accessible_url(original_image_url)
+        original_image_url = await file_service.ensure_accessible_url(
+            original_image_url
+        )
 
     original_image = FileInfo(
         url=original_image_url or "",
@@ -571,7 +635,9 @@ async def _format_admin_task(task: Task) -> AdminUserTaskResponse:
 
         result_image = FileInfo(
             url=",".join(signed_urls) if signed_urls else task.result_image_url,
-            filename=",".join(filtered_filenames) if filtered_filenames else (task.result_filename or ""),
+            filename=",".join(filtered_filenames)
+            if filtered_filenames
+            else (task.result_filename or ""),
             size=task.result_file_size or 0,
             dimensions=task.result_dimensions,
         )
@@ -588,7 +654,9 @@ async def _format_admin_task(task: Task) -> AdminUserTaskResponse:
         resultFilename=task.result_filename,
         originalImage=original_image,
         resultImage=result_image,
-        errorMessage=task.error_message if task.status == TaskStatus.FAILED.value else None,
+        errorMessage=task.error_message
+        if task.status == TaskStatus.FAILED.value
+        else None,
         errorCode=task.error_code if task.status == TaskStatus.FAILED.value else None,
     )
 
@@ -598,18 +666,22 @@ async def get_all_users(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     status_filter: Optional[str] = Query(None, description="Filter by user status"),
-    membership_filter: Optional[str] = Query(None, description="Filter by membership type"),
+    membership_filter: Optional[str] = Query(
+        None, description="Filter by membership type"
+    ),
     email_filter: Optional[str] = Query(None, description="Filter by email (contains)"),
-    keyword: Optional[str] = Query(None, description="Search by phone/email/nickname/user_id"),
+    keyword: Optional[str] = Query(
+        None, description="Search by phone/email/nickname/user_id"
+    ),
     sort_by: Optional[str] = Query("created_at", description="Sort field"),
     sort_order: Optional[str] = Query("desc", description="Sort order: asc or desc"),
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_active_admin)
+    current_admin: User = Depends(get_current_active_admin),
 ):
     """获取所有用户列表（管理员专用）"""
     try:
         query = db.query(User)
-        
+
         # 应用过滤器
         if status_filter:
             try:
@@ -617,14 +689,14 @@ async def get_all_users(
                 query = query.filter(User.status == status_enum)
             except ValueError:
                 raise HTTPException(status_code=400, detail="无效的状态过滤器")
-        
+
         if membership_filter:
             try:
                 membership_enum = MembershipType(membership_filter)
                 query = query.filter(User.membership_type == membership_enum)
             except ValueError:
                 raise HTTPException(status_code=400, detail="无效的会员类型过滤器")
-        
+
         if email_filter:
             query = query.filter(User.email.ilike(f"%{email_filter}%"))
 
@@ -638,7 +710,7 @@ async def get_all_users(
                     User.user_id.ilike(pattern),
                 )
             )
-        
+
         # 应用排序
         if hasattr(User, sort_by):
             order_column = getattr(User, sort_by)
@@ -646,37 +718,43 @@ async def get_all_users(
                 query = query.order_by(desc(order_column))
             else:
                 query = query.order_by(order_column)
-        
+
         # 计算总数
         total = query.count()
         total_pages = (total + page_size - 1) // page_size
-        
+
         # 分页
         offset = (page - 1) * page_size
         users = query.offset(offset).limit(page_size).all()
-        
+
         # 转换为响应格式
         user_list = []
         for user in users:
             agent_name = user.agent.name if user.agent else None
-            invitation_code_value = user.invitation_code.code if user.invitation_code else None
-            user_list.append(AdminUserResponse(
-                userId=user.user_id,
-                email=user.email,
-                nickname=user.nickname,
-                phone=user.phone,
-                agentId=user.agent_id,
-                agentName=agent_name,
-                invitationCode=invitation_code_value,
-                credits=to_float(user.credits),
-                membershipType=user.membership_type.value,
-                status=user.status.value,
-                isAdmin=user.is_admin,
-                isTestUser=bool(getattr(user, "is_test_user", False)),
-                createdAt=user.created_at.isoformat() if user.created_at else "",
-                lastLoginAt=user.last_login_at.isoformat() if user.last_login_at else None
-            ))
-        
+            invitation_code_value = (
+                user.invitation_code.code if user.invitation_code else None
+            )
+            user_list.append(
+                AdminUserResponse(
+                    userId=user.user_id,
+                    email=user.email,
+                    nickname=user.nickname,
+                    phone=user.phone,
+                    agentId=user.agent_id,
+                    agentName=agent_name,
+                    invitationCode=invitation_code_value,
+                    credits=to_float(user.credits),
+                    membershipType=user.membership_type.value,
+                    status=user.status.value,
+                    isAdmin=user.is_admin,
+                    isTestUser=bool(getattr(user, "is_test_user", False)),
+                    createdAt=user.created_at.isoformat() if user.created_at else "",
+                    lastLoginAt=user.last_login_at.isoformat()
+                    if user.last_login_at
+                    else None,
+                )
+            )
+
         # 记录审计日志
         await log_admin_action(
             db=db,
@@ -690,25 +768,22 @@ async def get_all_users(
                 "filters": {
                     "status": status_filter,
                     "membership": membership_filter,
-                    "email": email_filter
+                    "email": email_filter,
                 },
-                "total_results": total
-            }
+                "total_results": total,
+            },
         )
-        
+
         return SuccessResponse(
             data=AdminUserListResponse(
                 users=user_list,
                 pagination=PaginationMeta(
-                    page=page,
-                    limit=page_size,
-                    total=total,
-                    total_pages=total_pages
-                ).dict()
+                    page=page, limit=page_size, total=total, total_pages=total_pages
+                ).dict(),
             ).dict(),
-            message="获取用户列表成功"
+            message="获取用户列表成功",
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -732,7 +807,7 @@ async def search_users(
                     User.user_id.ilike(f"%{keyword}%"),
                     User.phone.ilike(f"%{keyword}%"),
                     User.email.ilike(f"%{keyword}%"),
-                    *( [User.phone == digits_only] if digits_only else [] ),
+                    *([User.phone == digits_only] if digits_only else []),
                 )
             )
             .order_by(desc(User.created_at))
@@ -768,14 +843,18 @@ async def search_user_suggestions(
     try:
         # 构建搜索条件
         search_pattern = f"%{q}%"
-        query = db.query(User).filter(
-            or_(
-                User.nickname.ilike(search_pattern),
-                User.email.ilike(search_pattern),
-                User.phone.ilike(search_pattern),
-                User.user_id.ilike(search_pattern),
+        query = (
+            db.query(User)
+            .filter(
+                or_(
+                    User.nickname.ilike(search_pattern),
+                    User.email.ilike(search_pattern),
+                    User.phone.ilike(search_pattern),
+                    User.user_id.ilike(search_pattern),
+                )
             )
-        ).limit(limit)
+            .limit(limit)
+        )
 
         users = query.all()
 
@@ -792,13 +871,15 @@ async def search_user_suggestions(
 
             display_text = " - ".join(display_parts) if display_parts else user.user_id
 
-            suggestions.append({
-                "userId": user.user_id,
-                "displayText": display_text,
-                "nickname": user.nickname,
-                "email": user.email,
-                "phone": user.phone,
-            })
+            suggestions.append(
+                {
+                    "userId": user.user_id,
+                    "displayText": display_text,
+                    "nickname": user.nickname,
+                    "email": user.email,
+                    "phone": user.phone,
+                }
+            )
 
         return SuccessResponse(
             data={"suggestions": suggestions},
@@ -809,18 +890,17 @@ async def search_user_suggestions(
 
 
 @router.get("/users/{user_id}", dependencies=[Depends(admin_route())])
-async def get_user_detail(
-    user_id: str,
-    db: Session = Depends(get_db)
-):
+async def get_user_detail(user_id: str, db: Session = Depends(get_db)):
     """获取特定用户详情（管理员专用）"""
     try:
         user = db.query(User).filter(User.user_id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="用户不存在")
-        
+
         agent_name = user.agent.name if user.agent else None
-        invitation_code_value = user.invitation_code.code if user.invitation_code else None
+        invitation_code_value = (
+            user.invitation_code.code if user.invitation_code else None
+        )
 
         user_detail = AdminUserResponse(
             userId=user.user_id,
@@ -836,14 +916,11 @@ async def get_user_detail(
             isAdmin=user.is_admin,
             isTestUser=bool(getattr(user, "is_test_user", False)),
             createdAt=user.created_at.isoformat() if user.created_at else "",
-            lastLoginAt=user.last_login_at.isoformat() if user.last_login_at else None
+            lastLoginAt=user.last_login_at.isoformat() if user.last_login_at else None,
         )
-        
-        return SuccessResponse(
-            data=user_detail.dict(),
-            message="获取用户详情成功"
-        )
-        
+
+        return SuccessResponse(data=user_detail.dict(), message="获取用户详情成功")
+
     except HTTPException:
         raise
     except Exception as e:
@@ -881,10 +958,7 @@ async def get_user_tasks(
 
         return SuccessResponse(
             data=AdminUserTaskListResponse(
-                tasks=[
-                    await _format_admin_task(task)
-                    for task in tasks
-                ],
+                tasks=[await _format_admin_task(task) for task in tasks],
                 pagination=PaginationMeta(
                     page=page,
                     limit=limit,
@@ -907,7 +981,7 @@ async def get_user_tasks(
 async def create_user(
     user_data: AdminCreateUserRequest,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_active_admin)
+    current_admin: User = Depends(get_current_active_admin),
 ):
     """创建新用户（管理员专用）"""
     auth_service = AuthService()
@@ -920,7 +994,9 @@ async def create_user(
 
         # 检查邮箱是否存在
         if user_data.email:
-            existing_email = db.query(User).filter(User.email == user_data.email).first()
+            existing_email = (
+                db.query(User).filter(User.email == user_data.email).first()
+            )
             if existing_email:
                 raise HTTPException(status_code=400, detail="邮箱已存在")
 
@@ -930,7 +1006,10 @@ async def create_user(
             code_value = user_data.invitationCode.strip().upper()
             code_record = (
                 db.query(InvitationCode)
-                .filter(InvitationCode.code == code_value, InvitationCode.is_deleted.is_(False))
+                .filter(
+                    InvitationCode.code == code_value,
+                    InvitationCode.is_deleted.is_(False),
+                )
                 .first()
             )
             if not code_record:
@@ -939,7 +1018,10 @@ async def create_user(
                 raise HTTPException(status_code=400, detail="邀请码已被停用")
             if code_record.expires_at and code_record.expires_at <= datetime.utcnow():
                 raise HTTPException(status_code=400, detail="邀请码已过期")
-            if code_record.max_uses not in (None, 0) and (code_record.usage_count or 0) >= code_record.max_uses:
+            if (
+                code_record.max_uses not in (None, 0)
+                and (code_record.usage_count or 0) >= code_record.max_uses
+            ):
                 raise HTTPException(status_code=400, detail="邀请码已达使用上限")
 
             agent = (
@@ -978,13 +1060,14 @@ async def create_user(
 
         if initial_credits > to_decimal(0):
             from app.services.credit_service import CreditService
+
             credit_service = CreditService()
             await credit_service.record_transaction(
                 db=db,
                 user_id=user.id,
                 amount=initial_credits,
                 source=CreditSource.ADMIN_ADJUST.value,
-                description="管理员创建用户赠送积分"
+                description="管理员创建用户赠送积分",
             )
 
         await log_admin_action(
@@ -997,8 +1080,8 @@ async def create_user(
                 "phone": user.phone,
                 "email": user.email,
                 "initialCredits": to_float(initial_credits),
-                "isAdmin": user_data.isAdmin
-            }
+                "isAdmin": user_data.isAdmin,
+            },
         )
 
         return SuccessResponse(
@@ -1015,9 +1098,11 @@ async def create_user(
                 status=user.status.value,
                 isAdmin=user.is_admin,
                 createdAt=user.created_at.isoformat() if user.created_at else "",
-                lastLoginAt=user.last_login_at.isoformat() if user.last_login_at else None
+                lastLoginAt=user.last_login_at.isoformat()
+                if user.last_login_at
+                else None,
             ).dict(),
-            message="用户创建成功"
+            message="用户创建成功",
         )
 
     except HTTPException:
@@ -1041,35 +1126,33 @@ class UserStatusUpdate(BaseModel):
 
 @router.put("/users/{user_id}/status", dependencies=[Depends(admin_route())])
 async def update_user_status(
-    user_id: str,
-    status_update: UserStatusUpdate,
-    db: Session = Depends(get_db)
+    user_id: str, status_update: UserStatusUpdate, db: Session = Depends(get_db)
 ):
     """更新用户状态（管理员专用）"""
     try:
         user = db.query(User).filter(User.user_id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="用户不存在")
-        
+
         # 验证状态值
         try:
             new_status = UserStatus(status_update.status)
         except ValueError:
             raise HTTPException(status_code=400, detail="无效的状态值")
-        
+
         # 更新状态
         user.status = new_status
         db.commit()
-        
+
         return SuccessResponse(
             data={
                 "userId": user.user_id,
                 "status": user.status.value,
-                "reason": status_update.reason
+                "reason": status_update.reason,
             },
-            message=f"用户状态已更新为: {new_status.value}"
+            message=f"用户状态已更新为: {new_status.value}",
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -1152,7 +1235,7 @@ async def delete_user(
     user_id: str,
     delete_request: Optional[AdminDeleteUserRequest] = Body(None),
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_active_admin)
+    current_admin: User = Depends(get_current_active_admin),
 ):
     """删除用户（管理员专用）"""
     try:
@@ -1167,14 +1250,23 @@ async def delete_user(
             raise HTTPException(status_code=400, detail="无法删除当前登录的管理员")
 
         # 删除积分相关记录
-        db.query(CreditTransaction).filter(CreditTransaction.user_id == user.id).delete(synchronize_session=False)
-        db.query(CreditAlert).filter(CreditAlert.user_id == user.id).delete(synchronize_session=False)
+        db.query(CreditTransaction).filter(CreditTransaction.user_id == user.id).delete(
+            synchronize_session=False
+        )
+        db.query(CreditAlert).filter(CreditAlert.user_id == user.id).delete(
+            synchronize_session=False
+        )
         db.query(CreditTransfer).filter(
-            or_(CreditTransfer.sender_id == user.id, CreditTransfer.recipient_id == user.id)
+            or_(
+                CreditTransfer.sender_id == user.id,
+                CreditTransfer.recipient_id == user.id,
+            )
         ).delete(synchronize_session=False)
 
         # 删除退款记录需在订单之前
-        db.query(Refund).filter(Refund.user_id == user.id).delete(synchronize_session=False)
+        db.query(Refund).filter(Refund.user_id == user.id).delete(
+            synchronize_session=False
+        )
 
         # 删除订单（包含退款关系）
         orders = db.query(Order).filter(Order.user_id == user.id).all()
@@ -1196,17 +1288,12 @@ async def delete_user(
             action="delete_user",
             target_type="user",
             target_id=user_id,
-            details={
-                "reason": delete_request.reason if delete_request else None
-            }
+            details={"reason": delete_request.reason if delete_request else None},
         )
 
         return SuccessResponse(
-            data={
-                "userId": user_id,
-                "deletedAt": datetime.utcnow().isoformat()
-            },
-            message="用户已删除"
+            data={"userId": user_id, "deletedAt": datetime.utcnow().isoformat()},
+            message="用户已删除",
         )
 
     except HTTPException:
@@ -1230,42 +1317,41 @@ class UserCreditsUpdate(BaseModel):
 
 @router.put("/users/{user_id}/credits", dependencies=[Depends(admin_route())])
 async def update_user_credits(
-    user_id: str,
-    credits_update: UserCreditsUpdate,
-    db: Session = Depends(get_db)
+    user_id: str, credits_update: UserCreditsUpdate, db: Session = Depends(get_db)
 ):
     """更新用户积分（管理员专用）"""
     try:
         user = db.query(User).filter(User.user_id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="用户不存在")
-        
+
         old_credits = to_decimal(user.credits or 0)
         new_credits = to_decimal(credits_update.credits)
         user.credits = new_credits
         db.commit()
-        
+
         # 记录积分变更
         from app.services.credit_service import CreditService
+
         credit_service = CreditService()
         await credit_service.record_transaction(
             db=db,
             user_id=user.id,
             amount=new_credits - old_credits,
             source="admin_adjustment",
-            description=f"管理员调整: {credits_update.reason}"
+            description=f"管理员调整: {credits_update.reason}",
         )
-        
+
         return SuccessResponse(
             data={
                 "userId": user.user_id,
                 "oldCredits": to_float(old_credits),
                 "newCredits": to_float(new_credits),
-                "reason": credits_update.reason
+                "reason": credits_update.reason,
             },
-            message="用户积分已更新"
+            message="用户积分已更新",
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -1275,16 +1361,17 @@ async def update_user_credits(
 # Service Pricing Management
 @router.get("/service-prices", dependencies=[Depends(admin_route())])
 async def get_service_prices_admin(
-    include_inactive: bool = Query(True, description="Whether to include inactive services"),
+    include_inactive: bool = Query(
+        True, description="Whether to include inactive services"
+    ),
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_active_admin)
+    current_admin: User = Depends(get_current_active_admin),
 ):
     """获取所有功能的积分价格（管理员专用）"""
     try:
         membership_service = MembershipService()
         services = await membership_service.get_service_prices(
-            db=db,
-            include_inactive=include_inactive
+            db=db, include_inactive=include_inactive
         )
 
         service_items = [
@@ -1296,7 +1383,7 @@ async def get_service_prices_admin(
                 priceCredits=item["price_credits"],
                 active=item["active"],
                 createdAt=item.get("created_at"),
-                updatedAt=item.get("updated_at")
+                updatedAt=item.get("updated_at"),
             )
             for item in services
         ]
@@ -1307,15 +1394,12 @@ async def get_service_prices_admin(
             action="view_service_prices",
             target_type="service_price",
             target_id="list",
-            details={
-                "include_inactive": include_inactive,
-                "total": len(service_items)
-            }
+            details={"include_inactive": include_inactive, "total": len(service_items)},
         )
 
         return SuccessResponse(
             data=AdminServicePriceListResponse(services=service_items).dict(),
-            message="获取服务价格列表成功"
+            message="获取服务价格列表成功",
         )
 
     except HTTPException:
@@ -1329,7 +1413,7 @@ async def update_service_price_admin(
     service_key: str,
     update_request: AdminServicePriceUpdateRequest,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_active_admin)
+    current_admin: User = Depends(get_current_active_admin),
 ):
     """更新指定功能的积分价格（管理员专用）"""
     try:
@@ -1341,7 +1425,7 @@ async def update_service_price_admin(
             price_credits=update_request.priceCredits,
             service_name=update_request.serviceName,
             description=update_request.description,
-            active=update_request.active
+            active=update_request.active,
         )
 
         service_data_raw = update_result["service"]
@@ -1353,7 +1437,7 @@ async def update_service_price_admin(
             priceCredits=service_data_raw["price_credits"],
             active=service_data_raw["active"],
             createdAt=service_data_raw.get("created_at"),
-            updatedAt=service_data_raw.get("updated_at")
+            updatedAt=service_data_raw.get("updated_at"),
         )
 
         await log_admin_action(
@@ -1366,17 +1450,17 @@ async def update_service_price_admin(
                 "changes": update_result.get("changes", {}),
                 "priceCredits": to_float(update_request.priceCredits),
                 "serviceName": update_request.serviceName,
-                "active": update_request.active
-            }
+                "active": update_request.active,
+            },
         )
 
         return SuccessResponse(
             data={
                 "service": service_data.dict(),
                 "changes": update_result.get("changes", {}),
-                "updated": update_result.get("updated", False)
+                "updated": update_result.get("updated", False),
             },
-            message="服务价格更新成功"
+            message="服务价格更新成功",
         )
 
     except ValueError:
@@ -1396,14 +1480,15 @@ async def log_admin_action(
     target_id: str,
     details: Dict[str, Any],
     ip_address: Optional[str] = None,
-    user_agent: Optional[str] = None
+    user_agent: Optional[str] = None,
 ):
     """记录管理员操作日志"""
     try:
         # 这里可以创建一个专门的审计日志表，暂时记录在系统日志中
         import logging
+
         logger = logging.getLogger(__name__)
-        
+
         audit_log = {
             "adminId": admin.user_id,
             "adminEmail": admin.email,
@@ -1413,13 +1498,14 @@ async def log_admin_action(
             "details": details,
             "timestamp": datetime.utcnow().isoformat(),
             "ipAddress": ip_address,
-            "userAgent": user_agent
+            "userAgent": user_agent,
         }
-        
+
         logger.info(f"Admin action: {audit_log}")
     except Exception as e:
         # 记录日志失败不应该影响主要功能
         import logging
+
         logger = logging.getLogger(__name__)
         logger.error(f"Failed to log admin action: {str(e)}")
 
@@ -1430,32 +1516,34 @@ async def update_user_subscription(
     user_id: str,
     subscription_update: UserSubscriptionUpdate,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_active_admin)
+    current_admin: User = Depends(get_current_active_admin),
 ):
     """更新用户订阅（管理员专用）"""
     try:
         user = db.query(User).filter(User.user_id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="用户不存在")
-        
+
         # 验证会员类型
         try:
             new_membership = MembershipType(subscription_update.membershipType)
         except ValueError:
             raise HTTPException(status_code=400, detail="无效的会员类型")
-        
+
         old_membership = user.membership_type
         old_expiry = user.membership_expiry
-        
+
         # 更新会员信息
         user.membership_type = new_membership
         if subscription_update.duration:
-            user.membership_expiry = datetime.utcnow() + timedelta(days=subscription_update.duration)
+            user.membership_expiry = datetime.utcnow() + timedelta(
+                days=subscription_update.duration
+            )
         elif new_membership == MembershipType.FREE:
             user.membership_expiry = None
-        
+
         db.commit()
-        
+
         # 记录审计日志
         await log_admin_action(
             db=db,
@@ -1467,26 +1555,30 @@ async def update_user_subscription(
                 "oldMembership": old_membership.value,
                 "newMembership": new_membership.value,
                 "oldExpiry": old_expiry.isoformat() if old_expiry else None,
-                "newExpiry": user.membership_expiry.isoformat() if user.membership_expiry else None,
+                "newExpiry": user.membership_expiry.isoformat()
+                if user.membership_expiry
+                else None,
                 "duration": subscription_update.duration,
-                "reason": subscription_update.reason
-            }
+                "reason": subscription_update.reason,
+            },
         )
-        
+
         return SuccessResponse(
             data=UserSubscriptionResponse(
                 userId=user.user_id,
                 email=user.email,
                 currentMembership=old_membership.value,
                 newMembership=new_membership.value,
-                membershipExpiry=user.membership_expiry.isoformat() if user.membership_expiry else None,
+                membershipExpiry=user.membership_expiry.isoformat()
+                if user.membership_expiry
+                else None,
                 changedBy=current_admin.email,
                 changedAt=datetime.utcnow().isoformat(),
-                reason=subscription_update.reason
+                reason=subscription_update.reason,
             ).dict(),
-            message="用户订阅已更新"
+            message="用户订阅已更新",
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -1499,12 +1591,16 @@ async def get_user_credit_transactions(
     user_id: str,
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    transaction_type: Optional[str] = Query(None, description="Filter by transaction type"),
-    source_filter: Optional[str] = Query(None, description="Filter by transaction source"),
+    transaction_type: Optional[str] = Query(
+        None, description="Filter by transaction type"
+    ),
+    source_filter: Optional[str] = Query(
+        None, description="Filter by transaction source"
+    ),
     start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
     end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_active_admin)
+    current_admin: User = Depends(get_current_active_admin),
 ):
     """获取用户积分交易记录（管理员专用）"""
     try:
@@ -1546,75 +1642,85 @@ async def get_user_credit_transactions(
                     description=f"购买 {order.package_name or order.package_id or '套餐'} (补记)",
                     related_order_id=order.order_id,
                 )
-        
+
         query = db.query(CreditTransaction).filter(CreditTransaction.user_id == user.id)
-        
+
         # 应用过滤器
         if transaction_type:
             query = query.filter(CreditTransaction.type == transaction_type)
-        
+
         if source_filter:
             query = query.filter(CreditTransaction.source == source_filter)
-        
+
         if start_date:
             try:
                 start = datetime.strptime(start_date, "%Y-%m-%d")
                 query = query.filter(CreditTransaction.created_at >= start)
             except ValueError:
                 raise HTTPException(status_code=400, detail="无效的开始日期格式")
-        
+
         if end_date:
             try:
                 end = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
                 query = query.filter(CreditTransaction.created_at < end)
             except ValueError:
                 raise HTTPException(status_code=400, detail="无效的结束日期格式")
-        
+
         # 按时间倒序排列
         query = query.order_by(desc(CreditTransaction.created_at))
-        
+
         # 分页
         total = query.count()
         total_pages = (total + page_size - 1) // page_size
         offset = (page - 1) * page_size
         transactions = query.offset(offset).limit(page_size).all()
-        
+
         # 转换为响应格式
         transaction_list = []
         for txn in transactions:
-            transaction_list.append(AdminCreditTransactionResponse(
-                transactionId=txn.transaction_id,
-                userId=user.user_id,
-                userEmail=user.email,
-                type=txn.type,
-                amount=to_float(txn.amount),
-                balanceAfter=to_float(txn.balance_after),
-                source=txn.source,
-                description=txn.description,
-                createdAt=txn.created_at.isoformat(),
-                relatedTaskId=txn.related_task_id,
-                relatedOrderId=txn.related_order_id
-            ))
-        
+            transaction_list.append(
+                AdminCreditTransactionResponse(
+                    transactionId=txn.transaction_id,
+                    userId=user.user_id,
+                    userEmail=user.email,
+                    type=txn.type,
+                    amount=to_float(txn.amount),
+                    balanceAfter=to_float(txn.balance_after),
+                    source=txn.source,
+                    description=txn.description,
+                    createdAt=txn.created_at.isoformat(),
+                    relatedTaskId=txn.related_task_id,
+                    relatedOrderId=txn.related_order_id,
+                )
+            )
+
         # 计算统计信息
-        total_earned_raw = db.query(func.sum(CreditTransaction.amount)).filter(
-            and_(
-                CreditTransaction.user_id == user.id,
-                CreditTransaction.type == TransactionType.EARN.value
+        total_earned_raw = (
+            db.query(func.sum(CreditTransaction.amount))
+            .filter(
+                and_(
+                    CreditTransaction.user_id == user.id,
+                    CreditTransaction.type == TransactionType.EARN.value,
+                )
             )
-        ).scalar()
-        
-        total_spent_raw = db.query(func.sum(CreditTransaction.amount)).filter(
-            and_(
-                CreditTransaction.user_id == user.id,
-                CreditTransaction.type == TransactionType.SPEND.value
+            .scalar()
+        )
+
+        total_spent_raw = (
+            db.query(func.sum(CreditTransaction.amount))
+            .filter(
+                and_(
+                    CreditTransaction.user_id == user.id,
+                    CreditTransaction.type == TransactionType.SPEND.value,
+                )
             )
-        ).scalar()
+            .scalar()
+        )
 
         total_earned = to_decimal(total_earned_raw or 0)
         total_spent = to_decimal(total_spent_raw or 0).copy_abs()
         net_change = total_earned - total_spent
-        
+
         # 记录审计日志
         await log_admin_action(
             db=db,
@@ -1629,31 +1735,28 @@ async def get_user_credit_transactions(
                     "type": transaction_type,
                     "source": source_filter,
                     "start_date": start_date,
-                    "end_date": end_date
+                    "end_date": end_date,
                 },
-                "total_results": total
-            }
+                "total_results": total,
+            },
         )
-        
+
         return SuccessResponse(
             data=AdminCreditTransactionListResponse(
                 transactions=transaction_list,
                 pagination=PaginationMeta(
-                    page=page,
-                    limit=page_size,
-                    total=total,
-                    total_pages=total_pages
+                    page=page, limit=page_size, total=total, total_pages=total_pages
                 ).dict(),
                 summary={
                     "totalEarned": to_float(total_earned),
                     "totalSpent": to_float(total_spent),
                     "netChange": to_float(net_change),
-                    "currentBalance": to_float(user.credits)
-                }
+                    "currentBalance": to_float(user.credits),
+                },
             ).dict(),
-            message="获取用户交易记录成功"
+            message="获取用户交易记录成功",
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -1665,30 +1768,31 @@ async def adjust_user_credits(
     user_id: str,
     adjustment: CreditAdjustmentRequest,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_active_admin)
+    current_admin: User = Depends(get_current_active_admin),
 ):
     """调整用户积分（管理员专用）"""
     try:
         user = db.query(User).filter(User.user_id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="用户不存在")
-        
+
         old_credits = to_decimal(user.credits or 0)
         delta = to_decimal(adjustment.amount)
         user.credits = old_credits + delta
         db.commit()
-        
+
         # 记录积分变更
         from app.services.credit_service import CreditService
+
         credit_service = CreditService()
         await credit_service.record_transaction(
             db=db,
             user_id=user.id,
             amount=delta,
             source=CreditSource.ADMIN_ADJUST.value,
-            description=f"管理员调整: {adjustment.reason}"
+            description=f"管理员调整: {adjustment.reason}",
         )
-        
+
         # 记录审计日志
         await log_admin_action(
             db=db,
@@ -1701,23 +1805,23 @@ async def adjust_user_credits(
                 "newCredits": to_float(user.credits),
                 "adjustment": to_float(delta),
                 "reason": adjustment.reason,
-                "sendNotification": adjustment.sendNotification
-            }
+                "sendNotification": adjustment.sendNotification,
+            },
         )
-        
+
         # TODO: 发送通知给用户
-        
+
         return SuccessResponse(
             data={
                 "userId": user.user_id,
                 "oldCredits": to_float(old_credits),
                 "newCredits": to_float(user.credits),
                 "adjustment": to_float(delta),
-                "reason": adjustment.reason
+                "reason": adjustment.reason,
             },
-            message="用户积分已调整"
+            message="用户积分已调整",
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -1731,87 +1835,94 @@ async def get_all_orders(
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     status_filter: Optional[str] = Query(None, description="Filter by order status"),
     user_filter: Optional[str] = Query(None, description="Filter by user email or ID"),
-    package_type_filter: Optional[str] = Query(None, description="Filter by package type"),
+    package_type_filter: Optional[str] = Query(
+        None, description="Filter by package type"
+    ),
     start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
     end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_active_admin)
+    current_admin: User = Depends(get_current_active_admin),
 ):
     """获取所有订单列表（管理员专用）"""
     try:
         query = db.query(Order).join(User, Order.user_id == User.id)
-        
+
         # 应用过滤器
         if status_filter:
             query = query.filter(Order.status == status_filter)
-        
+
         if user_filter:
             query = query.filter(
                 or_(
                     User.email.ilike(f"%{user_filter}%"),
-                    User.user_id.ilike(f"%{user_filter}%")
+                    User.user_id.ilike(f"%{user_filter}%"),
                 )
             )
-        
+
         if package_type_filter:
             query = query.filter(Order.package_type == package_type_filter)
-        
+
         if start_date:
             try:
                 start = datetime.strptime(start_date, "%Y-%m-%d")
                 query = query.filter(Order.created_at >= start)
             except ValueError:
                 raise HTTPException(status_code=400, detail="无效的开始日期格式")
-        
+
         if end_date:
             try:
                 end = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
                 query = query.filter(Order.created_at < end)
             except ValueError:
                 raise HTTPException(status_code=400, detail="无效的结束日期格式")
-        
+
         # 按创建时间倒序排列
         query = query.order_by(desc(Order.created_at))
-        
+
         # 分页
         total = query.count()
         total_pages = (total + page_size - 1) // page_size
         offset = (page - 1) * page_size
         orders = query.offset(offset).limit(page_size).all()
-        
+
         # 转换为响应格式
         order_list = []
         for order in orders:
-            order_list.append(AdminOrderResponse(
-                orderId=order.order_id,
-                userId=order.user.user_id,
-                userEmail=order.user.email or None,
-                userPhone=order.user.phone or None,
-                userNickname=order.user.nickname or None,
-                packageId=order.package_id,
-                packageName=order.package_name,
-                packageType=order.package_type,
-                originalAmount=order.original_amount,
-                discountAmount=order.discount_amount,
-                finalAmount=order.final_amount,
-                paymentMethod=order.payment_method,
-                status=order.status,
-                createdAt=order.created_at.isoformat(),
-                paidAt=order.paid_at.isoformat() if order.paid_at else None,
-                expiresAt=order.expires_at.isoformat(),
-                creditsAmount=order.credits_amount,
-                membershipDuration=order.membership_duration
-            ))
-        
+            order_list.append(
+                AdminOrderResponse(
+                    orderId=order.order_id,
+                    userId=order.user.user_id,
+                    userEmail=order.user.email or None,
+                    userPhone=order.user.phone or None,
+                    userNickname=order.user.nickname or None,
+                    packageId=order.package_id,
+                    packageName=order.package_name,
+                    packageType=order.package_type,
+                    originalAmount=order.original_amount,
+                    discountAmount=order.discount_amount,
+                    finalAmount=order.final_amount,
+                    paymentMethod=order.payment_method,
+                    status=order.status,
+                    createdAt=order.created_at.isoformat(),
+                    paidAt=order.paid_at.isoformat() if order.paid_at else None,
+                    expiresAt=order.expires_at.isoformat(),
+                    creditsAmount=order.credits_amount,
+                    membershipDuration=order.membership_duration,
+                )
+            )
+
         # 计算统计信息
-        total_revenue = db.query(func.sum(Order.final_amount)).filter(
-            Order.status == OrderStatus.PAID.value
-        ).scalar() or 0
-        
-        pending_orders = db.query(Order).filter(
-            Order.status == OrderStatus.PENDING.value
-        ).count()
-        
+        total_revenue = (
+            db.query(func.sum(Order.final_amount))
+            .filter(Order.status == OrderStatus.PAID.value)
+            .scalar()
+            or 0
+        )
+
+        pending_orders = (
+            db.query(Order).filter(Order.status == OrderStatus.PENDING.value).count()
+        )
+
         # 记录审计日志
         await log_admin_action(
             db=db,
@@ -1827,30 +1938,29 @@ async def get_all_orders(
                     "user": user_filter,
                     "package_type": package_type_filter,
                     "start_date": start_date,
-                    "end_date": end_date
+                    "end_date": end_date,
                 },
-                "total_results": total
-            }
+                "total_results": total,
+            },
         )
-        
+
         return SuccessResponse(
             data=AdminOrderListResponse(
                 orders=order_list,
                 pagination=PaginationMeta(
-                    page=page,
-                    limit=page_size,
-                    total=total,
-                    total_pages=total_pages
+                    page=page, limit=page_size, total=total, total_pages=total_pages
                 ).dict(),
                 summary={
                     "totalRevenue": total_revenue,
                     "pendingOrders": pending_orders,
-                    "conversionRate": round((total - pending_orders) / total * 100, 2) if total > 0 else 0
-                }
+                    "conversionRate": round((total - pending_orders) / total * 100, 2)
+                    if total > 0
+                    else 0,
+                },
             ).dict(),
-            message="获取订单列表成功"
+            message="获取订单列表成功",
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -1861,17 +1971,20 @@ async def get_all_orders(
 async def get_order_detail(
     order_id: str,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_active_admin)
+    current_admin: User = Depends(get_current_active_admin),
 ):
     """获取订单详情（管理员专用）"""
     try:
-        order = db.query(Order).join(User, Order.user_id == User.id).filter(
-            Order.order_id == order_id
-        ).first()
-        
+        order = (
+            db.query(Order)
+            .join(User, Order.user_id == User.id)
+            .filter(Order.order_id == order_id)
+            .first()
+        )
+
         if not order:
             raise HTTPException(status_code=404, detail="订单不存在")
-        
+
         order_detail = AdminOrderResponse(
             orderId=order.order_id,
             userId=order.user.user_id,
@@ -1890,9 +2003,9 @@ async def get_order_detail(
             paidAt=order.paid_at.isoformat() if order.paid_at else None,
             expiresAt=order.expires_at.isoformat(),
             creditsAmount=order.credits_amount,
-            membershipDuration=order.membership_duration
+            membershipDuration=order.membership_duration,
         )
-        
+
         # 记录审计日志
         await log_admin_action(
             db=db,
@@ -1900,14 +2013,11 @@ async def get_order_detail(
             action="view_order_detail",
             target_type="order",
             target_id=order_id,
-            details={}
+            details={},
         )
-        
-        return SuccessResponse(
-            data=order_detail.dict(),
-            message="获取订单详情成功"
-        )
-        
+
+        return SuccessResponse(data=order_detail.dict(), message="获取订单详情成功")
+
     except HTTPException:
         raise
     except Exception as e:
@@ -1919,24 +2029,27 @@ async def update_order_status(
     order_id: str,
     status_update: OrderStatusUpdate,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_active_admin)
+    current_admin: User = Depends(get_current_active_admin),
 ):
     """更新订单状态（管理员专用）"""
     try:
         order = db.query(Order).filter(Order.order_id == order_id).first()
         if not order:
             raise HTTPException(status_code=404, detail="订单不存在")
-        
+
         # 验证状态值
         valid_statuses = [status.value for status in OrderStatus]
         if status_update.status not in valid_statuses:
             raise HTTPException(status_code=400, detail="无效的订单状态")
-        
+
         old_status = order.status
         order.status = status_update.status
-        
+
         # 如果标记为已支付，记录支付时间
-        if status_update.status == OrderStatus.PAID.value and old_status != OrderStatus.PAID.value:
+        if (
+            status_update.status == OrderStatus.PAID.value
+            and old_status != OrderStatus.PAID.value
+        ):
             order.paid_at = datetime.utcnow()
             if order.agent_id_snapshot is None:
                 user = db.query(User).filter(User.id == order.user_id).first()
@@ -1950,27 +2063,38 @@ async def update_order_status(
                     if not order.package_type:
                         order.package_type = PackageType.CREDITS.value
                     from app.services.credit_service import CreditService
+
                     credit_service = CreditService()
                     await credit_service.add_credits_from_purchase(
                         db=db,
                         user_id=user.id,
                         amount=order.credits_amount,
                         order_id=order.order_id,
-                        package_name=order.package_name
+                        package_name=order.package_name,
                     )
 
             # 会员套餐处理
-            elif order.package_type == PackageType.MEMBERSHIP.value and order.membership_duration:
+            elif (
+                order.package_type == PackageType.MEMBERSHIP.value
+                and order.membership_duration
+            ):
                 user = db.query(User).filter(User.id == order.user_id).first()
                 if user:
                     # 延长会员期限
-                    if user.membership_expiry and user.membership_expiry > datetime.utcnow():
-                        user.membership_expiry = user.membership_expiry + timedelta(days=order.membership_duration)
+                    if (
+                        user.membership_expiry
+                        and user.membership_expiry > datetime.utcnow()
+                    ):
+                        user.membership_expiry = user.membership_expiry + timedelta(
+                            days=order.membership_duration
+                        )
                     else:
-                        user.membership_expiry = datetime.utcnow() + timedelta(days=order.membership_duration)
-        
+                        user.membership_expiry = datetime.utcnow() + timedelta(
+                            days=order.membership_duration
+                        )
+
         db.commit()
-        
+
         # 记录审计日志
         await log_admin_action(
             db=db,
@@ -1982,21 +2106,21 @@ async def update_order_status(
                 "oldStatus": old_status,
                 "newStatus": status_update.status,
                 "reason": status_update.reason,
-                "adminNotes": status_update.adminNotes
-            }
+                "adminNotes": status_update.adminNotes,
+            },
         )
-        
+
         return SuccessResponse(
             data={
                 "orderId": order.order_id,
                 "oldStatus": old_status,
                 "newStatus": order.status,
                 "reason": status_update.reason,
-                "adminNotes": status_update.adminNotes
+                "adminNotes": status_update.adminNotes,
             },
-            message="订单状态已更新"
+            message="订单状态已更新",
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -2013,78 +2137,93 @@ async def get_all_refunds(
     start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
     end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_active_admin)
+    current_admin: User = Depends(get_current_active_admin),
 ):
     """获取所有退款申请列表（管理员专用）"""
     try:
-        query = db.query(Refund).join(User, Refund.user_id == User.id).join(Order, Refund.order_id == Order.id)
-        
+        query = (
+            db.query(Refund)
+            .join(User, Refund.user_id == User.id)
+            .join(Order, Refund.order_id == Order.id)
+        )
+
         # 应用过滤器
         if status_filter:
             query = query.filter(Refund.status == status_filter)
-        
+
         if user_filter:
             query = query.filter(
                 or_(
                     User.email.ilike(f"%{user_filter}%"),
-                    User.user_id.ilike(f"%{user_filter}%")
+                    User.user_id.ilike(f"%{user_filter}%"),
                 )
             )
-        
+
         if start_date:
             try:
                 start = datetime.strptime(start_date, "%Y-%m-%d")
                 query = query.filter(Refund.created_at >= start)
             except ValueError:
                 raise HTTPException(status_code=400, detail="无效的开始日期格式")
-        
+
         if end_date:
             try:
                 end = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
                 query = query.filter(Refund.created_at < end)
             except ValueError:
                 raise HTTPException(status_code=400, detail="无效的结束日期格式")
-        
+
         # 按创建时间倒序排列
         query = query.order_by(desc(Refund.created_at))
-        
+
         # 分页
         total = query.count()
         total_pages = (total + page_size - 1) // page_size
         offset = (page - 1) * page_size
         refunds = query.offset(offset).limit(page_size).all()
-        
+
         # 转换为响应格式
         refund_list = []
         for refund in refunds:
             processed_by_email = None
             if refund.processed_by:
-                processed_by_user = db.query(User).filter(User.id == refund.processed_by).first()
+                processed_by_user = (
+                    db.query(User).filter(User.id == refund.processed_by).first()
+                )
                 if processed_by_user:
                     processed_by_email = processed_by_user.email
-            
-            refund_list.append(AdminRefundResponse(
-                refundId=refund.refund_id,
-                orderId=refund.order.order_id,
-                userId=refund.user.user_id,
-                userEmail=refund.user.email,
-                amount=refund.amount,
-                reason=refund.reason,
-                status=refund.status,
-                createdAt=refund.created_at.isoformat(),
-                processedAt=refund.processed_at.isoformat() if refund.processed_at else None,
-                completedAt=refund.completed_at.isoformat() if refund.completed_at else None,
-                processedBy=processed_by_email,
-                adminNotes=refund.admin_notes
-            ))
-        
+
+            refund_list.append(
+                AdminRefundResponse(
+                    refundId=refund.refund_id,
+                    orderId=refund.order.order_id,
+                    userId=refund.user.user_id,
+                    userEmail=refund.user.email,
+                    amount=refund.amount,
+                    reason=refund.reason,
+                    status=refund.status,
+                    createdAt=refund.created_at.isoformat(),
+                    processedAt=refund.processed_at.isoformat()
+                    if refund.processed_at
+                    else None,
+                    completedAt=refund.completed_at.isoformat()
+                    if refund.completed_at
+                    else None,
+                    processedBy=processed_by_email,
+                    adminNotes=refund.admin_notes,
+                )
+            )
+
         # 计算统计信息
         pending_refunds = db.query(Refund).filter(Refund.status == "processing").count()
         approved_refunds = db.query(Refund).filter(Refund.status == "approved").count()
-        total_refund_amount = db.query(func.sum(Refund.amount)).filter(
-            Refund.status == "completed"
-        ).scalar() or 0
-        
+        total_refund_amount = (
+            db.query(func.sum(Refund.amount))
+            .filter(Refund.status == "completed")
+            .scalar()
+            or 0
+        )
+
         # 记录审计日志
         await log_admin_action(
             db=db,
@@ -2099,30 +2238,27 @@ async def get_all_refunds(
                     "status": status_filter,
                     "user": user_filter,
                     "start_date": start_date,
-                    "end_date": end_date
+                    "end_date": end_date,
                 },
-                "total_results": total
-            }
+                "total_results": total,
+            },
         )
-        
+
         return SuccessResponse(
             data=AdminRefundListResponse(
                 refunds=refund_list,
                 pagination=PaginationMeta(
-                    page=page,
-                    limit=page_size,
-                    total=total,
-                    total_pages=total_pages
+                    page=page, limit=page_size, total=total, total_pages=total_pages
                 ).dict(),
                 summary={
                     "pendingRefunds": pending_refunds,
                     "approvedRefunds": approved_refunds,
-                    "totalRefundAmount": total_refund_amount
-                }
+                    "totalRefundAmount": total_refund_amount,
+                },
             ).dict(),
-            message="获取退款申请列表成功"
+            message="获取退款申请列表成功",
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -2134,40 +2270,44 @@ async def process_refund_action(
     refund_id: str,
     action_request: RefundActionRequest,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_active_admin)
+    current_admin: User = Depends(get_current_active_admin),
 ):
     """处理退款申请（管理员专用）"""
     try:
         refund = db.query(Refund).filter(Refund.refund_id == refund_id).first()
         if not refund:
             raise HTTPException(status_code=404, detail="退款申请不存在")
-        
+
         # 验证操作类型
         valid_actions = ["approve", "reject", "complete"]
         if action_request.action not in valid_actions:
             raise HTTPException(status_code=400, detail="无效的操作类型")
-        
+
         old_status = refund.status
-        
+
         # 执行操作
         if action_request.action == "approve":
             refund.mark_as_approved(current_admin.id, action_request.adminNotes)
-            
+
             # 更新订单状态为已退款
             order = db.query(Order).filter(Order.id == refund.order_id).first()
             if order:
                 order.status = OrderStatus.REFUNDED.value
-                
+
         elif action_request.action == "reject":
-            refund.mark_as_rejected(current_admin.id, action_request.reason or action_request.adminNotes)
-            
+            refund.mark_as_rejected(
+                current_admin.id, action_request.reason or action_request.adminNotes
+            )
+
         elif action_request.action == "complete":
             if not action_request.externalRefundId:
-                raise HTTPException(status_code=400, detail="完成退款需要提供外部退款ID")
+                raise HTTPException(
+                    status_code=400, detail="完成退款需要提供外部退款ID"
+                )
             refund.mark_as_completed(action_request.externalRefundId)
-        
+
         db.commit()
-        
+
         # 记录审计日志
         await log_admin_action(
             db=db,
@@ -2181,10 +2321,10 @@ async def process_refund_action(
                 "newStatus": refund.status,
                 "reason": action_request.reason,
                 "adminNotes": action_request.adminNotes,
-                "externalRefundId": action_request.externalRefundId
-            }
+                "externalRefundId": action_request.externalRefundId,
+            },
         )
-        
+
         return SuccessResponse(
             data={
                 "refundId": refund.refund_id,
@@ -2192,11 +2332,11 @@ async def process_refund_action(
                 "oldStatus": old_status,
                 "newStatus": refund.status,
                 "reason": action_request.reason,
-                "adminNotes": action_request.adminNotes
+                "adminNotes": action_request.adminNotes,
             },
-            message=f"退款申请已{action_request.action}"
+            message=f"退款申请已{action_request.action}",
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -2225,12 +2365,16 @@ async def list_agents(
         agents = query.order_by(desc(Agent.created_at)).all()
 
         owner_ids = [agent.owner_user_id for agent in agents if agent.owner_user_id]
-        owner_map = {
-            user.id: user
-            for user in db.query(User.id, User.user_id, User.phone)
-            .filter(User.id.in_(owner_ids))
-            .all()
-        } if owner_ids else {}
+        owner_map = (
+            {
+                user.id: user
+                for user in db.query(User.id, User.user_id, User.phone)
+                .filter(User.id.in_(owner_ids))
+                .all()
+            }
+            if owner_ids
+            else {}
+        )
 
         invitation_counts = {
             agent_id: count
@@ -2272,24 +2416,40 @@ async def list_agents(
                     name=agent.name,
                     contact=agent.contact,
                     notes=agent.notes,
-                    status=agent.status.value if agent.status else AgentStatus.ACTIVE.value,
+                    status=agent.status.value
+                    if agent.status
+                    else AgentStatus.ACTIVE.value,
                     level=agent.level or 1,
                     parentAgentId=agent.parent_agent_id,
-                    ownerUserId=owner_map.get(agent.owner_user_id).user_id if agent.owner_user_id and agent.owner_user_id in owner_map else None,
-                    ownerUserPhone=owner_map.get(agent.owner_user_id).phone if agent.owner_user_id and agent.owner_user_id in owner_map else None,
+                    ownerUserId=owner_map.get(agent.owner_user_id).user_id
+                    if agent.owner_user_id and agent.owner_user_id in owner_map
+                    else None,
+                    ownerUserPhone=owner_map.get(agent.owner_user_id).phone
+                    if agent.owner_user_id and agent.owner_user_id in owner_map
+                    else None,
                     createdAt=agent.created_at.isoformat() if agent.created_at else "",
-                    updatedAt=agent.updated_at.isoformat() if agent.updated_at else None,
+                    updatedAt=agent.updated_at.isoformat()
+                    if agent.updated_at
+                    else None,
                     invitationCode=(
-                        agent.invitation_codes[0].code if agent.invitation_codes else None
+                        agent.invitation_codes[0].code
+                        if agent.invitation_codes
+                        else None
                     ),
                     referralLinkToken=link.token if link else None,
-                    referralLinkStatus=link.status.value if link and link.status else None,
+                    referralLinkStatus=link.status.value
+                    if link and link.status
+                    else None,
                     referralLinkUsageCount=link.usage_count if link else None,
                     referralLinkMaxUses=link.max_uses if link else None,
-                    referralLinkExpiresAt=link.expires_at.isoformat() if link and link.expires_at else None,
+                    referralLinkExpiresAt=link.expires_at.isoformat()
+                    if link and link.expires_at
+                    else None,
                     invitationCount=invitation_counts.get(agent.id, 0),
                     userCount=user_counts.get(agent.id, 0),
-                    commissionMode=agent.commission_mode.value if agent.commission_mode else AgentCommissionMode.TIERED.value,
+                    commissionMode=agent.commission_mode.value
+                    if agent.commission_mode
+                    else AgentCommissionMode.TIERED.value,
                 )
             )
 
@@ -2350,7 +2510,9 @@ async def create_agent(
         if owned_agent:
             raise HTTPException(status_code=400, detail="该用户已绑定其他代理商")
 
-        status_value = AgentStatus(payload.status) if payload.status else AgentStatus.ACTIVE
+        status_value = (
+            AgentStatus(payload.status) if payload.status else AgentStatus.ACTIVE
+        )
         commission_mode = (
             AgentCommissionMode(payload.commissionMode.upper())
             if payload.commissionMode
@@ -2412,7 +2574,9 @@ async def create_agent(
                 referralLinkUsageCount=None,
                 referralLinkMaxUses=None,
                 referralLinkExpiresAt=None,
-                commissionMode=agent.commission_mode.value if agent.commission_mode else AgentCommissionMode.TIERED.value,
+                commissionMode=agent.commission_mode.value
+                if agent.commission_mode
+                else AgentCommissionMode.TIERED.value,
                 invitationCount=0,
                 userCount=0,
             ).dict(),
@@ -2471,7 +2635,9 @@ async def delete_agent(
         )
 
         return SuccessResponse(
-            data=AdminDeleteAgentResponse(id=agent.id, name=agent.name, deleted=True).dict(),
+            data=AdminDeleteAgentResponse(
+                id=agent.id, name=agent.name, deleted=True
+            ).dict(),
             message="代理商已删除",
         )
     except HTTPException:
@@ -2482,7 +2648,9 @@ async def delete_agent(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/agents/{agent_id}/commissions/settle", dependencies=[Depends(admin_route())])
+@router.post(
+    "/agents/{agent_id}/commissions/settle", dependencies=[Depends(admin_route())]
+)
 async def settle_agent_commissions(
     agent_id: int,
     payload: AdminSettleCommissionRequest,
@@ -2524,14 +2692,17 @@ async def settle_agent_commissions(
     rows = order_query.all()
 
     if not rows:
-        return SuccessResponse(data={"settled": 0, "totalOrders": 0}, message="无可结算订单")
+        return SuccessResponse(
+            data={"settled": 0, "totalOrders": 0}, message="无可结算订单"
+        )
 
     fixed_rate = _agent_fixed_rate(agent)
     commission_map = _compute_commission_running_total(rows, fixed_rate)
 
     # 已结算的订单
     existing_map = {
-        c.order_id: c for c in db.query(AgentCommission).filter(
+        c.order_id: c
+        for c in db.query(AgentCommission).filter(
             AgentCommission.order_id.in_([r[0].id for r in rows]),
             AgentCommission.status == AgentCommissionStatus.SETTLED,
         )
@@ -2722,11 +2893,16 @@ async def get_agent_commissions(
     )
 
 
-@router.post("/agents/{agent_id}/commissions/{order_id}/settle", dependencies=[Depends(admin_route())])
+@router.post(
+    "/agents/{agent_id}/commissions/{order_id}/settle",
+    dependencies=[Depends(admin_route())],
+)
 async def settle_single_commission(
     agent_id: int,
     order_id: str,
-    payload: AdminSettleCommissionRequest = Body(default_factory=AdminSettleCommissionRequest),
+    payload: AdminSettleCommissionRequest = Body(
+        default_factory=AdminSettleCommissionRequest
+    ),
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_active_admin),
 ):
@@ -2776,7 +2952,9 @@ async def settle_single_commission(
 
     record = (
         db.query(AgentCommission)
-        .filter(AgentCommission.agent_id == agent.id, AgentCommission.order_id == order.id)
+        .filter(
+            AgentCommission.agent_id == agent.id, AgentCommission.order_id == order.id
+        )
         .first()
     )
     now = datetime.utcnow()
@@ -2843,7 +3021,11 @@ async def update_agent(
         if payload.name and payload.name != agent.name:
             duplicate = (
                 db.query(Agent)
-                .filter(Agent.name == payload.name, Agent.id != agent_id, Agent.is_deleted.is_(False))
+                .filter(
+                    Agent.name == payload.name,
+                    Agent.id != agent_id,
+                    Agent.is_deleted.is_(False),
+                )
                 .first()
             )
             if duplicate:
@@ -2861,7 +3043,9 @@ async def update_agent(
                 raise HTTPException(status_code=400, detail="无效的代理商状态")
         if payload.commissionMode:
             try:
-                agent.commission_mode = AgentCommissionMode(payload.commissionMode.upper())
+                agent.commission_mode = AgentCommissionMode(
+                    payload.commissionMode.upper()
+                )
             except ValueError:
                 raise HTTPException(status_code=400, detail="无效的佣金模式")
 
@@ -2893,15 +3077,30 @@ async def update_agent(
                 invitationCode=(
                     agent.invitation_codes[0].code if agent.invitation_codes else None
                 ),
-                referralLinkToken=agent.referral_links[0].token if agent.referral_links else None,
-                referralLinkStatus=agent.referral_links[0].status.value if agent.referral_links and agent.referral_links[0].status else None,
-                referralLinkUsageCount=agent.referral_links[0].usage_count if agent.referral_links else None,
-                referralLinkMaxUses=agent.referral_links[0].max_uses if agent.referral_links else None,
-                referralLinkExpiresAt=agent.referral_links[0].expires_at.isoformat() if agent.referral_links and agent.referral_links[0].expires_at else None,
-                commissionMode=agent.commission_mode.value if agent.commission_mode else AgentCommissionMode.TIERED.value,
+                referralLinkToken=agent.referral_links[0].token
+                if agent.referral_links
+                else None,
+                referralLinkStatus=agent.referral_links[0].status.value
+                if agent.referral_links and agent.referral_links[0].status
+                else None,
+                referralLinkUsageCount=agent.referral_links[0].usage_count
+                if agent.referral_links
+                else None,
+                referralLinkMaxUses=agent.referral_links[0].max_uses
+                if agent.referral_links
+                else None,
+                referralLinkExpiresAt=agent.referral_links[0].expires_at.isoformat()
+                if agent.referral_links and agent.referral_links[0].expires_at
+                else None,
+                commissionMode=agent.commission_mode.value
+                if agent.commission_mode
+                else AgentCommissionMode.TIERED.value,
                 invitationCount=(
                     db.query(InvitationCode)
-                    .filter(InvitationCode.agent_id == agent.id, InvitationCode.is_deleted.is_(False))
+                    .filter(
+                        InvitationCode.agent_id == agent.id,
+                        InvitationCode.is_deleted.is_(False),
+                    )
                     .count()
                 ),
                 userCount=db.query(User).filter(User.agent_id == agent.id).count(),
@@ -2916,7 +3115,9 @@ async def update_agent(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/agents/{agent_id}/referral-link/rotate", dependencies=[Depends(admin_route())])
+@router.post(
+    "/agents/{agent_id}/referral-link/rotate", dependencies=[Depends(admin_route())]
+)
 async def rotate_agent_referral_link(
     agent_id: int,
     db: Session = Depends(get_db),
@@ -2962,11 +3163,17 @@ async def rotate_agent_referral_link(
             data=AdminAgentReferralLinkResponse(
                 agentId=agent.id,
                 token=new_link.token,
-                status=new_link.status.value if new_link.status else AgentReferralLinkStatus.ACTIVE.value,
+                status=new_link.status.value
+                if new_link.status
+                else AgentReferralLinkStatus.ACTIVE.value,
                 usageCount=new_link.usage_count or 0,
                 maxUses=new_link.max_uses,
-                expiresAt=new_link.expires_at.isoformat() if new_link.expires_at else None,
-                createdAt=new_link.created_at.isoformat() if new_link.created_at else None,
+                expiresAt=new_link.expires_at.isoformat()
+                if new_link.expires_at
+                else None,
+                createdAt=new_link.created_at.isoformat()
+                if new_link.created_at
+                else None,
             ).dict(),
             message="代理注册链接已重置",
         )
@@ -3015,7 +3222,9 @@ async def list_agent_users(
                 "agent": {
                     "id": agent.id,
                     "name": agent.name,
-                    "status": agent.status.value if agent.status else AgentStatus.ACTIVE.value,
+                    "status": agent.status.value
+                    if agent.status
+                    else AgentStatus.ACTIVE.value,
                 },
                 "users": [
                     {
@@ -3023,7 +3232,9 @@ async def list_agent_users(
                         "email": user.email,
                         "phone": user.phone,
                         "nickname": user.nickname,
-                        "createdAt": user.created_at.isoformat() if user.created_at else "",
+                        "createdAt": user.created_at.isoformat()
+                        if user.created_at
+                        else "",
                     }
                     for user in users
                 ],
@@ -3082,7 +3293,9 @@ async def list_invitation_codes(
                     code=code.code,
                     agentId=code.agent_id,
                     agentName=agent_map.get(code.agent_id, ""),
-                    status=code.status.value if code.status else InvitationCodeStatus.ACTIVE.value,
+                    status=code.status.value
+                    if code.status
+                    else InvitationCodeStatus.ACTIVE.value,
                     maxUses=code.max_uses,
                     usageCount=code.usage_count or 0,
                     remainingUses=remaining,
@@ -3128,7 +3341,9 @@ async def create_invitation_code(
             raise HTTPException(status_code=404, detail="代理商不存在")
 
         new_code = (payload.code or _generate_invitation_code()).upper()
-        exists = db.query(InvitationCode).filter(InvitationCode.code == new_code).first()
+        exists = (
+            db.query(InvitationCode).filter(InvitationCode.code == new_code).first()
+        )
         if exists:
             raise HTTPException(status_code=400, detail="邀请码已存在，请换一个")
 
@@ -3172,11 +3387,17 @@ async def create_invitation_code(
                 remainingUses=(
                     None
                     if invitation.max_uses in (None, 0)
-                    else max((invitation.max_uses or 0) - (invitation.usage_count or 0), 0)
+                    else max(
+                        (invitation.max_uses or 0) - (invitation.usage_count or 0), 0
+                    )
                 ),
-                expiresAt=invitation.expires_at.isoformat() if invitation.expires_at else None,
+                expiresAt=invitation.expires_at.isoformat()
+                if invitation.expires_at
+                else None,
                 description=invitation.description,
-                createdAt=invitation.created_at.isoformat() if invitation.created_at else "",
+                createdAt=invitation.created_at.isoformat()
+                if invitation.created_at
+                else "",
             ).dict(),
             message="邀请码创建成功",
         )
@@ -3233,7 +3454,9 @@ async def update_invitation_code(
 
         remaining = None
         if invitation.max_uses not in (None, 0):
-            remaining = max((invitation.max_uses or 0) - (invitation.usage_count or 0), 0)
+            remaining = max(
+                (invitation.max_uses or 0) - (invitation.usage_count or 0), 0
+            )
 
         return SuccessResponse(
             data=AdminInvitationCodeResponse(
@@ -3241,13 +3464,19 @@ async def update_invitation_code(
                 code=invitation.code,
                 agentId=invitation.agent_id,
                 agentName=agent.name if agent else "",
-                status=invitation.status.value if invitation.status else InvitationCodeStatus.ACTIVE.value,
+                status=invitation.status.value
+                if invitation.status
+                else InvitationCodeStatus.ACTIVE.value,
                 maxUses=invitation.max_uses,
                 usageCount=invitation.usage_count or 0,
                 remainingUses=remaining,
-                expiresAt=invitation.expires_at.isoformat() if invitation.expires_at else None,
+                expiresAt=invitation.expires_at.isoformat()
+                if invitation.expires_at
+                else None,
                 description=invitation.description,
-                createdAt=invitation.created_at.isoformat() if invitation.created_at else "",
+                createdAt=invitation.created_at.isoformat()
+                if invitation.created_at
+                else "",
             ).dict(),
             message="邀请码更新成功",
         )
@@ -3263,99 +3492,154 @@ async def update_invitation_code(
 @router.get("/dashboard/stats", dependencies=[Depends(admin_route())])
 async def get_admin_dashboard_stats(
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_active_admin)
+    current_admin: User = Depends(get_current_active_admin),
 ):
     """获取管理员仪表板统计数据"""
     try:
         non_admin_filter = User.is_admin.is_(False)
-        
+
         # 用户统计
         total_users = db.query(User).filter(non_admin_filter).count()
-        active_users = db.query(User).filter(User.status == UserStatus.ACTIVE, non_admin_filter).count()
+        active_users = (
+            db.query(User)
+            .filter(User.status == UserStatus.ACTIVE, non_admin_filter)
+            .count()
+        )
         admin_users = db.query(User).filter(User.is_admin == True).count()
-        new_users_today = db.query(User).filter(
-            User.created_at >= datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0),
-            non_admin_filter
-        ).count()
-        
+        new_users_today = (
+            db.query(User)
+            .filter(
+                User.created_at
+                >= datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0),
+                non_admin_filter,
+            )
+            .count()
+        )
+
         # 会员统计
         membership_stats = {}
         for membership_type in MembershipType:
-            count = db.query(User).filter(
-                User.membership_type == membership_type,
-                non_admin_filter
-            ).count()
+            count = (
+                db.query(User)
+                .filter(User.membership_type == membership_type, non_admin_filter)
+                .count()
+            )
             membership_stats[membership_type.value] = count
-        
+
         # 积分统计
-        total_credits = db.query(func.sum(User.credits)).filter(non_admin_filter).scalar() or 0
-        credit_transactions_today = db.query(CreditTransaction).join(
-            User, CreditTransaction.user_id == User.id
-        ).filter(
-            CreditTransaction.created_at >= datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0),
-            non_admin_filter
-        ).count()
-        
+        total_credits = (
+            db.query(func.sum(User.credits)).filter(non_admin_filter).scalar() or 0
+        )
+        credit_transactions_today = (
+            db.query(CreditTransaction)
+            .join(User, CreditTransaction.user_id == User.id)
+            .filter(
+                CreditTransaction.created_at
+                >= datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0),
+                non_admin_filter,
+            )
+            .count()
+        )
+
         # 订单统计
         base_order_query = db.query(Order).join(User).filter(non_admin_filter)
         total_orders = base_order_query.count()
-        paid_orders = base_order_query.filter(Order.status == OrderStatus.PAID.value).count()
-        pending_orders = base_order_query.filter(Order.status == OrderStatus.PENDING.value).count()
-        
-        # 收入统计
-        total_revenue = db.query(func.sum(Order.final_amount)).join(User).filter(
-            Order.status == OrderStatus.PAID.value,
-            non_admin_filter
-        ).scalar() or 0
-        
-        revenue_today = db.query(func.sum(Order.final_amount)).join(User).filter(
-            and_(
-                Order.status == OrderStatus.PAID.value,
-                Order.paid_at >= datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-            ),
-            non_admin_filter
-        ).scalar() or 0
-        
-        # 退款统计
-        pending_refunds = db.query(Refund).join(User).filter(
-            Refund.status == "processing",
-            non_admin_filter
+        paid_orders = base_order_query.filter(
+            Order.status == OrderStatus.PAID.value
         ).count()
-        total_refund_amount = db.query(func.sum(Refund.amount)).join(User).filter(
-            Refund.status == "completed",
-            non_admin_filter
-        ).scalar() or 0
-        
+        pending_orders = base_order_query.filter(
+            Order.status == OrderStatus.PENDING.value
+        ).count()
+
+        # 收入统计
+        total_revenue = (
+            db.query(func.sum(Order.final_amount))
+            .join(User)
+            .filter(Order.status == OrderStatus.PAID.value, non_admin_filter)
+            .scalar()
+            or 0
+        )
+
+        revenue_today = (
+            db.query(func.sum(Order.final_amount))
+            .join(User)
+            .filter(
+                and_(
+                    Order.status == OrderStatus.PAID.value,
+                    Order.paid_at
+                    >= datetime.utcnow().replace(
+                        hour=0, minute=0, second=0, microsecond=0
+                    ),
+                ),
+                non_admin_filter,
+            )
+            .scalar()
+            or 0
+        )
+
+        # 退款统计
+        pending_refunds = (
+            db.query(Refund)
+            .join(User)
+            .filter(Refund.status == "processing", non_admin_filter)
+            .count()
+        )
+        total_refund_amount = (
+            db.query(func.sum(Refund.amount))
+            .join(User)
+            .filter(Refund.status == "completed", non_admin_filter)
+            .scalar()
+            or 0
+        )
+
         # 最近活动
-        recent_orders = db.query(Order).join(User).filter(non_admin_filter).order_by(desc(Order.created_at)).limit(5).all()
+        recent_orders = (
+            db.query(Order)
+            .join(User)
+            .filter(non_admin_filter)
+            .order_by(desc(Order.created_at))
+            .limit(5)
+            .all()
+        )
         recent_activity = []
         for order in recent_orders:
-            recent_activity.append({
-                "type": "order",
-                "id": order.order_id,
-                "user": order.user.email,
-                "description": f"创建订单: {order.package_name}",
-                "amount": order.final_amount / 100,  # 转换为元
-                "status": order.status,
-                "timestamp": order.created_at.isoformat()
-            })
-        
-        recent_refunds = db.query(Refund).join(User).filter(non_admin_filter).order_by(desc(Refund.created_at)).limit(3).all()
+            recent_activity.append(
+                {
+                    "type": "order",
+                    "id": order.order_id,
+                    "user": order.user.email,
+                    "description": f"创建订单: {order.package_name}",
+                    "amount": order.final_amount / 100,  # 转换为元
+                    "status": order.status,
+                    "timestamp": order.created_at.isoformat(),
+                }
+            )
+
+        recent_refunds = (
+            db.query(Refund)
+            .join(User)
+            .filter(non_admin_filter)
+            .order_by(desc(Refund.created_at))
+            .limit(3)
+            .all()
+        )
         for refund in recent_refunds:
-            recent_activity.append({
-                "type": "refund",
-                "id": refund.refund_id,
-                "user": refund.user.email,
-                "description": f"申请退款: {refund.reason}",
-                "amount": refund.amount / 100,  # 转换为元
-                "status": refund.status,
-                "timestamp": refund.created_at.isoformat()
-            })
-        
+            recent_activity.append(
+                {
+                    "type": "refund",
+                    "id": refund.refund_id,
+                    "user": refund.user.email,
+                    "description": f"申请退款: {refund.reason}",
+                    "amount": refund.amount / 100,  # 转换为元
+                    "status": refund.status,
+                    "timestamp": refund.created_at.isoformat(),
+                }
+            )
+
         # 按时间排序
         recent_activity.sort(key=lambda x: x["timestamp"], reverse=True)
         recent_activity = recent_activity[:8]  # 只取前8条
-        
+
         # 记录审计日志
         await log_admin_action(
             db=db,
@@ -3363,44 +3647,47 @@ async def get_admin_dashboard_stats(
             action="view_dashboard",
             target_type="dashboard",
             target_id="stats",
-            details={}
+            details={},
         )
-        
+
         dashboard_stats = AdminDashboardStats(
             users={
                 "total": total_users,
                 "active": active_users,
                 "admin": admin_users,
                 "newToday": new_users_today,
-                "membershipBreakdown": membership_stats
+                "membershipBreakdown": membership_stats,
             },
             credits={
                 "total": total_credits,
-                "transactionsToday": credit_transactions_today
+                "transactionsToday": credit_transactions_today,
             },
             orders={
                 "total": total_orders,
                 "paid": paid_orders,
                 "pending": pending_orders,
-                "conversionRate": round(paid_orders / total_orders * 100, 2) if total_orders > 0 else 0
+                "conversionRate": round(paid_orders / total_orders * 100, 2)
+                if total_orders > 0
+                else 0,
             },
             revenue={
                 "total": total_revenue,
                 "today": revenue_today,
-                "averageOrderValue": round(total_revenue / paid_orders, 2) if paid_orders > 0 else 0
+                "averageOrderValue": round(total_revenue / paid_orders, 2)
+                if paid_orders > 0
+                else 0,
             },
             subscriptions={
                 "pendingRefunds": pending_refunds,
-                "totalRefundAmount": total_refund_amount
+                "totalRefundAmount": total_refund_amount,
             },
-            recentActivity=recent_activity
+            recentActivity=recent_activity,
         )
-        
+
         return SuccessResponse(
-            data=dashboard_stats.dict(),
-            message="获取仪表板统计成功"
+            data=dashboard_stats.dict(), message="获取仪表板统计成功"
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -3446,14 +3733,18 @@ async def search_user_suggestions(
     try:
         # 构建搜索条件
         search_pattern = f"%{q}%"
-        query = db.query(User).filter(
-            or_(
-                User.nickname.ilike(search_pattern),
-                User.email.ilike(search_pattern),
-                User.phone.ilike(search_pattern),
-                User.user_id.ilike(search_pattern),
+        query = (
+            db.query(User)
+            .filter(
+                or_(
+                    User.nickname.ilike(search_pattern),
+                    User.email.ilike(search_pattern),
+                    User.phone.ilike(search_pattern),
+                    User.user_id.ilike(search_pattern),
+                )
             )
-        ).limit(limit)
+            .limit(limit)
+        )
 
         users = query.all()
 
@@ -3470,13 +3761,15 @@ async def search_user_suggestions(
 
             display_text = " - ".join(display_parts) if display_parts else user.user_id
 
-            suggestions.append({
-                "userId": user.user_id,
-                "displayText": display_text,
-                "nickname": user.nickname,
-                "email": user.email,
-                "phone": user.phone,
-            })
+            suggestions.append(
+                {
+                    "userId": user.user_id,
+                    "displayText": display_text,
+                    "nickname": user.nickname,
+                    "email": user.email,
+                    "phone": user.phone,
+                }
+            )
 
         return SuccessResponse(
             data={"suggestions": suggestions},
@@ -3488,7 +3781,9 @@ async def search_user_suggestions(
 
 @router.get("/tasks", dependencies=[Depends(admin_route())])
 async def get_all_tasks(
-    user_search: Optional[str] = Query(None, description="用户搜索（支持用户名、邮箱、手机号）"),
+    user_search: Optional[str] = Query(
+        None, description="用户搜索（支持用户名、邮箱、手机号）"
+    ),
     task_type: Optional[str] = Query(None, description="任务类型"),
     status: Optional[str] = Query(None, description="任务状态"),
     start_date: Optional[str] = Query(None, description="开始日期 (YYYY-MM-DD)"),
@@ -3546,7 +3841,9 @@ async def get_all_tasks(
                 start_dt = datetime.strptime(start_date, "%Y-%m-%d")
                 query = query.filter(Task.created_at >= start_dt)
             except ValueError:
-                raise HTTPException(status_code=400, detail="开始日期格式错误，请使用 YYYY-MM-DD")
+                raise HTTPException(
+                    status_code=400, detail="开始日期格式错误，请使用 YYYY-MM-DD"
+                )
 
         if end_date:
             try:
@@ -3555,7 +3852,9 @@ async def get_all_tasks(
                 end_dt = end_dt.replace(hour=23, minute=59, second=59)
                 query = query.filter(Task.created_at <= end_dt)
             except ValueError:
-                raise HTTPException(status_code=400, detail="结束日期格式错误，请使用 YYYY-MM-DD")
+                raise HTTPException(
+                    status_code=400, detail="结束日期格式错误，请使用 YYYY-MM-DD"
+                )
 
         # 按时间倒序排列
         query = query.order_by(desc(Task.created_at))
@@ -3598,4 +3897,213 @@ async def get_all_tasks(
     except HTTPException:
         raise
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class AdminNotificationRequest(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200, description="通知标题")
+    content: str = Field(..., min_length=1, description="通知内容")
+    type: str = Field(NotificationType.SYSTEM.value, description="通知类型")
+
+
+class AdminNotificationResponse(BaseModel):
+    notificationId: str
+    title: str
+    content: str
+    type: str
+    active: bool
+    createdAt: str
+    updatedAt: str
+    userCount: int = Field(0, description="已阅读的用户数")
+
+
+class AdminNotificationListResponse(BaseModel):
+    notifications: List[AdminNotificationResponse]
+    pagination: PaginationMeta
+
+
+@router.get("/notifications", dependencies=[Depends(admin_route())])
+async def admin_get_notifications(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    include_inactive: bool = Query(False),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin),
+):
+    try:
+        query = db.query(Notification)
+
+        if not include_inactive:
+            query = query.filter(Notification.active == True)
+
+        total = query.count()
+        notifications = (
+            query.order_by(desc(Notification.created_at))
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+            .all()
+        )
+
+        formatted_notifications = []
+        for notification in notifications:
+            formatted_notifications.append(
+                AdminNotificationResponse(
+                    notificationId=notification.notification_id,
+                    title=notification.title,
+                    content=notification.content,
+                    type=notification.type,
+                    active=notification.active,
+                    createdAt=notification.created_at.isoformat(),
+                    updatedAt=notification.updated_at.isoformat(),
+                ).model_dump()
+            )
+
+        return SuccessResponse(
+            data={
+                "notifications": formatted_notifications,
+                "pagination": PaginationMeta(
+                    page=page,
+                    limit=page_size,
+                    total=total,
+                    total_pages=(total + page_size - 1) // page_size,
+                ).model_dump(by_alias=True),
+            },
+            message="获取通知列表成功",
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/notifications", dependencies=[Depends(admin_route())])
+async def admin_create_notification(
+    request: AdminNotificationRequest,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin),
+):
+    try:
+        notification_id = f"notif_{secrets.token_urlsafe(16)}"
+
+        notification = Notification(
+            notification_id=notification_id,
+            title=request.title,
+            content=request.content,
+            type=request.type,
+            active=True,
+        )
+
+        db.add(notification)
+
+        if settings.database_url.startswith("sqlite"):
+            db.flush()
+
+        users = db.query(User).all()
+        from app.models.notification import UserNotification
+
+        for user in users:
+            user_notification = UserNotification(
+                user_id=user.id, notification_id=notification.id, is_read=False
+            )
+            db.add(user_notification)
+
+        db.commit()
+
+        return SuccessResponse(
+            data={"notificationId": notification_id},
+            message="创建通知成功",
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/notifications/{notification_id}", dependencies=[Depends(admin_route())])
+async def admin_update_notification(
+    notification_id: str,
+    request: AdminNotificationRequest,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin),
+):
+    try:
+        notification = (
+            db.query(Notification)
+            .filter(Notification.notification_id == notification_id)
+            .first()
+        )
+
+        if not notification:
+            raise HTTPException(status_code=404, detail="通知不存在")
+
+        notification.title = request.title
+        notification.content = request.content
+        notification.type = request.type
+        notification.updated_at = datetime.now()
+
+        db.commit()
+
+        return SuccessResponse(message="更新通知成功")
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put(
+    "/notifications/{notification_id}/status", dependencies=[Depends(admin_route())]
+)
+async def admin_update_notification_status(
+    notification_id: str,
+    active: bool = Body(..., embed=True),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin),
+):
+    try:
+        notification = (
+            db.query(Notification)
+            .filter(Notification.notification_id == notification_id)
+            .first()
+        )
+
+        if not notification:
+            raise HTTPException(status_code=404, detail="通知不存在")
+
+        notification.active = active
+        notification.updated_at = datetime.now()
+
+        db.commit()
+
+        return SuccessResponse(message="更新通知状态成功")
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete(
+    "/notifications/{notification_id}", dependencies=[Depends(admin_route())]
+)
+async def admin_delete_notification(
+    notification_id: str,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin),
+):
+    try:
+        notification = (
+            db.query(Notification)
+            .filter(Notification.notification_id == notification_id)
+            .first()
+        )
+
+        if not notification:
+            raise HTTPException(status_code=404, detail="通知不存在")
+
+        db.delete(notification)
+        db.commit()
+
+        return SuccessResponse(data={"deleted": True}, message="删除通知成功")
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
