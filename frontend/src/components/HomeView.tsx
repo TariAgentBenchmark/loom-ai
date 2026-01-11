@@ -653,6 +653,24 @@ const HomeView: React.FC<HomeViewProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
             <div
               className="relative flex flex-col h-full bg-white rounded-xl md:rounded-2xl border border-gray-200 p-4 md:p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
+              onClick={() => onSelectMethod('extract_pattern')}
+            >
+              <div className="text-center mb-4 md:mb-6 flex-1">
+                <div className="flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-xl md:rounded-2xl bg-gradient-to-br from-rose-50 to-pink-50 shadow-lg mx-auto mb-3 md:mb-4 group-hover:shadow-xl transition-all">
+                  <img src="/optimized/AI提取花型.webp" alt="提取花型" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
+                </div>
+                <h4 className="text-lg md:text-xl font-bold text-gray-900 mb-2 md:mb-3">AI提取花型</h4>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  自动提取图案并赋予高清增强效果，帮助您快速获取可用的花型素材。
+                </p>
+              </div>
+              <div className="mt-auto bg-gradient-to-r from-rose-500 to-pink-500 text-white py-2 px-4 md:py-3 md:px-6 rounded-lg md:rounded-xl text-center font-medium hover:from-rose-600 hover:to-pink-600 transition-all">
+                立即使用
+              </div>
+            </div>
+
+            <div
+              className="relative flex flex-col h-full bg-white rounded-xl md:rounded-2xl border border-gray-200 p-4 md:p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
               onClick={() => onSelectMethod('prompt_edit')}
             >
               <div className="text-center mb-4 md:mb-6 flex-1">
@@ -683,24 +701,6 @@ const HomeView: React.FC<HomeViewProps> = ({
                 </p>
               </div>
               <div className="mt-auto bg-gradient-to-r from-purple-500 to-pink-500 text-white py-2 px-4 md:py-3 md:px-6 rounded-lg md:rounded-xl text-center font-medium hover:from-purple-600 hover:to-pink-600 transition-all">
-                立即使用
-              </div>
-            </div>
-
-            <div
-              className="relative flex flex-col h-full bg-white rounded-xl md:rounded-2xl border border-gray-200 p-4 md:p-8 hover:shadow-xl transition-all hover:scale-105 cursor-pointer group"
-              onClick={() => onSelectMethod('extract_pattern')}
-            >
-              <div className="text-center mb-4 md:mb-6 flex-1">
-                <div className="flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-xl md:rounded-2xl bg-gradient-to-br from-rose-50 to-pink-50 shadow-lg mx-auto mb-3 md:mb-4 group-hover:shadow-xl transition-all">
-                  <img src="/optimized/AI提取花型.webp" alt="提取花型" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
-                </div>
-                <h4 className="text-lg md:text-xl font-bold text-gray-900 mb-2 md:mb-3">AI提取花型</h4>
-                <p className="text-sm text-gray-600 leading-relaxed">
-                  自动提取图案并赋予高清增强效果，帮助您快速获取可用的花型素材。
-                </p>
-              </div>
-              <div className="mt-auto bg-gradient-to-r from-rose-500 to-pink-500 text-white py-2 px-4 md:py-3 md:px-6 rounded-lg md:rounded-xl text-center font-medium hover:from-rose-600 hover:to-pink-600 transition-all">
                 立即使用
               </div>
             </div>
