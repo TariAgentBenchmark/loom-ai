@@ -477,6 +477,13 @@ export interface ApiErrorResponse {
   };
 }
 
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
 export interface LoginPayload {
   identifier: string; // Can be either email or phone
   password: string;
