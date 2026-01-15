@@ -448,33 +448,80 @@ class AIClient:
         options: Dict[str, Any],
     ) -> str:
         ordered_results: List[str] = []
-        max_general1_results = 4
-        runninghub_workflows = [
-            {
-                "workflow_id": settings.runninghub_workflow_id_extract_general1_1,
-                "node_ids": settings.runninghub_extract_general1_node_id_1,
-                "field_name": settings.runninghub_extract_general1_field_name_1,
-                "label": "提取花型-通用1-工作流1",
-            },
-            {
-                "workflow_id": settings.runninghub_workflow_id_extract_general1_2,
-                "node_ids": settings.runninghub_extract_general1_node_id_2,
-                "field_name": settings.runninghub_extract_general1_field_name_2,
-                "label": "提取花型-通用1-工作流2",
-            },
-            {
-                "workflow_id": settings.runninghub_workflow_id_extract_general1_3,
-                "node_ids": settings.runninghub_extract_general1_node_id_3,
-                "field_name": settings.runninghub_extract_general1_field_name_3,
-                "label": "提取花型-通用1-工作流3",
-            },
-            {
-                "workflow_id": settings.runninghub_workflow_id_extract_general1_4,
-                "node_ids": settings.runninghub_extract_general1_node_id_4,
-                "field_name": settings.runninghub_extract_general1_field_name_4,
-                "label": "提取花型-通用1-工作流4",
-            },
-        ]
+
+        # 获取图片数量参数，默认为4张
+        num_images = options.get("num_images", 4)
+        if isinstance(num_images, str):
+            try:
+                num_images = int(num_images)
+            except ValueError:
+                num_images = 4
+
+        # 根据图片数量选择对应的工作流
+        if num_images == 1:
+            # 一张图模式
+            runninghub_workflows = [
+                {
+                    "workflow_id": settings.runninghub_workflow_id_extract_general1_1img,
+                    "node_ids": settings.runninghub_extract_general1_1img_node_id,
+                    "field_name": settings.runninghub_extract_general1_1img_field_name,
+                    "label": "提取花型-通用1-单图模式",
+                },
+            ]
+            max_general1_results = 1
+        elif num_images == 2:
+            # 两张图模式
+            runninghub_workflows = [
+                {
+                    "workflow_id": settings.runninghub_workflow_id_extract_general1_2img_1,
+                    "node_ids": settings.runninghub_extract_general1_2img_node_id_1,
+                    "field_name": settings.runninghub_extract_general1_2img_field_name_1,
+                    "label": "提取花型-通用1-两图模式-工作流1",
+                },
+                {
+                    "workflow_id": settings.runninghub_workflow_id_extract_general1_2img_2,
+                    "node_ids": settings.runninghub_extract_general1_2img_node_id_2,
+                    "field_name": settings.runninghub_extract_general1_2img_field_name_2,
+                    "label": "提取花型-通用1-两图模式-工作流2",
+                },
+            ]
+            max_general1_results = 2
+        else:
+            # 四张图模式（默认）
+            runninghub_workflows = [
+                {
+                    "workflow_id": settings.runninghub_workflow_id_extract_general1_1,
+                    "node_ids": settings.runninghub_extract_general1_node_id_1,
+                    "field_name": settings.runninghub_extract_general1_field_name_1,
+                    "label": "提取花型-通用1-工作流1",
+                },
+                {
+                    "workflow_id": settings.runninghub_workflow_id_extract_general1_2,
+                    "node_ids": settings.runninghub_extract_general1_node_id_2,
+                    "field_name": settings.runninghub_extract_general1_field_name_2,
+                    "label": "提取花型-通用1-工作流2",
+                },
+                {
+                    "workflow_id": settings.runninghub_workflow_id_extract_general1_3,
+                    "node_ids": settings.runninghub_extract_general1_node_id_3,
+                    "field_name": settings.runninghub_extract_general1_field_name_3,
+                    "label": "提取花型-通用1-工作流3",
+                },
+                {
+                    "workflow_id": settings.runninghub_workflow_id_extract_general1_4,
+                    "node_ids": settings.runninghub_extract_general1_node_id_4,
+                    "field_name": settings.runninghub_extract_general1_field_name_4,
+                    "label": "提取花型-通用1-工作流4",
+                },
+            ]
+            max_general1_results = 4
+
+        logger.info(
+            "Extract pattern general-1 mode: num_images=%s, max_results=%s, workflows=%s",
+            num_images,
+            max_general1_results,
+            len(runninghub_workflows),
+        )
 
         runninghub_tasks: List[Tuple[Dict[str, Any], asyncio.Task]] = []
         for workflow in runninghub_workflows:
@@ -524,9 +571,9 @@ class AIClient:
                     workflow["label"],
                     str(exc),
                 )
-            finally:
-                if len(ordered_results) >= max_general1_results:
-                    break
+
+            if len(ordered_results) >= max_general1_results:
+                break
 
         if not ordered_results:
             raise Exception("AI提取花型失败：通用1未获得结果")

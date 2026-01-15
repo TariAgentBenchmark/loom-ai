@@ -157,6 +157,7 @@ function HomeContent() {
   const [patternType, setPatternType] = useState<string>('general');
   const [denimAspectRatio, setDenimAspectRatio] = useState<string>('1:1');
   const [denimImageCount, setDenimImageCount] = useState<number>(2);
+  const [generalImageCount, setGeneralImageCount] = useState<number>(4);
   const [upscaleEngine, setUpscaleEngine] = useState<'meitu_v2' | 'runninghub_vr2'>('meitu_v2');
   const [expandRatio, setExpandRatio] = useState<string>('original');
   const [expandEdges, setExpandEdges] = useState<ExpandEdgesState>({
@@ -922,6 +923,9 @@ function HomeContent() {
         payload.aspectRatio = denimAspectRatio;
         payload.numImages = denimImageCount;
       }
+      if (patternType === 'general') {
+        payload.numImages = generalImageCount;
+      }
     }
 
     if (currentPage === 'upscale') {
@@ -1050,6 +1054,7 @@ function HomeContent() {
               setPatternType('general');
               setDenimAspectRatio('1:1');
               setDenimImageCount(2);
+              setGeneralImageCount(4);
               setUpscaleEngine('meitu_v2');
               setExpandRatio('original');
               setExpandEdges({ top: '0.00', bottom: '0.00', left: '0.00', right: '0.00' });
@@ -1083,6 +1088,8 @@ function HomeContent() {
             patternType={patternType}
             denimAspectRatio={denimAspectRatio}
             onDenimAspectRatioChange={setDenimAspectRatio}
+            generalImageCount={generalImageCount}
+            onGeneralImageCountChange={setGeneralImageCount}
             onPatternTypeChange={(value) => {
               setPatternType(value);
               if (currentPage === 'extract_pattern') {
@@ -1159,6 +1166,7 @@ function HomeContent() {
               setPatternType('general');
               setDenimAspectRatio('1:1');
               setDenimImageCount(2);
+              setGeneralImageCount(4);
             }
             if (method === 'expand_image') {
               setExpandRatio('original');

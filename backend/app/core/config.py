@@ -115,7 +115,7 @@ class Settings(BaseSettings):
     runninghub_workflow_id_similar_image: str = "1995318457082294274"
     runninghub_consistent_similar_image_node_id: str = "65"
     runninghub_consistent_similar_image_field_name: str = "image"
-    # 提取花型通用1 专用工作流（返回单张）
+    # 提取花型通用1 专用工作流（四张图模式）
     runninghub_workflow_id_extract_general1_1: str = "1991764696648855553"
     runninghub_extract_general1_node_id_1: str = "184"
     runninghub_extract_general1_field_name_1: str = "image"
@@ -128,6 +128,17 @@ class Settings(BaseSettings):
     runninghub_workflow_id_extract_general1_4: str = "2006977821494747137"
     runninghub_extract_general1_node_id_4: str = "184"
     runninghub_extract_general1_field_name_4: str = "image"
+    # 提取花型通用1 两张图模式
+    runninghub_workflow_id_extract_general1_2img_1: str = "2011803216492634113"
+    runninghub_extract_general1_2img_node_id_1: str = "184"
+    runninghub_extract_general1_2img_field_name_1: str = "image"
+    runninghub_workflow_id_extract_general1_2img_2: str = "2011803243768193026"
+    runninghub_extract_general1_2img_node_id_2: str = "184"
+    runninghub_extract_general1_2img_field_name_2: str = "image"
+    # 提取花型通用1 一张图模式
+    runninghub_workflow_id_extract_general1_1img: str = "2011803052889612290"
+    runninghub_extract_general1_1img_node_id: str = "184"
+    runninghub_extract_general1_1img_field_name: str = "image"
     # 提取花型综合模式 RunningHub 工作流（第四张，第三张改为GPT-4o）
     runninghub_workflow_id_extract_combined_3: str = "2006977645929570305"
     runninghub_workflow_id_extract_combined_4: str = "2004397396601831426"

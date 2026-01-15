@@ -184,6 +184,8 @@ interface ProcessingPageProps {
   onPatternTypeChange?: (value: string) => void;
   denimAspectRatio?: string;
   onDenimAspectRatioChange?: (value: string) => void;
+  generalImageCount?: number;
+  onGeneralImageCountChange?: (value: number) => void;
   upscaleEngine?: "meitu_v2" | "runninghub_vr2";
   onUpscaleEngineChange?: (value: "meitu_v2" | "runninghub_vr2") => void;
   expandRatio?: string;
@@ -234,6 +236,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   onPatternTypeChange,
   denimAspectRatio,
   onDenimAspectRatioChange,
+  generalImageCount = 4,
+  onGeneralImageCountChange,
   upscaleEngine,
   onUpscaleEngineChange,
   expandRatio,
@@ -295,7 +299,13 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     { value: "2:3", label: "竖版 2:3" },
     { value: "3:2", label: "横版 3:2" },
   ];
+  const generalImageCountOptions: { value: number; label: string }[] = [
+    { value: 1, label: "1张图" },
+    { value: 2, label: "2张图" },
+    { value: 4, label: "4张图" },
+  ];
   const effectivePatternType = patternType ?? "general";
+  const effectiveGeneralImageCount = generalImageCount ?? 4;
   const effectiveDenimAspectRatio = denimAspectRatio ?? "1:1";
   const selectedUpscaleOption =
     upscaleOptions.find(
@@ -960,6 +970,36 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                   );
                 })}
               </div>
+              {effectivePatternType === "general" && (
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2">
+                      出图数量
+                    </h4>
+                    <div className="grid grid-cols-3 gap-2">
+                      {generalImageCountOptions.map((option) => {
+                        const isActive =
+                          effectiveGeneralImageCount === option.value;
+                        return (
+                          <button
+                            type="button"
+                            key={option.value}
+                            onClick={() =>
+                              onGeneralImageCountChange?.(option.value)
+                            }
+                            className={`rounded-lg border px-3 py-2 text-xs md:text-sm font-medium transition ${isActive
+                              ? "border-blue-500 bg-blue-50 text-blue-600 shadow-sm"
+                              : "border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50/60"
+                              }`}
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
               {effectivePatternType === "denim" && (
                 <div className="mt-4 space-y-4">
                   <div>
