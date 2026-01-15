@@ -87,7 +87,7 @@ class Settings(BaseSettings):
     runninghub_workflow_id_positioning: str = "1986836989553094657"
     runninghub_positioning_node_id: str = "78"
     runninghub_positioning_field_name: str = "image"
-    runninghub_workflow_id_vr2: str = "1990402110812545025"
+    runninghub_workflow_id_vr2: str = "2011795668771282946"
     runninghub_vr2_node_id: str = "53"
     runninghub_vr2_field_name: str = "image"
     runninghub_workflow_id_rh_double_1480: str = "1989745217626624002"
