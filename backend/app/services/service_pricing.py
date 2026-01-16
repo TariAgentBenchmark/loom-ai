@@ -1,45 +1,83 @@
 """Service pricing helpers for variant-aware costs."""
 
+from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
+PATTERN_VARIANTS = {"general_1", "combined", "denim"}
+UPSCALE_VARIANTS = {"meitu_v2", "runninghub_vr2"}
 
-def _normalize_pattern_type(raw_value: Optional[str]) -> str:
-    """Normalize pattern type to the canonical identifiers used internally."""
-    normalized = (raw_value or "general").strip().lower().replace("-", "_")
 
-    if normalized in {"general", "general1", "general_1", "general_model"}:
+def _normalize_pattern_type(raw_value: Optional[str]) -> Optional[str]:
+    """Normalize pattern type to supported pricing variants."""
+    normalized = (raw_value or "").strip().lower().replace("-", "_")
+
+    if normalized in {"general", "general1", "general_1", "general2", "general_2", "general_model"}:
         return "general_1"
 
     if normalized in {"combined", "composite"}:
         return "combined"
 
-    if normalized.startswith("general") and normalized[-1].isdigit():
-        return f"general_{normalized[-1]}"
+    if normalized == "denim":
+        return "denim"
 
-    return normalized or "general_1"
+    return None
 
 
-def _normalize_upscale_engine(raw_value: Optional[str]) -> str:
+def _normalize_upscale_engine(raw_value: Optional[str]) -> Optional[str]:
     """Normalize upscale engine names to known identifiers."""
-    normalized = (raw_value or "meitu_v2").strip().lower()
-    if normalized not in {"meitu_v2", "runninghub_vr2"}:
+    if raw_value is None:
+        return "meitu_v2"
+    normalized = str(raw_value).strip().lower()
+    if normalized not in UPSCALE_VARIANTS:
         return "meitu_v2"
     return normalized
 
 
-def resolve_pricing_key(service_key: str, options: Optional[Dict[str, Any]] = None) -> str:
+def _split_legacy_variant_key(service_key: str) -> tuple[str, Optional[str]]:
+    if service_key.startswith("extract_pattern_"):
+        return "extract_pattern", service_key[len("extract_pattern_") :]
+    if service_key.startswith("upscale_"):
+        return "upscale", service_key[len("upscale_") :]
+    return service_key, None
+
+
+@dataclass(frozen=True)
+class PricingTarget:
+    service_key: str
+    variant_key: Optional[str]
+    pricing_key: str
+
+
+def resolve_pricing_target(
+    service_key: str, options: Optional[Dict[str, Any]] = None
+) -> PricingTarget:
     """
-    Build a pricing key that captures service variants (pattern types, upscale engines, etc).
-    Falls back to the base service key for services without variants.
+    Resolve base service key + variant key for pricing, supporting legacy composite keys.
     """
     opts = options or {}
+    base_key, legacy_variant = _split_legacy_variant_key(service_key)
+    variant_key = legacy_variant
 
-    if service_key == "extract_pattern":
-        pattern_type = _normalize_pattern_type(opts.get("pattern_type"))
-        return f"{service_key}_{pattern_type}"
+    if base_key == "extract_pattern":
+        raw_pattern = opts.get("pattern_type", legacy_variant)
+        if raw_pattern is None:
+            variant_key = "general_1"
+        else:
+            variant_key = _normalize_pattern_type(raw_pattern)
 
-    if service_key == "upscale":
-        engine = _normalize_upscale_engine(opts.get("engine") or opts.get("upscale_engine"))
-        return f"{service_key}_{engine}"
+    if base_key == "upscale":
+        raw_engine = opts.get("engine") or opts.get("upscale_engine") or legacy_variant
+        variant_key = _normalize_upscale_engine(raw_engine)
 
-    return service_key
+    if variant_key and base_key == "extract_pattern" and variant_key not in PATTERN_VARIANTS:
+        variant_key = None
+    if variant_key and base_key == "upscale" and variant_key not in UPSCALE_VARIANTS:
+        variant_key = None
+
+    pricing_key = f"{base_key}_{variant_key}" if variant_key else base_key
+    return PricingTarget(base_key, variant_key, pricing_key)
+
+
+def resolve_pricing_key(service_key: str, options: Optional[Dict[str, Any]] = None) -> str:
+    """Return a legacy composite pricing key string for logging/debugging."""
+    return resolve_pricing_target(service_key, options).pricing_key

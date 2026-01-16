@@ -13,7 +13,6 @@ from app.services.credit_math import to_decimal, to_float
 from app.services.file_service import FileService
 from app.services.membership_service import MembershipService
 from app.services.processing_service import ProcessingService
-from app.services.service_pricing import resolve_pricing_key
 
 logger = logging.getLogger(__name__)
 

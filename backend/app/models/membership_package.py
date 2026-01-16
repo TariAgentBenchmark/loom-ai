@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, JSON, Float, Numeric
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, JSON, Float, Numeric, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from enum import Enum as PyEnum
@@ -101,6 +101,33 @@ class ServicePrice(Base):
 
     def __repr__(self):
         return f"<ServicePrice(id={self.id}, service_name={self.service_name}, price={self.price_credits}积分)>"
+
+
+class ServicePriceVariant(Base):
+    """服务子模式价格模型"""
+    __tablename__ = "service_price_variants"
+    __table_args__ = (
+        UniqueConstraint("parent_service_key", "variant_key", name="uq_service_variant"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    parent_service_key = Column(String(50), index=True, nullable=False)
+    variant_key = Column(String(50), nullable=False)
+
+    variant_name = Column(String(100), nullable=False)
+    description = Column(Text, nullable=True)
+
+    price_credits = Column(Numeric(18, 2), nullable=True)
+    active = Column(Boolean, default=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    def __repr__(self):
+        return (
+            "<ServicePriceVariant(id=%s, parent=%s, variant=%s, price=%s积分)>"
+            % (self.id, self.parent_service_key, self.variant_key, self.price_credits)
+        )
 
 
 class UserMembership(Base):

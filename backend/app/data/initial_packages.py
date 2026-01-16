@@ -160,48 +160,6 @@ SERVICE_PRICES = [
         "price_credits": 1.5,
     },
     {
-        "service_id": "extract_pattern_general_1",
-        "service_name": "提取花型-通用模型",
-        "service_key": "extract_pattern_general_1",
-        "description": "AI提取花型（通用模型，多结果）",
-        "price_credits": 1.5,
-    },
-    {
-        "service_id": "extract_pattern_combined",
-        "service_name": "提取花型-综合模型",
-        "service_key": "extract_pattern_combined",
-        "description": "AI提取花型（综合模型，并行多模型输出3图）",
-        "price_credits": 1.5,
-    },
-    {
-        "service_id": "extract_pattern_general_2",
-        "service_name": "提取花型-通用2",
-        "service_key": "extract_pattern_general_2",
-        "description": "AI提取花型（通用2，首图高清）",
-        "price_credits": 1.5,
-    },
-    {
-        "service_id": "extract_pattern_positioning",
-        "service_name": "提取花型-线条/矢量",
-        "service_key": "extract_pattern_positioning",
-        "description": "AI提取花型（线条/矢量）",
-        "price_credits": 1.5,
-    },
-    {
-        "service_id": "extract_pattern_fine",
-        "service_name": "提取花型-烫画/胸前花",
-        "service_key": "extract_pattern_fine",
-        "description": "AI提取花型（烫画/胸前花，多图）",
-        "price_credits": 1.5,
-    },
-    {
-        "service_id": "extract_pattern_denim",
-        "service_name": "提取花型-牛仔风格",
-        "service_key": "extract_pattern_denim",
-        "description": "AI提取花型（牛仔风格专用）",
-        "price_credits": 1.5,
-    },
-    {
         "service_id": "watermark_removal",
         "service_name": "去水印",
         "service_key": "watermark_removal",
@@ -237,20 +195,6 @@ SERVICE_PRICES = [
         "price_credits": 0.9,
     },
     {
-        "service_id": "upscale_meitu_v2",
-        "service_name": "AI高清-美图v2",
-        "service_key": "upscale_meitu_v2",
-        "description": "AI高清（美图v2算法）",
-        "price_credits": 0.9,
-    },
-    {
-        "service_id": "upscale_runninghub_vr2",
-        "service_name": "AI高清-通用2",
-        "service_key": "upscale_runninghub_vr2",
-        "description": "AI高清（通用2算法）",
-        "price_credits": 0.9,
-    },
-    {
         "service_id": "expand_image",
         "service_name": "扩图",
         "service_key": "expand_image",
@@ -263,6 +207,40 @@ SERVICE_PRICES = [
         "service_key": "seamless_loop",
         "description": "AI接循环",
         "price_credits": 1.0,
+    },
+]
+
+# 服务子模式价格配置（继承主功能价格时可省略 price_credits）
+SERVICE_PRICE_VARIANTS = [
+    {
+        "parent_service_key": "extract_pattern",
+        "variant_key": "general_1",
+        "variant_name": "通用模型",
+        "description": "AI提取花型（通用模型，多结果）",
+    },
+    {
+        "parent_service_key": "extract_pattern",
+        "variant_key": "combined",
+        "variant_name": "综合模型",
+        "description": "AI提取花型（综合模型，并行多模型输出3图）",
+    },
+    {
+        "parent_service_key": "extract_pattern",
+        "variant_key": "denim",
+        "variant_name": "牛仔风格专用",
+        "description": "AI提取花型（牛仔风格专用）",
+    },
+    {
+        "parent_service_key": "upscale",
+        "variant_key": "meitu_v2",
+        "variant_name": "美图v2",
+        "description": "AI高清（美图v2算法）",
+    },
+    {
+        "parent_service_key": "upscale",
+        "variant_key": "runninghub_vr2",
+        "variant_name": "通用2",
+        "description": "AI高清（通用2算法）",
     },
 ]
 
@@ -291,6 +269,11 @@ def get_discount_packages():
 def get_service_prices():
     """获取服务价格"""
     return SERVICE_PRICES
+
+
+def get_service_price_variants():
+    """获取服务子模式价格"""
+    return SERVICE_PRICE_VARIANTS
 
 
 def get_new_user_bonus():

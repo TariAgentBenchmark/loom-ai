@@ -190,6 +190,19 @@ class CreditAdjustmentRequest(BaseModel):
     sendNotification: bool = Field(True, description="Send notification to user")
 
 
+class AdminServiceVariantResponse(BaseModel):
+    id: int
+    variantKey: str
+    variantName: str
+    description: Optional[str]
+    priceCredits: Optional[float]
+    effectivePriceCredits: float
+    inheritsPrice: bool
+    active: bool
+    createdAt: Optional[str]
+    updatedAt: Optional[str]
+
+
 class AdminServicePriceResponse(BaseModel):
     serviceId: str
     serviceKey: str
@@ -199,6 +212,7 @@ class AdminServicePriceResponse(BaseModel):
     active: bool
     createdAt: Optional[str]
     updatedAt: Optional[str]
+    variants: List[AdminServiceVariantResponse] = []
 
 
 class AdminServicePriceListResponse(BaseModel):
@@ -212,6 +226,18 @@ class AdminServicePriceUpdateRequest(BaseModel):
     )
     description: Optional[str] = Field(None, description="Service description")
     active: Optional[bool] = Field(None, description="Whether the service is active")
+
+
+class AdminServiceVariantUpdateRequest(BaseModel):
+    priceCredits: Optional[condecimal(max_digits=12, decimal_places=2, ge=0)] = None
+    inheritPrice: Optional[bool] = Field(
+        None, description="Whether the variant inherits the parent price"
+    )
+    variantName: Optional[str] = Field(
+        None, max_length=100, description="Updated display name for the variant"
+    )
+    description: Optional[str] = Field(None, description="Variant description")
+    active: Optional[bool] = Field(None, description="Whether the variant is active")
 
 
 # Order Management Models
@@ -1370,23 +1396,40 @@ async def get_service_prices_admin(
     """获取所有功能的积分价格（管理员专用）"""
     try:
         membership_service = MembershipService()
-        services = await membership_service.get_service_prices(
+        service_groups = await membership_service.get_service_price_groups(
             db=db, include_inactive=include_inactive
         )
 
-        service_items = [
-            AdminServicePriceResponse(
-                serviceId=item["service_id"],
-                serviceKey=item["service_key"],
-                serviceName=item["service_name"],
-                description=item.get("description"),
-                priceCredits=item["price_credits"],
-                active=item["active"],
-                createdAt=item.get("created_at"),
-                updatedAt=item.get("updated_at"),
+        service_items = []
+        for item in service_groups:
+            variants = [
+                AdminServiceVariantResponse(
+                    id=variant["id"],
+                    variantKey=variant["variant_key"],
+                    variantName=variant["variant_name"],
+                    description=variant.get("description"),
+                    priceCredits=variant.get("price_credits"),
+                    effectivePriceCredits=variant["effective_price_credits"],
+                    inheritsPrice=variant["inherits_price"],
+                    active=variant["active"],
+                    createdAt=variant.get("created_at"),
+                    updatedAt=variant.get("updated_at"),
+                )
+                for variant in item.get("variants", [])
+            ]
+            service_items.append(
+                AdminServicePriceResponse(
+                    serviceId=item["service_id"],
+                    serviceKey=item["service_key"],
+                    serviceName=item["service_name"],
+                    description=item.get("description"),
+                    priceCredits=item["price_credits"],
+                    active=item["active"],
+                    createdAt=item.get("created_at"),
+                    updatedAt=item.get("updated_at"),
+                    variants=variants,
+                )
             )
-            for item in services
-        ]
 
         await log_admin_action(
             db=db,
@@ -1429,6 +1472,28 @@ async def update_service_price_admin(
         )
 
         service_data_raw = update_result["service"]
+        grouped = await membership_service.get_service_price_groups(
+            db=db, include_inactive=True
+        )
+        matched_group = next(
+            (item for item in grouped if item["service_key"] == service_key),
+            None,
+        )
+        variants = [
+            AdminServiceVariantResponse(
+                id=variant["id"],
+                variantKey=variant["variant_key"],
+                variantName=variant["variant_name"],
+                description=variant.get("description"),
+                priceCredits=variant.get("price_credits"),
+                effectivePriceCredits=variant["effective_price_credits"],
+                inheritsPrice=variant["inherits_price"],
+                active=variant["active"],
+                createdAt=variant.get("created_at"),
+                updatedAt=variant.get("updated_at"),
+            )
+            for variant in (matched_group or {}).get("variants", [])
+        ]
         service_data = AdminServicePriceResponse(
             serviceId=service_data_raw["service_id"],
             serviceKey=service_data_raw["service_key"],
@@ -1438,6 +1503,7 @@ async def update_service_price_admin(
             active=service_data_raw["active"],
             createdAt=service_data_raw.get("created_at"),
             updatedAt=service_data_raw.get("updated_at"),
+            variants=variants,
         )
 
         await log_admin_action(
@@ -1465,6 +1531,84 @@ async def update_service_price_admin(
 
     except ValueError:
         raise HTTPException(status_code=404, detail="服务不存在")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put(
+    "/service-prices/{service_key}/variants/{variant_key}",
+    dependencies=[Depends(admin_route())],
+)
+async def update_service_variant_price_admin(
+    service_key: str,
+    variant_key: str,
+    update_request: AdminServiceVariantUpdateRequest,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin),
+):
+    """更新指定功能子模式的积分价格（管理员专用）"""
+    try:
+        if update_request.inheritPrice is False and update_request.priceCredits is None:
+            raise HTTPException(status_code=400, detail="请输入有效的积分价格")
+
+        membership_service = MembershipService()
+        update_result = await membership_service.update_service_variant_price(
+            db=db,
+            parent_service_key=service_key,
+            variant_key=variant_key,
+            price_credits=update_request.priceCredits,
+            inherit_price=update_request.inheritPrice,
+            variant_name=update_request.variantName,
+            description=update_request.description,
+            active=update_request.active,
+        )
+
+        variant_raw = update_result["variant"]
+        variant_data = AdminServiceVariantResponse(
+            id=variant_raw["id"],
+            variantKey=variant_raw["variant_key"],
+            variantName=variant_raw["variant_name"],
+            description=variant_raw.get("description"),
+            priceCredits=variant_raw.get("price_credits"),
+            effectivePriceCredits=variant_raw["effective_price_credits"],
+            inheritsPrice=variant_raw["inherits_price"],
+            active=variant_raw["active"],
+            createdAt=variant_raw.get("created_at"),
+            updatedAt=variant_raw.get("updated_at"),
+        )
+
+        await log_admin_action(
+            db=db,
+            admin=current_admin,
+            action="update_service_variant_price",
+            target_type="service_price_variant",
+            target_id=f"{service_key}:{variant_key}",
+            details={
+                "changes": update_result.get("changes", {}),
+                "priceCredits": update_request.priceCredits,
+                "inheritPrice": update_request.inheritPrice,
+                "variantName": update_request.variantName,
+                "active": update_request.active,
+            },
+        )
+
+        return SuccessResponse(
+            data={
+                "variant": variant_data.dict(),
+                "changes": update_result.get("changes", {}),
+                "updated": update_result.get("updated", False),
+            },
+            message="子模式价格更新成功",
+        )
+
+    except ValueError as exc:
+        if str(exc) == "VARIANT_NOT_FOUND":
+            raise HTTPException(status_code=404, detail="子模式不存在")
+        if str(exc) == "SERVICE_NOT_FOUND":
+            raise HTTPException(status_code=404, detail="服务不存在")
+        raise HTTPException(status_code=400, detail="更新子模式失败")
     except HTTPException:
         raise
     except Exception as e:

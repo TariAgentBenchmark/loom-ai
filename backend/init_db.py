@@ -13,12 +13,18 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from app.core.database import init_db, SessionLocal
 from app.models.user import User, MembershipType, UserStatus
 from app.models.payment import Package
-from app.models.membership_package import ServicePrice, MembershipPackage, NewUserBonus
+from app.models.membership_package import (
+    ServicePrice,
+    ServicePriceVariant,
+    MembershipPackage,
+    NewUserBonus,
+)
 from app.services.auth_service import AuthService
 from app.services.membership_service import MembershipService
 from app.data.initial_packages import (
     get_all_packages,
     get_service_prices,
+    get_service_price_variants,
     get_new_user_bonus,
 )
 import logging
@@ -176,15 +182,27 @@ def create_membership_data():
                 db.add(ServicePrice(**service_data))
                 added_services += 1
 
+        existing_variant_keys = {
+            (row.parent_service_key, row.variant_key)
+            for row in db.query(ServicePriceVariant).all()
+        }
+        added_variants = 0
+        for variant_data in get_service_price_variants():
+            key = (variant_data["parent_service_key"], variant_data["variant_key"])
+            if key not in existing_variant_keys:
+                db.add(ServicePriceVariant(**variant_data))
+                added_variants += 1
+
         if not db.query(NewUserBonus).first():
             db.add(NewUserBonus(**get_new_user_bonus()))
 
-        if added_packages or added_services:
+        if added_packages or added_services or added_variants:
             db.commit()
             logger.info(
-                "✅ 会员套餐/服务价格数据补齐完成 (套餐新增 %s, 服务新增 %s)",
+                "✅ 会员套餐/服务价格数据补齐完成 (套餐新增 %s, 服务新增 %s, 子模式新增 %s)",
                 added_packages,
                 added_services,
+                added_variants,
             )
         else:
             logger.info("会员套餐/服务价格数据已存在，跳过创建")
