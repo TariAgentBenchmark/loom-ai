@@ -185,20 +185,27 @@ const normalizePatternTypeForPricing = (value?: string) => {
     .toLowerCase()
     .replace(/-/g, "_");
 
-  if (["general", "general1", "general_1", "general_model"].includes(normalized)) {
+  if (
+    [
+      "general",
+      "general1",
+      "general_1",
+      "general2",
+      "general_2",
+      "general_model",
+    ].includes(normalized)
+  ) {
     return "general_1";
   }
 
   if (normalized === "combined" || normalized === "composite") {
     return "combined";
   }
-
-  const generalMatch = normalized.match(/^general_?(\d)$/);
-  if (generalMatch) {
-    return `general_${generalMatch[1]}`;
+  if (normalized === "denim") {
+    return "denim";
   }
 
-  return normalized || "general_1";
+  return "general_1";
 };
 
 export const resolvePricingServiceKey = (

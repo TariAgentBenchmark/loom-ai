@@ -1282,6 +1282,19 @@ export interface AdminDashboardStats {
   }>;
 }
 
+export interface AdminServiceVariant {
+  id: number;
+  variantKey: string;
+  variantName: string;
+  description?: string | null;
+  priceCredits?: number | null;
+  effectivePriceCredits: number;
+  inheritsPrice: boolean;
+  active: boolean;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
 export interface AdminServicePrice {
   serviceId: string;
   serviceKey: string;
@@ -1291,6 +1304,7 @@ export interface AdminServicePrice {
   active: boolean;
   createdAt?: string | null;
   updatedAt?: string | null;
+  variants: AdminServiceVariant[];
 }
 
 export interface AdminServicePriceList {
@@ -1299,6 +1313,12 @@ export interface AdminServicePriceList {
 
 export interface AdminServicePriceUpdateResult {
   service: AdminServicePrice;
+  changes: Record<string, unknown>;
+  updated: boolean;
+}
+
+export interface AdminServiceVariantUpdateResult {
+  variant: AdminServiceVariant;
   changes: Record<string, unknown>;
   updated: boolean;
 }
@@ -1709,6 +1729,33 @@ export const adminUpdateServicePrice = (
       active?: boolean;
     }
   >(`/admin/service-prices/${serviceKey}`, payload, accessToken);
+
+export const adminUpdateServiceVariantPrice = (
+  serviceKey: string,
+  variantKey: string,
+  payload: {
+    priceCredits?: number | null;
+    inheritPrice?: boolean;
+    variantName?: string;
+    description?: string;
+    active?: boolean;
+  },
+  accessToken: string,
+) =>
+  putJson<
+    AdminServiceVariantUpdateResult,
+    {
+      priceCredits?: number | null;
+      inheritPrice?: boolean;
+      variantName?: string;
+      description?: string;
+      active?: boolean;
+    }
+  >(
+    `/admin/service-prices/${serviceKey}/variants/${variantKey}`,
+    payload,
+    accessToken,
+  );
 
 export const adminGetDashboardStats = (accessToken: string) =>
   getJson<AdminDashboardStats>("/admin/dashboard/stats", accessToken);
@@ -2248,4 +2295,3 @@ export const markNotificationRead = (
 
 export const markAllNotificationsRead = (accessToken: string) =>
   putJson<any, {}>("/notifications/mark-all-read", {}, accessToken);
-
