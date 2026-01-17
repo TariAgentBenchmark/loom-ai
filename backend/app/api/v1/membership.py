@@ -146,6 +146,7 @@ async def get_service_cost(
     service_key: str,
     quantity: int = 1,
     pattern_type: str = None,
+    num_images: int = None,
     upscale_engine: str = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -155,6 +156,8 @@ async def get_service_cost(
     options = {}
     if pattern_type:
         options["pattern_type"] = pattern_type
+    if num_images is not None:
+        options["num_images"] = num_images
     if upscale_engine:
         options["engine"] = upscale_engine
 
@@ -176,6 +179,7 @@ async def can_afford_service(
     service_key: str,
     quantity: int = 1,
     pattern_type: str = None,
+    num_images: int = None,
     upscale_engine: str = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -185,6 +189,8 @@ async def can_afford_service(
     options = {}
     if pattern_type:
         options["pattern_type"] = pattern_type
+    if num_images is not None:
+        options["num_images"] = num_images
     if upscale_engine:
         options["engine"] = upscale_engine
 

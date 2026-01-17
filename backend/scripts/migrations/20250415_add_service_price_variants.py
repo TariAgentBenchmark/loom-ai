@@ -30,6 +30,7 @@ from app.core.config import settings
 
 
 SKIP_PATTERN_VARIANTS = {"general_2", "positioning", "fine"}
+GENERAL_4IMG_KEY = "general_1_4img"
 
 
 def get_engine() -> Engine:
@@ -110,6 +111,59 @@ def main() -> None:
         ).fetchall()
         existing_keys = {(row[0], row[1]) for row in existing_variants}
 
+        if ("extract_pattern", "general_1") in existing_keys:
+            if ("extract_pattern", GENERAL_4IMG_KEY) not in existing_keys:
+                conn.execute(
+                    text(
+                        """
+                        UPDATE service_price_variants
+                        SET variant_key = :new_key,
+                            variant_name = CASE
+                                WHEN variant_name IS NULL OR variant_name = '' OR variant_name = '通用模型' THEN :new_name
+                                ELSE variant_name
+                            END,
+                            description = CASE
+                                WHEN description IS NULL OR description = '' OR description LIKE '%通用模型%' THEN :new_desc
+                                ELSE description
+                            END
+                        WHERE parent_service_key = 'extract_pattern'
+                          AND variant_key = 'general_1'
+                        """
+                    ),
+                    {
+                        "new_key": GENERAL_4IMG_KEY,
+                        "new_name": "通用模型-4张图",
+                        "new_desc": "AI提取花型（通用模型，输出4张图）",
+                    },
+                )
+                existing_keys.discard(("extract_pattern", "general_1"))
+                existing_keys.add(("extract_pattern", GENERAL_4IMG_KEY))
+            else:
+                conn.execute(
+                    text(
+                        """
+                        UPDATE service_price_variants AS target
+                        SET price_credits = COALESCE(target.price_credits, source.price_credits)
+                        FROM service_price_variants AS source
+                        WHERE target.parent_service_key = 'extract_pattern'
+                          AND target.variant_key = :new_key
+                          AND source.parent_service_key = 'extract_pattern'
+                          AND source.variant_key = 'general_1'
+                        """
+                    ),
+                    {"new_key": GENERAL_4IMG_KEY},
+                )
+                conn.execute(
+                    text(
+                        """
+                        DELETE FROM service_price_variants
+                        WHERE parent_service_key = 'extract_pattern'
+                          AND variant_key = 'general_1'
+                        """
+                    )
+                )
+                existing_keys.discard(("extract_pattern", "general_1"))
+
         legacy_rows = conn.execute(
             text(
                 """
@@ -130,6 +184,9 @@ def main() -> None:
             if parent_key == "extract_pattern" and variant_key in SKIP_PATTERN_VARIANTS:
                 skipped += 1
                 continue
+
+            if parent_key == "extract_pattern" and variant_key == "general_1":
+                variant_key = GENERAL_4IMG_KEY
 
             key = (parent_key, variant_key)
             if key in existing_keys:

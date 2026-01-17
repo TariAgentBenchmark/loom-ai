@@ -214,9 +214,23 @@ SERVICE_PRICES = [
 SERVICE_PRICE_VARIANTS = [
     {
         "parent_service_key": "extract_pattern",
-        "variant_key": "general_1",
-        "variant_name": "通用模型",
-        "description": "AI提取花型（通用模型，多结果）",
+        "variant_key": "general_1_1img",
+        "variant_name": "通用模型-1张图",
+        "description": "AI提取花型（通用模型，输出1张图）",
+        "price_credits": 0.4,
+    },
+    {
+        "parent_service_key": "extract_pattern",
+        "variant_key": "general_1_2img",
+        "variant_name": "通用模型-2张图",
+        "description": "AI提取花型（通用模型，输出2张图）",
+        "price_credits": 0.75,
+    },
+    {
+        "parent_service_key": "extract_pattern",
+        "variant_key": "general_1_4img",
+        "variant_name": "通用模型-4张图",
+        "description": "AI提取花型（通用模型，输出4张图）",
     },
     {
         "parent_service_key": "extract_pattern",

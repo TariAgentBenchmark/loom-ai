@@ -122,6 +122,35 @@ class MembershipService:
                 db.add(ServicePrice(**config))
 
         if variant_configs:
+            general_variant = (
+                db.query(ServicePriceVariant)
+                .filter(
+                    ServicePriceVariant.parent_service_key == "extract_pattern",
+                    ServicePriceVariant.variant_key == "general_1",
+                )
+                .first()
+            )
+            general_4_variant = (
+                db.query(ServicePriceVariant)
+                .filter(
+                    ServicePriceVariant.parent_service_key == "extract_pattern",
+                    ServicePriceVariant.variant_key == "general_1_4img",
+                )
+                .first()
+            )
+            if general_variant and not general_4_variant:
+                general_variant.variant_key = "general_1_4img"
+                if not general_variant.variant_name or general_variant.variant_name == "通用模型":
+                    general_variant.variant_name = "通用模型-4张图"
+                if not general_variant.description or "通用模型" in general_variant.description:
+                    general_variant.description = "AI提取花型（通用模型，输出4张图）"
+                db.commit()
+            elif general_variant and general_4_variant:
+                if general_4_variant.price_credits is None:
+                    general_4_variant.price_credits = general_variant.price_credits
+                db.delete(general_variant)
+                db.commit()
+
             keys_to_check = [
                 (cfg["parent_service_key"], cfg["variant_key"])
                 for cfg in variant_configs
