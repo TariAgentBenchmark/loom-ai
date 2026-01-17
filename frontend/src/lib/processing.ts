@@ -208,12 +208,23 @@ const normalizePatternTypeForPricing = (value?: string) => {
   return "general_1";
 };
 
+const normalizeGeneralImageCount = (value?: number) => {
+  if (value === 1 || value === 2 || value === 4) {
+    return value;
+  }
+  return 4;
+};
+
 export const resolvePricingServiceKey = (
   method: ProcessingMethod,
-  options?: { patternType?: string; upscaleEngine?: string },
+  options?: { patternType?: string; upscaleEngine?: string; numImages?: number },
 ) => {
   if (method === "extract_pattern") {
     const patternType = normalizePatternTypeForPricing(options?.patternType);
+    if (patternType === "general_1") {
+      const count = normalizeGeneralImageCount(options?.numImages);
+      return `extract_pattern_general_1_${count}img`;
+    }
     return `extract_pattern_${patternType}`;
   }
 

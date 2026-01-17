@@ -78,8 +78,11 @@ export default function BatchProcessingWrapper({
 
         const fetchPrice = async () => {
             let resolvedCost: number | null = null;
+            const numImages =
+                method === 'extract_pattern' && patternType === 'general' ? 4 : undefined;
             const pricingKey = resolvePricingServiceKey(method, {
                 patternType,
+                numImages,
                 upscaleEngine,
             });
 
@@ -87,6 +90,7 @@ export default function BatchProcessingWrapper({
                 try {
                     const response = await getServiceCost(pricingKey, accessToken, 1, {
                         patternType,
+                        numImages,
                         upscaleEngine,
                     });
                     resolvedCost = response.unit_cost ?? response.total_cost ?? null;

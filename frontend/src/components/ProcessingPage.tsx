@@ -379,15 +379,21 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
 
     const fetchPrice = async () => {
       let resolvedCost: number | null = null;
+      const numImages =
+        method === "extract_pattern" && patternType === "general"
+          ? effectiveGeneralImageCount
+          : undefined;
       const pricingKey = resolvePricingServiceKey(method, {
         patternType,
         upscaleEngine,
+        numImages,
       });
 
       if (accessToken) {
         try {
           const response = await getServiceCost(pricingKey, accessToken, 1, {
             patternType,
+            numImages,
             upscaleEngine,
           });
           resolvedCost = response.unit_cost ?? response.total_cost ?? null;
@@ -421,7 +427,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [method, accessToken, patternType, upscaleEngine]);
+  }, [method, accessToken, patternType, upscaleEngine, effectiveGeneralImageCount]);
 
   useEffect(() => {
     setSelectedResultIndex(0);

@@ -622,6 +622,7 @@ export interface ServiceCostResponse {
 
 export interface ServiceCostQueryOptions {
   patternType?: string;
+  numImages?: number;
   upscaleEngine?: string;
 }
 
@@ -897,6 +898,9 @@ export const getServiceCost = async (
 
   if (options?.patternType) {
     params.append("pattern_type", options.patternType);
+  }
+  if (typeof options?.numImages === "number" && Number.isFinite(options.numImages)) {
+    params.append("num_images", options.numImages.toString());
   }
   if (options?.upscaleEngine) {
     params.append("upscale_engine", options.upscaleEngine);
