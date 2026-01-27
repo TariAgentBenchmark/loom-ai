@@ -7,7 +7,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import and_, or_, func, desc, text
+from sqlalchemy import and_, or_, func, desc, text, inspect
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, EmailStr, condecimal
 from datetime import datetime, timedelta
@@ -32,6 +32,7 @@ from app.models.payment import (
     Package,
 )
 from app.models.task import Task, TaskStatus
+from app.models.task_log import TaskLog
 from app.models.agent import (
     Agent,
     InvitationCode,
@@ -180,6 +181,31 @@ class AdminUserTaskListResponse(BaseModel):
     tasks: List[AdminUserTaskResponse]
     pagination: PaginationMeta
     summary: Optional[Dict[str, Any]] = None
+
+
+class AdminTaskLogResponse(BaseModel):
+    id: int
+    level: str
+    event: str
+    message: str
+    details: Optional[Dict[str, Any]] = None
+    createdAt: Optional[str] = None
+
+
+class AdminTaskLogListResponse(BaseModel):
+    logs: List[AdminTaskLogResponse]
+    pagination: PaginationMeta
+    summary: Optional[Dict[str, Any]] = None
+
+
+class AdminTaskDetailResponse(AdminUserTaskResponse):
+    user: Optional[Dict[str, Any]] = None
+    options: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = None
+    processingTime: Optional[int] = None
+    startedAt: Optional[str] = None
+    batchId: Optional[int] = None
+    logCount: int = 0
 
 
 class CreditAdjustmentRequest(BaseModel):
@@ -625,6 +651,31 @@ def _normalize_agent_commission_mode_db(db: Session) -> None:
     db.commit()
 
 
+def _isoformat(dt: Optional[datetime]) -> Optional[str]:
+    if not dt:
+        return None
+    return dt.isoformat()
+
+
+def _task_logs_available(db: Session) -> bool:
+    try:
+        inspector = inspect(db.bind)
+        return inspector.has_table("task_logs")
+    except Exception:
+        return False
+
+
+def _format_task_log(log: TaskLog) -> AdminTaskLogResponse:
+    return AdminTaskLogResponse(
+        id=log.id,
+        level=log.level,
+        event=log.event,
+        message=log.message,
+        details=log.details,
+        createdAt=_isoformat(log.created_at),
+    )
+
+
 async def _format_admin_task(task: Task) -> AdminUserTaskResponse:
     from app.services.file_service import FileService
 
@@ -674,8 +725,8 @@ async def _format_admin_task(task: Task) -> AdminUserTaskResponse:
         typeName=task.type_name,
         status=task.status,
         creditsUsed=credits_used_value,
-        createdAt=task.created_at.isoformat() if task.created_at else None,
-        completedAt=task.completed_at.isoformat() if task.completed_at else None,
+        createdAt=_isoformat(task.created_at),
+        completedAt=_isoformat(task.completed_at),
         originalFilename=task.original_filename,
         resultFilename=task.result_filename,
         originalImage=original_image,
@@ -4037,6 +4088,122 @@ async def get_all_tasks(
                 },
             },
             message="获取任务列表成功",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/tasks/{task_id}", dependencies=[Depends(admin_route())])
+async def get_task_detail_admin(
+    task_id: str,
+    db: Session = Depends(get_db),
+):
+    """获取单个任务详情（管理员专用）"""
+    try:
+        task = db.query(Task).filter(Task.task_id == task_id).first()
+        if not task:
+            raise HTTPException(status_code=404, detail="任务不存在")
+
+        base = await _format_admin_task(task)
+        payload = base.model_dump()
+
+        if task.user:
+            payload["user"] = {
+                "userId": task.user.user_id,
+                "email": task.user.email,
+                "nickname": task.user.nickname,
+            }
+
+        log_count = 0
+        if _task_logs_available(db):
+            log_count = (
+                db.query(func.count(TaskLog.id))
+                .filter(TaskLog.task_id == task.id)
+                .scalar()
+                or 0
+            )
+
+        payload.update(
+            {
+                "options": task.options,
+                "metadata": task.extra_metadata,
+                "processingTime": task.processing_time,
+                "startedAt": _isoformat(task.started_at),
+                "batchId": task.batch_id,
+                "logCount": int(log_count),
+            }
+        )
+
+        response_model = AdminTaskDetailResponse(**payload)
+        return SuccessResponse(
+            data=response_model.model_dump(by_alias=True),
+            message="获取任务详情成功",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/tasks/{task_id}/logs", dependencies=[Depends(admin_route())])
+async def get_task_logs_admin(
+    task_id: str,
+    page: int = Query(1, ge=1),
+    limit: int = Query(200, ge=1, le=1000),
+    level: Optional[str] = Query(None, description="日志等级过滤"),
+    db: Session = Depends(get_db),
+):
+    """获取任务日志（管理员专用）"""
+    try:
+        task = db.query(Task).filter(Task.task_id == task_id).first()
+        if not task:
+            raise HTTPException(status_code=404, detail="任务不存在")
+
+        if not _task_logs_available(db):
+            empty = AdminTaskLogListResponse(
+                logs=[],
+                pagination=PaginationMeta(page=page, limit=limit, total=0, total_pages=0),
+                summary={
+                    "totalLogs": 0,
+                    "logsAvailable": False,
+                },
+            )
+            return SuccessResponse(
+                data=empty.model_dump(by_alias=True),
+                message="任务日志表尚未初始化",
+            )
+
+        query = db.query(TaskLog).filter(TaskLog.task_id == task.id)
+        if level:
+            query = query.filter(TaskLog.level == level.lower())
+
+        total = query.count()
+        logs = (
+            query.order_by(TaskLog.created_at.asc(), TaskLog.id.asc())
+            .offset((page - 1) * limit)
+            .limit(limit)
+            .all()
+        )
+
+        response_model = AdminTaskLogListResponse(
+            logs=[_format_task_log(log) for log in logs],
+            pagination=PaginationMeta(
+                page=page,
+                limit=limit,
+                total=total,
+                total_pages=(total + limit - 1) // limit if total else 0,
+            ),
+            summary={
+                "totalLogs": total,
+                "logsAvailable": True,
+                "level": level.lower() if level else None,
+            },
+        )
+        return SuccessResponse(
+            data=response_model.model_dump(by_alias=True),
+            message="获取任务日志成功",
         )
     except HTTPException:
         raise

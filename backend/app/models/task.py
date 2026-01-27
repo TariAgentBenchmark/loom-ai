@@ -82,6 +82,7 @@ class Task(Base):
     user = relationship("User", back_populates="tasks")
     batch_task = relationship("BatchTask", back_populates="tasks")
     shares = relationship("TaskShare", back_populates="task", cascade="all, delete-orphan")
+    logs = relationship("TaskLog", back_populates="task", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Task(id={self.id}, task_id={self.task_id}, type={self.type}, status={self.status})>"

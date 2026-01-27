@@ -4,7 +4,18 @@ import React, { useState, useEffect } from "react";
 import { useAdminIsAuthenticated, useAdminAccessToken } from "../../../contexts/AdminAuthContext";
 import { useRouter } from "next/navigation";
 import AdminLayout from "../../../components/AdminLayout";
-import { adminGetAllTasks, adminSearchUserSuggestions, type AdminUserTask, type HistoryTask, type UserSuggestion, resolveFileUrl } from "../../../lib/api";
+import {
+  adminGetAllTasks,
+  adminGetTaskDetail,
+  adminGetTaskLogs,
+  adminSearchUserSuggestions,
+  type AdminTaskDetail,
+  type AdminTaskLog,
+  type AdminUserTask,
+  type HistoryTask,
+  type UserSuggestion,
+  resolveFileUrl,
+} from "../../../lib/api";
 import { formatDateTime } from "../../../lib/datetime";
 import { Search, Filter, ChevronLeft, ChevronRight, Calendar, User, Layers, AlertCircle, X } from "lucide-react";
 import ImagePreview from "../../../components/ImagePreview";
@@ -17,8 +28,15 @@ export default function AdminTaskBrowserPage() {
   const [tasks, setTasks] = useState<(AdminUserTask & { user?: { userId: string; email?: string; nickname?: string } })[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedTask, setSelectedTask] = useState<HistoryTask | null>(null);
+  const [selectedTaskPreview, setSelectedTaskPreview] = useState<HistoryTask | null>(null);
   const [errorDetailTask, setErrorDetailTask] = useState<AdminUserTask & { user?: { userId: string; email?: string; nickname?: string } } | null>(null);
+  const [taskDetail, setTaskDetail] = useState<AdminTaskDetail | null>(null);
+  const [taskLogs, setTaskLogs] = useState<AdminTaskLog[]>([]);
+  const [taskDetailOpen, setTaskDetailOpen] = useState(false);
+  const [taskDetailLoading, setTaskDetailLoading] = useState(false);
+  const [taskLogsLoading, setTaskLogsLoading] = useState(false);
+  const [taskLogsError, setTaskLogsError] = useState<string | null>(null);
+  const [taskLogsAvailable, setTaskLogsAvailable] = useState(true);
 
   // 用户搜索自动完成
   const [userSearchInput, setUserSearchInput] = useState("");
@@ -181,6 +199,32 @@ export default function AdminTaskBrowserPage() {
     );
   };
 
+  const getLogLevelBadge = (level: string) => {
+    const levelKey = (level || "").toLowerCase();
+    const config =
+      {
+        error: { label: "ERROR", color: "bg-red-100 text-red-800" },
+        warning: { label: "WARN", color: "bg-amber-100 text-amber-800" },
+        info: { label: "INFO", color: "bg-blue-100 text-blue-800" },
+        debug: { label: "DEBUG", color: "bg-slate-100 text-slate-700" },
+      }[levelKey] || { label: levelKey || "LOG", color: "bg-gray-100 text-gray-800" };
+
+    return (
+      <span className={`inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold ${config.color}`}>
+        {config.label}
+      </span>
+    );
+  };
+
+  const stringifyLogDetails = (details?: Record<string, any> | null) => {
+    if (!details) return "";
+    try {
+      return JSON.stringify(details, null, 2);
+    } catch (err) {
+      return String(details);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     if (!dateString) return "-";
     return formatDateTime(dateString, {
@@ -245,10 +289,57 @@ export default function AdminTaskBrowserPage() {
     };
   };
 
-  const handleTaskClick = (task: AdminUserTask & { user?: { userId: string; email?: string; nickname?: string } }) => {
-    const historyTask = convertToHistoryTask(task);
+  const closeTaskDetail = () => {
+    setTaskDetailOpen(false);
+    setTaskDetail(null);
+    setTaskLogs([]);
+    setTaskLogsError(null);
+  };
+
+  const openImagePreview = () => {
+    if (!taskDetail) return;
+    const historyTask = convertToHistoryTask(taskDetail);
     if (historyTask) {
-      setSelectedTask(historyTask);
+      setSelectedTaskPreview(historyTask);
+    }
+  };
+
+  const handleTaskClick = async (task: AdminUserTask & { user?: { userId: string; email?: string; nickname?: string } }) => {
+    if (!accessToken) return;
+
+    setTaskDetailOpen(true);
+    setTaskDetailLoading(true);
+    setTaskLogsLoading(true);
+    setTaskLogsError(null);
+    setTaskLogsAvailable(true);
+    setTaskLogs([]);
+
+    try {
+      const [detailResp, logsResp] = await Promise.all([
+        adminGetTaskDetail(task.taskId, accessToken),
+        adminGetTaskLogs(task.taskId, accessToken, { limit: 500 }),
+      ]);
+
+      if (detailResp.success && detailResp.data) {
+        setTaskDetail(detailResp.data);
+      } else {
+        setTaskDetail(task);
+      }
+
+      if (logsResp.success && logsResp.data) {
+        setTaskLogs(logsResp.data.logs || []);
+        const available = logsResp.data.summary?.logsAvailable;
+        setTaskLogsAvailable(available !== false);
+      } else {
+        setTaskLogsError("获取任务日志失败");
+      }
+    } catch (err) {
+      console.error("获取任务详情或日志失败:", err);
+      setTaskLogsError(err instanceof Error ? err.message : "获取任务详情失败");
+      setTaskDetail(task);
+    } finally {
+      setTaskDetailLoading(false);
+      setTaskLogsLoading(false);
     }
   };
 
@@ -625,11 +716,165 @@ export default function AdminTaskBrowserPage() {
         )}
       </div>
 
+      {taskDetailOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">任务详情与日志</h3>
+                {taskDetail?.taskId && (
+                  <p className="text-xs text-gray-500">{taskDetail.taskId}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {taskDetail?.taskId && accessToken && (
+                  <button
+                    onClick={() => handleTaskClick(taskDetail)}
+                    className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    刷新
+                  </button>
+                )}
+                <button
+                  onClick={closeTaskDetail}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="grid flex-1 grid-cols-1 gap-6 overflow-hidden px-6 py-5 lg:grid-cols-[340px_1fr]">
+              <div className="flex min-h-0 flex-col gap-4">
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                  {taskDetailLoading && !taskDetail ? (
+                    <div className="flex h-48 items-center justify-center">
+                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-r-transparent"></div>
+                    </div>
+                  ) : (
+                    <img
+                      src={taskDetail ? getPreviewImage(taskDetail).url : "/placeholder.png"}
+                      alt={taskDetail ? getPreviewImage(taskDetail).alt : "任务预览"}
+                      className="h-64 w-full rounded-md border border-gray-200 bg-white object-cover"
+                    />
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
+                  <div className="rounded border border-gray-200 px-3 py-2">
+                    <div className="text-[11px] uppercase tracking-wide text-gray-400">状态</div>
+                    <div className="mt-1">{taskDetail ? getStatusBadge(taskDetail.status) : "-"}</div>
+                  </div>
+                  <div className="rounded border border-gray-200 px-3 py-2">
+                    <div className="text-[11px] uppercase tracking-wide text-gray-400">类型</div>
+                    <div className="mt-1 font-medium text-gray-800">{taskDetail?.typeName || "-"}</div>
+                  </div>
+                  <div className="rounded border border-gray-200 px-3 py-2">
+                    <div className="text-[11px] uppercase tracking-wide text-gray-400">用户</div>
+                    <div className="mt-1 font-medium text-gray-800">
+                      {taskDetail?.user?.nickname || taskDetail?.user?.email || "-"}
+                    </div>
+                    <div className="text-[11px] text-gray-400">{taskDetail?.user?.userId || "-"}</div>
+                  </div>
+                  <div className="rounded border border-gray-200 px-3 py-2">
+                    <div className="text-[11px] uppercase tracking-wide text-gray-400">日志</div>
+                    <div className="mt-1 font-medium text-gray-800">{taskDetail?.logCount ?? taskLogs.length}</div>
+                  </div>
+                  <div className="rounded border border-gray-200 px-3 py-2">
+                    <div className="text-[11px] uppercase tracking-wide text-gray-400">创建时间</div>
+                    <div className="mt-1 font-medium text-gray-800">{taskDetail?.createdAt ? formatDate(taskDetail.createdAt) : "-"}</div>
+                  </div>
+                  <div className="rounded border border-gray-200 px-3 py-2">
+                    <div className="text-[11px] uppercase tracking-wide text-gray-400">开始时间</div>
+                    <div className="mt-1 font-medium text-gray-800">{taskDetail?.startedAt ? formatDate(taskDetail.startedAt) : "-"}</div>
+                  </div>
+                  <div className="rounded border border-gray-200 px-3 py-2 col-span-2">
+                    <div className="text-[11px] uppercase tracking-wide text-gray-400">完成时间 / 耗时</div>
+                    <div className="mt-1 flex items-center gap-2 font-medium text-gray-800">
+                      <span>{taskDetail?.completedAt ? formatDate(taskDetail.completedAt) : "-"}</span>
+                      {taskDetail?.processingTime ? (
+                        <span className="rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">
+                          {taskDetail.processingTime}s
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={openImagePreview}
+                    disabled={!taskDetail?.originalImage}
+                    className="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    查看大图
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-gray-200">
+                <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700">
+                  <span>任务日志</span>
+                  {!taskLogsAvailable && (
+                    <span className="text-xs text-amber-600">日志表未初始化</span>
+                  )}
+                </div>
+                <div className="flex-1 overflow-y-auto bg-white p-4">
+                  {taskLogsLoading && taskLogs.length === 0 ? (
+                    <div className="flex h-32 items-center justify-center">
+                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-r-transparent"></div>
+                    </div>
+                  ) : taskLogsError ? (
+                    <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                      {taskLogsError}
+                    </div>
+                  ) : !taskLogsAvailable ? (
+                    <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                      任务日志表尚未初始化。请先运行后端迁移脚本：
+                      <div className="mt-2 font-mono text-xs text-amber-900">
+                        python backend/scripts/migrations/20260127_add_task_logs.py
+                      </div>
+                    </div>
+                  ) : taskLogs.length === 0 ? (
+                    <div className="text-sm text-gray-500">暂无任务日志</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {taskLogs.map((log) => {
+                        const detailsText = stringifyLogDetails(log.details);
+                        return (
+                          <div key={log.id} className="rounded border border-gray-200 p-3">
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                              {getLogLevelBadge(log.level)}
+                              <span className="font-mono text-[11px] text-gray-400">
+                                {log.createdAt ? formatDate(log.createdAt) : "-"}
+                              </span>
+                              <span className="rounded bg-gray-100 px-2 py-0.5 font-mono text-[11px] text-gray-600">
+                                {log.event}
+                              </span>
+                            </div>
+                            <div className="mt-2 text-sm text-gray-800">{log.message}</div>
+                            {detailsText && (
+                              <pre className="mt-2 max-h-48 overflow-auto rounded bg-gray-50 p-2 font-mono text-[11px] text-gray-700">
+                                {detailsText}
+                              </pre>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 图片预览 */}
-      {selectedTask && accessToken && (
+      {selectedTaskPreview && accessToken && (
         <ImagePreview
-          task={selectedTask}
-          onClose={() => setSelectedTask(null)}
+          task={selectedTaskPreview}
+          onClose={() => setSelectedTaskPreview(null)}
           accessToken={accessToken}
         />
       )}

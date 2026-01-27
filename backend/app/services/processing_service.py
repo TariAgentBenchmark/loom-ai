@@ -14,6 +14,7 @@ from app.services.credit_service import CreditService
 from app.services.file_service import FileService
 from app.services.membership_service import MembershipService
 from app.services.service_pricing import resolve_pricing_key
+from app.services.task_log_service import TaskLogService
 from app.utils.result_filter import filter_result_lists
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,7 @@ class ProcessingService:
         self.credit_service = CreditService()
         self.file_service = FileService()
         self.membership_service = MembershipService()
+        self.task_log_service = TaskLogService()
 
         self.service_key_map = {
             TaskType.PROMPT_EDIT.value: "prompt_edit",
@@ -69,6 +71,86 @@ class ProcessingService:
         if not service_key:
             raise Exception(f"未配置的服务类型: {task_type}")
         return service_key
+
+    def _summarize_options(self, options: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """Remove large/binary fields so task logs stay readable."""
+        if not options:
+            return {}
+
+        large_keys = {
+            "secondary_image_bytes",
+            "image_bytes",
+            "mask_bytes",
+            "base64",
+            "image_base64",
+        }
+        summarized: Dict[str, Any] = {}
+        for key, value in options.items():
+            if key in large_keys:
+                continue
+            if isinstance(value, (bytes, bytearray)):
+                summarized[key] = f"<{len(value)} bytes>"
+                continue
+            if isinstance(value, str) and len(value) > 500:
+                summarized[key] = f"{value[:500]}...(truncated)"
+                continue
+            summarized[key] = value
+        return summarized
+
+    def _describe_downstream(self, task_type: str, options: Dict[str, Any]) -> Dict[str, Any]:
+        """Best-effort downstream provider hints for task logs."""
+        pattern_type = str(options.get("pattern_type") or "").lower()
+        engine = str(options.get("engine") or "").lower()
+
+        provider = "apyi_gemini"
+        if task_type in {
+            TaskType.EXPAND.value,
+            TaskType.SEAMLESS_LOOP.value,
+            TaskType.REMOVE_WATERMARK.value,
+            TaskType.SIMILAR_IMAGE.value,
+        }:
+            provider = "runninghub"
+        elif task_type == TaskType.EXTRACT_PATTERN.value:
+            if pattern_type in {"general_1", "positioning"}:
+                provider = "runninghub"
+            elif pattern_type == "combined":
+                provider = "runninghub+gemini"
+        elif task_type == TaskType.VECTORIZE.value:
+            provider = "a8_vectorizer+webapi"
+        elif task_type == TaskType.UPSCALE.value:
+            if engine:
+                provider = engine
+            else:
+                provider = "meitu_v2"
+
+        downstream: Dict[str, Any] = {"provider": provider}
+        if engine:
+            downstream["engine"] = engine
+        if pattern_type:
+            downstream["patternType"] = pattern_type
+        if options.get("num_images") is not None:
+            downstream["numImages"] = options.get("num_images")
+        return downstream
+
+    def _log_task_event(
+        self,
+        db: Session,
+        task: Task,
+        *,
+        event: str,
+        message: str,
+        level: str = "info",
+        details: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Best-effort per-task logging for admin diagnostics."""
+        self.task_log_service.record(
+            db,
+            task,
+            event=event,
+            message=message,
+            level=level,
+            details=details,
+        )
 
     async def create_task(
         self,
@@ -161,6 +243,21 @@ class ProcessingService:
         db.commit()
         db.refresh(task)
 
+        self._log_task_event(
+            db,
+            task,
+            event="task_created",
+            message="Task created and queued",
+            details={
+                "taskType": task.type,
+                "filename": task.original_filename,
+                "estimatedTime": task.estimated_time,
+                "creditsUsed": to_float(task.credits_used),
+                "options": self._summarize_options(task.options),
+            },
+        )
+        db.commit()
+
         # 异步开始处理任务
         asyncio.create_task(self._process_task_async(task.task_id))
 
@@ -179,12 +276,53 @@ class ProcessingService:
                 logger.error(f"Task {task_id} not found")
                 return
 
+            self._log_task_event(
+                db,
+                task,
+                event="task_loaded",
+                message="Task loaded for async processing",
+                details={
+                    "status": task.status,
+                    "taskType": task.type,
+                    "batchId": task.batch_id,
+                },
+            )
+            db.commit()
+
             # 标记任务开始
             task.mark_as_started()
             db.commit()
 
+            self._log_task_event(
+                db,
+                task,
+                event="task_started",
+                message="Task marked as processing",
+                details={
+                    "taskType": task.type,
+                    "batchId": task.batch_id,
+                },
+            )
+            db.commit()
+
             # 读取原始图片
+            self._log_task_event(
+                db,
+                task,
+                event="read_original_start",
+                message="Reading original image",
+                details={"originalUrl": task.original_image_url},
+            )
+            db.commit()
             image_bytes = await self.file_service.read_file(task.original_image_url)
+            self._log_task_event(
+                db,
+                task,
+                event="read_original_success",
+                message="Original image loaded",
+                details={"bytes": len(image_bytes)},
+            )
+            db.commit()
 
             # 根据任务类型调用相应的AI处理方法
             start_time = datetime.utcnow()
@@ -201,6 +339,20 @@ class ProcessingService:
                 except Exception as exc:
                     logger.warning("读取第二张图片失败: %s", exc)
                     secondary_image_bytes = None
+
+            self._log_task_event(
+                db,
+                task,
+                event="ai_processing_start",
+                message="Invoking AI processing",
+                details={
+                    "taskType": task.type,
+                    "options": self._summarize_options(task_options),
+                    "hasSecondaryImage": bool(secondary_image_bytes),
+                    "downstream": self._describe_downstream(task.type, task_options),
+                },
+            )
+            db.commit()
 
             try:
                 if task.type == TaskType.SEAMLESS.value:
@@ -284,6 +436,20 @@ class ProcessingService:
                     raise Exception(f"不支持的任务类型: {task.type}")
 
                 logger.info("Task %s generated result URL: %s", task_id, result_url)
+                raw_result_urls = [
+                    url.strip() for url in str(result_url).split(",") if url.strip()
+                ]
+                self._log_task_event(
+                    db,
+                    task,
+                    event="ai_processing_result",
+                    message="AI returned result URLs",
+                    details={
+                        "resultCount": len(raw_result_urls) or 1,
+                        "resultUrl": result_url,
+                    },
+                )
+                db.commit()
 
                 # 计算处理时间
                 processing_time = int((datetime.utcnow() - start_time).total_seconds())
@@ -424,6 +590,17 @@ class ProcessingService:
 
                 user.increment_processed_count()
 
+                self._log_task_event(
+                    db,
+                    task,
+                    event="task_completed",
+                    message="Task completed successfully",
+                    details={
+                        "processingTime": processing_time,
+                        "resultCount": len(final_result_urls),
+                        "resultSize": total_size,
+                    },
+                )
                 db.commit()
 
                 if task.credits_used:
@@ -468,11 +645,54 @@ class ProcessingService:
                 task.mark_as_failed(admin_error_msg, error_code)
                 task.credits_used = to_decimal(0)
 
+                self._log_task_event(
+                    db,
+                    task,
+                    event="task_failed",
+                    message="Task failed during processing",
+                    level="error",
+                    details={
+                        "errorCode": error_code,
+                        "errorMessage": error_msg,
+                        "traceback": error_traceback,
+                    },
+                )
                 db.commit()
                 logger.error(f"Task {task_id} failed with {error_code}: {error_msg}\n{error_traceback}")
 
         except Exception as e:
             logger.error(f"Unexpected error processing task {task_id}: {str(e)}")
+            # Ensure tasks are not left stuck in processing/queued on pre-processing errors.
+            try:
+                task_ref = locals().get("task")
+                db_ref = locals().get("db")
+                if task_ref and db_ref:
+                    import traceback
+
+                    error_traceback = traceback.format_exc()
+                    admin_error_msg = (
+                        f"[服务内部错误] {str(e)}\n\n调用栈:\n{error_traceback}"
+                    )
+                    task_ref.mark_as_failed(admin_error_msg, "SERVICE_ERROR")
+                    task_ref.credits_used = to_decimal(0)
+                    self._log_task_event(
+                        db_ref,
+                        task_ref,
+                        event="task_failed_preprocessing",
+                        message="Unexpected error before task completion",
+                        level="error",
+                        details={
+                            "errorCode": "SERVICE_ERROR",
+                            "errorMessage": str(e),
+                            "traceback": error_traceback,
+                        },
+                    )
+                    db_ref.commit()
+            except Exception:
+                logger.exception(
+                    "Failed to persist failure state for task %s after unexpected error",
+                    task_id,
+                )
         finally:
             db.close()
 

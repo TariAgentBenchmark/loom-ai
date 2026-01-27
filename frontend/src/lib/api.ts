@@ -1189,6 +1189,44 @@ export interface AdminUserTaskListResponse {
   };
 }
 
+export interface AdminTaskLog {
+  id: number;
+  level: string;
+  event: string;
+  message: string;
+  details?: Record<string, any> | null;
+  createdAt?: string | null;
+}
+
+export interface AdminTaskLogListResponse {
+  logs: AdminTaskLog[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  summary?: {
+    totalLogs?: number;
+    logsAvailable?: boolean;
+    level?: string | null;
+  };
+}
+
+export interface AdminTaskDetail extends AdminUserTask {
+  user?: {
+    userId: string;
+    email?: string | null;
+    nickname?: string | null;
+  } | null;
+  options?: Record<string, any> | null;
+  metadata?: Record<string, any> | null;
+  processingTime?: number | null;
+  startedAt?: string | null;
+  batchId?: number | null;
+  logCount?: number;
+}
+
 export interface AdminCreditTransactionsResponse {
   transactions: AdminCreditTransaction[];
   pagination: {
@@ -1791,6 +1829,24 @@ export const adminGetAllTasks = (
   const query = params.toString();
   const path = `/admin/tasks${query ? `?${query}` : ""}`;
   return getJson<AdminUserTaskListResponse>(path, accessToken);
+};
+
+export const adminGetTaskDetail = (taskId: string, accessToken: string) =>
+  getJson<AdminTaskDetail>(`/admin/tasks/${taskId}`, accessToken);
+
+export const adminGetTaskLogs = (
+  taskId: string,
+  accessToken: string,
+  options?: { page?: number; limit?: number; level?: string },
+) => {
+  const params = new URLSearchParams();
+  if (options?.page) params.append("page", options.page.toString());
+  if (options?.limit) params.append("limit", options.limit.toString());
+  if (options?.level) params.append("level", options.level);
+
+  const query = params.toString();
+  const path = `/admin/tasks/${taskId}/logs${query ? `?${query}` : ""}`;
+  return getJson<AdminTaskLogListResponse>(path, accessToken);
 };
 
 export interface UserSuggestion {

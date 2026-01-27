@@ -13,6 +13,7 @@ from app.services.credit_math import to_decimal, to_float
 from app.services.file_service import FileService
 from app.services.membership_service import MembershipService
 from app.services.processing_service import ProcessingService
+from app.services.task_log_service import TaskLogService
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,20 @@ class BatchProcessingService:
         self.processing_service = ProcessingService()
         self.file_service = FileService()
         self.membership_service = MembershipService()
+        self.task_log_service = TaskLogService()
+
+    def _summarize_options(self, options: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        if not options:
+            return {}
+        summarized: Dict[str, Any] = {}
+        for key, value in options.items():
+            if isinstance(value, (bytes, bytearray)):
+                summarized[key] = f"<{len(value)} bytes>"
+            elif isinstance(value, str) and len(value) > 500:
+                summarized[key] = f"{value[:500]}...(truncated)"
+            else:
+                summarized[key] = value
+        return summarized
 
     async def create_batch_task(
         self,
@@ -146,6 +161,19 @@ class BatchProcessingService:
                 )
                 
                 db.add(task)
+                db.flush()
+                self.task_log_service.record(
+                    db,
+                    task,
+                    event="batch_child_created",
+                    message="Batch child task created and queued",
+                    details={
+                        "batchId": batch_task.batch_id,
+                        "index": idx + 1,
+                        "totalImages": len(images_data),
+                        "options": self._summarize_options(task_options),
+                    },
+                )
                 
             except Exception as e:
                 logger.error(f"Failed to create task for image {idx}: {str(e)}")
@@ -180,6 +208,16 @@ class BatchProcessingService:
             
             # 获取所有子任务
             tasks = db.query(Task).filter(Task.batch_id == batch_task.id).all()
+
+            for task in tasks:
+                self.task_log_service.record(
+                    db,
+                    task,
+                    event="batch_started",
+                    message="Batch processing started",
+                    details={"batchId": batch_task.batch_id},
+                )
+            db.commit()
             
             # 并发处理所有任务（限制并发数）
             semaphore = asyncio.Semaphore(3)  # 最多同时处理3个任务

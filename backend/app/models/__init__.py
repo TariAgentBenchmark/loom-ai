@@ -2,6 +2,7 @@ from .agent import Agent, InvitationCode, AgentReferralLink, AgentCommissionMode
 from .user import User
 from .task import Task
 from .batch_task import BatchTask
+from .task_log import TaskLog
 from .credit import CreditTransaction
 from .payment import Order, Refund
 from .agent_commission import AgentCommission
@@ -22,6 +23,7 @@ __all__ = [
     "User",
     "Task",
     "BatchTask",
+    "TaskLog",
     "CreditTransaction",
     "Order",
     "Refund",
