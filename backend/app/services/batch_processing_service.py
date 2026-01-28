@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy.orm import Session
 
 from app.models.batch_task import BatchTask, BatchTaskStatus
-from app.models.task import Task, TaskStatus, TaskType
+from app.models.task import Task, TaskStatus
 from app.models.user import User
 from app.services.credit_math import to_decimal, to_float
 from app.services.file_service import FileService
@@ -220,27 +220,7 @@ class BatchProcessingService:
             db.commit()
             
             # 并发处理所有任务（限制并发数）
-            max_concurrency = 3
-            batch_options = batch_task.options or {}
-            if batch_task.task_type == TaskType.EXTRACT_PATTERN.value:
-                pattern_type = str(batch_options.get("pattern_type") or "").lower()
-                max_concurrency = 1 if pattern_type == "combined" else 2
-            elif batch_task.task_type in {
-                TaskType.UPSCALE.value,
-                TaskType.EMBROIDERY.value,
-                TaskType.FLAT_TO_3D.value,
-                TaskType.EXPAND.value,
-            }:
-                max_concurrency = 2
-
-            semaphore = asyncio.Semaphore(max_concurrency)
-            logger.info(
-                "Batch %s concurrency=%s (type=%s pattern_type=%s)",
-                batch_task.batch_id,
-                max_concurrency,
-                batch_task.task_type,
-                batch_options.get("pattern_type"),
-            )
+            semaphore = asyncio.Semaphore(3)  # 最多同时处理3个任务
             
             async def process_single_task(task: Task):
                 async with semaphore:
