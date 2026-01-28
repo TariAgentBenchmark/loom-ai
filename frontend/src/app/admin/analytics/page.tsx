@@ -25,11 +25,15 @@ export default function AdminTaskBrowserPage() {
   const accessToken = useAdminAccessToken();
   const router = useRouter();
 
-  const [tasks, setTasks] = useState<(AdminUserTask & { user?: { userId: string; email?: string; nickname?: string } })[]>([]);
+  type TaskRow = AdminUserTask & {
+    user?: { userId: string; email?: string | null; nickname?: string | null } | null;
+  };
+
+  const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedTaskPreview, setSelectedTaskPreview] = useState<HistoryTask | null>(null);
-  const [errorDetailTask, setErrorDetailTask] = useState<AdminUserTask & { user?: { userId: string; email?: string; nickname?: string } } | null>(null);
+  const [errorDetailTask, setErrorDetailTask] = useState<TaskRow | null>(null);
   const [taskDetail, setTaskDetail] = useState<AdminTaskDetail | null>(null);
   const [taskLogs, setTaskLogs] = useState<AdminTaskLog[]>([]);
   const [taskDetailOpen, setTaskDetailOpen] = useState(false);
@@ -236,7 +240,7 @@ export default function AdminTaskBrowserPage() {
     });
   };
 
-  const getPreviewImage = (task: AdminUserTask & { user?: { userId: string; email?: string; nickname?: string } }) => {
+  const getPreviewImage = (task: TaskRow) => {
     const firstResultUrl = task.resultImage?.url?.split(',')[0]?.trim();
     const firstResultName = task.resultImage?.filename?.split(',')[0]?.trim();
 
@@ -260,7 +264,7 @@ export default function AdminTaskBrowserPage() {
     };
   };
 
-  const convertToHistoryTask = (task: AdminUserTask & { user?: { userId: string; email?: string; nickname?: string } }): HistoryTask | null => {
+  const convertToHistoryTask = (task: TaskRow): HistoryTask | null => {
     if (!task.originalImage) return null;
 
     return {
@@ -304,7 +308,7 @@ export default function AdminTaskBrowserPage() {
     }
   };
 
-  const handleTaskClick = async (task: AdminUserTask & { user?: { userId: string; email?: string; nickname?: string } }) => {
+  const handleTaskClick = async (task: TaskRow) => {
     if (!accessToken) return;
 
     setTaskDetailOpen(true);

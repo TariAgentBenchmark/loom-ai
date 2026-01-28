@@ -1,7 +1,8 @@
-from sqlalchemy import create_engine, MetaData, text
+from sqlalchemy import create_engine, MetaData, text, inspect
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
+from sqlalchemy.exc import IntegrityError
 from typing import Generator
 import logging
 
@@ -58,8 +59,21 @@ def init_db() -> None:
         # 确保模型已注册到元数据
         import app.models  # noqa: F401
         # 创建所有表
-        Base.metadata.create_all(bind=engine)
-        logger.info("Database initialized successfully")
+        try:
+            Base.metadata.create_all(bind=engine)
+            logger.info("Database initialized successfully")
+        except IntegrityError as exc:
+            msg = str(exc)
+            # Handle race conditions on PostgreSQL when multiple workers create tables concurrently.
+            if "pg_type_typname_nsp_index" in msg:
+                inspector = inspect(engine)
+                if inspector.has_table("task_logs"):
+                    logger.warning(
+                        "task_logs already exists (likely created by another worker). "
+                        "Continuing startup."
+                    )
+                    return
+            raise
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
         raise
