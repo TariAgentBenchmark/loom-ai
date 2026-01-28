@@ -275,6 +275,29 @@ class ProcessingService:
             if not task:
                 logger.error(f"Task {task_id} not found")
                 return
+            if task.status in [TaskStatus.COMPLETED.value, TaskStatus.FAILED.value]:
+                logger.info(
+                    "Task %s already %s, skip processing",
+                    task_id,
+                    task.status,
+                )
+                return
+
+            # Prevent concurrent duplicate processing runs.
+            processing_token = uuid.uuid4().hex
+            task_meta = dict(task.extra_metadata or {})
+            task_meta["processing_token"] = processing_token
+            task_meta["processing_started_at"] = datetime.utcnow().isoformat()
+            task.extra_metadata = task_meta
+            db.commit()
+            self._log_task_event(
+                db,
+                task,
+                event="processing_token_set",
+                message="Processing token set for task",
+                details={"processingToken": processing_token},
+            )
+            db.commit()
 
             self._log_task_event(
                 db,
@@ -565,6 +588,23 @@ class ProcessingService:
                 final_result_url = ",".join(final_result_urls)
                 result_filename = ",".join(result_filenames)
 
+                db.refresh(task)
+                current_token = (task.extra_metadata or {}).get("processing_token")
+                if current_token != processing_token:
+                    self._log_task_event(
+                        db,
+                        task,
+                        event="processing_token_mismatch",
+                        message="Skip completion due to newer processing token",
+                        level="warning",
+                        details={
+                            "expected": processing_token,
+                            "current": current_token,
+                        },
+                    )
+                    db.commit()
+                    return
+
                 # 标记任务完成
                 task.mark_as_completed(
                     result_url=final_result_url,
@@ -642,6 +682,23 @@ class ProcessingService:
                     admin_error_msg = f"[服务内部错误] {error_msg}\n\n调用栈:\n{error_traceback}"
 
                 # 保存详细错误信息到数据库（供管理员查看）
+                db.refresh(task)
+                current_token = (task.extra_metadata or {}).get("processing_token")
+                if current_token != processing_token:
+                    self._log_task_event(
+                        db,
+                        task,
+                        event="processing_token_mismatch",
+                        message="Skip failure update due to newer processing token",
+                        level="warning",
+                        details={
+                            "expected": processing_token,
+                            "current": current_token,
+                        },
+                    )
+                    db.commit()
+                    return
+
                 task.mark_as_failed(admin_error_msg, error_code)
                 task.credits_used = to_decimal(0)
 

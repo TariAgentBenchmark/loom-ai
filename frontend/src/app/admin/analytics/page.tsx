@@ -77,6 +77,15 @@ export default function AdminTaskBrowserPage() {
     }
   }, [isAuthenticated, accessToken, page, filters]);
 
+  useEffect(() => {
+    if (!taskDetailOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [taskDetailOpen]);
+
   // 搜索用户建议
   useEffect(() => {
     const searchUsers = async () => {

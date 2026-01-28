@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse, Response
 from contextlib import asynccontextmanager
+import asyncio
 import logging
 import os
 import time
@@ -25,6 +26,7 @@ from app.api.v1 import (
     notification,
 )
 from app.services.api_limiter import api_limiter
+from app.services.task_watchdog_service import task_watchdog_worker
 
 
 api_router = APIRouter()
@@ -77,10 +79,21 @@ async def lifespan(app: FastAPI):
     os.makedirs(f"{settings.upload_path}/originals", exist_ok=True)
     os.makedirs(f"{settings.upload_path}/results", exist_ok=True)
 
+    watchdog_task = None
+    if settings.task_watchdog_enabled:
+        watchdog_task = asyncio.create_task(task_watchdog_worker())
+        logger.info("Task watchdog started")
+
     yield
 
     # 关闭时执行
     logger.info("Shutting down LoomAI Backend...")
+    if watchdog_task:
+        watchdog_task.cancel()
+        try:
+            await watchdog_task
+        except asyncio.CancelledError:
+            logger.info("Task watchdog stopped")
     close_db()
     try:
         await close_redis_client()

@@ -22,6 +22,14 @@ class Settings(BaseSettings):
 
     # Redis配置
     redis_url: str = "redis://localhost:6379/0"
+    # 任务看门狗（处理超时/卡住任务）
+    task_watchdog_enabled: bool = True
+    task_watchdog_interval_seconds: int = 300
+    task_watchdog_processing_timeout_seconds: int = 1800
+    task_watchdog_queued_timeout_seconds: int = 900
+    task_watchdog_max_retries: int = 2
+    task_watchdog_lock_seconds: int = 240
+    task_watchdog_batch_size: int = 50
     # 下游API并发上限配置（按服务商/客户端粒度）
     api_concurrency_limits: Dict[str, int] = Field(
         default_factory=lambda: {
