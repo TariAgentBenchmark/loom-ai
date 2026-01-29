@@ -67,6 +67,7 @@ export default function BatchProcessingWrapper({
     const [serviceCredits, setServiceCredits] = useState<number | null>(null);
     const [isLoadingServiceCost, setIsLoadingServiceCost] = useState(false);
     const [batchInstruction, setBatchInstruction] = useState(promptInstruction ?? '');
+    const [batchGeneralImageCount, setBatchGeneralImageCount] = useState(generalImageCount ?? 4);
     const maxFileSizeMB = 15;
 
     useEffect(() => {
@@ -81,7 +82,7 @@ export default function BatchProcessingWrapper({
         const fetchPrice = async () => {
             let resolvedCost: number | null = null;
             const numImages =
-                method === 'extract_pattern' && patternType === 'general' ? (generalImageCount ?? 4) : undefined;
+                method === 'extract_pattern' && patternType === 'general' ? batchGeneralImageCount : undefined;
             const pricingKey = resolvePricingServiceKey(method, {
                 patternType,
                 numImages,
@@ -158,7 +159,7 @@ export default function BatchProcessingWrapper({
                     }
                 }
                 if (patternType === 'general') {
-                    payload.numImages = generalImageCount ?? 4;
+                    payload.numImages = batchGeneralImageCount;
                 }
             }
 
@@ -189,7 +190,7 @@ export default function BatchProcessingWrapper({
         } finally {
             setIsCreatingBatch(false);
         }
-    }, [method, accessToken, batchInstruction, patternType, denimAspectRatio, denimImageCount, generalImageCount, upscaleEngine, expandRatio, expandEdges, expandPrompt, seamDirection, seamFit]);
+    }, [method, accessToken, batchInstruction, patternType, denimAspectRatio, denimImageCount, batchGeneralImageCount, upscaleEngine, expandRatio, expandEdges, expandPrompt, seamDirection, seamFit]);
 
     const handleComplete = useCallback(() => {
         // Batch processing completed
@@ -254,6 +255,8 @@ export default function BatchProcessingWrapper({
                 onPatternTypeChange={onPatternTypeChange}
                 denimAspectRatio={denimAspectRatio}
                 onDenimAspectRatioChange={onDenimAspectRatioChange}
+                generalImageCount={batchGeneralImageCount}
+                onGeneralImageCountChange={setBatchGeneralImageCount}
                 maxFileSizeMB={maxFileSizeMB}
                 method={method}
                 expandRatio={expandRatio}
