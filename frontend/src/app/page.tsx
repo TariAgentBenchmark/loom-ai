@@ -1130,6 +1130,7 @@ function HomeContent() {
               denimAspectRatio={denimAspectRatio}
               onDenimAspectRatioChange={setDenimAspectRatio}
               denimImageCount={denimImageCount}
+              generalImageCount={generalImageCount}
               upscaleEngine={upscaleEngine}
               expandRatio={expandRatio}
               expandEdges={expandEdges}

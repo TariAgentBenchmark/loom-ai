@@ -46,6 +46,7 @@ export default function BatchProcessingWrapper({
     denimAspectRatio,
     onDenimAspectRatioChange,
     denimImageCount,
+    generalImageCount,
     upscaleEngine,
     expandRatio,
     expandEdges,
@@ -79,7 +80,7 @@ export default function BatchProcessingWrapper({
         const fetchPrice = async () => {
             let resolvedCost: number | null = null;
             const numImages =
-                method === 'extract_pattern' && patternType === 'general' ? 4 : undefined;
+                method === 'extract_pattern' && patternType === 'general' ? (generalImageCount ?? 4) : undefined;
             const pricingKey = resolvePricingServiceKey(method, {
                 patternType,
                 numImages,
@@ -155,6 +156,9 @@ export default function BatchProcessingWrapper({
                         payload.numImages = denimImageCount;
                     }
                 }
+                if (patternType === 'general') {
+                    payload.numImages = generalImageCount ?? 4;
+                }
             }
 
             if (method === 'upscale') {
@@ -184,7 +188,7 @@ export default function BatchProcessingWrapper({
         } finally {
             setIsCreatingBatch(false);
         }
-    }, [method, accessToken, batchInstruction, patternType, denimAspectRatio, denimImageCount, upscaleEngine, expandRatio, expandEdges, expandPrompt, seamDirection, seamFit]);
+    }, [method, accessToken, batchInstruction, patternType, denimAspectRatio, denimImageCount, generalImageCount, upscaleEngine, expandRatio, expandEdges, expandPrompt, seamDirection, seamFit]);
 
     const handleComplete = useCallback(() => {
         // Batch processing completed

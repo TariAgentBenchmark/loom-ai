@@ -19,6 +19,8 @@ interface BatchUploadModalProps {
     onPatternTypeChange?: (value: string) => void;
     denimAspectRatio?: string;
     onDenimAspectRatioChange?: (value: string) => void;
+    generalImageCount?: number;
+    onGeneralImageCountChange?: (value: number) => void;
     maxFileSizeMB?: number; // 单文件大小上限（可选）
     method: ProcessingMethod;
     expandRatio?: string;
@@ -65,6 +67,8 @@ export default function BatchUploadModal({
     onPatternTypeChange,
     denimAspectRatio,
     onDenimAspectRatioChange,
+    generalImageCount,
+    onGeneralImageCountChange,
     maxFileSizeMB,
     method,
     expandRatio,
@@ -86,7 +90,6 @@ export default function BatchUploadModal({
     const referenceInputRef = useRef<HTMLInputElement>(null);
     const patternTypeOptions: { value: string; label: string }[] = [
         { value: 'general', label: '通用模型' },
-        { value: 'combined', label: '综合模型' },
         { value: 'denim', label: '牛仔风格专用' },
     ];
     const denimSizeOptions: { value: string; label: string }[] = [
@@ -94,8 +97,14 @@ export default function BatchUploadModal({
         { value: '2:3', label: '竖版 2:3' },
         { value: '3:2', label: '横版 3:2' },
     ];
+    const generalImageCountOptions: { value: number; label: string }[] = [
+        { value: 1, label: '1张图' },
+        { value: 2, label: '2张图' },
+        { value: 4, label: '4张图' },
+    ];
     const effectivePatternType = patternType ?? 'general';
     const effectiveDenimAspectRatio = denimAspectRatio ?? '1:1';
+    const effectiveGeneralImageCount = generalImageCount ?? 4;
 
     const loadImageDimensions = useCallback((file: File) => {
         if (file.type === 'image/svg+xml') {
@@ -408,6 +417,35 @@ export default function BatchUploadModal({
                                     })}
                                 </div>
                             </div>
+                            {effectivePatternType === 'general' && (
+                                <div className="space-y-4">
+                                    <div>
+                                        <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2">出图数量</h4>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {generalImageCountOptions.map((option) => {
+                                                const isActive =
+                                                    effectiveGeneralImageCount === option.value;
+                                                return (
+                                                    <button
+                                                        key={option.value}
+                                                        type="button"
+                                                        onClick={() =>
+                                                            onGeneralImageCountChange?.(option.value)
+                                                        }
+                                                        disabled={isProcessing}
+                                                        className={`rounded-lg border px-3 py-2 text-xs md:text-sm font-medium transition ${isActive
+                                                            ? 'border-blue-500 bg-blue-50 text-blue-600 shadow-sm'
+                                                            : 'border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50/60'
+                                                            }`}
+                                                    >
+                                                        {option.label}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                             {effectivePatternType === 'denim' && (
                                 <div className="space-y-4">
                                     <div>
