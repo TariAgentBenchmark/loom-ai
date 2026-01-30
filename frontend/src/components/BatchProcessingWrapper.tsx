@@ -125,7 +125,7 @@ export default function BatchProcessingWrapper({
         return () => {
             isMounted = false;
         };
-    }, [method, accessToken, patternType, upscaleEngine]);
+    }, [method, accessToken, patternType, upscaleEngine, batchGeneralImageCount]);
 
     const handleStartBatch = useCallback(async (files: File[], referenceImage: File | null) => {
         setError('');
