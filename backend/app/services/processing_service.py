@@ -527,9 +527,9 @@ class ProcessingService:
                                 single_result_url
                             )
                             filename = f"result_{task.task_id}_{idx}.svg"
-                            # 保存结果文件
+                            # 保存结果文件（AI生成的图片可能分辨率很高，跳过尺寸验证）
                             final_url = await self.file_service.save_upload_file(
-                                result_bytes, filename, "results"
+                                result_bytes, filename, "results", validate_dimensions=False
                             )
                     else:
                         # 其他任务返回PNG格式
@@ -574,9 +574,9 @@ class ProcessingService:
                                 elif save_photo_format == 2 or image_format == "png":
                                     target_ext = "png"
                             filename = f"result_{task.task_id}_{idx}.{target_ext}"
-                            # 保存结果文件
+                            # 保存结果文件（AI生成的图片可能分辨率很高，跳过尺寸验证）
                             final_url = await self.file_service.save_upload_file(
-                                result_bytes, filename, "results"
+                                result_bytes, filename, "results", validate_dimensions=False
                             )
 
                     final_result_urls.append(final_url)

@@ -115,8 +115,14 @@ class FileService:
 
         return file_url
 
-    def validate_file(self, file_bytes: bytes, filename: str) -> Dict[str, Any]:
-        """验证文件"""
+    def validate_file(self, file_bytes: bytes, filename: str, validate_dimensions: bool = True) -> Dict[str, Any]:
+        """验证文件
+        
+        Args:
+            file_bytes: 文件字节数据
+            filename: 文件名
+            validate_dimensions: 是否验证图片尺寸，默认为True
+        """
         # 检查文件大小
         if len(file_bytes) > self.max_file_size:
             raise UserFacingException(f"文件大小超过限制 ({self.max_file_size / 1024 / 1024:.1f}MB)")
@@ -141,7 +147,8 @@ class FileService:
         try:
             image = Image.open(BytesIO(file_bytes))
             width, height = image.size
-            if width > self.max_image_width or height > self.max_image_height:
+            # 仅在需要时验证尺寸（用户上传的文件需要验证，AI生成的结果图片不需要）
+            if validate_dimensions and (width > self.max_image_width or height > self.max_image_height):
                 raise UserFacingException(
                     f"图片分辨率超过限制 (最大 {self.max_image_width}x{self.max_image_height})"
                 )
@@ -161,11 +168,19 @@ class FileService:
                 raise e
             raise UserFacingException("无效的图片文件")
 
-    async def save_upload_file(self, file_bytes: bytes, filename: str, subfolder: str = "uploads", purpose: str = "general") -> str:
-        """保存上传的文件"""
+    async def save_upload_file(self, file_bytes: bytes, filename: str, subfolder: str = "uploads", purpose: str = "general", validate_dimensions: bool = True) -> str:
+        """保存上传的文件
         
-        # 验证文件
-        file_info = self.validate_file(file_bytes, filename)
+        Args:
+            file_bytes: 文件字节数据
+            filename: 文件名
+            subfolder: 子文件夹
+            purpose: 用途标识
+            validate_dimensions: 是否验证图片尺寸，默认为True。对于AI生成的结果图片可设为False
+        """
+        
+        # 验证文件（可选择是否验证尺寸）
+        file_info = self.validate_file(file_bytes, filename, validate_dimensions=validate_dimensions)
         
         # 优先使用OSS存储
         if self.should_use_oss():
