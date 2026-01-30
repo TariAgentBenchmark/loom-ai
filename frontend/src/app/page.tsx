@@ -158,7 +158,7 @@ function HomeContent() {
   const [denimAspectRatio, setDenimAspectRatio] = useState<string>('1:1');
   const [denimImageCount, setDenimImageCount] = useState<number>(2);
   const [generalImageCount, setGeneralImageCount] = useState<number>(4);
-  const [upscaleEngine, setUpscaleEngine] = useState<'meitu_v2' | 'runninghub_vr2'>('meitu_v2');
+  const [upscaleEngine, setUpscaleEngine] = useState<'meitu_v2' | 'runninghub_vr2' | 'runninghub_4k_ultra'>('meitu_v2');
   const [expandRatio, setExpandRatio] = useState<string>('original');
   const [expandEdges, setExpandEdges] = useState<ExpandEdgesState>({
     top: '0.00',

@@ -98,6 +98,10 @@ class Settings(BaseSettings):
     runninghub_workflow_id_vr2: str = "2011795668771282946"
     runninghub_vr2_node_id: str = "53"
     runninghub_vr2_field_name: str = "image"
+    # 4K超清工作流
+    runninghub_workflow_id_4k_ultra: str = "2013140407315599361"
+    runninghub_4k_ultra_node_id: str = "53"
+    runninghub_4k_ultra_field_name: str = "image"
     runninghub_workflow_id_rh_double_1480: str = "1989745217626624002"
     runninghub_rh_double_1480_node_id: str = "184"
     runninghub_rh_double_1480_field_name: str = "image"

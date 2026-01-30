@@ -545,7 +545,7 @@ async def upscale_image(
         
         # 构建选项
         engine_value = (engine or "meitu_v2").strip().lower()
-        allowed_engines = {"meitu_v2", "runninghub_vr2"}
+        allowed_engines = {"meitu_v2", "runninghub_vr2", "runninghub_4k_ultra"}
         if engine_value not in allowed_engines:
             engine_value = "meitu_v2"
         # 通用1（美图）仅支持 JPG/PNG，提前校验格式，避免回传格式不一致

@@ -23,7 +23,7 @@ interface BatchProcessingWrapperProps {
     onDenimAspectRatioChange?: (value: string) => void;
     denimImageCount?: number;
     generalImageCount?: number;
-    upscaleEngine?: 'meitu_v2' | 'runninghub_vr2';
+    upscaleEngine?: 'meitu_v2' | 'runninghub_vr2' | 'runninghub_4k_ultra';
     expandRatio?: string;
     expandEdges?: { top: string; bottom: string; left: string; right: string };
     expandPrompt?: string;

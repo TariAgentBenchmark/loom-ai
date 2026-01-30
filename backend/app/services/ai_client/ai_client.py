@@ -1000,6 +1000,13 @@ class AIClient:
                 image_bytes=resolved_bytes,
             )
 
+        if engine == "runninghub_4k_ultra":
+            return await self._upscale_with_4k_ultra(
+                public_url,
+                options=options,
+                image_bytes=resolved_bytes,
+            )
+
         # 默认使用Liblib引擎（创造力+N）
         return await self._upscale_with_liblib(
             public_url,
@@ -1322,6 +1329,36 @@ class AIClient:
             return ",".join(cleaned_urls)
         except Exception as exc:
             logger.error("RunningHub VR2 upscale failed: %s", str(exc))
+            raise Exception(f"AI高清放大失败: {str(exc)}")
+
+    async def _upscale_with_4k_ultra(
+        self,
+        image_url: str,
+        options: Dict[str, Any],
+        image_bytes: Optional[bytes],
+    ) -> str:
+        """4K超清放大 - 使用RunningHub工作流"""
+        try:
+            resolved_bytes = await self._ensure_image_bytes(image_url, image_bytes)
+            rh_options = dict(options or {})
+            if not rh_options.get("original_filename"):
+                rh_options["original_filename"] = "upscale_4k_ultra.png"
+
+            result_urls = await self.runninghub_client.run_workflow_with_custom_nodes(
+                image_bytes=resolved_bytes,
+                workflow_id=settings.runninghub_workflow_id_4k_ultra,
+                node_ids=settings.runninghub_4k_ultra_node_id,
+                field_name=settings.runninghub_4k_ultra_field_name,
+                options=rh_options,
+            )
+
+            cleaned_urls = [url.strip() for url in result_urls if url and url.strip()]
+            if not cleaned_urls:
+                raise Exception("RunningHub 4K超清未返回结果图片")
+
+            return ",".join(cleaned_urls)
+        except Exception as exc:
+            logger.error("RunningHub 4K超清 upscale failed: %s", str(exc))
             raise Exception(f"AI高清放大失败: {str(exc)}")
 
     # 即梦特效相关方法

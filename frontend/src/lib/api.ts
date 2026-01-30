@@ -749,7 +749,7 @@ export interface ProcessingRequestPayload {
   width?: number;
   height?: number;
   numImages?: number;
-  upscaleEngine?: "meitu_v2" | "runninghub_vr2";
+  upscaleEngine?: "meitu_v2" | "runninghub_vr2" | "runninghub_4k_ultra";
   expandRatio?: string;
   expandTop?: number;
   expandBottom?: number;
@@ -2106,7 +2106,7 @@ export interface BatchProcessingRequestPayload {
   width?: number;
   height?: number;
   numImages?: number;
-  upscaleEngine?: "meitu_v2" | "runninghub_vr2";
+  upscaleEngine?: "meitu_v2" | "runninghub_vr2" | "runninghub_4k_ultra";
   expandRatio?: string;
   expandTop?: string;
   expandBottom?: string;

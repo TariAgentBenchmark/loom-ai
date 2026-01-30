@@ -186,8 +186,8 @@ interface ProcessingPageProps {
   onDenimAspectRatioChange?: (value: string) => void;
   generalImageCount?: number;
   onGeneralImageCountChange?: (value: number) => void;
-  upscaleEngine?: "meitu_v2" | "runninghub_vr2";
-  onUpscaleEngineChange?: (value: "meitu_v2" | "runninghub_vr2") => void;
+  upscaleEngine?: "meitu_v2" | "runninghub_vr2" | "runninghub_4k_ultra";
+  onUpscaleEngineChange?: (value: "meitu_v2" | "runninghub_vr2" | "runninghub_4k_ultra") => void;
   expandRatio?: string;
   onExpandRatioChange?: (value: string) => void;
   expandEdges?: Record<ExpandEdgeKey, string>;
@@ -272,7 +272,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   const [serviceCredits, setServiceCredits] = useState<number | null>(null);
   const [isLoadingServiceCost, setIsLoadingServiceCost] = useState(true);
   const upscaleOptions: {
-    value: "meitu_v2" | "runninghub_vr2";
+    value: "meitu_v2" | "runninghub_vr2" | "runninghub_4k_ultra";
     label: string;
     description: string;
   }[] = [
@@ -286,6 +286,11 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
         value: "runninghub_vr2",
         label: "通用2",
         description: "锐化高清模式，突出细节与纹理锐度，适合较高清的原图。",
+      },
+      {
+        value: "runninghub_4k_ultra",
+        label: "4K超清",
+        description: "超高清4K放大模式，极致细节还原，适合需要大幅面输出的场景。",
       },
     ];
   const patternTypeOptions: { value: string; label: string; hint?: string }[] =

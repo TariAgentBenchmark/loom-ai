@@ -11,7 +11,7 @@ PATTERN_VARIANTS = {
     "combined",
     "denim",
 }
-UPSCALE_VARIANTS = {"meitu_v2", "runninghub_vr2"}
+UPSCALE_VARIANTS = {"meitu_v2", "runninghub_vr2", "runninghub_4k_ultra"}
 
 
 def _normalize_pattern_type(raw_value: Optional[str]) -> Optional[str]:
