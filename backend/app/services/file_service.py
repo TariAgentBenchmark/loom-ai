@@ -115,16 +115,17 @@ class FileService:
 
         return file_url
 
-    def validate_file(self, file_bytes: bytes, filename: str, validate_dimensions: bool = True) -> Dict[str, Any]:
+    def validate_file(self, file_bytes: bytes, filename: str, validate_dimensions: bool = True, validate_file_size: bool = True) -> Dict[str, Any]:
         """验证文件
         
         Args:
             file_bytes: 文件字节数据
             filename: 文件名
             validate_dimensions: 是否验证图片尺寸，默认为True
+            validate_file_size: 是否验证文件大小，默认为True
         """
         # 检查文件大小
-        if len(file_bytes) > self.max_file_size:
+        if validate_file_size and len(file_bytes) > self.max_file_size:
             raise UserFacingException(f"文件大小超过限制 ({self.max_file_size / 1024 / 1024:.1f}MB)")
         
         # 检查文件扩展名
@@ -168,7 +169,7 @@ class FileService:
                 raise e
             raise UserFacingException("无效的图片文件")
 
-    async def save_upload_file(self, file_bytes: bytes, filename: str, subfolder: str = "uploads", purpose: str = "general", validate_dimensions: bool = True) -> str:
+    async def save_upload_file(self, file_bytes: bytes, filename: str, subfolder: str = "uploads", purpose: str = "general", validate_dimensions: bool = True, validate_file_size: bool = True) -> str:
         """保存上传的文件
         
         Args:
@@ -177,10 +178,11 @@ class FileService:
             subfolder: 子文件夹
             purpose: 用途标识
             validate_dimensions: 是否验证图片尺寸，默认为True。对于AI生成的结果图片可设为False
+            validate_file_size: 是否验证文件大小，默认为True。对于AI生成的结果图片可设为False
         """
         
-        # 验证文件（可选择是否验证尺寸）
-        file_info = self.validate_file(file_bytes, filename, validate_dimensions=validate_dimensions)
+        # 验证文件（可选择是否验证尺寸和大小）
+        file_info = self.validate_file(file_bytes, filename, validate_dimensions=validate_dimensions, validate_file_size=validate_file_size)
         
         # 优先使用OSS存储
         if self.should_use_oss():
