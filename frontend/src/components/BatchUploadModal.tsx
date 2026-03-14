@@ -102,7 +102,7 @@ export default function BatchUploadModal({
         { value: 2, label: '2张图' },
         { value: 4, label: '4张图' },
     ];
-    const effectivePatternType = patternType ?? 'general';
+    const effectivePatternType = patternType ?? 'combined';
     const effectiveDenimAspectRatio = denimAspectRatio ?? '1:1';
     const effectiveGeneralImageCount = generalImageCount ?? 4;
 

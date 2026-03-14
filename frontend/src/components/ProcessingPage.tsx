@@ -309,7 +309,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     { value: 2, label: "2张图" },
     { value: 4, label: "4张图" },
   ];
-  const effectivePatternType = patternType ?? "general";
+  const effectivePatternType = patternType ?? "combined";
   const effectiveGeneralImageCount = generalImageCount ?? 4;
   const effectiveDenimAspectRatio = denimAspectRatio ?? "1:1";
   const selectedUpscaleOption =
