@@ -1051,7 +1051,7 @@ function HomeContent() {
               setCurrentPage('home');
               setBatchMode(false);
               setPromptInstruction('');
-              setPatternType('general');
+              setPatternType('combined');
               setDenimAspectRatio('1:1');
               setDenimImageCount(2);
               setGeneralImageCount(4);
@@ -1164,7 +1164,7 @@ function HomeContent() {
               setPromptInstruction('');
             }
             if (method === 'extract_pattern') {
-              setPatternType('general');
+              setPatternType('combined');
               setDenimAspectRatio('1:1');
               setDenimImageCount(2);
               setGeneralImageCount(4);
