@@ -93,6 +93,7 @@ class FileService:
         """
         返回可直接访问的URL：
         - 如果是当前桶的OSS URL，则生成预签名地址
+        - 如果是站内相对路径，则补全为绝对地址
         - 其他情况返回原始URL
         """
         if not file_url:
@@ -112,6 +113,9 @@ class FileService:
                     return signed_url
         except Exception as exc:  # pragma: no cover - 防御性处理
             logger.warning("生成可访问URL失败，将返回原始地址: %s", exc)
+
+        if file_url.startswith("/"):
+            return f"{settings.base_url.rstrip('/')}{file_url}"
 
         return file_url
 

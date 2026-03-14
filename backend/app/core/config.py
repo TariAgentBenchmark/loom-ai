@@ -35,6 +35,7 @@ class Settings(BaseSettings):
         default_factory=lambda: {
             "apyi_gemini": 50,
             "apyi_openai": 50,
+            "ai302_grok": 20,
             "gpt4o": 50,
             "runninghub": 100,
             "gqch": 6,
@@ -56,6 +57,10 @@ class Settings(BaseSettings):
     # Apyi API配置 (主要配置)
     apiyi_api_key: str = ""
     apiyi_base_url: str = "https://api.apiyi.com"
+
+    # 302.AI API配置
+    ai302_api_key: str = ""
+    ai302_base_url: str = "https://api.302.ai"
     
     # 美图API配置
     meitu_api_key: str = ""

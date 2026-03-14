@@ -114,7 +114,7 @@ class ProcessingService:
             if pattern_type in {"general_1", "positioning"}:
                 provider = "runninghub"
             elif pattern_type == "combined":
-                provider = "runninghub+gemini"
+                provider = "runninghub+gemini+ai302_grok"
         elif task_type == TaskType.VECTORIZE.value:
             provider = "a8_vectorizer+webapi"
         elif task_type == TaskType.UPSCALE.value:
@@ -352,6 +352,11 @@ class ProcessingService:
             task_options = dict(task.options or {})
             if task.original_filename:
                 task_options.setdefault("original_filename", task.original_filename)
+            if task.original_image_url:
+                task_options.setdefault(
+                    "original_image_url",
+                    await self.file_service.ensure_accessible_url(task.original_image_url),
+                )
             secondary_image_bytes: Optional[bytes] = None
             secondary_url = task_options.get("secondary_image_url")
             if secondary_url:
