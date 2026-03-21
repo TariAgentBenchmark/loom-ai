@@ -1503,11 +1503,25 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
               </div>
             ) : method === "extract_pattern" ? (
               <div className="text-center w-full flex flex-col items-center justify-center gap-4 md:gap-5">
-                <img
-                  src="/AI提取花型用法说明.jpg"
-                  alt="AI提取花型用法说明"
-                  className="w-full max-w-5xl max-h-[75vh] object-contain"
-                />
+                <picture>
+                  <source
+                    type="image/webp"
+                    srcSet={[
+                      "/optimized/tutorials/AI提取花型用法说明-768.webp 768w",
+                      "/optimized/tutorials/AI提取花型用法说明-1280.webp 1280w",
+                    ].join(", ")}
+                    sizes="(max-width: 768px) 100vw, 1280px"
+                  />
+                  <img
+                    src="/AI提取花型用法说明.jpg"
+                    alt="AI提取花型用法说明"
+                    width={1801}
+                    height={1082}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full max-w-5xl max-h-[75vh] object-contain"
+                  />
+                </picture>
               </div>
             ) : (
               <div className="text-center w-full flex flex-col items-center justify-center gap-4 md:gap-5">
