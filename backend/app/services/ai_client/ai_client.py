@@ -47,6 +47,7 @@ _EMBROIDERY_MODE_ALIASES = {
 _RUNNINGHUB_EMBROIDERY_PROMPT = (
     "把图中图案转换成精致的刺绣效果，底色不变。尽量保持原有细节。"
 )
+_RUNNINGHUB_EMBROIDERY_SIZE = "4K"
 
 
 class AIClient:
@@ -1431,7 +1432,10 @@ class AIClient:
                         {
                             "nodeId": settings.runninghub_ai_app_embroidery_size_node_id,
                             "fieldName": settings.runninghub_ai_app_embroidery_size_field_name,
-                            "fieldValue": str((options or {}).get("resolution") or "2K"),
+                            "fieldValue": str(
+                                (options or {}).get("resolution")
+                                or _RUNNINGHUB_EMBROIDERY_SIZE
+                            ),
                             "description": "size",
                         },
                         {
