@@ -17,6 +17,8 @@ interface BatchProcessingWrapperProps {
     onBack: () => void;
     onHistoryRefresh?: () => void;
     promptInstruction?: string;
+    embroideryMode?: 'yarn' | 'embroidery';
+    onEmbroideryModeChange?: (value: 'yarn' | 'embroidery') => void;
     patternType?: string;
     onPatternTypeChange?: (value: string) => void;
     denimAspectRatio?: string;
@@ -42,6 +44,8 @@ export default function BatchProcessingWrapper({
     onBack,
     onHistoryRefresh,
     promptInstruction,
+    embroideryMode,
+    onEmbroideryModeChange,
     patternType,
     onPatternTypeChange,
     denimAspectRatio,
@@ -148,6 +152,10 @@ export default function BatchProcessingWrapper({
                 payload.instruction = batchInstruction;
             }
 
+            if (method === 'embroidery') {
+                payload.embroideryMode = embroideryMode;
+            }
+
             if (method === 'extract_pattern') {
                 payload.patternType = patternType;
                 if (patternType === 'denim') {
@@ -190,7 +198,7 @@ export default function BatchProcessingWrapper({
         } finally {
             setIsCreatingBatch(false);
         }
-    }, [method, accessToken, batchInstruction, patternType, denimAspectRatio, denimImageCount, batchGeneralImageCount, upscaleEngine, expandRatio, expandEdges, expandPrompt, seamDirection, seamFit]);
+    }, [method, accessToken, batchInstruction, embroideryMode, patternType, denimAspectRatio, denimImageCount, batchGeneralImageCount, upscaleEngine, expandRatio, expandEdges, expandPrompt, seamDirection, seamFit, onHistoryRefresh]);
 
     const handleComplete = useCallback(() => {
         // Batch processing completed
@@ -251,6 +259,8 @@ export default function BatchProcessingWrapper({
                 showReferenceImage={method === 'prompt_edit'}
                 instruction={batchInstruction}
                 onInstructionChange={setBatchInstruction}
+                embroideryMode={embroideryMode}
+                onEmbroideryModeChange={onEmbroideryModeChange}
                 patternType={patternType}
                 onPatternTypeChange={onPatternTypeChange}
                 denimAspectRatio={denimAspectRatio}

@@ -180,6 +180,8 @@ interface ProcessingPageProps {
   accessToken?: string;
   promptInstruction?: string;
   onPromptInstructionChange?: (value: string) => void;
+  embroideryMode?: "yarn" | "embroidery";
+  onEmbroideryModeChange?: (value: "yarn" | "embroidery") => void;
   patternType?: string;
   onPatternTypeChange?: (value: string) => void;
   denimAspectRatio?: string;
@@ -232,6 +234,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   accessToken,
   promptInstruction,
   onPromptInstructionChange,
+  embroideryMode = "yarn",
+  onEmbroideryModeChange,
   patternType,
   onPatternTypeChange,
   denimAspectRatio,
@@ -299,6 +303,22 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
       { value: "combined", label: "综合模型" },
       { value: "denim", label: "牛仔风格专用" },
     ];
+  const embroideryModeOptions: {
+    value: "yarn" | "embroidery";
+    label: string;
+    description: string;
+  }[] = [
+    {
+      value: "yarn",
+      label: "毛线效果",
+      description: "保留现有毛线质感与手工编织纹理表现。",
+    },
+    {
+      value: "embroidery",
+      label: "刺绣效果",
+      description: "使用新刺绣模型，突出精致针脚与原图细节保留。",
+    },
+  ];
   const denimSizeOptions: { value: string; label: string }[] = [
     { value: "1:1", label: "方形 1:1" },
     { value: "2:3", label: "竖版 2:3" },
@@ -436,7 +456,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
 
   useEffect(() => {
     setSelectedResultIndex(0);
-  }, [processedImage, method, patternType]);
+  }, [processedImage, method, patternType, embroideryMode]);
 
   const handlePromptTemplateSelect = (template: string) => {
     if (onPromptInstructionChange) {
@@ -951,6 +971,40 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
               <p className="text-xs text-gray-500 mt-2">
                 数值越高越接近参考图，数值越低变化越明显。
               </p>
+            </div>
+          )}
+
+          {method === "embroidery" && (
+            <div className="mb-4 md:mb-6 space-y-4">
+              <div>
+                <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2">
+                  效果模式
+                </h4>
+                <div className="grid grid-cols-1 gap-3">
+                  {embroideryModeOptions.map((option) => {
+                    const isActive = embroideryMode === option.value;
+                    return (
+                      <button
+                        type="button"
+                        key={option.value}
+                        onClick={() => onEmbroideryModeChange?.(option.value)}
+                        className={`rounded-xl border p-3 text-left transition-all ${
+                          isActive
+                            ? "border-blue-500 bg-blue-50 shadow-sm"
+                            : "border-gray-200 hover:border-blue-300 hover:bg-blue-50/60"
+                        }`}
+                      >
+                        <div className="text-sm md:text-base font-semibold text-gray-900">
+                          {option.label}
+                        </div>
+                        <p className="mt-1 text-xs md:text-sm text-gray-600">
+                          {option.description}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
 

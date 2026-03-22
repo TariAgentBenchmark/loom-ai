@@ -51,7 +51,7 @@ export const processingMethodInfo: Record<
   embroidery: {
     title: "AI刺绣",
     description:
-      "使用AI技术进行刺绣增强，支持4K超高清输出，提供更真实的质感和精细的针脚效果。",
+      "支持毛线效果与精致刺绣效果两种模式，提供更真实的质感和细腻针脚表现。",
     icon: "/optimized/AI毛线刺绣增强.webp",
     examples: [
       "上传需要刺绣增强的图片",
@@ -167,7 +167,7 @@ export const getProcessingMethodInfo = (method: ProcessingMethod) =>
 // 定义哪些处理方法使用AI模型（支持分辨率设置）
 export const AI_MODEL_METHODS: ProcessingMethod[] = [
   "prompt_edit", // AI用嘴改图 - 使用Gemini
-  "embroidery", // AI刺绣 - 使用Gemini
+  "embroidery", // AI刺绣 - 毛线(Gemini) / 刺绣(RunningHub)
   "flat_to_3d", // AI平面转3D - 使用即梦
   "extract_pattern", // AI提取花型 - 使用Gemini/GPT-4o
   "noise_removal", // AI布纹去噪 - 使用Gemini

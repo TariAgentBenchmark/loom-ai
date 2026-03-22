@@ -101,6 +101,7 @@ class ProcessingService:
         """Best-effort downstream provider hints for task logs."""
         pattern_type = str(options.get("pattern_type") or "").lower()
         engine = str(options.get("engine") or "").lower()
+        embroidery_mode = str(options.get("embroidery_mode") or "").lower()
 
         provider = "apyi_gemini"
         if task_type in {
@@ -117,6 +118,8 @@ class ProcessingService:
                 provider = "runninghub+gemini+ai302_grok"
         elif task_type == TaskType.VECTORIZE.value:
             provider = "a8_vectorizer+webapi"
+        elif task_type == TaskType.EMBROIDERY.value and embroidery_mode == "embroidery":
+            provider = "runninghub"
         elif task_type == TaskType.UPSCALE.value:
             if engine:
                 provider = engine
@@ -128,6 +131,8 @@ class ProcessingService:
             downstream["engine"] = engine
         if pattern_type:
             downstream["patternType"] = pattern_type
+        if embroidery_mode:
+            downstream["embroideryMode"] = embroidery_mode
         if options.get("num_images") is not None:
             downstream["numImages"] = options.get("num_images")
         return downstream

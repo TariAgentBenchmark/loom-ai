@@ -15,6 +15,8 @@ interface BatchUploadModalProps {
     showReferenceImage?: boolean;  // 是否显示基准图上传（仅用于 prompt_edit）
     instruction?: string; // prompt_edit 的修改指令
     onInstructionChange?: (value: string) => void;
+    embroideryMode?: 'yarn' | 'embroidery';
+    onEmbroideryModeChange?: (value: 'yarn' | 'embroidery') => void;
     patternType?: string;
     onPatternTypeChange?: (value: string) => void;
     denimAspectRatio?: string;
@@ -63,6 +65,8 @@ export default function BatchUploadModal({
     showReferenceImage = false,
     instruction,
     onInstructionChange,
+    embroideryMode = 'yarn',
+    onEmbroideryModeChange,
     patternType,
     onPatternTypeChange,
     denimAspectRatio,
@@ -91,6 +95,22 @@ export default function BatchUploadModal({
     const patternTypeOptions: { value: string; label: string }[] = [
         { value: 'general', label: '通用模型' },
         { value: 'denim', label: '牛仔风格专用' },
+    ];
+    const embroideryModeOptions: {
+        value: 'yarn' | 'embroidery';
+        label: string;
+        description: string;
+    }[] = [
+        {
+            value: 'yarn',
+            label: '毛线效果',
+            description: '延续当前毛线纹理风格，适合偏手工编织的视觉效果。',
+        },
+        {
+            value: 'embroidery',
+            label: '刺绣效果',
+            description: '启用新刺绣模型，强调精致针脚并尽量保留原图细节。',
+        },
     ];
     const denimSizeOptions: { value: string; label: string }[] = [
         { value: '1:1', label: '方形 1:1' },
@@ -475,6 +495,38 @@ export default function BatchUploadModal({
                                     </div>
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {method === 'embroidery' && (
+                        <div className="mb-6 space-y-3">
+                            <div>
+                                <h3 className="text-base font-semibold text-gray-900">效果模式</h3>
+                                <p className="text-sm text-gray-500 mt-1">
+                                    默认保留毛线效果，也可切换到新增的刺绣模型。
+                                </p>
+                            </div>
+                            <div className="grid grid-cols-1 gap-3">
+                                {embroideryModeOptions.map((option) => {
+                                    const isActive = embroideryMode === option.value;
+                                    return (
+                                        <button
+                                            key={option.value}
+                                            type="button"
+                                            onClick={() => onEmbroideryModeChange?.(option.value)}
+                                            disabled={isProcessing}
+                                            className={`rounded-xl border p-3 text-left transition-all ${
+                                                isActive
+                                                    ? 'border-blue-500 bg-blue-50 shadow-sm'
+                                                    : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/60'
+                                            }`}
+                                        >
+                                            <div className="text-sm font-semibold text-gray-900">{option.label}</div>
+                                            <p className="mt-1 text-xs text-gray-600">{option.description}</p>
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         </div>
                     )}
 

@@ -25,6 +25,7 @@ async def create_batch_task(
     reference_image: Optional[UploadFile] = File(None),
     instruction: Optional[str] = Form(None),
     pattern_type: Optional[str] = Form(None),
+    embroidery_mode: Optional[str] = Form(None),
     quality: Optional[str] = Form(None),
     aspect_ratio: Optional[str] = Form(None),
     width: Optional[int] = Form(None),
@@ -85,6 +86,9 @@ async def create_batch_task(
             options["quality"] = quality or "standard"
             if num_images is not None:
                 options["num_images"] = num_images
+
+        if task_type == "embroidery":
+            options["embroidery_mode"] = embroidery_mode or "yarn"
         
         if task_type == "upscale":
             options["engine"] = upscale_engine or "meitu_v2"

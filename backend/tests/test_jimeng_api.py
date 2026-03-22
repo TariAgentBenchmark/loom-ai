@@ -27,14 +27,17 @@ class TestJimengAPI:
         """创建AI客户端实例"""
         original_key = settings.jimeng_api_key
         original_secret = settings.jimeng_api_secret
+        original_runninghub_key = settings.runninghub_api_key
         settings.jimeng_api_key = "test_key"
         settings.jimeng_api_secret = "test_secret"
+        settings.runninghub_api_key = "test_runninghub_key"
 
         try:
             yield AIClient()
         finally:
             settings.jimeng_api_key = original_key
             settings.jimeng_api_secret = original_secret
+            settings.runninghub_api_key = original_runninghub_key
     
     @pytest.fixture
     def sample_image_bytes(self):
@@ -209,6 +212,29 @@ class TestJimengAPI:
             mock_upscale.assert_called_once()
             mock_base_download.assert_awaited_once_with("https://example.com/flat3d_hd.jpg")
             assert mock_save.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_enhance_embroidery_with_runninghub_mode(self, ai_client, sample_image_bytes):
+        """测试刺绣模式走 RunningHub AI App。"""
+        with patch.object(ai_client.runninghub_client, 'run_ai_app_v2', new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = ["https://example.com/embroidery_result.png"]
+
+            result = await ai_client.enhance_embroidery(
+                sample_image_bytes,
+                {
+                    "embroidery_mode": "embroidery",
+                    "original_filename": "sample.png",
+                },
+            )
+
+            assert result == "https://example.com/embroidery_result.png"
+            mock_run.assert_awaited_once()
+            call_kwargs = mock_run.await_args.kwargs
+            assert call_kwargs["ai_app_id"] == settings.runninghub_ai_app_id_embroidery
+            assert call_kwargs["node_info_list"][0]["fieldValue"] == "__IMAGE__"
+            assert call_kwargs["node_info_list"][2]["fieldValue"] == (
+                "把图中图案转换成精致的刺绣效果，底色不变。尽量保持原有细节。"
+            )
 
     @pytest.mark.asyncio
     async def test_download_image_from_url(self, ai_client):

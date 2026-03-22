@@ -742,6 +742,7 @@ export interface ProcessingRequestPayload {
   image: File;
   image2?: File;
   accessToken: string;
+  embroideryMode?: "yarn" | "embroidery";
   instruction?: string;
   model?: "new" | "original";
   patternType?: string;
@@ -767,6 +768,7 @@ export const createProcessingTask = (payload: ProcessingRequestPayload) => {
     image,
     image2,
     accessToken,
+    embroideryMode,
     instruction,
     model,
     patternType,
@@ -795,6 +797,10 @@ export const createProcessingTask = (payload: ProcessingRequestPayload) => {
   if (method === "prompt_edit") {
     formData.append("instruction", instruction ?? "");
     formData.append("model", model ?? "new");
+  }
+
+  if (method === "embroidery") {
+    formData.append("embroidery_mode", embroideryMode ?? "yarn");
   }
 
   if (method === "extract_pattern") {
@@ -2100,6 +2106,7 @@ export interface BatchProcessingRequestPayload {
   images: File[];
   referenceImage?: File;
   accessToken: string;
+  embroideryMode?: "yarn" | "embroidery";
   instruction?: string;
   patternType?: string;
   aspectRatio?: string;
@@ -2123,6 +2130,7 @@ export const createBatchTask = (payload: BatchProcessingRequestPayload) => {
     images,
     referenceImage,
     accessToken,
+    embroideryMode,
     instruction,
     patternType,
     aspectRatio,
@@ -2163,6 +2171,10 @@ export const createBatchTask = (payload: BatchProcessingRequestPayload) => {
   // Add method-specific parameters
   if (method === "prompt_edit" && instruction) {
     formData.append("instruction", instruction);
+  }
+
+  if (method === "embroidery") {
+    formData.append("embroidery_mode", embroideryMode ?? "yarn");
   }
 
   if (method === "extract_pattern") {

@@ -154,6 +154,7 @@ function HomeContent() {
   const [showCreditHistoryModal, setShowCreditHistoryModal] = useState(false);
   const [currentPage, setCurrentPage] = useState<PageState>('home');
   const [promptInstruction, setPromptInstruction] = useState<string>('');
+  const [embroideryMode, setEmbroideryMode] = useState<'yarn' | 'embroidery'>('yarn');
   const [patternType, setPatternType] = useState<string>('combined');
   const [denimAspectRatio, setDenimAspectRatio] = useState<string>('1:1');
   const [denimImageCount, setDenimImageCount] = useState<number>(2);
@@ -917,6 +918,10 @@ function HomeContent() {
       }
     }
 
+    if (currentPage === 'embroidery') {
+      payload.embroideryMode = embroideryMode;
+    }
+
     if (currentPage === 'extract_pattern') {
       payload.patternType = patternType;
       if (patternType === 'denim') {
@@ -1051,6 +1056,7 @@ function HomeContent() {
               setCurrentPage('home');
               setBatchMode(false);
               setPromptInstruction('');
+              setEmbroideryMode('yarn');
               setPatternType('combined');
               setDenimAspectRatio('1:1');
               setDenimImageCount(2);
@@ -1085,6 +1091,15 @@ function HomeContent() {
             accessToken={accessToken || undefined}
             promptInstruction={promptInstruction}
             onPromptInstructionChange={setPromptInstruction}
+            embroideryMode={embroideryMode}
+            onEmbroideryModeChange={(value) => {
+              setEmbroideryMode(value);
+              if (currentPage === 'embroidery') {
+                setProcessedImage(null);
+                setErrorMessage('');
+                setSuccessMessage('');
+              }
+            }}
             patternType={patternType}
             denimAspectRatio={denimAspectRatio}
             onDenimAspectRatioChange={setDenimAspectRatio}
@@ -1125,6 +1140,8 @@ function HomeContent() {
               onBack={() => setBatchMode(false)}
               onHistoryRefresh={() => setHistoryRefreshToken((token) => token + 1)}
               promptInstruction={promptInstruction}
+              embroideryMode={embroideryMode}
+              onEmbroideryModeChange={setEmbroideryMode}
               patternType={patternType}
               onPatternTypeChange={setPatternType}
               denimAspectRatio={denimAspectRatio}
@@ -1168,6 +1185,9 @@ function HomeContent() {
               setDenimAspectRatio('1:1');
               setDenimImageCount(2);
               setGeneralImageCount(4);
+            }
+            if (method === 'embroidery') {
+              setEmbroideryMode('yarn');
             }
             if (method === 'expand_image') {
               setExpandRatio('original');

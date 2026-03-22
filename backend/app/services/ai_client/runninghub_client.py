@@ -113,13 +113,20 @@ class RunningHubClient:
         data: Optional[Dict[str, Any]] = None,
         json: Optional[Dict[str, Any]] = None,
         files: Optional[Dict[str, Any]] = None,
+        headers: Optional[Dict[str, str]] = None,
         action: str,
     ) -> Dict[str, Any]:
         request_context = self._build_request_context(url, data, json, files, action)
         try:
             async with api_limiter.slot("runninghub"):
                 async with httpx.AsyncClient(timeout=60.0) as client:
-                    response = await client.post(url, data=data, json=json, files=files)
+                    response = await client.post(
+                        url,
+                        data=data,
+                        json=json,
+                        files=files,
+                        headers=headers,
+                    )
                     response.raise_for_status()
         except httpx.HTTPStatusError as exc:
             self._log_http_error(action, exc)
@@ -160,6 +167,11 @@ class RunningHubClient:
             raise Exception("RunningHub工作流尚未配置，请设置workflowId环境变量")
 
         return resolved_workflow_id
+
+    def _build_v2_headers(self) -> Dict[str, str]:
+        if not self.api_key:
+            raise Exception("RunningHub API尚未配置，请设置API_KEY环境变量")
+        return {"Authorization": f"Bearer {self.api_key}"}
 
     def _parse_node_ids(self, raw_node_ids: Optional[str]) -> List[str]:
         if not raw_node_ids:
@@ -396,6 +408,39 @@ class RunningHubClient:
         task_id = await self._submit_task(node_info_list, resolved_workflow_id)
         return await self._poll_task(task_id)
 
+    async def run_ai_app_v2(
+        self,
+        image_bytes: bytes,
+        ai_app_id: str,
+        node_info_list: List[Dict[str, Any]],
+        options: Optional[Dict[str, Any]] = None,
+    ) -> List[str]:
+        """Run a RunningHub OpenAPI v2 AI App and return result URLs."""
+
+        if not ai_app_id:
+            raise Exception("RunningHub AI App尚未配置")
+
+        options = options or {}
+        filename = options.get("original_filename") or "runninghub.png"
+        uploaded_name = await self._upload_binary_v2(image_bytes, filename)
+
+        resolved_node_info_list: List[Dict[str, Any]] = []
+        for item in node_info_list:
+            resolved_item = dict(item)
+            if resolved_item.get("fieldValue") == "__IMAGE__":
+                resolved_item["fieldValue"] = uploaded_name
+            resolved_node_info_list.append(resolved_item)
+
+        task_id = await self._submit_ai_app_task_v2(
+            ai_app_id=ai_app_id,
+            node_info_list=resolved_node_info_list,
+            instance_type=options.get("instance_type", "default"),
+            use_personal_queue=bool(options.get("use_personal_queue", False)),
+            retain_seconds=options.get("retain_seconds"),
+            webhook_url=options.get("webhook_url"),
+        )
+        return await self._poll_ai_app_task_v2(task_id)
+
     async def _upload_file(self, image_bytes: bytes, filename: str) -> str:
         url = f"{self.base_url}/task/openapi/upload"
         mime_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
@@ -559,6 +604,140 @@ class RunningHubClient:
                 task_id,
                 data,
             )
+            raise AIClientException(
+                message=f"RunningHub返回未知状态: {data}",
+                api_name="RunningHub",
+                status_code=200,
+                response_body=data,
+                request_data={"task_id": task_id},
+            )
+
+    async def _upload_binary_v2(self, image_bytes: bytes, filename: str) -> str:
+        url = f"{self.base_url}/openapi/v2/media/upload/binary"
+        mime_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        files = {"file": (filename, image_bytes, mime_type)}
+
+        payload = await self._post_json(
+            url,
+            files=files,
+            headers=self._build_v2_headers(),
+            action="upload v2 binary",
+        )
+
+        if payload.get("code") != 0:
+            msg = payload.get("message") or payload.get("msg") or "上传失败"
+            raise AIClientException(
+                message=f"RunningHub文件上传失败: {msg}",
+                api_name="RunningHub",
+                status_code=200,
+                response_body=payload,
+                request_data={"filename": filename, "size": len(image_bytes)},
+            )
+
+        file_name = (payload.get("data") or {}).get("fileName")
+        if not file_name:
+            raise AIClientException(
+                message="RunningHub上传响应缺少fileName",
+                api_name="RunningHub",
+                status_code=200,
+                response_body=payload,
+                request_data={"filename": filename, "size": len(image_bytes)},
+            )
+        return file_name
+
+    async def _submit_ai_app_task_v2(
+        self,
+        *,
+        ai_app_id: str,
+        node_info_list: List[Dict[str, Any]],
+        instance_type: str = "default",
+        use_personal_queue: bool = False,
+        retain_seconds: Optional[int] = None,
+        webhook_url: Optional[str] = None,
+    ) -> str:
+        url = f"{self.base_url}/openapi/v2/run/ai-app/{ai_app_id}"
+        payload: Dict[str, Any] = {
+            "nodeInfoList": node_info_list,
+            "instanceType": instance_type or "default",
+            "usePersonalQueue": bool(use_personal_queue),
+        }
+        if retain_seconds is not None:
+            payload["retainSeconds"] = retain_seconds
+        if webhook_url:
+            payload["webhookUrl"] = webhook_url
+
+        data = await self._post_json(
+            url,
+            json=payload,
+            headers={
+                **self._build_v2_headers(),
+                "Content-Type": "application/json",
+            },
+            action="create ai app task v2",
+        )
+
+        task_id = data.get("taskId")
+        if not task_id:
+            raise AIClientException(
+                message="RunningHub任务创建响应缺少taskId",
+                api_name="RunningHub",
+                status_code=200,
+                response_body=data,
+                request_data={"ai_app_id": ai_app_id, "node_info": node_info_list},
+            )
+        return task_id
+
+    async def _poll_ai_app_task_v2(self, task_id: str) -> List[str]:
+        url = f"{self.base_url}/openapi/v2/query"
+        payload = {"taskId": task_id}
+        start_time = time.monotonic()
+
+        while True:
+            data = await self._post_json(
+                url,
+                json=payload,
+                headers={
+                    **self._build_v2_headers(),
+                    "Content-Type": "application/json",
+                },
+                action=f"poll ai app task v2 {task_id}",
+            )
+
+            status = str(data.get("status") or "").upper()
+            if status == "SUCCESS":
+                results = data.get("results") or []
+                urls = [
+                    item.get("url")
+                    for item in results
+                    if isinstance(item, dict) and item.get("url")
+                ]
+                if not urls:
+                    raise AIClientException(
+                        message="RunningHub任务成功但未返回结果URL",
+                        api_name="RunningHub",
+                        status_code=200,
+                        response_body=data,
+                        request_data={"task_id": task_id},
+                    )
+                return urls
+
+            if status == "FAILED":
+                failed_reason = data.get("failedReason")
+                error_message = data.get("errorMessage") or data.get("errorCode") or ""
+                raise AIClientException(
+                    message=f"RunningHub任务失败: {error_message} {failed_reason or ''}".strip(),
+                    api_name="RunningHub",
+                    status_code=200,
+                    response_body=data,
+                    request_data={"task_id": task_id},
+                )
+
+            if status in {"QUEUED", "RUNNING"}:
+                if time.monotonic() - start_time > self.poll_timeout:
+                    raise TimeoutError("等待RunningHub任务结果超时")
+                await asyncio.sleep(self.poll_interval)
+                continue
+
             raise AIClientException(
                 message=f"RunningHub返回未知状态: {data}",
                 api_name="RunningHub",

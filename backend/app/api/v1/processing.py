@@ -365,6 +365,7 @@ async def denoise_image(
 @router.post("/embroidery")
 async def enhance_embroidery(
     image: UploadFile = File(...),
+    embroidery_mode: str = Form("yarn"),
     scale: float = Form(0.7),
     size: int = Form(2048*2048),
     force_single: bool = Form(True),
@@ -374,7 +375,7 @@ async def enhance_embroidery(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """AI毛线刺绣增强"""
+    """AI刺绣增强"""
     try:
         # 记录上传文件大小
         file_size = 0
@@ -386,6 +387,7 @@ async def enhance_embroidery(
         
         # 构建选项
         options = {
+            "embroidery_mode": embroidery_mode,
             "scale": scale,
             "size": size,
             "force_single": force_single

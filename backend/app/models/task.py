@@ -13,7 +13,7 @@ class TaskType(PyEnum):
     EXTRACT_PATTERN = "extract_pattern"  # AI提取花型
     REMOVE_WATERMARK = "remove_watermark"  # AI智能去水印
     DENOISE = "denoise"  # AI布纹去噪
-    EMBROIDERY = "embroidery"  # AI毛线刺绣增强
+    EMBROIDERY = "embroidery"  # AI刺绣
     FLAT_TO_3D = "flat_to_3d"  # AI平面转3D
     UPSCALE = "upscale"  # AI高清
     EXPAND = "expand_image"  # AI扩图
@@ -97,7 +97,7 @@ class Task(Base):
             TaskType.EXTRACT_PATTERN.value: "AI提取花型",
             TaskType.REMOVE_WATERMARK.value: "AI智能去水印",
             TaskType.DENOISE.value: "AI布纹去噪",
-            TaskType.EMBROIDERY.value: "AI毛线刺绣增强",
+            TaskType.EMBROIDERY.value: "AI刺绣",
             TaskType.FLAT_TO_3D.value: "AI平面转3D",
             TaskType.UPSCALE.value: "AI高清",
             TaskType.EXPAND.value: "AI扩图",

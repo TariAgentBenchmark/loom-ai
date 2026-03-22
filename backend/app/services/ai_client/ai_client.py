@@ -37,6 +37,16 @@ _PATTERN_TYPE_ALIASES = {
 }
 
 _COMBINED_VARIANTS = ("general_2", "combined_detail")
+_EMBROIDERY_MODE_ALIASES = {
+    "yarn": "yarn",
+    "wool": "yarn",
+    "woolen": "yarn",
+    "embroidery": "embroidery",
+    "stitch": "embroidery",
+}
+_RUNNINGHUB_EMBROIDERY_PROMPT = (
+    "把图中图案转换成精致的刺绣效果，底色不变。尽量保持原有细节。"
+)
 
 
 class AIClient:
@@ -1400,8 +1410,43 @@ class AIClient:
         image_bytes: bytes,
         options: Optional[Dict[str, Any]] = None,
     ) -> str:
-        """AI毛线刺绣增强（使用 Apyi Gemini 3 Pro Image Preview）"""
+        """AI刺绣增强，支持毛线效果与刺绣效果两种模式。"""
         try:
+            normalized_mode = _EMBROIDERY_MODE_ALIASES.get(
+                str((options or {}).get("embroidery_mode") or "yarn").strip().lower(),
+                "yarn",
+            )
+
+            if normalized_mode == "embroidery":
+                result_urls = await self.runninghub_client.run_ai_app_v2(
+                    image_bytes=image_bytes,
+                    ai_app_id=settings.runninghub_ai_app_id_embroidery,
+                    node_info_list=[
+                        {
+                            "nodeId": settings.runninghub_ai_app_embroidery_image_node_id,
+                            "fieldName": settings.runninghub_ai_app_embroidery_image_field_name,
+                            "fieldValue": "__IMAGE__",
+                            "description": "image",
+                        },
+                        {
+                            "nodeId": settings.runninghub_ai_app_embroidery_size_node_id,
+                            "fieldName": settings.runninghub_ai_app_embroidery_size_field_name,
+                            "fieldValue": str((options or {}).get("resolution") or "2K"),
+                            "description": "size",
+                        },
+                        {
+                            "nodeId": settings.runninghub_ai_app_embroidery_text_node_id,
+                            "fieldName": settings.runninghub_ai_app_embroidery_text_field_name,
+                            "fieldValue": _RUNNINGHUB_EMBROIDERY_PROMPT,
+                            "description": "text",
+                        },
+                    ],
+                    options=options,
+                )
+                if not result_urls:
+                    raise Exception("刺绣增强失败：未生成结果图片")
+                return ",".join(result_urls)
+
             prompt = """
             将这张图片转换为毛线刺绣效果：
             1. 针线类型：中等针脚，平衡的刺绣效果
@@ -1433,7 +1478,7 @@ class AIClient:
 
         except Exception as e:
             logger.error(f"Enhance embroidery failed: {str(e)}")
-            raise Exception(f"毛线刺绣增强失败: {str(e)}")
+            raise Exception(f"刺绣增强失败: {str(e)}")
 
 
 # 创建全局AI客户端实例
