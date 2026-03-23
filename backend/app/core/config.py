@@ -132,6 +132,7 @@ class Settings(BaseSettings):
     runninghub_workflow_id_similar_image: str = "1995318457082294274"
     runninghub_consistent_similar_image_node_id: str = "65"
     runninghub_consistent_similar_image_field_name: str = "image"
+    # 保留旧的刺绣 AI App 配置，便于后续其他功能复用
     runninghub_ai_app_id_embroidery: str = "1996892864644894722"
     runninghub_ai_app_embroidery_image_node_id: str = "3"
     runninghub_ai_app_embroidery_image_field_name: str = "image"
@@ -139,6 +140,9 @@ class Settings(BaseSettings):
     runninghub_ai_app_embroidery_size_field_name: str = "size"
     runninghub_ai_app_embroidery_text_node_id: str = "10"
     runninghub_ai_app_embroidery_text_field_name: str = "text"
+    runninghub_workflow_id_embroidery: str = "2035586261913706498"
+    runninghub_embroidery_node_id: str = "3"
+    runninghub_embroidery_field_name: str = "image"
     # 提取花型通用1 专用工作流（四张图模式）
     runninghub_workflow_id_extract_general1_1: str = "1991764696648855553"
     runninghub_extract_general1_node_id_1: str = "184"

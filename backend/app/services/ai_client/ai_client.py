@@ -44,10 +44,6 @@ _EMBROIDERY_MODE_ALIASES = {
     "embroidery": "embroidery",
     "stitch": "embroidery",
 }
-_RUNNINGHUB_EMBROIDERY_PROMPT = (
-    "把图中图案转换成精致的刺绣效果，底色不变。尽量保持原有细节。"
-)
-_RUNNINGHUB_EMBROIDERY_SIZE = "4K"
 
 
 class AIClient:
@@ -1419,32 +1415,11 @@ class AIClient:
             )
 
             if normalized_mode == "embroidery":
-                result_urls = await self.runninghub_client.run_ai_app_v2(
+                result_urls = await self.runninghub_client.run_workflow_with_custom_nodes(
                     image_bytes=image_bytes,
-                    ai_app_id=settings.runninghub_ai_app_id_embroidery,
-                    node_info_list=[
-                        {
-                            "nodeId": settings.runninghub_ai_app_embroidery_image_node_id,
-                            "fieldName": settings.runninghub_ai_app_embroidery_image_field_name,
-                            "fieldValue": "__IMAGE__",
-                            "description": "image",
-                        },
-                        {
-                            "nodeId": settings.runninghub_ai_app_embroidery_size_node_id,
-                            "fieldName": settings.runninghub_ai_app_embroidery_size_field_name,
-                            "fieldValue": str(
-                                (options or {}).get("resolution")
-                                or _RUNNINGHUB_EMBROIDERY_SIZE
-                            ),
-                            "description": "size",
-                        },
-                        {
-                            "nodeId": settings.runninghub_ai_app_embroidery_text_node_id,
-                            "fieldName": settings.runninghub_ai_app_embroidery_text_field_name,
-                            "fieldValue": _RUNNINGHUB_EMBROIDERY_PROMPT,
-                            "description": "text",
-                        },
-                    ],
+                    workflow_id=settings.runninghub_workflow_id_embroidery,
+                    node_ids=settings.runninghub_embroidery_node_id,
+                    field_name=settings.runninghub_embroidery_field_name,
                     options=options,
                 )
                 if not result_urls:

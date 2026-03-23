@@ -216,7 +216,11 @@ class TestJimengAPI:
     @pytest.mark.asyncio
     async def test_enhance_embroidery_with_runninghub_mode(self, ai_client, sample_image_bytes):
         """测试刺绣模式走 RunningHub AI App。"""
-        with patch.object(ai_client.runninghub_client, 'run_ai_app_v2', new_callable=AsyncMock) as mock_run:
+        with patch.object(
+            ai_client.runninghub_client,
+            'run_workflow_with_custom_nodes',
+            new_callable=AsyncMock,
+        ) as mock_run:
             mock_run.return_value = ["https://example.com/embroidery_result.png"]
 
             result = await ai_client.enhance_embroidery(
@@ -230,11 +234,9 @@ class TestJimengAPI:
             assert result == "https://example.com/embroidery_result.png"
             mock_run.assert_awaited_once()
             call_kwargs = mock_run.await_args.kwargs
-            assert call_kwargs["ai_app_id"] == settings.runninghub_ai_app_id_embroidery
-            assert call_kwargs["node_info_list"][0]["fieldValue"] == "__IMAGE__"
-            assert call_kwargs["node_info_list"][2]["fieldValue"] == (
-                "把图中图案转换成精致的刺绣效果，底色不变。尽量保持原有细节。"
-            )
+            assert call_kwargs["workflow_id"] == settings.runninghub_workflow_id_embroidery
+            assert call_kwargs["node_ids"] == settings.runninghub_embroidery_node_id
+            assert call_kwargs["field_name"] == settings.runninghub_embroidery_field_name
 
     @pytest.mark.asyncio
     async def test_download_image_from_url(self, ai_client):
