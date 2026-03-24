@@ -33,7 +33,7 @@ async def purge_expired_oss_objects(
     deleted = 0
     for original_url, result_url in expired_records:
         for url in (original_url, result_url):
-            if not url or not file_service.is_oss_url(url):
+            if not url or not file_service.is_managed_oss_ref(url):
                 continue
             try:
                 if await file_service.delete_file(url):

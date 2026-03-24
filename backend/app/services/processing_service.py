@@ -517,7 +517,7 @@ class ProcessingService:
                             result_bytes = await self.file_service.read_file(
                                 single_result_url
                             )
-                        elif self.file_service.is_oss_url(single_result_url):
+                        elif self.file_service.is_managed_oss_ref(single_result_url):
                             # 已经在当前OSS，直接使用
                             final_url = single_result_url
                             filename = single_result_url.split("/")[-1]
@@ -552,7 +552,7 @@ class ProcessingService:
                             result_bytes = await self.file_service.read_file(
                                 single_result_url
                             )
-                        elif self.file_service.is_oss_url(single_result_url):
+                        elif self.file_service.is_managed_oss_ref(single_result_url):
                             # 已经在当前OSS，直接使用
                             final_url = single_result_url
                             filename = single_result_url.split("/")[-1]

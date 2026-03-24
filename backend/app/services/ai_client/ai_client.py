@@ -1034,7 +1034,7 @@ class AIClient:
         purpose: str = "general",
     ) -> Tuple[str, Optional[bytes]]:
         """确保图片可以被第三方API访问，必要时上传至OSS"""
-        is_oss = image_url.startswith("http") and self.file_service.is_oss_url(image_url)
+        is_oss = self.file_service.is_managed_oss_ref(image_url)
         logger.info(
             "Preparing image for external API: url=%s is_oss=%s oss_configured=%s bucket=%s endpoint=%s domain=%s",
             image_url,
@@ -1068,7 +1068,7 @@ class AIClient:
             logger.info("Uploaded image to OSS for %s: %s", purpose, public_url)
             return public_url, image_bytes
 
-        if image_url.startswith("http") and is_oss:
+        if is_oss:
             try:
                 presigned_url = await self.file_service.generate_presigned_url_for_full_url(
                     image_url,

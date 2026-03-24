@@ -64,8 +64,22 @@ class FileService:
             return True
         return False
 
+    def is_oss_object_key(self, file_ref: Optional[str]) -> bool:
+        """检查存储引用是否是当前桶的OSS对象键。"""
+        if not self.oss_service.is_configured() or not file_ref:
+            return False
+        if file_ref.startswith("http") or file_ref.startswith("/files/"):
+            return False
+        return True
+
+    def is_managed_oss_ref(self, file_ref: Optional[str]) -> bool:
+        """检查引用是否由当前OSS桶管理（公开URL或对象键）。"""
+        return self.is_oss_url(file_ref or "") or self.is_oss_object_key(file_ref)
+
     def extract_oss_object_key(self, file_url: str) -> Optional[str]:
-        """从OSS URL中提取对象键"""
+        """从OSS URL或对象键中提取对象键"""
+        if self.is_oss_object_key(file_url):
+            return file_url.lstrip("/")
         if not self.is_oss_url(file_url):
             return None
 
@@ -83,7 +97,7 @@ class FileService:
         return None
 
     async def generate_presigned_url_for_full_url(self, file_url: str, expiration: Optional[int] = None) -> Optional[str]:
-        """针对OSS完整URL生成预签名地址"""
+        """针对OSS完整URL或对象键生成预签名地址"""
         object_key = self.extract_oss_object_key(file_url)
         if not object_key:
             return None
@@ -100,14 +114,7 @@ class FileService:
             return file_url
 
         try:
-            if self.oss_service.is_configured() and (
-                self.is_oss_url(file_url)
-                or (
-                    self.oss_service.bucket_name
-                    and self.oss_service.bucket_name.lower()
-                    in urlparse(file_url).netloc.lower()
-                )
-            ):
+            if self.is_managed_oss_ref(file_url):
                 signed_url = await self.generate_presigned_url_for_full_url(file_url)
                 if signed_url:
                     return signed_url
@@ -196,8 +203,12 @@ class FileService:
                     filename,
                     prefix=subfolder
                 )
-                logger.info("文件已上传到OSS: %s", oss_result["url"])
-                return oss_result["url"]
+                logger.info(
+                    "文件已上传到OSS: object_key=%s url=%s",
+                    oss_result["object_key"],
+                    oss_result["url"],
+                )
+                return oss_result["object_key"]
             except Exception as e:
                 logger.error("OSS上传失败，回退到本地存储: %s", str(e))
                 # 如果OSS上传失败，继续使用本地存储
@@ -265,18 +276,19 @@ class FileService:
             async with aiofiles.open(file_path, "rb") as f:
                 return await f.read()
         
-        if file_url.startswith("http"):
-            # OSS文件
-            object_key = self.extract_oss_object_key(file_url)
-            if object_key and self.oss_service.bucket:
-                try:
-                    result = self.oss_service.bucket.get_object(object_key)
-                    return result.read()
-                except Exception as e:
-                    logger.error("从OSS读取文件失败: %s", str(e))
-                    # 如果OSS读取失败，尝试直接下载
+        object_key = self.extract_oss_object_key(file_url)
+        if object_key and self.oss_service.bucket:
+            try:
+                result = self.oss_service.bucket.get_object(object_key)
+                return result.read()
+            except Exception as e:
+                logger.error("从OSS读取文件失败: %s", str(e))
+                if file_url.startswith("http"):
                     return await self.download_from_url(file_url)
+                raise Exception(f"读取OSS文件失败: {str(e)}")
 
+        if file_url.startswith("http"):
+            
             # 其他远程文件
             return await self.download_from_url(file_url)
         
@@ -304,7 +316,7 @@ class FileService:
                     os.remove(file_path)
                     return True
             
-            elif file_url.startswith("http") and self.oss_service.is_configured():
+            elif self.is_managed_oss_ref(file_url):
                 # 删除OSS文件
                 try:
                     object_key = self.extract_oss_object_key(file_url)

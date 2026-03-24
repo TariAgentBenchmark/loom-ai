@@ -1021,16 +1021,19 @@ async def batch_download(
                         if not filtered_urls:
                             continue
                         for index, url in enumerate(filtered_urls):
-                            file_path = file_service.get_file_path(url)
-                            if os.path.exists(file_path):
-                                name = None
-                                if filtered_filenames and index < len(filtered_filenames):
-                                    name = filtered_filenames[index]
-                                elif task.result_filename:
-                                    name = task.result_filename
-                                else:
-                                    name = os.path.basename(file_path)
-                                zip_file.write(file_path, name)
+                            try:
+                                file_bytes = await file_service.read_file(url)
+                            except Exception:
+                                continue
+
+                            name = None
+                            if filtered_filenames and index < len(filtered_filenames):
+                                name = filtered_filenames[index]
+                            elif task.result_filename:
+                                name = task.result_filename
+                            else:
+                                name = os.path.basename(url)
+                            zip_file.writestr(name, file_bytes)
                     except Exception as e:
                         continue  # 跳过有问题的文件
             

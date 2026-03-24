@@ -340,7 +340,7 @@ async def download_task_file(
             # 单个文件：OSS直接跳转预签名，本地则返回文件
             single_url = file_urls[0]
             
-            if file_service.is_oss_url(single_url):
+            if file_service.is_managed_oss_ref(single_url):
                 presigned = await file_service.generate_presigned_url_for_full_url(single_url)
                 redirect_url = presigned or single_url
                 return RedirectResponse(url=redirect_url, status_code=307)
