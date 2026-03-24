@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -14,6 +16,7 @@ from app.services.sms_service import SMSService
 router = APIRouter()
 auth_service = AuthService()
 security = HTTPBearer()
+logger = logging.getLogger(__name__)
 
 
 class UserRegister(BaseModel):
@@ -116,6 +119,13 @@ async def register(
         )
         
     except Exception as e:
+        logger.warning(
+            "用户注册失败: phone=%s email=%s invitation_code=%s error=%s",
+            user_data.phone,
+            user_data.email,
+            user_data.invitation_code,
+            str(e),
+        )
         if "手机号已存在" in str(e) or "邮箱已存在" in str(e):
             raise HTTPException(status_code=409, detail=str(e))
         raise HTTPException(status_code=400, detail=str(e))

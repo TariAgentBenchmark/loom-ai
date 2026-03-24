@@ -533,7 +533,14 @@ function HomeContent() {
 
         // Handle specific registration errors
         const errorMessage = (error as Error)?.message;
-        if (errorMessage?.includes("该手机号已被注册") || errorMessage?.includes("该邮箱已被注册")) {
+        if (
+          errorMessage?.includes("该手机号已被注册") ||
+          errorMessage?.includes("该邮箱已被注册") ||
+          errorMessage?.includes("手机号已存在") ||
+          errorMessage?.includes("邮箱已存在") ||
+          errorMessage?.includes("邀请码") ||
+          errorMessage?.includes("代理")
+        ) {
           setRegisterError(errorMessage);
         } else if (errorMessage?.includes("密码长度至少8位")) {
           setRegisterError("密码长度至少需要8位字符");

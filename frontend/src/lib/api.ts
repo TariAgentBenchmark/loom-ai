@@ -181,6 +181,9 @@ const ensureSuccess = async (
 
   // Improve error message for common cases
   let errorMessage = messageParts.join(" - ");
+  if (response.status === 409 && errorMessage.includes("手机号已存在")) {
+    errorMessage = "该手机号已被注册，请直接登录或使用其他手机号";
+  }
   if (response.status === 409 && errorMessage.includes("邮箱已存在")) {
     errorMessage = "该邮箱已被注册，请直接登录或使用其他邮箱";
   }
