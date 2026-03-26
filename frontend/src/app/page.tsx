@@ -154,7 +154,7 @@ function HomeContent() {
   const [showCreditHistoryModal, setShowCreditHistoryModal] = useState(false);
   const [currentPage, setCurrentPage] = useState<PageState>('home');
   const [promptInstruction, setPromptInstruction] = useState<string>('');
-  const [embroideryMode, setEmbroideryMode] = useState<'yarn' | 'embroidery'>('yarn');
+  const [embroideryMode, setEmbroideryMode] = useState<'yarn' | 'embroidery'>('embroidery');
   const [patternType, setPatternType] = useState<string>('combined');
   const [denimAspectRatio, setDenimAspectRatio] = useState<string>('1:1');
   const [denimImageCount, setDenimImageCount] = useState<number>(2);
@@ -1063,7 +1063,7 @@ function HomeContent() {
               setCurrentPage('home');
               setBatchMode(false);
               setPromptInstruction('');
-              setEmbroideryMode('yarn');
+              setEmbroideryMode('embroidery');
               setPatternType('combined');
               setDenimAspectRatio('1:1');
               setDenimImageCount(2);
@@ -1194,7 +1194,7 @@ function HomeContent() {
               setGeneralImageCount(4);
             }
             if (method === 'embroidery') {
-              setEmbroideryMode('yarn');
+              setEmbroideryMode('embroidery');
             }
             if (method === 'expand_image') {
               setExpandRatio('original');

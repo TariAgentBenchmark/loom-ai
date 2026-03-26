@@ -88,7 +88,7 @@ async def create_batch_task(
                 options["num_images"] = num_images
 
         if task_type == "embroidery":
-            options["embroidery_mode"] = embroidery_mode or "yarn"
+            options["embroidery_mode"] = embroidery_mode or "embroidery"
         
         if task_type == "upscale":
             options["engine"] = upscale_engine or "meitu_v2"
