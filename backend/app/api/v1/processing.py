@@ -365,7 +365,7 @@ async def denoise_image(
 @router.post("/embroidery")
 async def enhance_embroidery(
     image: UploadFile = File(...),
-    embroidery_mode: str = Form("yarn"),
+    embroidery_mode: str = Form("embroidery"),
     scale: float = Form(0.7),
     size: int = Form(2048*2048),
     force_single: bool = Form(True),

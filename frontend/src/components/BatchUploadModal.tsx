@@ -65,7 +65,7 @@ export default function BatchUploadModal({
     showReferenceImage = false,
     instruction,
     onInstructionChange,
-    embroideryMode = 'yarn',
+    embroideryMode = 'embroidery',
     onEmbroideryModeChange,
     patternType,
     onPatternTypeChange,
@@ -503,7 +503,7 @@ export default function BatchUploadModal({
                             <div>
                                 <h3 className="text-base font-semibold text-gray-900">效果模式</h3>
                                 <p className="text-sm text-gray-500 mt-1">
-                                    默认保留毛线效果，也可切换到新增的刺绣模型。
+                                    默认使用刺绣效果，也可切换到毛线效果。
                                 </p>
                             </div>
                             <div className="grid grid-cols-1 gap-3">

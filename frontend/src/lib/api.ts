@@ -803,7 +803,7 @@ export const createProcessingTask = (payload: ProcessingRequestPayload) => {
   }
 
   if (method === "embroidery") {
-    formData.append("embroidery_mode", embroideryMode ?? "yarn");
+    formData.append("embroidery_mode", embroideryMode ?? "embroidery");
   }
 
   if (method === "extract_pattern") {
@@ -2177,7 +2177,7 @@ export const createBatchTask = (payload: BatchProcessingRequestPayload) => {
   }
 
   if (method === "embroidery") {
-    formData.append("embroidery_mode", embroideryMode ?? "yarn");
+    formData.append("embroidery_mode", embroideryMode ?? "embroidery");
   }
 
   if (method === "extract_pattern") {

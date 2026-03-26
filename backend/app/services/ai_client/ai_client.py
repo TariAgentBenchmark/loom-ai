@@ -1413,8 +1413,8 @@ class AIClient:
         """AI刺绣增强，支持毛线效果与刺绣效果两种模式。"""
         try:
             normalized_mode = _EMBROIDERY_MODE_ALIASES.get(
-                str((options or {}).get("embroidery_mode") or "yarn").strip().lower(),
-                "yarn",
+                str((options or {}).get("embroidery_mode") or "embroidery").strip().lower(),
+                "embroidery",
             )
 
             if normalized_mode == "embroidery":

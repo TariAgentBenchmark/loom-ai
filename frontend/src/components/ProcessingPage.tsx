@@ -234,7 +234,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   accessToken,
   promptInstruction,
   onPromptInstructionChange,
-  embroideryMode = "yarn",
+  embroideryMode = "embroidery",
   onEmbroideryModeChange,
   patternType,
   onPatternTypeChange,
