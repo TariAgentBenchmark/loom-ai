@@ -748,19 +748,42 @@ async def get_task_status(
                 task.result_filename,
             )
             signed_urls = []
+            preview_urls = []
+            thumbnail_urls = []
             for url in filtered_urls:
                 clean_url = url.strip()
+                preview_url = await file_service.ensure_preview_url(clean_url)
+                thumbnail_url = await file_service.ensure_thumbnail_url(clean_url)
                 accessible_url = await file_service.ensure_accessible_url(clean_url)
                 signed_urls.append(accessible_url or clean_url)
+                preview_urls.append(preview_url or accessible_url or clean_url)
+                thumbnail_urls.append(
+                    thumbnail_url or preview_url or accessible_url or clean_url
+                )
 
             processed_value = ",".join(signed_urls) if signed_urls else task.result_image_url
+            processed_preview_value = (
+                ",".join(preview_urls) if preview_urls else processed_value
+            )
+            processed_thumbnail_value = (
+                ",".join(thumbnail_urls)
+                if thumbnail_urls
+                else processed_preview_value
+            )
             original_image_url = task.original_image_url
+            original_image_preview_url = None
             if original_image_url:
+                original_image_preview_url = await file_service.ensure_preview_url(
+                    original_image_url
+                )
                 original_image_url = await file_service.ensure_accessible_url(original_image_url)
 
             response_data["result"] = {
                 "originalImage": original_image_url,
+                "originalImagePreview": original_image_preview_url or original_image_url,
                 "processedImage": processed_value,
+                "processedImagePreview": processed_preview_value,
+                "processedImageThumbnail": processed_thumbnail_value,
                 "fileSize": task.result_file_size,
                 "dimensions": task.result_dimensions
             }

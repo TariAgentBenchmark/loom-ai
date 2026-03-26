@@ -81,7 +81,15 @@ async def get_history_tasks(
                 credits_used_value = 0.0
 
             original_image_url = task.original_image_url
+            original_image_preview_url = None
+            original_image_thumbnail_url = None
             if original_image_url:
+                original_image_preview_url = await file_service.ensure_preview_url(
+                    original_image_url
+                )
+                original_image_thumbnail_url = await file_service.ensure_thumbnail_url(
+                    original_image_url
+                )
                 original_image_url = await file_service.ensure_accessible_url(original_image_url)
 
             formatted_task = {
@@ -91,6 +99,12 @@ async def get_history_tasks(
                 "status": task.status,
                 "originalImage": {
                     "url": original_image_url,
+                    "previewUrl": original_image_preview_url or original_image_url,
+                    "thumbnailUrl": (
+                        original_image_thumbnail_url
+                        or original_image_preview_url
+                        or original_image_url
+                    ),
                     "filename": task.original_filename,
                     "size": task.original_file_size,
                     "dimensions": task.original_dimensions
@@ -111,13 +125,27 @@ async def get_history_tasks(
                     task.result_filename,
                 )
                 signed_urls = []
+                preview_urls = []
+                thumbnail_urls = []
                 for url in filtered_urls:
                     clean_url = url.strip()
+                    preview_url = await file_service.ensure_preview_url(clean_url)
+                    thumbnail_url = await file_service.ensure_thumbnail_url(clean_url)
                     accessible_url = await file_service.ensure_accessible_url(clean_url)
                     signed_urls.append(accessible_url or clean_url)
+                    preview_urls.append(preview_url or accessible_url or clean_url)
+                    thumbnail_urls.append(
+                        thumbnail_url or preview_url or accessible_url or clean_url
+                    )
 
                 formatted_task["resultImage"] = {
                     "url": ",".join(signed_urls) if signed_urls else task.result_image_url,
+                    "previewUrl": ",".join(preview_urls)
+                    if preview_urls
+                    else task.result_image_url,
+                    "thumbnailUrl": ",".join(thumbnail_urls)
+                    if thumbnail_urls
+                    else task.result_image_url,
                     "filename": ",".join(filtered_filenames) if filtered_filenames else task.result_filename,
                     "size": task.result_file_size,
                     "dimensions": task.result_dimensions
@@ -195,10 +223,18 @@ async def get_task_detail(
                 task.result_filename,
             )
             signed_urls = []
+            preview_urls = []
+            thumbnail_urls = []
             for url in filtered_urls:
                 clean_url = url.strip()
+                preview_url = await file_service.ensure_preview_url(clean_url)
+                thumbnail_url = await file_service.ensure_thumbnail_url(clean_url)
                 accessible_url = await file_service.ensure_accessible_url(clean_url)
                 signed_urls.append(accessible_url or clean_url)
+                preview_urls.append(preview_url or accessible_url or clean_url)
+                thumbnail_urls.append(
+                    thumbnail_url or preview_url or accessible_url or clean_url
+                )
             filename_value = (
                 ",".join(filtered_filenames) if filtered_filenames else task.result_filename
             )
@@ -209,6 +245,12 @@ async def get_task_detail(
             )
             result_image_payload = {
                 "url": ",".join(signed_urls) if signed_urls else task.result_image_url,
+                "previewUrl": ",".join(preview_urls)
+                if preview_urls
+                else task.result_image_url,
+                "thumbnailUrl": ",".join(thumbnail_urls)
+                if thumbnail_urls
+                else task.result_image_url,
                 "filename": filename_value,
                 "size": task.result_file_size,
                 "format": first_filename.split(".")[-1].lower() if first_filename else None,
@@ -216,7 +258,15 @@ async def get_task_detail(
             }
 
         original_image_url = task.original_image_url
+        original_image_preview_url = None
+        original_image_thumbnail_url = None
         if original_image_url:
+            original_image_preview_url = await file_service.ensure_preview_url(
+                original_image_url
+            )
+            original_image_thumbnail_url = await file_service.ensure_thumbnail_url(
+                original_image_url
+            )
             original_image_url = await file_service.ensure_accessible_url(original_image_url)
 
         return SuccessResponse(
@@ -227,6 +277,12 @@ async def get_task_detail(
                 "status": task.status,
                 "originalImage": {
                     "url": original_image_url,
+                    "previewUrl": original_image_preview_url or original_image_url,
+                    "thumbnailUrl": (
+                        original_image_thumbnail_url
+                        or original_image_preview_url
+                        or original_image_url
+                    ),
                     "filename": task.original_filename,
                     "size": task.original_file_size,
                     "format": task.original_filename.split('.')[-1].lower(),

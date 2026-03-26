@@ -48,11 +48,18 @@ class PaginationResponse(BaseModel):
 
 class FileInfo(BaseModel):
     """文件信息模型"""
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
     url: str
     filename: str
     size: int
     format: Optional[str] = None
     dimensions: Optional[Dict[str, int]] = None
+    preview_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
 
 
 class ImageDimensions(BaseModel):

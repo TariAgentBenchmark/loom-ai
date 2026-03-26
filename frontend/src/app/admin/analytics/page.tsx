@@ -38,6 +38,7 @@ export default function AdminTaskBrowserPage() {
   const [taskLogs, setTaskLogs] = useState<AdminTaskLog[]>([]);
   const [taskDetailOpen, setTaskDetailOpen] = useState(false);
   const [taskDetailLoading, setTaskDetailLoading] = useState(false);
+  const [taskImageLoading, setTaskImageLoading] = useState(false);
   const [taskLogsLoading, setTaskLogsLoading] = useState(false);
   const [taskLogsError, setTaskLogsError] = useState<string | null>(null);
   const [taskLogsAvailable, setTaskLogsAvailable] = useState(true);
@@ -144,6 +145,7 @@ export default function AdminTaskBrowserPage() {
         status: filters.status || undefined,
         startDate: filters.startDate || undefined,
         endDate: filters.endDate || undefined,
+        includeImages: false,
       });
 
       if (response.success && response.data) {
@@ -250,7 +252,10 @@ export default function AdminTaskBrowserPage() {
   };
 
   const getPreviewImage = (task: TaskRow) => {
-    const firstResultUrl = task.resultImage?.url?.split(',')[0]?.trim();
+    const firstResultUrl =
+      task.resultImage?.thumbnailUrl?.split(',')[0]?.trim() ||
+      task.resultImage?.previewUrl?.split(',')[0]?.trim() ||
+      task.resultImage?.url?.split(',')[0]?.trim();
     const firstResultName = task.resultImage?.filename?.split(',')[0]?.trim();
 
     if (firstResultUrl) {
@@ -262,7 +267,11 @@ export default function AdminTaskBrowserPage() {
 
     if (task.originalImage) {
       return {
-        url: resolveFileUrl(task.originalImage.url),
+        url: resolveFileUrl(
+          task.originalImage.thumbnailUrl ||
+            task.originalImage.previewUrl ||
+            task.originalImage.url,
+        ),
         alt: task.originalImage.filename,
       };
     }
@@ -283,12 +292,16 @@ export default function AdminTaskBrowserPage() {
       status: task.status,
       originalImage: {
         url: task.originalImage.url,
+        previewUrl: task.originalImage.previewUrl,
+        thumbnailUrl: task.originalImage.thumbnailUrl,
         filename: task.originalImage.filename,
         size: task.originalImage.size,
         dimensions: task.originalImage.dimensions,
       },
       resultImage: task.resultImage ? {
         url: task.resultImage.url,
+        previewUrl: task.resultImage.previewUrl,
+        thumbnailUrl: task.resultImage.thumbnailUrl,
         filename: task.resultImage.filename,
         size: task.resultImage.size,
         dimensions: task.resultImage.dimensions,
@@ -305,6 +318,7 @@ export default function AdminTaskBrowserPage() {
   const closeTaskDetail = () => {
     setTaskDetailOpen(false);
     setTaskDetail(null);
+    setTaskImageLoading(false);
     setTaskLogs([]);
     setTaskLogsError(null);
   };
@@ -314,6 +328,24 @@ export default function AdminTaskBrowserPage() {
     const historyTask = convertToHistoryTask(taskDetail);
     if (historyTask) {
       setSelectedTaskPreview(historyTask);
+    }
+  };
+
+  const loadTaskImages = async () => {
+    if (!accessToken || !taskDetail?.taskId || taskImageLoading) return;
+
+    try {
+      setTaskImageLoading(true);
+      const detailResp = await adminGetTaskDetail(taskDetail.taskId, accessToken, {
+        includeImages: true,
+      });
+      if (detailResp.success && detailResp.data) {
+        setTaskDetail(detailResp.data);
+      }
+    } catch (err) {
+      console.error("加载任务预览失败:", err);
+    } finally {
+      setTaskImageLoading(false);
     }
   };
 
@@ -329,7 +361,7 @@ export default function AdminTaskBrowserPage() {
 
     try {
       const [detailResp, logsResp] = await Promise.all([
-        adminGetTaskDetail(task.taskId, accessToken),
+        adminGetTaskDetail(task.taskId, accessToken, { includeImages: false }),
         adminGetTaskLogs(task.taskId, accessToken, { limit: 500 }),
       ]);
 
@@ -535,9 +567,6 @@ export default function AdminTaskBrowserPage() {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                        预览
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                         用户
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
@@ -560,26 +589,18 @@ export default function AdminTaskBrowserPage() {
                   <tbody className="divide-y divide-gray-200 bg-white">
                     {tasks.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-8 text-center text-sm text-gray-500">
+                        <td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-500">
                           暂无任务记录
                         </td>
                       </tr>
                     ) : (
                       tasks.map((task) => {
-                        const preview = getPreviewImage(task);
                         return (
                           <tr
                             key={task.taskId}
                             className="hover:bg-gray-50 cursor-pointer"
                             onClick={() => handleTaskClick(task)}
                           >
-                            <td className="px-6 py-4">
-                              <img
-                                src={preview.url}
-                                alt={preview.alt}
-                                className="h-12 w-12 rounded border border-gray-200 object-cover"
-                              />
-                            </td>
                             <td className="px-6 py-4 text-sm text-gray-900">
                               <div className="flex flex-col">
                                 <span className="font-medium">{task.user?.nickname || task.user?.email || "-"}</span>
@@ -764,12 +785,23 @@ export default function AdminTaskBrowserPage() {
                     <div className="flex h-48 items-center justify-center">
                       <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-r-transparent"></div>
                     </div>
-                  ) : (
+                  ) : taskDetail?.originalImage || taskDetail?.resultImage ? (
                     <img
                       src={taskDetail ? getPreviewImage(taskDetail).url : "/placeholder.png"}
                       alt={taskDetail ? getPreviewImage(taskDetail).alt : "任务预览"}
                       className="h-64 w-full rounded-md border border-gray-200 bg-white object-cover"
                     />
+                  ) : (
+                    <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-md border border-dashed border-gray-300 bg-white text-center">
+                      <p className="text-sm text-gray-500">默认不加载图片预览</p>
+                      <button
+                        onClick={loadTaskImages}
+                        disabled={taskImageLoading}
+                        className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {taskImageLoading ? "加载中..." : "加载预览"}
+                      </button>
+                    </div>
                   )}
                 </div>
 

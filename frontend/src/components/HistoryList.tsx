@@ -167,7 +167,10 @@ const HistoryList: React.FC<HistoryListProps> = ({
   };
 
   const getPreviewImage = (task: HistoryTask) => {
-    const firstResultUrl = task.resultImage?.url?.split(',')[0]?.trim();
+    const firstResultUrl =
+      task.resultImage?.thumbnailUrl?.split(',')[0]?.trim() ||
+      task.resultImage?.previewUrl?.split(',')[0]?.trim() ||
+      task.resultImage?.url?.split(',')[0]?.trim();
     const firstResultName = task.resultImage?.filename?.split(',')[0]?.trim();
 
     if (firstResultUrl) {
@@ -178,7 +181,11 @@ const HistoryList: React.FC<HistoryListProps> = ({
     }
 
     return {
-      url: resolveFileUrl(task.originalImage.url),
+      url: resolveFileUrl(
+        task.originalImage.thumbnailUrl ||
+          task.originalImage.previewUrl ||
+          task.originalImage.url,
+      ),
       alt: task.originalImage.filename,
     };
   };

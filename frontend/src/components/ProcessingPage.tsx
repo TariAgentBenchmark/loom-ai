@@ -161,6 +161,8 @@ interface ProcessingPageProps {
   imagePreview: string | null;
   secondaryImagePreview?: string | null;
   processedImage: string | null;
+  processedImageDisplay?: string | null;
+  processedImageThumbnail?: string | null;
   currentTaskId?: string;
   isProcessing: boolean;
   hasUploadedImage: boolean;
@@ -215,6 +217,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   imagePreview,
   secondaryImagePreview,
   processedImage,
+  processedImageDisplay = null,
+  processedImageThumbnail = null,
   currentTaskId,
   isProcessing,
   hasUploadedImage,
@@ -501,9 +505,10 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   };
 
   const handlePreviewNavigation = (direction: "prev" | "next") => {
-    if (!processedImage || !processedImagePreview) return;
+    const previewSource = processedImageDisplay || processedImage;
+    if (!previewSource || !processedImagePreview) return;
 
-    const urls = processedImage
+    const urls = previewSource
       .split(",")
       .map((u) => u.trim())
       .filter(Boolean);
@@ -1213,7 +1218,13 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
             ) : processedImage ? (
               <div className="w-full h-full flex flex-col items-center justify-center">
                 {(() => {
-                  const imageUrls = processedImage
+                  const imageUrls = (processedImageDisplay || processedImage)
+                    .split(",")
+                    .map((value) => value.trim())
+                    .filter(Boolean);
+                  const thumbnailUrls = (
+                    processedImageThumbnail || processedImageDisplay || processedImage
+                  )
                     .split(",")
                     .map((value) => value.trim())
                     .filter(Boolean);
@@ -1252,7 +1263,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                               >
                                 <div className="w-12 h-16 md:w-16 md:h-20 rounded overflow-hidden border border-dashed border-gray-200 bg-white flex items-center justify-center">
                                   <img
-                                    src={resolveFileUrl(url)}
+                                    src={resolveFileUrl(thumbnailUrls[index] || url)}
                                     alt={`图 ${index + 1} 缩略图`}
                                     className="w-full h-full object-cover"
                                   />
@@ -1372,7 +1383,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                               >
                                 <div className="w-12 h-16 md:w-14 md:h-20 rounded overflow-hidden border border-dashed border-gray-200 bg-white flex items-center justify-center mb-0.5">
                                   <img
-                                    src={resolveFileUrl(url)}
+                                    src={resolveFileUrl(thumbnailUrls[index] || url)}
                                     alt={`图 ${index + 1} 缩略图`}
                                     className="w-full h-full object-cover"
                                   />
@@ -1470,20 +1481,22 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                       <div className="relative group mb-3 md:mb-4 w-full flex justify-center">
                         <div className="w-full max-w-3xl h-[50vh] md:h-[55vh] flex items-center justify-center">
                           {(() => {
-                            const resolvedUrl = resolveFileUrl(processedImage);
+                            const displayUrl = processedImageDisplay || processedImage;
+                            const resolvedUrl = resolveFileUrl(displayUrl);
                             console.log(
                               "ProcessingPage: Displaying processed image",
                               {
                                 originalUrl: processedImage,
+                                displayUrl,
                                 resolvedUrl,
-                                isSvg: processedImage
+                                isSvg: displayUrl
                                   .toLowerCase()
                                   .includes(".svg"),
                               },
                             );
 
                             // 检查是否是SVG文件
-                            if (processedImage.toLowerCase().includes(".svg")) {
+                            if (displayUrl.toLowerCase().includes(".svg")) {
                               console.log(
                                 "ProcessingPage: Detected SVG file, using <img> tag",
                               );
@@ -1493,7 +1506,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                                   alt="Processed SVG"
                                   className="w-auto h-auto max-w-full max-h-full object-contain rounded-lg border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
                                   onClick={() =>
-                                    handleProcessedImagePreview(processedImage)
+                                    handleProcessedImagePreview(displayUrl)
                                   }
                                   onLoad={() =>
                                     console.log(
@@ -1516,7 +1529,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                                 alt="Processed"
                                 className="w-full h-full object-contain rounded-lg border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
                                 onClick={() =>
-                                  handleProcessedImagePreview(processedImage)
+                                  handleProcessedImagePreview(displayUrl)
                                 }
                                 onLoad={() =>
                                   console.log(
@@ -1535,7 +1548,9 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                         </div>
                         <button
                           onClick={() =>
-                            handleProcessedImagePreview(processedImage)
+                            handleProcessedImagePreview(
+                              processedImageDisplay || processedImage,
+                            )
                           }
                           className="absolute top-2 right-2 p-2 bg-black bg-opacity-50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-opacity-70"
                           title="放大查看"

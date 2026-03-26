@@ -93,6 +93,8 @@ type PersistedProcessingTaskMap = Partial<Record<ProcessingMethod, PersistedProc
 
 type MethodViewState = {
   processedImage: string | null;
+  processedImagePreview: string | null;
+  processedImageThumbnail: string | null;
   successMessage: string;
   errorMessage: string;
 };
@@ -144,6 +146,8 @@ function HomeContent() {
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
   const [prefilledInvitationCode, setPrefilledInvitationCode] = useState<string | null>(null);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
+  const [processedImagePreview, setProcessedImagePreview] = useState<string | null>(null);
+  const [processedImageThumbnail, setProcessedImageThumbnail] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -282,10 +286,14 @@ function HomeContent() {
         // 没有进行中的任务时，不保留上次结果，回到初始状态
         methodUiStateRef.current[method] = {
           processedImage: null,
+          processedImagePreview: null,
+          processedImageThumbnail: null,
           successMessage: '',
           errorMessage: '',
         };
         setProcessedImage(null);
+        setProcessedImagePreview(null);
+        setProcessedImageThumbnail(null);
         setSuccessMessage('');
         setErrorMessage('');
         return;
@@ -293,6 +301,8 @@ function HomeContent() {
 
       const stored = methodUiStateRef.current[method];
       setProcessedImage(stored?.processedImage ?? null);
+      setProcessedImagePreview(stored?.processedImagePreview ?? null);
+      setProcessedImageThumbnail(stored?.processedImageThumbnail ?? null);
       setSuccessMessage(stored?.successMessage ?? '');
       setErrorMessage(stored?.errorMessage ?? '');
     },
@@ -329,12 +339,22 @@ function HomeContent() {
     (method: ProcessingMethod, partial: Partial<MethodViewState>) => {
       const previous = methodUiStateRef.current[method] ?? {
         processedImage: null,
+        processedImagePreview: null,
+        processedImageThumbnail: null,
         successMessage: '',
         errorMessage: '',
       };
       const next: MethodViewState = {
         processedImage:
           partial.processedImage !== undefined ? partial.processedImage : previous.processedImage,
+        processedImagePreview:
+          partial.processedImagePreview !== undefined
+            ? partial.processedImagePreview
+            : previous.processedImagePreview,
+        processedImageThumbnail:
+          partial.processedImageThumbnail !== undefined
+            ? partial.processedImageThumbnail
+            : previous.processedImageThumbnail,
         successMessage:
           partial.successMessage !== undefined ? partial.successMessage : previous.successMessage,
         errorMessage:
@@ -345,6 +365,12 @@ function HomeContent() {
       if (currentMethod === method) {
         if (partial.processedImage !== undefined) {
           setProcessedImage(partial.processedImage);
+        }
+        if (partial.processedImagePreview !== undefined) {
+          setProcessedImagePreview(partial.processedImagePreview);
+        }
+        if (partial.processedImageThumbnail !== undefined) {
+          setProcessedImageThumbnail(partial.processedImageThumbnail);
         }
         if (partial.successMessage !== undefined) {
           setSuccessMessage(partial.successMessage);
@@ -363,10 +389,19 @@ function HomeContent() {
     }
     methodUiStateRef.current[currentMethod] = {
       processedImage,
+      processedImagePreview,
+      processedImageThumbnail,
       successMessage,
       errorMessage,
     };
-  }, [currentMethod, processedImage, successMessage, errorMessage]);
+  }, [
+    currentMethod,
+    processedImage,
+    processedImagePreview,
+    processedImageThumbnail,
+    successMessage,
+    errorMessage,
+  ]);
 
   const hydrateAccount = useCallback(
     async (token: string) => {
@@ -731,6 +766,12 @@ function HomeContent() {
       if (statusData.status === 'completed' && statusData.result?.processedImage) {
         updateMethodUiState(method, {
           processedImage: statusData.result.processedImage,
+          processedImagePreview:
+            statusData.result.processedImagePreview ?? statusData.result.processedImage,
+          processedImageThumbnail:
+            statusData.result.processedImageThumbnail
+            ?? statusData.result.processedImagePreview
+            ?? statusData.result.processedImage,
           successMessage: '处理完成，可以下载结果',
           errorMessage: '',
         });
@@ -910,6 +951,8 @@ function HomeContent() {
     setErrorMessage('');
     setSuccessMessage('');
     setProcessedImage(null);
+    setProcessedImagePreview(null);
+    setProcessedImageThumbnail(null);
 
     const processingMethod = currentPage as ProcessingMethod;
     const payload: ProcessingRequestPayload = {
@@ -1056,6 +1099,8 @@ function HomeContent() {
             imagePreview={imagePreview}
             secondaryImagePreview={secondaryImagePreview}
             processedImage={processedImage}
+            processedImageDisplay={processedImagePreview}
+            processedImageThumbnail={processedImageThumbnail}
             currentTaskId={currentTaskId || undefined}
             isProcessing={isCurrentMethodProcessing || isCreatingTask}
             hasUploadedImage={Boolean(uploadedImage)}
@@ -1077,6 +1122,8 @@ function HomeContent() {
               setErrorMessage('');
               setSuccessMessage('');
               setProcessedImage(null);
+              setProcessedImagePreview(null);
+              setProcessedImageThumbnail(null);
               setImagePreview(null);
               setPrimaryImageDimensions(null);
               setUploadedImage(null);
@@ -1103,6 +1150,8 @@ function HomeContent() {
               setEmbroideryMode(value);
               if (currentPage === 'embroidery') {
                 setProcessedImage(null);
+                setProcessedImagePreview(null);
+                setProcessedImageThumbnail(null);
                 setErrorMessage('');
                 setSuccessMessage('');
               }
@@ -1116,6 +1165,8 @@ function HomeContent() {
               setPatternType(value);
               if (currentPage === 'extract_pattern') {
                 setProcessedImage(null);
+                setProcessedImagePreview(null);
+                setProcessedImageThumbnail(null);
                 setErrorMessage('');
                 setSuccessMessage('');
               }
@@ -1241,6 +1292,8 @@ function HomeContent() {
             methodUiStateRef.current = {};
             hasLoadedPersistedTasksRef.current = false;
             setProcessedImage(null);
+            setProcessedImagePreview(null);
+            setProcessedImageThumbnail(null);
             setSuccessMessage('');
             setErrorMessage('');
             clearPersistedSession();
