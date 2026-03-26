@@ -72,6 +72,33 @@ class FileService:
             return False
         return True
 
+    def _get_file_extension(self, file_ref: str) -> str:
+        sanitized = file_ref.split("?", 1)[0].split("#", 1)[0]
+        path = sanitized
+        if sanitized.startswith("http"):
+            path = urlparse(sanitized).path
+        filename = path.rsplit("/", 1)[-1]
+        if "." not in filename:
+            return ""
+        return filename.rsplit(".", 1)[-1].lower()
+
+    def _is_preview_transform_supported(self, file_ref: str) -> bool:
+        return self._get_file_extension(file_ref) in {
+            "jpg",
+            "jpeg",
+            "png",
+            "webp",
+            "bmp",
+            "gif",
+        }
+
+    def _build_oss_image_process(self, variant: str) -> Optional[str]:
+        variant_map = {
+            "thumbnail": "image/resize,m_lfit,w_320,h_320/format,webp/quality,q_70",
+            "preview": "image/resize,m_lfit,w_1600,h_1600/format,webp/quality,q_78",
+        }
+        return variant_map.get(variant)
+
     def is_managed_oss_ref(self, file_ref: Optional[str]) -> bool:
         """检查引用是否由当前OSS桶管理（公开URL或对象键）。"""
         return self.is_oss_url(file_ref or "") or self.is_oss_object_key(file_ref)
@@ -125,6 +152,44 @@ class FileService:
             return f"{settings.base_url.rstrip('/')}{file_url}"
 
         return file_url
+
+    async def ensure_variant_url(
+        self,
+        file_url: Optional[str],
+        variant: str = "preview",
+    ) -> Optional[str]:
+        """
+        返回适合展示的图片URL。对OSS图片优先使用图片处理参数压缩，
+        其他文件类型回退为普通可访问URL。
+        """
+        if not file_url:
+            return file_url
+
+        if not self.is_managed_oss_ref(file_url):
+            return await self.ensure_accessible_url(file_url)
+
+        if not self._is_preview_transform_supported(file_url):
+            return await self.ensure_accessible_url(file_url)
+
+        process_rule = self._build_oss_image_process(variant)
+        object_key = self.extract_oss_object_key(file_url)
+        if not process_rule or not object_key:
+            return await self.ensure_accessible_url(file_url)
+
+        try:
+            return await self.oss_service.generate_presigned_url(
+                object_key,
+                params={"x-oss-process": process_rule},
+            )
+        except Exception as exc:  # pragma: no cover - 防御性处理
+            logger.warning("生成%s展示URL失败，将回退普通地址: %s", variant, exc)
+            return await self.ensure_accessible_url(file_url)
+
+    async def ensure_preview_url(self, file_url: Optional[str]) -> Optional[str]:
+        return await self.ensure_variant_url(file_url, variant="preview")
+
+    async def ensure_thumbnail_url(self, file_url: Optional[str]) -> Optional[str]:
+        return await self.ensure_variant_url(file_url, variant="thumbnail")
 
     def validate_file(self, file_bytes: bytes, filename: str, validate_dimensions: bool = True, validate_file_size: bool = True) -> Dict[str, Any]:
         """验证文件

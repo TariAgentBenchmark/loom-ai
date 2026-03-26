@@ -4,7 +4,7 @@ import logging
 from typing import Optional, Dict, Any
 import oss2
 from oss2.exceptions import OssError
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from app.core.config import settings
 
@@ -199,7 +199,12 @@ class OSSService:
             logger.warning(f"生成预签名URL失败，使用原始URL: {str(e)}")
             return result["url"]
     
-    async def generate_presigned_url(self, object_key: str, expiration: Optional[int] = None) -> str:
+    async def generate_presigned_url(
+        self,
+        object_key: str,
+        expiration: Optional[int] = None,
+        params: Optional[Dict[str, str]] = None,
+    ) -> str:
         """
         生成预签名URL
         
@@ -215,7 +220,12 @@ class OSSService:
         
         try:
             expiration_time = expiration or self.expiration_time
-            url = self.bucket.sign_url('GET', object_key, expiration_time)
+            url = self.bucket.sign_url(
+                'GET',
+                object_key,
+                expiration_time,
+                params=params,
+            )
             return url
         except OssError as e:
             logger.error(f"生成预签名URL失败: {e.status} - {e.message}")

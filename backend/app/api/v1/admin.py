@@ -676,42 +676,77 @@ def _format_task_log(log: TaskLog) -> AdminTaskLogResponse:
     )
 
 
-async def _format_admin_task(task: Task) -> AdminUserTaskResponse:
-    from app.services.file_service import FileService
+async def _format_admin_task(
+    task: Task,
+    include_images: bool = True,
+) -> AdminUserTaskResponse:
+    file_service = None
+    if include_images:
+        from app.services.file_service import FileService
 
-    file_service = FileService()
+        file_service = FileService()
     credits_used_value = to_float(task.credits_used)
     if task.status == TaskStatus.FAILED.value:
         credits_used_value = 0.0
 
-    original_image_url = task.original_image_url
-    if original_image_url:
-        original_image_url = await file_service.ensure_accessible_url(
-            original_image_url
+    original_image = None
+    if include_images and file_service:
+        original_image_url = task.original_image_url
+        original_image_preview_url = None
+        original_image_thumbnail_url = None
+        if original_image_url:
+            original_image_preview_url = await file_service.ensure_preview_url(
+                original_image_url
+            )
+            original_image_thumbnail_url = await file_service.ensure_thumbnail_url(
+                original_image_url
+            )
+            original_image_url = await file_service.ensure_accessible_url(
+                original_image_url
+            )
+
+        original_image = FileInfo(
+            url=original_image_url or "",
+            preview_url=original_image_preview_url or original_image_url,
+            thumbnail_url=(
+                original_image_thumbnail_url
+                or original_image_preview_url
+                or original_image_url
+            ),
+            filename=task.original_filename,
+            size=task.original_file_size or 0,
+            dimensions=task.original_dimensions,
         )
 
-    original_image = FileInfo(
-        url=original_image_url or "",
-        filename=task.original_filename,
-        size=task.original_file_size or 0,
-        dimensions=task.original_dimensions,
-    )
-
     result_image = None
-    if task.result_image_url:
+    if include_images and task.result_image_url and file_service:
         filtered_urls, filtered_filenames = filter_result_strings(
             task.type,
             task.result_image_url,
             task.result_filename,
         )
         signed_urls = []
+        preview_urls = []
+        thumbnail_urls = []
         for url in filtered_urls:
             clean_url = url.strip()
+            preview_url = await file_service.ensure_preview_url(clean_url)
+            thumbnail_url = await file_service.ensure_thumbnail_url(clean_url)
             accessible_url = await file_service.ensure_accessible_url(clean_url)
             signed_urls.append(accessible_url or clean_url)
+            preview_urls.append(preview_url or accessible_url or clean_url)
+            thumbnail_urls.append(
+                thumbnail_url or preview_url or accessible_url or clean_url
+            )
 
         result_image = FileInfo(
             url=",".join(signed_urls) if signed_urls else task.result_image_url,
+            preview_url=",".join(preview_urls)
+            if preview_urls
+            else task.result_image_url,
+            thumbnail_url=",".join(thumbnail_urls)
+            if thumbnail_urls
+            else task.result_image_url,
             filename=",".join(filtered_filenames)
             if filtered_filenames
             else (task.result_filename or ""),
@@ -3983,6 +4018,7 @@ async def get_all_tasks(
     status: Optional[str] = Query(None, description="任务状态"),
     start_date: Optional[str] = Query(None, description="开始日期 (YYYY-MM-DD)"),
     end_date: Optional[str] = Query(None, description="结束日期 (YYYY-MM-DD)"),
+    include_images: bool = Query(False, description="是否返回图片地址"),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -4061,10 +4097,10 @@ async def get_all_tasks(
         # 格式化任务数据，包含用户信息
         formatted_tasks = []
         for task in tasks:
-            task_data = await _format_admin_task(task)
+            task_data = await _format_admin_task(task, include_images=include_images)
             # 添加用户信息
             if task.user:
-                task_dict = task_data.dict()
+                task_dict = task_data.model_dump(by_alias=True)
                 task_dict["user"] = {
                     "userId": task.user.user_id,
                     "email": task.user.email,
@@ -4072,7 +4108,7 @@ async def get_all_tasks(
                 }
                 formatted_tasks.append(task_dict)
             else:
-                formatted_tasks.append(task_data.dict())
+                formatted_tasks.append(task_data.model_dump(by_alias=True))
 
         return SuccessResponse(
             data={
@@ -4098,6 +4134,7 @@ async def get_all_tasks(
 @router.get("/tasks/{task_id}", dependencies=[Depends(admin_route())])
 async def get_task_detail_admin(
     task_id: str,
+    include_images: bool = Query(False, description="是否返回图片地址"),
     db: Session = Depends(get_db),
 ):
     """获取单个任务详情（管理员专用）"""
@@ -4106,8 +4143,8 @@ async def get_task_detail_admin(
         if not task:
             raise HTTPException(status_code=404, detail="任务不存在")
 
-        base = await _format_admin_task(task)
-        payload = base.model_dump()
+        base = await _format_admin_task(task, include_images=include_images)
+        payload = base.model_dump(by_alias=True)
 
         if task.user:
             payload["user"] = {

@@ -72,6 +72,14 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
   }, []);
 
   const resultUrls = useMemo(() => {
+    const source = task?.resultImage?.previewUrl || task?.resultImage?.url;
+    if (!source) {
+      return [];
+    }
+    return source.split(',').map(u => u.trim());
+  }, [task]);
+
+  const resultDownloadUrls = useMemo(() => {
     if (!task?.resultImage?.url) {
       return [];
     }
@@ -123,13 +131,13 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
   const handleDownloadAll = useCallback(async () => {
     if (!hasMultipleResults) return;
 
-    for (let i = 0; i < resultUrls.length; i++) {
-      await handleDownload(resultUrls[i], resultFilenames[i] || `result_${i + 1}.png`);
-      if (i < resultUrls.length - 1) {
+    for (let i = 0; i < resultDownloadUrls.length; i++) {
+      await handleDownload(resultDownloadUrls[i], resultFilenames[i] || `result_${i + 1}.png`);
+      if (i < resultDownloadUrls.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
-  }, [handleDownload, hasMultipleResults, resultFilenames, resultUrls]);
+  }, [handleDownload, hasMultipleResults, resultDownloadUrls, resultFilenames]);
 
   const handleZoomIn = useCallback(() => {
     setScale(prev => {
@@ -203,16 +211,32 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
 
     return {
       url: resultUrls[currentResultIndex] || resultUrls[0],
+      downloadUrl:
+        resultDownloadUrls[currentResultIndex] || resultDownloadUrls[0] || resultUrls[currentResultIndex] || resultUrls[0],
       filename: resultFilenames[currentResultIndex] || resultFilenames[0] || 'result.png',
       size: task.resultImage.size,
       dimensions: task.resultImage.dimensions
     };
-  }, [currentResultIndex, resultFilenames, resultUrls, task]);
+  }, [currentResultIndex, resultDownloadUrls, resultFilenames, resultUrls, task]);
 
   const currentImage = useMemo(() => {
     if (!task) return null;
-    return showOriginal ? task.originalImage : getCurrentResultImage();
+    if (showOriginal) {
+      return {
+        ...task.originalImage,
+        url: task.originalImage.previewUrl || task.originalImage.url,
+        downloadUrl: task.originalImage.url,
+      };
+    }
+    return getCurrentResultImage();
   }, [getCurrentResultImage, showOriginal, task]);
+
+  const currentDownloadUrl = useMemo(() => {
+    if (!currentImage) return "";
+    return (
+      (currentImage as { downloadUrl?: string }).downloadUrl || currentImage.url
+    );
+  }, [currentImage]);
 
   const hasResultImage = !!task?.resultImage;
   const currentImageUrl = currentImage?.url;
@@ -361,7 +385,7 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
             {hasMultipleResults && !showOriginal ? (
               <div className="flex items-center space-x-1">
                 <button
-                  onClick={() => currentImage && handleDownload(currentImage.url, currentImage.filename)}
+                  onClick={() => currentImage && handleDownload(currentDownloadUrl, currentImage.filename)}
                   className="p-1.5 md:p-2 text-white hover:bg-white hover:bg-opacity-20 rounded transition"
                   title="下载当前图片"
                 >
@@ -377,7 +401,7 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
               </div>
             ) : (
               <button
-                onClick={() => currentImage && handleDownload(currentImage.url, currentImage.filename)}
+                onClick={() => currentImage && handleDownload(currentDownloadUrl, currentImage.filename)}
                 className="p-1.5 md:p-2 text-white hover:bg-white hover:bg-opacity-20 rounded transition"
                 title="下载"
               >

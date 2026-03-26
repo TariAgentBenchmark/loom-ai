@@ -598,7 +598,10 @@ export interface ProcessingStatusData {
   completedAt?: string | null;
   result?: {
     originalImage: string;
+    originalImagePreview?: string;
     processedImage: string;
+    processedImagePreview?: string;
+    processedImageThumbnail?: string;
     fileSize?: number;
     dimensions?: {
       width: number;
@@ -1024,12 +1027,16 @@ export interface HistoryTask {
   status: string;
   originalImage: {
     url: string;
+    previewUrl?: string;
+    thumbnailUrl?: string;
     filename: string;
     size: number;
     dimensions?: { width: number; height: number };
   };
   resultImage?: {
     url: string;
+    previewUrl?: string;
+    thumbnailUrl?: string;
     filename: string;
     size: number;
     dimensions?: { width: number; height: number };
@@ -1174,12 +1181,16 @@ export interface AdminUserTask {
   resultFilename?: string | null;
   originalImage?: {
     url: string;
+    previewUrl?: string;
+    thumbnailUrl?: string;
     filename: string;
     size: number;
     dimensions?: { width: number; height: number };
   } | null;
   resultImage?: {
     url: string;
+    previewUrl?: string;
+    thumbnailUrl?: string;
     filename: string;
     size: number;
     dimensions?: { width: number; height: number };
@@ -1572,13 +1583,20 @@ export const adminGetUserDetail = (userId: string, accessToken: string) =>
 export const adminGetUserTasks = (
   userId: string,
   accessToken: string,
-  options?: { page?: number; limit?: number; type?: string; status?: string },
+  options?: {
+    page?: number;
+    limit?: number;
+    type?: string;
+    status?: string;
+    includeImages?: boolean;
+  },
 ) => {
   const params = new URLSearchParams();
   if (options?.page) params.append("page", options.page.toString());
   if (options?.limit) params.append("limit", options.limit.toString());
   if (options?.type) params.append("type", options.type);
   if (options?.status) params.append("status", options.status);
+  if (options?.includeImages) params.append("include_images", "true");
 
   const query = params.toString();
   const path = `/admin/users/${userId}/tasks${query ? `?${query}` : ""}`;
@@ -1824,6 +1842,7 @@ export const adminGetAllTasks = (
     status?: string;
     startDate?: string;
     endDate?: string;
+    includeImages?: boolean;
   },
 ) => {
   const params = new URLSearchParams();
@@ -1834,14 +1853,26 @@ export const adminGetAllTasks = (
   if (options?.status) params.append("status", options.status);
   if (options?.startDate) params.append("start_date", options.startDate);
   if (options?.endDate) params.append("end_date", options.endDate);
+  if (options?.includeImages) params.append("include_images", "true");
 
   const query = params.toString();
   const path = `/admin/tasks${query ? `?${query}` : ""}`;
   return getJson<AdminUserTaskListResponse>(path, accessToken);
 };
 
-export const adminGetTaskDetail = (taskId: string, accessToken: string) =>
-  getJson<AdminTaskDetail>(`/admin/tasks/${taskId}`, accessToken);
+export const adminGetTaskDetail = (
+  taskId: string,
+  accessToken: string,
+  options?: { includeImages?: boolean },
+) => {
+  const params = new URLSearchParams();
+  if (options?.includeImages) params.append("include_images", "true");
+  const query = params.toString();
+  return getJson<AdminTaskDetail>(
+    `/admin/tasks/${taskId}${query ? `?${query}` : ""}`,
+    accessToken,
+  );
+};
 
 export const adminGetTaskLogs = (
   taskId: string,
