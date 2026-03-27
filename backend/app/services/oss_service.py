@@ -215,7 +215,8 @@ class OSSService:
         
         try:
             expiration_time = expiration or self.expiration_time
-            url = self.bucket.sign_url('GET', object_key, expiration_time)
+            # Preserve path separators to keep third-party fetchers compatible.
+            url = self.bucket.sign_url('GET', object_key, expiration_time, slash_safe=True)
             return url
         except OssError as e:
             logger.error(f"生成预签名URL失败: {e.status} - {e.message}")
