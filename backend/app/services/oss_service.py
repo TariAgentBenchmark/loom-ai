@@ -56,8 +56,26 @@ class OSSService:
     def _build_file_url(self, object_key: str) -> str:
         """根据对象键构建访问URL"""
         if self.bucket_domain:
-            return f"https://{self.bucket_domain}/{object_key}"
+            return f"{self._normalized_bucket_domain_endpoint()}/{object_key}"
         return f"https://{self.bucket_name}.{self.endpoint.replace('https://', '').replace('http://', '')}/{object_key}"
+
+    def _normalized_bucket_domain_endpoint(self) -> str:
+        """返回带协议的自定义域名Endpoint。"""
+        domain = (self.bucket_domain or "").strip().rstrip("/")
+        if domain.startswith(("https://", "http://")):
+            return domain
+        return f"https://{domain}"
+
+    def _get_signing_bucket(self):
+        """配置了自定义域名时，使用 CNAME Bucket 生成签名URL。"""
+        if not self.bucket_domain:
+            return self.bucket
+        return oss2.Bucket(
+            self.auth,
+            self._normalized_bucket_domain_endpoint(),
+            self.bucket_name,
+            is_cname=True,
+        )
     
     async def upload_file(
         self, 
@@ -221,7 +239,8 @@ class OSSService:
         try:
             expiration_time = expiration or self.expiration_time
             # Preserve path separators while allowing image-processing query params.
-            url = self.bucket.sign_url(
+            signing_bucket = self._get_signing_bucket()
+            url = signing_bucket.sign_url(
                 'GET',
                 object_key,
                 expiration_time,
