@@ -327,6 +327,9 @@ class RunningHubClient:
         left_node_id: str,
         right_node_id: str,
         margin_field_name: str,
+        prompt: Optional[str] = None,
+        prompt_node_id: Optional[str] = None,
+        prompt_field_name: Optional[str] = None,
         options: Optional[Dict[str, Any]] = None,
     ) -> List[str]:
         """
@@ -346,6 +349,9 @@ class RunningHubClient:
             left_node_id: 左边距节点ID
             right_node_id: 右边距节点ID
             margin_field_name: 边距字段名称
+            prompt: 扩图提示词
+            prompt_node_id: 提示词节点ID
+            prompt_field_name: 提示词字段名
             options: 额外参数
         """
         from PIL import Image
@@ -396,6 +402,23 @@ class RunningHubClient:
                 "fieldValue": right_pixels,
             },
         ]
+
+        prompt_text = str(prompt or "").strip()
+        resolved_prompt_node_id = str(prompt_node_id or "").strip()
+        resolved_prompt_field_name = str(prompt_field_name or "").strip()
+        if prompt_text:
+            if resolved_prompt_node_id and resolved_prompt_field_name:
+                node_info_list.append(
+                    {
+                        "nodeId": resolved_prompt_node_id,
+                        "fieldName": resolved_prompt_field_name,
+                        "fieldValue": prompt_text,
+                    }
+                )
+            else:
+                self.logger.warning(
+                    "Expand image prompt provided but prompt node is not configured; prompt will be ignored"
+                )
 
         self.logger.info(
             "Submitting expand image workflow %s (image: %dx%d) with nodes: %s",

@@ -129,6 +129,8 @@ class Settings(BaseSettings):
     runninghub_expand_right_node_id: str = "203"
     runninghub_expand_bottom_node_id: str = "201"
     runninghub_expand_margin_field_name: str = "value"
+    runninghub_expand_prompt_node_id: str = ""
+    runninghub_expand_prompt_field_name: str = "text"
     runninghub_workflow_id_similar_image: str = "1995318457082294274"
     runninghub_consistent_similar_image_node_id: str = "65"
     runninghub_consistent_similar_image_field_name: str = "image"

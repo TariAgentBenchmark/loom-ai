@@ -765,6 +765,9 @@ class AIClient:
             left_node_id=settings.runninghub_expand_left_node_id,
             right_node_id=settings.runninghub_expand_right_node_id,
             margin_field_name=settings.runninghub_expand_margin_field_name,
+            prompt=(options or {}).get("prompt"),
+            prompt_node_id=settings.runninghub_expand_prompt_node_id,
+            prompt_field_name=settings.runninghub_expand_prompt_field_name,
             options=rh_options,
         )
 

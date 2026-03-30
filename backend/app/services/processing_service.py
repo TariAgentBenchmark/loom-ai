@@ -502,6 +502,7 @@ class ProcessingService:
                 final_result_urls = []
                 result_filenames = []
                 total_size = 0
+                result_dimensions = None
 
                 for idx, single_result_url in enumerate(result_urls):
                     # 获取结果文件信息
@@ -593,6 +594,15 @@ class ProcessingService:
                     result_filenames.append(filename)
                     if result_bytes:
                         total_size += len(result_bytes)
+                        if result_dimensions is None:
+                            try:
+                                result_info = await self.file_service.get_image_info(result_bytes)
+                                result_dimensions = {
+                                    "width": result_info["width"],
+                                    "height": result_info["height"],
+                                }
+                            except Exception as exc:
+                                logger.warning("获取结果图片尺寸失败: %s", exc)
 
                 # 合并结果URL和文件名
                 final_result_url = ",".join(final_result_urls)
@@ -622,6 +632,7 @@ class ProcessingService:
                     result_size=total_size,
                     processing_time=processing_time,
                 )
+                task.result_dimensions = result_dimensions
 
                 # 扣除积分并更新处理次数
                 user = db.query(User).filter(User.id == task.user_id).first()
