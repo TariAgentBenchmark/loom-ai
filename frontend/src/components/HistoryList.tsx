@@ -16,8 +16,14 @@ import {
   Archive,
   X,
 } from 'lucide-react';
-import { HistoryTask, getHistoryTasks, getTaskDetail, downloadTaskFile } from '../lib/api';
-import { resolveFileUrl } from '../lib/api';
+import {
+  HistoryTask,
+  getHistoryTasks,
+  getTaskDetail,
+  downloadTaskFile,
+  resolveFileUrl,
+  splitCombinedImageRefs,
+} from '../lib/api';
 import { formatDateTime } from '../lib/datetime';
 
 interface HistoryListProps {
@@ -168,9 +174,9 @@ const HistoryList: React.FC<HistoryListProps> = ({
 
   const getPreviewImage = (task: HistoryTask) => {
     const firstResultUrl =
-      task.resultImage?.thumbnailUrl?.split(',')[0]?.trim() ||
-      task.resultImage?.previewUrl?.split(',')[0]?.trim() ||
-      task.resultImage?.url?.split(',')[0]?.trim();
+      splitCombinedImageRefs(task.resultImage?.thumbnailUrl)[0] ||
+      splitCombinedImageRefs(task.resultImage?.previewUrl)[0] ||
+      splitCombinedImageRefs(task.resultImage?.url)[0];
     const firstResultName = task.resultImage?.filename?.split(',')[0]?.trim();
 
     if (firstResultUrl) {
@@ -208,7 +214,7 @@ const HistoryList: React.FC<HistoryListProps> = ({
 
     try {
       // 检查是否有多张图片
-      const urls = task.resultImage.url.split(',').map(u => u.trim());
+      const urls = splitCombinedImageRefs(task.resultImage.url);
       const filenames = task.resultImage.filename.split(',').map(f => f.trim());
       
       if (urls.length > 1) {
@@ -294,7 +300,7 @@ const HistoryList: React.FC<HistoryListProps> = ({
       for (const task of selectedTasksData) {
         if (task.resultImage) {
           // 检查是否有多张图片
-          const urls = task.resultImage.url.split(',').map(u => u.trim());
+          const urls = splitCombinedImageRefs(task.resultImage.url);
           const filenames = task.resultImage.filename.split(',').map(f => f.trim());
           
           // 下载所有图片
@@ -524,7 +530,7 @@ const HistoryList: React.FC<HistoryListProps> = ({
                         <Eye className="h-3 w-3 text-gray-400" />
                         <span className="text-xs text-gray-500">
                           {(() => {
-                            const imageCount = task.resultImage.url.split(',').length;
+                            const imageCount = splitCombinedImageRefs(task.resultImage.url).length;
                             if (imageCount > 1) {
                               return `${imageCount}张图片`;
                             }

@@ -8,6 +8,7 @@ interface ProcessedImagePreviewProps {
   image: {
     url: string;
     filename: string;
+    downloadUrl?: string;
   } | null;
   onClose: () => void;
   onPrev?: () => void;
@@ -109,7 +110,7 @@ const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({
     if (!image) return;
 
     try {
-      const response = await fetch(resolveFileUrl(image.url));
+      const response = await fetch(resolveFileUrl(image.downloadUrl || image.url));
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');

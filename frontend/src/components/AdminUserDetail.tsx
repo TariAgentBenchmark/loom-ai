@@ -10,6 +10,7 @@ import {
   adminGetUserTransactions,
   adminAdjustUserCredits,
   adminGetUserTasks,
+  splitCombinedImageRefs,
   resolveFileUrl,
   type AdminUserDetail,
   type AdminAgent,
@@ -76,8 +77,7 @@ const AdminUserDetail: React.FC = () => {
   const [isUpdatingAgent, setIsUpdatingAgent] = useState(false);
 
   const resolveFirstImageUrl = (value?: string | null) => {
-    if (!value) return "";
-    return value.split(",")[0]?.trim() ?? "";
+    return splitCombinedImageRefs(value)[0] ?? "";
   };
 
   const renderTaskImage = (image?: AdminUserTask["originalImage"] | null) => {

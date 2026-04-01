@@ -13,6 +13,7 @@ import {
   getServiceCost,
   downloadProcessingResult,
   getPublicServicePrices,
+  splitCombinedImageRefs,
 } from "../lib/api";
 import HistoryList from "./HistoryList";
 import ImagePreview from "./ImagePreview";
@@ -270,6 +271,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   const [processedImagePreview, setProcessedImagePreview] = useState<{
     url: string;
     filename: string;
+    downloadUrl: string;
   } | null>(null);
   const [isDownloadingResult, setIsDownloadingResult] = useState(false);
   const [selectedResultIndex, setSelectedResultIndex] = useState(0);
@@ -279,6 +281,21 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   const isActionDisabled = !hasUploadedImage || isProcessing || !isPromptReady;
   const [serviceCredits, setServiceCredits] = useState<number | null>(null);
   const [isLoadingServiceCost, setIsLoadingServiceCost] = useState(true);
+  const processedImageUrls = useMemo(
+    () => splitCombinedImageRefs(processedImage),
+    [processedImage],
+  );
+  const processedDisplayUrls = useMemo(
+    () => splitCombinedImageRefs(processedImageDisplay || processedImage),
+    [processedImage, processedImageDisplay],
+  );
+  const processedThumbnailUrls = useMemo(
+    () =>
+      splitCombinedImageRefs(
+        processedImageThumbnail || processedImageDisplay || processedImage,
+      ),
+    [processedImage, processedImageDisplay, processedImageThumbnail],
+  );
   const upscaleOptions: {
     value: "meitu_v2" | "runninghub_vr2" | "runninghub_4k_ultra";
     label: string;
@@ -485,9 +502,13 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     setSelectedTask(null);
   };
 
-  const handleProcessedImagePreview = (url: string, index?: number) => {
+  const handleProcessedImagePreview = (
+    url: string,
+    index?: number,
+    downloadUrl?: string,
+  ) => {
     // 从URL中提取文件扩展名，先去除查询参数
-    const cleanUrl = url.split("?")[0];
+    const cleanUrl = (downloadUrl || url).split("?")[0];
     const urlParts = cleanUrl.split("/");
     const urlFilename = urlParts[urlParts.length - 1];
     const extensionMatch = urlFilename.match(/\.[^.]+$/);
@@ -497,7 +518,11 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
       index !== undefined
         ? `result_${index + 1}${extension}`
         : `result${extension}`;
-    setProcessedImagePreview({ url, filename });
+    setProcessedImagePreview({
+      url,
+      filename,
+      downloadUrl: downloadUrl || url,
+    });
   };
 
   const handleCloseProcessedImagePreview = () => {
@@ -505,21 +530,22 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   };
 
   const handlePreviewNavigation = (direction: "prev" | "next") => {
-    const previewSource = processedImageDisplay || processedImage;
-    if (!previewSource || !processedImagePreview) return;
+    if (!processedDisplayUrls.length || !processedImagePreview) return;
 
-    const urls = previewSource
-      .split(",")
-      .map((u) => u.trim())
-      .filter(Boolean);
-    const currentIndex = urls.findIndex((u) => u === processedImagePreview.url);
+    const currentIndex = processedDisplayUrls.findIndex(
+      (url) => url === processedImagePreview.url,
+    );
 
     if (currentIndex === -1) return;
 
     const newIndex = direction === "prev" ? currentIndex - 1 : currentIndex + 1;
 
-    if (newIndex >= 0 && newIndex < urls.length) {
-      handleProcessedImagePreview(urls[newIndex], newIndex);
+    if (newIndex >= 0 && newIndex < processedDisplayUrls.length) {
+      handleProcessedImagePreview(
+        processedDisplayUrls[newIndex],
+        newIndex,
+        processedImageUrls[newIndex] || processedDisplayUrls[newIndex],
+      );
     }
   };
 
@@ -575,14 +601,9 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   };
 
   const handleDownloadProcessedResult = async () => {
-    if (!processedImage) return;
-    const urls = processedImage
-      .split(",")
-      .map((value) => value.trim())
-      .filter(Boolean);
-    if (!urls.length) return;
+    if (!processedImageUrls.length) return;
 
-    const primaryUrl = urls[0];
+    const primaryUrl = processedImageUrls[0];
     const extension = extractExtension(primaryUrl);
     const fallbackName = buildDownloadName(extension);
 
@@ -620,12 +641,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   };
 
   const handleBatchDownload = async () => {
-    if (!processedImage) return;
-    const urls = processedImage
-      .split(",")
-      .map((value) => value.trim())
-      .filter(Boolean);
-    if (!urls.length) return;
+    if (!processedImageUrls.length) return;
 
     try {
       setIsDownloadingResult(true);
@@ -637,11 +653,11 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
         );
         downloadBlob(blob, filename);
       } else {
-        for (let i = 0; i < urls.length; i += 1) {
-          const extension = extractExtension(urls[i]);
+        for (let i = 0; i < processedImageUrls.length; i += 1) {
+          const extension = extractExtension(processedImageUrls[i]);
           const filename = buildDownloadName(extension, i);
-          await fetchAndDownload(urls[i], filename);
-          if (i < urls.length - 1) {
+          await fetchAndDownload(processedImageUrls[i], filename);
+          if (i < processedImageUrls.length - 1) {
             await new Promise((resolve) => setTimeout(resolve, 400));
           }
         }
@@ -1218,16 +1234,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
             ) : processedImage ? (
               <div className="w-full h-full flex flex-col items-center justify-center">
                 {(() => {
-                  const imageUrls = (processedImageDisplay || processedImage)
-                    .split(",")
-                    .map((value) => value.trim())
-                    .filter(Boolean);
-                  const thumbnailUrls = (
-                    processedImageThumbnail || processedImageDisplay || processedImage
-                  )
-                    .split(",")
-                    .map((value) => value.trim())
-                    .filter(Boolean);
+                  const imageUrls = processedDisplayUrls;
+                  const thumbnailUrls = processedThumbnailUrls;
                   const useResultGallery =
                     method === "extract_pattern" && imageUrls.length > 1;
 
@@ -1286,6 +1294,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                                 handleProcessedImagePreview(
                                   activeUrl,
                                   safeIndex,
+                                  processedImageUrls[safeIndex] || activeUrl,
                                 )
                               }
                             />
@@ -1294,6 +1303,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                                 handleProcessedImagePreview(
                                   activeUrl,
                                   safeIndex,
+                                  processedImageUrls[safeIndex] || activeUrl,
                                 )
                               }
                               className="absolute top-2 right-2 p-1.5 bg-black bg-opacity-50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-opacity-70"
@@ -1332,7 +1342,10 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                             <button
                               type="button"
                               onClick={() =>
-                                handleDownloadSingleImage(activeUrl, safeIndex)
+                                handleDownloadSingleImage(
+                                  processedImageUrls[safeIndex] || activeUrl,
+                                  safeIndex,
+                                )
                               }
                               disabled={isDownloadingResult}
                               className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 disabled:bg-green-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow disabled:opacity-70 disabled:cursor-not-allowed"
@@ -1406,6 +1419,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                                 handleProcessedImagePreview(
                                   activeUrl,
                                   safeIndex,
+                                  processedImageUrls[safeIndex] || activeUrl,
                                 )
                               }
                             />
@@ -1414,6 +1428,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                                 handleProcessedImagePreview(
                                   activeUrl,
                                   safeIndex,
+                                  processedImageUrls[safeIndex] || activeUrl,
                                 )
                               }
                               className="absolute top-2 right-2 p-2 bg-black bg-opacity-50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-opacity-70"
@@ -1452,7 +1467,10 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                             <button
                               type="button"
                               onClick={() =>
-                                handleDownloadSingleImage(activeUrl, safeIndex)
+                                handleDownloadSingleImage(
+                                  processedImageUrls[safeIndex] || activeUrl,
+                                  safeIndex,
+                                )
                               }
                               disabled={isDownloadingResult}
                               className="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 disabled:bg-green-400 text-white px-3 py-1.5 rounded-md text-sm font-medium transition shadow disabled:opacity-70 disabled:cursor-not-allowed"
@@ -1506,7 +1524,11 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                                   alt="Processed SVG"
                                   className="w-auto h-auto max-w-full max-h-full object-contain rounded-lg border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
                                   onClick={() =>
-                                    handleProcessedImagePreview(displayUrl)
+                                    handleProcessedImagePreview(
+                                      displayUrl,
+                                      undefined,
+                                      processedImageUrls[0] || displayUrl,
+                                    )
                                   }
                                   onLoad={() =>
                                     console.log(
@@ -1529,7 +1551,11 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                                 alt="Processed"
                                 className="w-full h-full object-contain rounded-lg border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
                                 onClick={() =>
-                                  handleProcessedImagePreview(displayUrl)
+                                  handleProcessedImagePreview(
+                                    displayUrl,
+                                    undefined,
+                                    processedImageUrls[0] || displayUrl,
+                                  )
                                 }
                                 onLoad={() =>
                                   console.log(
@@ -1550,6 +1576,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                           onClick={() =>
                             handleProcessedImagePreview(
                               processedImageDisplay || processedImage,
+                              undefined,
+                              processedImageUrls[0] || processedImageDisplay || processedImage || "",
                             )
                           }
                           className="absolute top-2 right-2 p-2 bg-black bg-opacity-50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-opacity-70"
@@ -1639,26 +1667,21 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
           onPrev={() => handlePreviewNavigation("prev")}
           onNext={() => handlePreviewNavigation("next")}
           hasPrev={(() => {
-            if (!processedImage || !processedImagePreview) return false;
-            const urls = processedImage
-              .split(",")
-              .map((u) => u.trim())
-              .filter(Boolean);
-            const currentIndex = urls.findIndex(
-              (u) => u === processedImagePreview.url,
+            if (!processedDisplayUrls.length || !processedImagePreview) return false;
+            const currentIndex = processedDisplayUrls.findIndex(
+              (url) => url === processedImagePreview.url,
             );
             return currentIndex > 0;
           })()}
           hasNext={(() => {
-            if (!processedImage || !processedImagePreview) return false;
-            const urls = processedImage
-              .split(",")
-              .map((u) => u.trim())
-              .filter(Boolean);
-            const currentIndex = urls.findIndex(
-              (u) => u === processedImagePreview.url,
+            if (!processedDisplayUrls.length || !processedImagePreview) return false;
+            const currentIndex = processedDisplayUrls.findIndex(
+              (url) => url === processedImagePreview.url,
             );
-            return currentIndex !== -1 && currentIndex < urls.length - 1;
+            return (
+              currentIndex !== -1 &&
+              currentIndex < processedDisplayUrls.length - 1
+            );
           })()}
         />
       )}

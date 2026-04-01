@@ -15,6 +15,7 @@ import {
   type HistoryTask,
   type UserSuggestion,
   resolveFileUrl,
+  splitCombinedImageRefs,
 } from "../../../lib/api";
 import { formatDateTime } from "../../../lib/datetime";
 import { Search, Filter, ChevronLeft, ChevronRight, Calendar, User, Layers, AlertCircle, X } from "lucide-react";
@@ -253,9 +254,9 @@ export default function AdminTaskBrowserPage() {
 
   const getPreviewImage = (task: TaskRow) => {
     const firstResultUrl =
-      task.resultImage?.thumbnailUrl?.split(',')[0]?.trim() ||
-      task.resultImage?.previewUrl?.split(',')[0]?.trim() ||
-      task.resultImage?.url?.split(',')[0]?.trim();
+      splitCombinedImageRefs(task.resultImage?.thumbnailUrl)[0] ||
+      splitCombinedImageRefs(task.resultImage?.previewUrl)[0] ||
+      splitCombinedImageRefs(task.resultImage?.url)[0];
     const firstResultName = task.resultImage?.filename?.split(',')[0]?.trim();
 
     if (firstResultUrl) {

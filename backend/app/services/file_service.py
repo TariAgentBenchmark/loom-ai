@@ -14,6 +14,8 @@ from app.utils.exceptions import UserFacingException
 
 logger = logging.getLogger(__name__)
 
+OSS_IMAGE_PROCESS_MAX_SOURCE_SIZE = 20 * 1024 * 1024
+
 
 class FileService:
     """文件服务"""
@@ -99,6 +101,35 @@ class FileService:
         }
         return variant_map.get(variant)
 
+    async def _is_oss_transform_safe(self, object_key: str) -> bool:
+        """
+        OSS 图片处理对超过 20MB 的源图会直接返回 ImageTooLarge。
+        这类文件直接回退到原图地址，避免前端预览断裂。
+        """
+        if not object_key:
+            return False
+
+        try:
+            info = await self.oss_service.get_file_info(object_key)
+        except Exception as exc:  # pragma: no cover - 防御性处理
+            logger.warning("获取OSS文件信息失败，跳过变换预览: %s", exc)
+            return False
+
+        if not info:
+            return False
+
+        size = info.get("size")
+        if isinstance(size, int) and size > OSS_IMAGE_PROCESS_MAX_SOURCE_SIZE:
+            logger.info(
+                "OSS源图过大，回退原图展示: object_key=%s size=%s limit=%s",
+                object_key,
+                size,
+                OSS_IMAGE_PROCESS_MAX_SOURCE_SIZE,
+            )
+            return False
+
+        return True
+
     def is_managed_oss_ref(self, file_ref: Optional[str]) -> bool:
         """检查引用是否由当前OSS桶管理（公开URL或对象键）。"""
         return self.is_oss_url(file_ref or "") or self.is_oss_object_key(file_ref)
@@ -174,6 +205,9 @@ class FileService:
         process_rule = self._build_oss_image_process(variant)
         object_key = self.extract_oss_object_key(file_url)
         if not process_rule or not object_key:
+            return await self.ensure_accessible_url(file_url)
+
+        if not await self._is_oss_transform_safe(object_key):
             return await self.ensure_accessible_url(file_url)
 
         try:

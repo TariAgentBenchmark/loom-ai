@@ -1016,6 +1016,52 @@ export const resolveFileUrl = (path: string | null | undefined) => {
   return resolvedUrl;
 };
 
+const COMBINED_IMAGE_REF_STARTERS = [
+  "http://",
+  "https://",
+  "/files/",
+  "results/",
+  "originals/",
+  "uploads/",
+  "temp/",
+  "jimeng/",
+];
+
+export const splitCombinedImageRefs = (value: string | null | undefined) => {
+  if (!value) {
+    return [];
+  }
+
+  const refs: string[] = [];
+  let current = "";
+
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index];
+    if (char === ",") {
+      const remainder = value.slice(index + 1);
+      const isNextRef = COMBINED_IMAGE_REF_STARTERS.some((starter) =>
+        remainder.startsWith(starter),
+      );
+      if (isNextRef) {
+        const trimmed = current.trim();
+        if (trimmed) {
+          refs.push(trimmed);
+        }
+        current = "";
+        continue;
+      }
+    }
+    current += char;
+  }
+
+  const trailing = current.trim();
+  if (trailing) {
+    refs.push(trailing);
+  }
+
+  return refs;
+};
+
 export const getUserProfile = (accessToken: string) =>
   getJson<UserProfile>("/user/profile", accessToken);
 

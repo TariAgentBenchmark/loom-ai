@@ -2,8 +2,7 @@
 
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { X, Download, ZoomIn, ZoomOut, RotateCw, ChevronLeft, ChevronRight } from 'lucide-react';
-import { HistoryTask } from '../lib/api';
-import { resolveFileUrl } from '../lib/api';
+import { HistoryTask, resolveFileUrl, splitCombinedImageRefs } from '../lib/api';
 import { formatDateTime } from '../lib/datetime';
 
 interface ImagePreviewProps {
@@ -76,14 +75,14 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
     if (!source) {
       return [];
     }
-    return source.split(',').map(u => u.trim());
+    return splitCombinedImageRefs(source);
   }, [task]);
 
   const resultDownloadUrls = useMemo(() => {
     if (!task?.resultImage?.url) {
       return [];
     }
-    return task.resultImage.url.split(',').map(u => u.trim());
+    return splitCombinedImageRefs(task.resultImage.url);
   }, [task]);
 
   const resultFilenames = useMemo(() => {
