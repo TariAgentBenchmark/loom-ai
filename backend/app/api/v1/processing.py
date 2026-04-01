@@ -762,13 +762,13 @@ async def get_task_status(
                 )
 
             processed_value = ",".join(signed_urls) if signed_urls else task.result_image_url
-            processed_preview_value = (
-                ",".join(preview_urls) if preview_urls else processed_value
-            )
+            # Main processing view should show full-quality results immediately after
+            # completion; compressed previews remain available through history/admin APIs.
+            processed_preview_value = processed_value
             processed_thumbnail_value = (
                 ",".join(thumbnail_urls)
                 if thumbnail_urls
-                else processed_preview_value
+                else processed_value
             )
             original_image_url = task.original_image_url
             original_image_preview_url = None
