@@ -431,21 +431,102 @@ class AIClient:
                 logger.warning("Combined pattern Gemini-3 failed: %s", str(exc))
                 return None
 
-        variant_tasks = [
-            asyncio.create_task(_run_variant(pt)) for pt in _COMBINED_VARIANTS
-        ]
-        grok302_task = asyncio.create_task(_run_grok302_extract())
-        runninghub_tasks = [
-            asyncio.create_task(
-                _run_runninghub(settings.runninghub_workflow_id_extract_combined_4)
+        async def _run_branch_with_timeout(
+            label: str,
+            coroutine: Any,
+            timeout_seconds: float,
+        ) -> Optional[str]:
+            try:
+                return await asyncio.wait_for(coroutine, timeout=timeout_seconds)
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "Combined pattern branch %s timed out after %ss",
+                    label,
+                    timeout_seconds,
+                )
+                return None
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.warning("Combined pattern branch %s failed: %s", label, str(exc))
+                return None
+
+        branch_timeout = max(
+            0.01,
+            float(settings.extract_pattern_combined_branch_timeout_seconds),
+        )
+        branch_specs = [
+            (
+                "general_2",
+                _run_variant("general_2"),
+            ),
+            (
+                "combined_detail",
+                _run_variant("combined_detail"),
+            ),
+            (
+                "grok302",
+                _run_grok302_extract(),
+            ),
+            (
+                "runninghub_combined_4",
+                _run_runninghub(settings.runninghub_workflow_id_extract_combined_4),
             ),
         ]
 
+        target_success_count = max(
+            1,
+            min(
+                settings.extract_pattern_combined_early_return_success_count,
+                len(branch_specs),
+            ),
+        )
+        pending_tasks = {
+            asyncio.create_task(
+                _run_branch_with_timeout(label, coroutine, branch_timeout)
+            ): label
+            for label, coroutine in branch_specs
+        }
+
         variant_urls: List[str] = []
-        for task in variant_tasks + [grok302_task] + runninghub_tasks:
-            url = await task
-            if url:
-                variant_urls.append(url)
+        try:
+            while pending_tasks:
+                completed, still_pending = await asyncio.wait(
+                    pending_tasks.keys(),
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+
+                next_pending = {task: pending_tasks[task] for task in still_pending}
+                for task in completed:
+                    label = pending_tasks[task]
+                    try:
+                        url = task.result()
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as exc:
+                        logger.warning(
+                            "Combined pattern branch %s failed unexpectedly: %s",
+                            label,
+                            str(exc),
+                        )
+                        url = None
+
+                    if url and url not in variant_urls:
+                        variant_urls.append(url)
+
+                pending_tasks = next_pending
+                if len(variant_urls) >= target_success_count:
+                    logger.info(
+                        "Combined pattern reached early return threshold (%s/%s)",
+                        len(variant_urls),
+                        target_success_count,
+                    )
+                    break
+        finally:
+            for task in pending_tasks:
+                task.cancel()
+            if pending_tasks:
+                await asyncio.gather(*pending_tasks.keys(), return_exceptions=True)
 
         if not variant_urls:
             raise Exception("AI提取花型失败：综合模型未获得结果")
