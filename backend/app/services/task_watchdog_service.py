@@ -25,17 +25,36 @@ class TaskWatchdogService:
         self.task_log_service = TaskLogService()
         self._lock_key = "task_watchdog_lock"
 
-    async def _acquire_lock(self, ttl_seconds: int) -> bool:
+    async def _acquire_lock(self, ttl_seconds: int) -> Optional[str]:
         if not settings.redis_url:
-            return True
+            return ""
         try:
             client = get_redis_client()
             token = f"{os.getpid()}-{datetime.utcnow().isoformat()}"
             acquired = await client.set(self._lock_key, token, nx=True, ex=ttl_seconds)
-            return bool(acquired)
+            return token if acquired else None
         except Exception as exc:
             logger.warning("Task watchdog lock failed (continue anyway): %s", exc)
-            return True
+            return ""
+
+    async def _release_lock(self, token: Optional[str]) -> None:
+        if token in (None, "") or not settings.redis_url:
+            return
+        try:
+            client = get_redis_client()
+            await client.eval(
+                """
+                if redis.call("get", KEYS[1]) == ARGV[1] then
+                    return redis.call("del", KEYS[1])
+                end
+                return 0
+                """,
+                1,
+                self._lock_key,
+                token,
+            )
+        except Exception as exc:
+            logger.warning("Task watchdog unlock failed: %s", exc)
 
     def _get_retry_count(self, task: Task) -> int:
         meta = task.extra_metadata or {}
@@ -104,8 +123,8 @@ class TaskWatchdogService:
         if not settings.task_watchdog_enabled:
             return
 
-        acquired = await self._acquire_lock(settings.task_watchdog_lock_seconds)
-        if not acquired:
+        lock_token = await self._acquire_lock(settings.task_watchdog_lock_seconds)
+        if lock_token is None:
             return
 
         now = datetime.utcnow()
@@ -178,6 +197,7 @@ class TaskWatchdogService:
         except Exception as exc:
             logger.warning("Task watchdog failed: %s", exc, exc_info=True)
         finally:
+            await self._release_lock(lock_token)
             db.close()
 
 
@@ -193,4 +213,3 @@ async def task_watchdog_worker() -> None:
         except Exception as exc:  # pragma: no cover
             logger.warning("Task watchdog loop error: %s", exc, exc_info=True)
         await asyncio.sleep(interval)
-
