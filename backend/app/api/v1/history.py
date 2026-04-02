@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from typing import Optional
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -42,6 +43,28 @@ def _to_beijing_isoformat(dt):
     return dt.astimezone(BEIJING_TZ).isoformat()
 
 
+async def _resolve_image_urls(file_service, file_url: Optional[str], semaphore: asyncio.Semaphore):
+    if not file_url:
+        return None, None, None
+
+    clean_url = file_url.strip()
+
+    async def _limited(callable_):
+        async with semaphore:
+            return await callable_
+
+    preview_url, thumbnail_url, accessible_url = await asyncio.gather(
+        _limited(file_service.ensure_preview_url(clean_url)),
+        _limited(file_service.ensure_thumbnail_url(clean_url)),
+        _limited(file_service.ensure_accessible_url(clean_url)),
+    )
+
+    resolved_accessible = accessible_url or clean_url
+    resolved_preview = preview_url or resolved_accessible
+    resolved_thumbnail = thumbnail_url or resolved_preview
+    return resolved_accessible, resolved_preview, resolved_thumbnail
+
+
 @router.get("/tasks")
 async def get_history_tasks(
     type: Optional[str] = None,
@@ -53,6 +76,8 @@ async def get_history_tasks(
 ):
     """获取处理历史"""
     try:
+        from app.services.file_service import FileService
+
         query = db.query(Task).filter(Task.user_id == current_user.id)
 
         cutoff = datetime.utcnow() - timedelta(days=settings.history_retention_days)
@@ -69,28 +94,20 @@ async def get_history_tasks(
         # 分页
         total = query.count()
         tasks = query.offset((page - 1) * limit).limit(limit).all()
-        
-        # 格式化任务数据
-        formatted_tasks = []
-        for task in tasks:
-            from app.services.file_service import FileService
 
-            file_service = FileService()
+        file_service = FileService()
+        semaphore = asyncio.Semaphore(12)
+
+        async def _format_task(task: Task):
             credits_used_value = to_float(task.credits_used)
             if task.status == TaskStatus.FAILED.value:
                 credits_used_value = 0.0
 
-            original_image_url = task.original_image_url
-            original_image_preview_url = None
-            original_image_thumbnail_url = None
-            if original_image_url:
-                original_image_preview_url = await file_service.ensure_preview_url(
-                    original_image_url
-                )
-                original_image_thumbnail_url = await file_service.ensure_thumbnail_url(
-                    original_image_url
-                )
-                original_image_url = await file_service.ensure_accessible_url(original_image_url)
+            (
+                original_image_url,
+                original_image_preview_url,
+                original_image_thumbnail_url,
+            ) = await _resolve_image_urls(file_service, task.original_image_url, semaphore)
 
             formatted_task = {
                 "taskId": task.task_id,
@@ -124,19 +141,15 @@ async def get_history_tasks(
                     task.result_image_url,
                     task.result_filename,
                 )
-                signed_urls = []
-                preview_urls = []
-                thumbnail_urls = []
-                for url in filtered_urls:
-                    clean_url = url.strip()
-                    preview_url = await file_service.ensure_preview_url(clean_url)
-                    thumbnail_url = await file_service.ensure_thumbnail_url(clean_url)
-                    accessible_url = await file_service.ensure_accessible_url(clean_url)
-                    signed_urls.append(accessible_url or clean_url)
-                    preview_urls.append(preview_url or accessible_url or clean_url)
-                    thumbnail_urls.append(
-                        thumbnail_url or preview_url or accessible_url or clean_url
+                resolved_results = await asyncio.gather(
+                    *(
+                        _resolve_image_urls(file_service, url, semaphore)
+                        for url in filtered_urls
                     )
+                )
+                signed_urls = [resolved[0] for resolved in resolved_results if resolved[0]]
+                preview_urls = [resolved[1] for resolved in resolved_results if resolved[1]]
+                thumbnail_urls = [resolved[2] for resolved in resolved_results if resolved[2]]
 
                 formatted_task["resultImage"] = {
                     "url": ",".join(signed_urls) if signed_urls else task.result_image_url,
@@ -150,8 +163,10 @@ async def get_history_tasks(
                     "size": task.result_file_size,
                     "dimensions": task.result_dimensions
                 }
-            
-            formatted_tasks.append(formatted_task)
+
+            return formatted_task
+
+        formatted_tasks = await asyncio.gather(*(_format_task(task) for task in tasks))
         
         # 计算统计信息
         stats_query = db.query(Task).filter(

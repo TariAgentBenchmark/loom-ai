@@ -45,6 +45,10 @@ const resolveApiOrigin = () => {
 };
 
 const API_ORIGIN = resolveApiOrigin();
+const historyTasksInflightRequests = new Map<
+  string,
+  Promise<ApiSuccessResponse<HistoryResponse>>
+>();
 
 const jsonResponse = async <T>(response: Response): Promise<T> => {
   const contentType = response.headers.get("content-type") ?? "";
@@ -1139,8 +1143,17 @@ export const getHistoryTasks = (
 
   const query = params.toString();
   const path = `/history/tasks${query ? `?${query}` : ""}`;
+  const requestKey = `${accessToken}:${path}`;
+  const existingRequest = historyTasksInflightRequests.get(requestKey);
+  if (existingRequest) {
+    return existingRequest;
+  }
 
-  return getJson<HistoryResponse>(path, accessToken);
+  const request = getJson<HistoryResponse>(path, accessToken).finally(() => {
+    historyTasksInflightRequests.delete(requestKey);
+  });
+  historyTasksInflightRequests.set(requestKey, request);
+  return request;
 };
 
 export const getTaskDetail = (taskId: string, accessToken: string) =>

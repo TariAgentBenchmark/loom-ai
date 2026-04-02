@@ -34,6 +34,9 @@ class FileService:
         
         # 延迟导入OSS服务以避免循环依赖
         self._oss_service = None
+        self._accessible_url_cache: Dict[str, Optional[str]] = {}
+        self._variant_url_cache: Dict[tuple[str, str], Optional[str]] = {}
+        self._transform_safe_cache: Dict[str, bool] = {}
     
     @property
     def oss_service(self):
@@ -109,13 +112,19 @@ class FileService:
         if not object_key:
             return False
 
+        cached = self._transform_safe_cache.get(object_key)
+        if cached is not None:
+            return cached
+
         try:
             info = await self.oss_service.get_file_info(object_key)
         except Exception as exc:  # pragma: no cover - 防御性处理
             logger.warning("获取OSS文件信息失败，跳过变换预览: %s", exc)
+            self._transform_safe_cache[object_key] = False
             return False
 
         if not info:
+            self._transform_safe_cache[object_key] = False
             return False
 
         size = info.get("size")
@@ -126,8 +135,10 @@ class FileService:
                 size,
                 OSS_IMAGE_PROCESS_MAX_SOURCE_SIZE,
             )
+            self._transform_safe_cache[object_key] = False
             return False
 
+        self._transform_safe_cache[object_key] = True
         return True
 
     def is_managed_oss_ref(self, file_ref: Optional[str]) -> bool:
@@ -171,18 +182,24 @@ class FileService:
         if not file_url:
             return file_url
 
+        cached = self._accessible_url_cache.get(file_url)
+        if cached is not None:
+            return cached
+
+        resolved_url = file_url
         try:
             if self.is_managed_oss_ref(file_url):
                 signed_url = await self.generate_presigned_url_for_full_url(file_url)
                 if signed_url:
-                    return signed_url
+                    resolved_url = signed_url
         except Exception as exc:  # pragma: no cover - 防御性处理
             logger.warning("生成可访问URL失败，将返回原始地址: %s", exc)
 
-        if file_url.startswith("/"):
-            return f"{settings.base_url.rstrip('/')}{file_url}"
+        if resolved_url == file_url and file_url.startswith("/"):
+            resolved_url = f"{settings.base_url.rstrip('/')}{file_url}"
 
-        return file_url
+        self._accessible_url_cache[file_url] = resolved_url
+        return resolved_url
 
     async def ensure_variant_url(
         self,
@@ -196,28 +213,45 @@ class FileService:
         if not file_url:
             return file_url
 
+        cache_key = (file_url, variant)
+        cached = self._variant_url_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         if not self.is_managed_oss_ref(file_url):
-            return await self.ensure_accessible_url(file_url)
+            resolved = await self.ensure_accessible_url(file_url)
+            self._variant_url_cache[cache_key] = resolved
+            return resolved
 
         if not self._is_preview_transform_supported(file_url):
-            return await self.ensure_accessible_url(file_url)
+            resolved = await self.ensure_accessible_url(file_url)
+            self._variant_url_cache[cache_key] = resolved
+            return resolved
 
         process_rule = self._build_oss_image_process(variant)
         object_key = self.extract_oss_object_key(file_url)
         if not process_rule or not object_key:
-            return await self.ensure_accessible_url(file_url)
+            resolved = await self.ensure_accessible_url(file_url)
+            self._variant_url_cache[cache_key] = resolved
+            return resolved
 
         if not await self._is_oss_transform_safe(object_key):
-            return await self.ensure_accessible_url(file_url)
+            resolved = await self.ensure_accessible_url(file_url)
+            self._variant_url_cache[cache_key] = resolved
+            return resolved
 
         try:
-            return await self.oss_service.generate_presigned_url(
+            resolved = await self.oss_service.generate_presigned_url(
                 object_key,
                 params={"x-oss-process": process_rule},
             )
+            self._variant_url_cache[cache_key] = resolved
+            return resolved
         except Exception as exc:  # pragma: no cover - 防御性处理
             logger.warning("生成%s展示URL失败，将回退普通地址: %s", variant, exc)
-            return await self.ensure_accessible_url(file_url)
+            resolved = await self.ensure_accessible_url(file_url)
+            self._variant_url_cache[cache_key] = resolved
+            return resolved
 
     async def ensure_preview_url(self, file_url: Optional[str]) -> Optional[str]:
         return await self.ensure_variant_url(file_url, variant="preview")
