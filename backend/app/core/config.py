@@ -31,7 +31,8 @@ class Settings(BaseSettings):
     task_watchdog_lock_seconds: int = 240
     task_watchdog_batch_size: int = 50
     extract_pattern_combined_branch_timeout_seconds: int = 180
-    extract_pattern_combined_early_return_success_count: int = 3
+    extract_pattern_combined_early_return_success_count: int = 4
+    extract_pattern_general_workflow_attempts: int = 2
     # 下游API并发上限配置（按服务商/客户端粒度）
     api_concurrency_limits: Dict[str, int] = Field(
         default_factory=lambda: {

@@ -615,6 +615,61 @@ class AIClient:
             len(runninghub_workflows),
         )
 
+        workflow_attempts = max(1, settings.extract_pattern_general_workflow_attempts)
+
+        async def _run_general_workflow_with_retries(
+            workflow: Dict[str, Any],
+        ) -> List[str]:
+            label = workflow["label"]
+            workflow_id = workflow.get("workflow_id")
+            node_ids = workflow.get("node_ids")
+            field_name = workflow.get("field_name")
+
+            for attempt in range(1, workflow_attempts + 1):
+                try:
+                    rh_results = await self.runninghub_client.run_workflow_with_custom_nodes(
+                        image_bytes=image_bytes,
+                        workflow_id=workflow_id,
+                        node_ids=node_ids,
+                        field_name=field_name,
+                        options=options,
+                    )
+                    cleaned_results = [
+                        url.strip() for url in rh_results if isinstance(url, str) and url.strip()
+                    ]
+                    if cleaned_results:
+                        if attempt > 1:
+                            logger.info(
+                                "RunningHub workflow %s recovered on attempt %s/%s with %s urls",
+                                label,
+                                attempt,
+                                workflow_attempts,
+                                len(cleaned_results),
+                            )
+                        return cleaned_results
+
+                    logger.warning(
+                        "RunningHub workflow %s attempt %s/%s returned no urls",
+                        label,
+                        attempt,
+                        workflow_attempts,
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "RunningHub workflow %s attempt %s/%s failed: %s",
+                        label,
+                        attempt,
+                        workflow_attempts,
+                        str(exc),
+                    )
+
+            logger.warning(
+                "RunningHub workflow %s exhausted %s attempts without results",
+                label,
+                workflow_attempts,
+            )
+            return []
+
         runninghub_tasks: List[Tuple[Dict[str, Any], asyncio.Task]] = []
         for workflow in runninghub_workflows:
             workflow_id = (workflow.get("workflow_id") or "").strip()
@@ -633,42 +688,42 @@ class AIClient:
             )
 
             task = asyncio.create_task(
-                self.runninghub_client.run_workflow_with_custom_nodes(
-                    image_bytes=image_bytes,
-                    workflow_id=workflow_id,
-                    node_ids=workflow.get("node_ids"),
-                    field_name=workflow.get("field_name"),
-                    options=options,
-                )
+                _run_general_workflow_with_retries(workflow)
             )
             runninghub_tasks.append((workflow, task))
 
-        for workflow, task in runninghub_tasks:
-            try:
-                rh_results = await task
+        try:
+            for workflow, task in runninghub_tasks:
+                try:
+                    rh_results = await task
+                except Exception as exc:
+                    logger.warning(
+                        "RunningHub workflow %s failed unexpectedly: %s",
+                        workflow["label"],
+                        str(exc),
+                    )
+                    rh_results = []
+
                 logger.info(
                     "RunningHub workflow %s returned %s urls",
                     workflow["label"],
                     len(rh_results),
                 )
-                for rh_url in rh_results:
-                    cleaned = rh_url.strip()
-                    if cleaned:
-                        ordered_results.append(cleaned)
-                        if len(ordered_results) >= max_general1_results:
-                            break
-            except Exception as exc:
-                logger.warning(
-                    "RunningHub workflow %s failed: %s",
-                    workflow["label"],
-                    str(exc),
-                )
-
-            if len(ordered_results) >= max_general1_results:
-                break
+                ordered_results.extend(rh_results)
+        finally:
+            pending_tasks = [task for _, task in runninghub_tasks if not task.done()]
+            for task in pending_tasks:
+                task.cancel()
+            if pending_tasks:
+                await asyncio.gather(*pending_tasks, return_exceptions=True)
 
         if not ordered_results:
             raise Exception("AI提取花型失败：通用1未获得结果")
+
+        if len(ordered_results) < max_general1_results:
+            raise Exception(
+                f"AI提取花型失败：通用1仅获得{len(ordered_results)}/{max_general1_results}张结果"
+            )
 
         logger.info(
             "Final general-1 pattern output prepared (RunningHub only): %s urls",

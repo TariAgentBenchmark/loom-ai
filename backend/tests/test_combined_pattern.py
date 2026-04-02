@@ -115,3 +115,65 @@ async def test_extract_pattern_combined_allows_timeouts_when_other_branches_succ
 
     assert result == "https://example.com/general.png,https://example.com/grok.png"
     assert elapsed < 0.3
+
+
+@pytest.mark.asyncio
+async def test_extract_pattern_general_1_retries_missing_workflow_result(monkeypatch):
+    client = _build_client()
+    attempts = {"wf-1": 0, "wf-2": 0}
+
+    async def fake_runninghub(**kwargs):
+        workflow_id = kwargs["workflow_id"]
+        attempts[workflow_id] += 1
+        if workflow_id == "wf-1":
+            if attempts[workflow_id] == 1:
+                return []
+            return ["https://example.com/one.png"]
+        if workflow_id == "wf-2":
+            return ["https://example.com/two.png"]
+        raise AssertionError(f"unexpected workflow_id: {workflow_id}")
+
+    monkeypatch.setattr(settings, "extract_pattern_general_workflow_attempts", 2)
+    monkeypatch.setattr(settings, "runninghub_workflow_id_extract_general1_2img_1", "wf-1")
+    monkeypatch.setattr(settings, "runninghub_workflow_id_extract_general1_2img_2", "wf-2")
+    monkeypatch.setattr(
+        client.runninghub_client,
+        "run_workflow_with_custom_nodes",
+        fake_runninghub,
+    )
+
+    result = await client._extract_pattern_general_1(
+        b"fake-image",
+        {"num_images": 2},
+    )
+
+    assert result == "https://example.com/one.png,https://example.com/two.png"
+    assert attempts == {"wf-1": 2, "wf-2": 1}
+
+
+@pytest.mark.asyncio
+async def test_extract_pattern_general_1_fails_when_requested_count_not_met(monkeypatch):
+    client = _build_client()
+
+    async def fake_runninghub(**kwargs):
+        workflow_id = kwargs["workflow_id"]
+        if workflow_id == "wf-1":
+            return ["https://example.com/one.png"]
+        return []
+
+    monkeypatch.setattr(settings, "extract_pattern_general_workflow_attempts", 1)
+    monkeypatch.setattr(settings, "runninghub_workflow_id_extract_general1_1", "wf-1")
+    monkeypatch.setattr(settings, "runninghub_workflow_id_extract_general1_2", "wf-2")
+    monkeypatch.setattr(settings, "runninghub_workflow_id_extract_general1_3", "wf-3")
+    monkeypatch.setattr(settings, "runninghub_workflow_id_extract_general1_4", "wf-4")
+    monkeypatch.setattr(
+        client.runninghub_client,
+        "run_workflow_with_custom_nodes",
+        fake_runninghub,
+    )
+
+    with pytest.raises(Exception, match="仅获得1/4张结果"):
+        await client._extract_pattern_general_1(
+            b"fake-image",
+            {"num_images": 4},
+        )
