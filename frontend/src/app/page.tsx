@@ -869,6 +869,14 @@ function HomeContent() {
     [accessToken, clearTaskPolling, handleStatusResponse, updateActiveTasks, updateMethodUiState],
   );
 
+  const handleBatchModeClose = useCallback(() => {
+    setBatchMode(false);
+  }, []);
+
+  const handleBatchHistoryRefresh = useCallback(() => {
+    setHistoryRefreshToken((token) => token + 1);
+  }, []);
+
   useEffect(() => {
     if (!authenticatedUserId || !accessToken || hasLoadedPersistedTasksRef.current) {
       return;
@@ -1195,8 +1203,8 @@ function HomeContent() {
             <BatchProcessingWrapper
               method={currentPage}
               accessToken={accessToken}
-              onBack={() => setBatchMode(false)}
-              onHistoryRefresh={() => setHistoryRefreshToken((token) => token + 1)}
+              onBack={handleBatchModeClose}
+              onHistoryRefresh={handleBatchHistoryRefresh}
               promptInstruction={promptInstruction}
               embroideryMode={embroideryMode}
               onEmbroideryModeChange={setEmbroideryMode}

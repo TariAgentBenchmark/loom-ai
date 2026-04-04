@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getBatchStatus, downloadBatchResults, BatchTaskStatus } from '../lib/api';
 
 interface BatchProcessingStatusProps {
@@ -21,6 +21,11 @@ export default function BatchProcessingStatus({
     const [status, setStatus] = useState<BatchTaskStatus | null>(null);
     const [error, setError] = useState<string>('');
     const [isDownloading, setIsDownloading] = useState(false);
+    const onCompleteRef = useRef(onComplete);
+
+    useEffect(() => {
+        onCompleteRef.current = onComplete;
+    }, [onComplete]);
 
     const fetchStatus = useCallback(async () => {
         try {
@@ -29,12 +34,12 @@ export default function BatchProcessingStatus({
 
             // Check if batch is complete
             if (response.data.status === 'completed' || response.data.status === 'partial' || response.data.status === 'failed') {
-                onComplete();
+                onCompleteRef.current();
             }
         } catch (err) {
             setError((err as Error)?.message ?? '获取批量任务状态失败');
         }
-    }, [batchId, accessToken, onComplete]);
+    }, [batchId, accessToken]);
 
     useEffect(() => {
         // Initial fetch
