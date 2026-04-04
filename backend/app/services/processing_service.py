@@ -503,92 +503,114 @@ class ProcessingService:
                 result_filenames = []
                 total_size = 0
                 result_dimensions = None
+                downstream_details = self._describe_downstream(task.type, task_options)
 
                 for idx, single_result_url in enumerate(result_urls):
-                    # 获取结果文件信息
-                    # 根据任务类型确定文件格式
-                    if task.type == TaskType.VECTORIZE.value:
-                        # 矢量化任务返回SVG格式
-                        if single_result_url.startswith("/files/results/"):
-                            # 本地文件，直接使用，不需要重新保存
-                            final_url = single_result_url
-                            # 从URL中提取文件名
-                            filename = single_result_url.split("/")[-1]
-                            # 读取文件内容以获取文件大小
-                            result_bytes = await self.file_service.read_file(
-                                single_result_url
-                            )
-                        elif self.file_service.is_managed_oss_ref(single_result_url):
-                            # 已经在当前OSS，直接使用
-                            final_url = single_result_url
-                            filename = single_result_url.split("/")[-1]
-                            info = await self.file_service.oss_service.get_file_info(
-                                self.file_service.extract_oss_object_key(single_result_url)
-                            )
-                            if info and info.get("size") is not None:
-                                result_bytes = b""
-                                total_size += info["size"]
+                    result_source = self.file_service.describe_file_reference(
+                        single_result_url
+                    )
+                    try:
+                        # 获取结果文件信息
+                        # 根据任务类型确定文件格式
+                        if task.type == TaskType.VECTORIZE.value:
+                            # 矢量化任务返回SVG格式
+                            if single_result_url.startswith("/files/results/"):
+                                # 本地文件，直接使用，不需要重新保存
+                                final_url = single_result_url
+                                # 从URL中提取文件名
+                                filename = single_result_url.split("/")[-1]
+                                # 读取文件内容以获取文件大小
+                                result_bytes = await self.file_service.read_file(
+                                    single_result_url
+                                )
+                            elif self.file_service.is_managed_oss_ref(single_result_url):
+                                # 已经在当前OSS，直接使用
+                                final_url = single_result_url
+                                filename = single_result_url.split("/")[-1]
+                                info = await self.file_service.oss_service.get_file_info(
+                                    self.file_service.extract_oss_object_key(single_result_url)
+                                )
+                                if info and info.get("size") is not None:
+                                    result_bytes = b""
+                                    total_size += info["size"]
+                                else:
+                                    result_bytes = await self.file_service.download_from_url(
+                                        single_result_url
+                                    )
                             else:
+                                # 远程URL，下载文件
                                 result_bytes = await self.file_service.download_from_url(
                                     single_result_url
                                 )
+                                filename = f"result_{task.task_id}_{idx}.svg"
+                                # 保存结果文件（AI生成的图片可能分辨率和文件大小都很高，跳过验证）
+                                final_url = await self.file_service.save_upload_file(
+                                    result_bytes, filename, "results", validate_dimensions=False, validate_file_size=False
+                                )
                         else:
-                            # 远程URL，下载文件
-                            result_bytes = await self.file_service.download_from_url(
-                                single_result_url
-                            )
-                            filename = f"result_{task.task_id}_{idx}.svg"
-                            # 保存结果文件（AI生成的图片可能分辨率和文件大小都很高，跳过验证）
-                            final_url = await self.file_service.save_upload_file(
-                                result_bytes, filename, "results", validate_dimensions=False, validate_file_size=False
-                            )
-                    else:
-                        # 其他任务返回PNG格式
-                        if single_result_url.startswith("/files/results/"):
-                            # 本地文件，直接使用，不需要重新保存
-                            final_url = single_result_url
-                            # 从URL中提取文件名
-                            filename = single_result_url.split("/")[-1]
-                            # 读取文件内容以获取文件大小
-                            result_bytes = await self.file_service.read_file(
-                                single_result_url
-                            )
-                        elif self.file_service.is_managed_oss_ref(single_result_url):
-                            # 已经在当前OSS，直接使用
-                            final_url = single_result_url
-                            filename = single_result_url.split("/")[-1]
-                            info = await self.file_service.oss_service.get_file_info(
-                                self.file_service.extract_oss_object_key(single_result_url)
-                            )
-                            if info and info.get("size") is not None:
-                                result_bytes = b""
-                                total_size += info["size"]
+                            # 其他任务返回PNG格式
+                            if single_result_url.startswith("/files/results/"):
+                                # 本地文件，直接使用，不需要重新保存
+                                final_url = single_result_url
+                                # 从URL中提取文件名
+                                filename = single_result_url.split("/")[-1]
+                                # 读取文件内容以获取文件大小
+                                result_bytes = await self.file_service.read_file(
+                                    single_result_url
+                                )
+                            elif self.file_service.is_managed_oss_ref(single_result_url):
+                                # 已经在当前OSS，直接使用
+                                final_url = single_result_url
+                                filename = single_result_url.split("/")[-1]
+                                info = await self.file_service.oss_service.get_file_info(
+                                    self.file_service.extract_oss_object_key(single_result_url)
+                                )
+                                if info and info.get("size") is not None:
+                                    result_bytes = b""
+                                    total_size += info["size"]
+                                else:
+                                    result_bytes = await self.file_service.download_from_url(
+                                        single_result_url
+                                    )
                             else:
+                                # 远程URL，下载文件
                                 result_bytes = await self.file_service.download_from_url(
                                     single_result_url
                                 )
-                        else:
-                            # 远程URL，下载文件
-                            result_bytes = await self.file_service.download_from_url(
-                                single_result_url
-                            )
-                            target_ext = "png"
-                            if task.type == TaskType.UPSCALE.value:
-                                save_photo_format = task_options.get("save_photo_format")
-                                image_format = (
-                                    task_options.get("image_format")
-                                    or task_options.get("image_ext")
-                                    or ""
-                                ).lower()
-                                if save_photo_format == 1 or image_format in {"jpeg", "jpg"}:
-                                    target_ext = "jpg"
-                                elif save_photo_format == 2 or image_format == "png":
-                                    target_ext = "png"
-                            filename = f"result_{task.task_id}_{idx}.{target_ext}"
-                            # 保存结果文件（AI生成的图片可能分辨率和文件大小都很高，跳过验证）
-                            final_url = await self.file_service.save_upload_file(
-                                result_bytes, filename, "results", validate_dimensions=False, validate_file_size=False
-                            )
+                                target_ext = "png"
+                                if task.type == TaskType.UPSCALE.value:
+                                    save_photo_format = task_options.get("save_photo_format")
+                                    image_format = (
+                                        task_options.get("image_format")
+                                        or task_options.get("image_ext")
+                                        or ""
+                                    ).lower()
+                                    if save_photo_format == 1 or image_format in {"jpeg", "jpg"}:
+                                        target_ext = "jpg"
+                                    elif save_photo_format == 2 or image_format == "png":
+                                        target_ext = "png"
+                                filename = f"result_{task.task_id}_{idx}.{target_ext}"
+                                # 保存结果文件（AI生成的图片可能分辨率和文件大小都很高，跳过验证）
+                                final_url = await self.file_service.save_upload_file(
+                                    result_bytes, filename, "results", validate_dimensions=False, validate_file_size=False
+                                )
+                    except Exception as exc:
+                        self._log_task_event(
+                            db,
+                            task,
+                            event="result_materialization_failed",
+                            message="Failed to download or persist downstream result file",
+                            level="error",
+                            details={
+                                "resultIndex": idx,
+                                "resultUrl": single_result_url,
+                                "resultSource": result_source,
+                                "downstream": downstream_details,
+                                "error": str(exc),
+                            },
+                        )
+                        db.commit()
+                        raise
 
                     final_result_urls.append(final_url)
                     result_filenames.append(filename)

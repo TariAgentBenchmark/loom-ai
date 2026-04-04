@@ -1,3 +1,4 @@
+import asyncio
 import os
 import uuid
 import aiofiles
@@ -15,6 +16,8 @@ from app.utils.exceptions import UserFacingException
 logger = logging.getLogger(__name__)
 
 OSS_IMAGE_PROCESS_MAX_SOURCE_SIZE = 20 * 1024 * 1024
+REMOTE_DOWNLOAD_MAX_ATTEMPTS = 3
+REMOTE_DOWNLOAD_RETRY_BASE_SECONDS = 1.0
 
 
 class FileService:
@@ -86,6 +89,43 @@ class FileService:
         if "." not in filename:
             return ""
         return filename.rsplit(".", 1)[-1].lower()
+
+    def describe_file_reference(self, file_ref: Optional[str]) -> Dict[str, Any]:
+        """Return lightweight diagnostics for local/remote file refs."""
+        if not file_ref:
+            return {"kind": "empty"}
+
+        if file_ref.startswith("/files/"):
+            return {
+                "kind": "local",
+                "path": file_ref,
+                "extension": self._get_file_extension(file_ref),
+            }
+
+        if self.is_managed_oss_ref(file_ref):
+            object_key = self.extract_oss_object_key(file_ref)
+            parsed = urlparse(file_ref) if file_ref.startswith("http") else None
+            return {
+                "kind": "managed_oss",
+                "host": parsed.netloc if parsed else None,
+                "objectKey": object_key,
+                "extension": self._get_file_extension(file_ref),
+            }
+
+        if file_ref.startswith("http"):
+            parsed = urlparse(file_ref)
+            return {
+                "kind": "remote_url",
+                "host": parsed.netloc,
+                "path": parsed.path,
+                "extension": self._get_file_extension(file_ref),
+            }
+
+        return {
+            "kind": "unknown",
+            "value": file_ref,
+            "extension": self._get_file_extension(file_ref),
+        }
 
     def _is_preview_transform_supported(self, file_ref: str) -> bool:
         return self._get_file_extension(file_ref) in {
@@ -429,14 +469,51 @@ class FileService:
 
     async def download_from_url(self, url: str) -> bytes:
         """从URL下载文件"""
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.get(url)
-                response.raise_for_status()
-                return response.content
-        except Exception as e:
-            logger.error(f"Failed to download from URL {url}: {str(e)}")
-            raise Exception(f"下载文件失败: {str(e)}")
+        parsed = urlparse(url)
+        host = parsed.netloc or "unknown-host"
+        path = parsed.path or "/"
+        timeout = httpx.Timeout(connect=10.0, read=60.0, write=60.0, pool=30.0)
+        last_error: Optional[Exception] = None
+
+        for attempt in range(1, REMOTE_DOWNLOAD_MAX_ATTEMPTS + 1):
+            try:
+                async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+                    response = await client.get(url)
+                    response.raise_for_status()
+                    if attempt > 1:
+                        logger.info(
+                            "远程文件下载重试成功: host=%s path=%s attempt=%s size=%s",
+                            host,
+                            path,
+                            attempt,
+                            len(response.content),
+                        )
+                    return response.content
+            except Exception as exc:
+                last_error = exc
+                logger.warning(
+                    "远程文件下载失败: host=%s path=%s attempt=%s/%s error=%s",
+                    host,
+                    path,
+                    attempt,
+                    REMOTE_DOWNLOAD_MAX_ATTEMPTS,
+                    str(exc),
+                )
+                if attempt < REMOTE_DOWNLOAD_MAX_ATTEMPTS:
+                    await asyncio.sleep(
+                        REMOTE_DOWNLOAD_RETRY_BASE_SECONDS * attempt
+                    )
+
+        logger.error(
+            "远程文件下载最终失败: host=%s path=%s attempts=%s error=%s",
+            host,
+            path,
+            REMOTE_DOWNLOAD_MAX_ATTEMPTS,
+            str(last_error),
+        )
+        raise Exception(
+            f"下载文件失败(host={host}, path={path}, attempts={REMOTE_DOWNLOAD_MAX_ATTEMPTS}): {str(last_error)}"
+        )
 
     async def delete_file(self, file_url: str) -> bool:
         """删除文件"""
