@@ -1,4 +1,7 @@
 import logging
+import asyncio
+import time
+from copy import deepcopy
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
@@ -16,6 +19,10 @@ from app.utils.task_errors import mask_task_error_message
 router = APIRouter()
 batch_processing_service = BatchProcessingService()
 logger = logging.getLogger(__name__)
+
+BATCH_STATUS_CACHE_TTL_SECONDS = 1.0
+_batch_status_cache: dict[tuple[str, int, bool], tuple[float, dict]] = {}
+_batch_status_locks: dict[tuple[str, int, bool], asyncio.Lock] = {}
 
 
 @router.post("/batch/{task_type}")
@@ -162,21 +169,42 @@ async def get_batch_status(
 ):
     """获取批量任务状态"""
     try:
-        status = await batch_processing_service.get_batch_status(db, batch_id, current_user.id)
-        
-        if not status:
-            raise HTTPException(status_code=404, detail="批量任务不存在")
+        cache_key = (batch_id, current_user.id, bool(current_user.is_admin))
+        now = time.monotonic()
+        cached_entry = _batch_status_cache.get(cache_key)
+        if cached_entry and now - cached_entry[0] < BATCH_STATUS_CACHE_TTL_SECONDS:
+            return SuccessResponse(
+                data=deepcopy(cached_entry[1]),
+                message="获取批量任务状态成功"
+            )
 
-        if not current_user.is_admin and status.get("tasks"):
-            for task in status["tasks"]:
-                task["errorMessage"] = mask_task_error_message(
-                    task.get("errorMessage"),
-                    None,
-                    is_admin=False,
+        lock = _batch_status_locks.setdefault(cache_key, asyncio.Lock())
+        async with lock:
+            now = time.monotonic()
+            cached_entry = _batch_status_cache.get(cache_key)
+            if cached_entry and now - cached_entry[0] < BATCH_STATUS_CACHE_TTL_SECONDS:
+                return SuccessResponse(
+                    data=deepcopy(cached_entry[1]),
+                    message="获取批量任务状态成功"
                 )
+
+            status = await batch_processing_service.get_batch_status(db, batch_id, current_user.id)
+        
+            if not status:
+                raise HTTPException(status_code=404, detail="批量任务不存在")
+
+            if not current_user.is_admin and status.get("tasks"):
+                for task in status["tasks"]:
+                    task["errorMessage"] = mask_task_error_message(
+                        task.get("errorMessage"),
+                        None,
+                        is_admin=False,
+                    )
+
+            _batch_status_cache[cache_key] = (time.monotonic(), deepcopy(status))
         
         return SuccessResponse(
-            data=status,
+            data=deepcopy(status),
             message="获取批量任务状态成功"
         )
         
