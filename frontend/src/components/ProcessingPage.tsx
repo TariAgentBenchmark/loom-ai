@@ -1549,7 +1549,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                               <img
                                 src={resolvedUrl}
                                 alt="Processed"
-                                className="w-full h-full object-contain rounded-lg border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
+                                className="w-auto h-auto max-w-full max-h-full object-contain rounded-lg border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
                                 onClick={() =>
                                   handleProcessedImagePreview(
                                     displayUrl,
