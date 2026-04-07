@@ -66,6 +66,84 @@ class ProcessingService:
             TaskType.SIMILAR_IMAGE.value: to_decimal(1.0),
         }
 
+    @staticmethod
+    def _coerce_positive_int(value: Any) -> Optional[int]:
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            return None
+        return parsed if parsed > 0 else None
+
+    def _resolve_expected_result_count(
+        self,
+        task_type: str,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> Optional[int]:
+        if task_type != TaskType.EXTRACT_PATTERN.value:
+            return None
+
+        normalized_options = options or {}
+        pattern_type = (
+            str(normalized_options.get("pattern_type") or "general_1")
+            .strip()
+            .lower()
+            .replace("-", "_")
+        )
+        requested_count = self._coerce_positive_int(
+            normalized_options.get("num_images")
+        )
+
+        if pattern_type in {"combined", "composite"}:
+            return 4
+        if requested_count is not None:
+            return requested_count
+        if pattern_type in {"general", "general1", "general_1"}:
+            return 4
+        if pattern_type == "denim":
+            return 1
+        return 1
+
+    def _apply_partial_result_credit_adjustment(
+        self,
+        task: Task,
+        actual_result_count: int,
+    ) -> Dict[str, float]:
+        expected_result_count = self._resolve_expected_result_count(
+            task.type,
+            task.options or {},
+        )
+        normalized_actual_count = max(0, int(actual_result_count))
+        applied_discount = to_decimal(0)
+
+        metadata = dict(task.extra_metadata or {})
+        if expected_result_count is not None:
+            metadata["expectedResultCount"] = expected_result_count
+        metadata["actualResultCount"] = normalized_actual_count
+
+        if (
+            task.type == TaskType.EXTRACT_PATTERN.value
+            and expected_result_count is not None
+            and normalized_actual_count > 0
+            and normalized_actual_count < expected_result_count
+        ):
+            original_credits_used = to_decimal(task.credits_used or 0)
+            applied_discount = to_decimal("0.5")
+            task.credits_used = max(
+                to_decimal(0),
+                original_credits_used - applied_discount,
+            )
+            metadata["originalCreditsUsed"] = to_float(original_credits_used)
+            metadata["creditAdjustmentReason"] = "partial_extract_pattern_result"
+
+        metadata["creditAdjustmentApplied"] = to_float(applied_discount)
+        task.extra_metadata = metadata
+
+        return {
+            "expectedResultCount": float(expected_result_count or 0),
+            "actualResultCount": float(normalized_actual_count),
+            "creditAdjustmentApplied": to_float(applied_discount),
+        }
+
     def _resolve_service_key(self, task_type: str) -> str:
         service_key = self.service_key_map.get(task_type)
         if not service_key:
@@ -655,6 +733,20 @@ class ProcessingService:
                     processing_time=processing_time,
                 )
                 task.result_dimensions = result_dimensions
+
+                adjustment_info = self._apply_partial_result_credit_adjustment(
+                    task,
+                    len(final_result_urls),
+                )
+                if adjustment_info["creditAdjustmentApplied"] > 0:
+                    self._log_task_event(
+                        db,
+                        task,
+                        event="partial_result_credit_adjustment",
+                        message="Applied credit adjustment for partial extract pattern result",
+                        details=adjustment_info,
+                    )
+                    db.commit()
 
                 # 扣除积分并更新处理次数
                 user = db.query(User).filter(User.id == task.user_id).first()
