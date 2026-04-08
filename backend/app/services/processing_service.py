@@ -123,8 +123,9 @@ class ProcessingService:
         if (
             task.type == TaskType.EXTRACT_PATTERN.value
             and expected_result_count is not None
+            and expected_result_count >= 3
             and normalized_actual_count > 0
-            and normalized_actual_count < expected_result_count
+            and normalized_actual_count < 3
         ):
             original_credits_used = to_decimal(task.credits_used or 0)
             applied_discount = to_decimal("0.5")

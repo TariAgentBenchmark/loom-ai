@@ -21,7 +21,7 @@ def _build_task(*, pattern_type: str, num_images=None, credits_used="1.0") -> Ta
     )
 
 
-def test_partial_extract_pattern_result_applies_half_credit_adjustment():
+def test_three_extract_pattern_results_do_not_apply_credit_adjustment():
     service = ProcessingService()
     task = _build_task(pattern_type="combined", credits_used="1.0")
 
@@ -30,12 +30,31 @@ def test_partial_extract_pattern_result_applies_half_credit_adjustment():
     assert adjustment == {
         "expectedResultCount": 4.0,
         "actualResultCount": 3.0,
+        "creditAdjustmentApplied": 0.0,
+    }
+    assert task.credits_used == to_decimal("1.0")
+    assert task.extra_metadata == {
+        "expectedResultCount": 4,
+        "actualResultCount": 3,
+        "creditAdjustmentApplied": 0.0,
+    }
+
+
+def test_two_extract_pattern_results_apply_half_credit_adjustment():
+    service = ProcessingService()
+    task = _build_task(pattern_type="combined", credits_used="1.0")
+
+    adjustment = service._apply_partial_result_credit_adjustment(task, 2)
+
+    assert adjustment == {
+        "expectedResultCount": 4.0,
+        "actualResultCount": 2.0,
         "creditAdjustmentApplied": 0.5,
     }
     assert task.credits_used == to_decimal("0.5")
     assert task.extra_metadata == {
         "expectedResultCount": 4,
-        "actualResultCount": 3,
+        "actualResultCount": 2,
         "originalCreditsUsed": 1.0,
         "creditAdjustmentReason": "partial_extract_pattern_result",
         "creditAdjustmentApplied": 0.5,
