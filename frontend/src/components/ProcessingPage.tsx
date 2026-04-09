@@ -178,6 +178,8 @@ interface ProcessingPageProps {
   onSecondaryFileInputChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onSecondaryDragOver?: (event: React.DragEvent<HTMLDivElement>) => void;
   onSecondaryDrop?: (event: React.DragEvent<HTMLDivElement>) => void;
+  onClearPrimaryImage?: () => void;
+  onClearSecondaryImage?: () => void;
   errorMessage?: string;
   successMessage?: string;
   accessToken?: string;
@@ -234,6 +236,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   onSecondaryFileInputChange,
   onSecondaryDragOver,
   onSecondaryDrop,
+  onClearPrimaryImage,
+  onClearSecondaryImage,
   errorMessage,
   successMessage,
   accessToken,
@@ -397,6 +401,26 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     method === "extract_pattern"
       ? "失败不扣积分，少于3张少扣0.5积分"
       : "失败不扣积分";
+  const handleClearPrimaryImage = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+      if (isProcessing) {
+        return;
+      }
+      onClearPrimaryImage?.();
+    },
+    [isProcessing, onClearPrimaryImage],
+  );
+  const handleClearSecondaryImage = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+      if (isProcessing) {
+        return;
+      }
+      onClearSecondaryImage?.();
+    },
+    [isProcessing, onClearSecondaryImage],
+  );
   const seamFitValue = Math.max(0, Math.min(1, seamFit));
   const denoiseValue = Math.max(0, Math.min(1, denoise));
   const uploadZoneClasses = `border-2 border-dashed rounded-lg md:rounded-xl p-4 md:p-8 text-center transition flex items-center justify-center ${isProcessing
@@ -745,7 +769,16 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                   aria-disabled={isProcessing}
                 >
                   {imagePreview ? (
-                    <div className="space-y-2 md:space-y-4">
+                    <div className="relative space-y-2 md:space-y-4">
+                      <button
+                        type="button"
+                        onClick={handleClearPrimaryImage}
+                        className="absolute -top-2 -right-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full border border-white bg-white/95 text-gray-500 shadow-sm transition hover:text-red-500"
+                        aria-label="删除已上传图片"
+                        title="删除已上传图片"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
                       <img
                         src={resolveFileUrl(imagePreview)}
                         alt="Preview"
@@ -784,7 +817,16 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                   aria-disabled={isProcessing}
                 >
                   {secondaryImagePreview ? (
-                    <div className="space-y-2 md:space-y-4">
+                    <div className="relative space-y-2 md:space-y-4">
+                      <button
+                        type="button"
+                        onClick={handleClearSecondaryImage}
+                        className="absolute -top-2 -right-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full border border-white bg-white/95 text-gray-500 shadow-sm transition hover:text-red-500"
+                        aria-label="删除参考图片"
+                        title="删除参考图片"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
                       <img
                         src={resolveFileUrl(secondaryImagePreview)}
                         alt="Preview"
@@ -827,14 +869,34 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
               >
                 {imagePreview ? (
                   isExpandImage ? (
-                    <ExpandPreviewFrame
-                      imageUrl={imagePreview}
-                      ratio={effectiveExpandRatio}
-                      edges={edgeValues}
-                      onNormalizedEdgesChange={handleNormalizedEdgesChange}
-                    />
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={handleClearPrimaryImage}
+                        className="absolute -top-3 -right-3 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full border border-white bg-white/95 text-gray-500 shadow-sm transition hover:text-red-500"
+                        aria-label="删除已上传图片"
+                        title="删除已上传图片"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                      <ExpandPreviewFrame
+                        imageUrl={imagePreview}
+                        ratio={effectiveExpandRatio}
+                        edges={edgeValues}
+                        onNormalizedEdgesChange={handleNormalizedEdgesChange}
+                      />
+                    </div>
                   ) : (
-                    <div className="space-y-2 md:space-y-4">
+                    <div className="relative space-y-2 md:space-y-4">
+                      <button
+                        type="button"
+                        onClick={handleClearPrimaryImage}
+                        className="absolute -top-2 -right-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full border border-white bg-white/95 text-gray-500 shadow-sm transition hover:text-red-500"
+                        aria-label="删除已上传图片"
+                        title="删除已上传图片"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
                       <img
                         src={resolveFileUrl(imagePreview)}
                         alt="Preview"

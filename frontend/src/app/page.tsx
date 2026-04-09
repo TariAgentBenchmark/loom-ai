@@ -646,6 +646,23 @@ function HomeContent() {
     }
   };
 
+  const clearPrimaryImageSelection = useCallback(() => {
+    setUploadedImage(null);
+    setImagePreview(null);
+    setPrimaryImageDimensions(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, []);
+
+  const clearSecondaryImageSelection = useCallback(() => {
+    setSecondaryImage(null);
+    setSecondaryImagePreview(null);
+    if (secondaryFileInputRef.current) {
+      secondaryFileInputRef.current.value = '';
+    }
+  }, []);
+
   const getImageDimensions = useCallback((file: File) => {
     if (file.type === 'image/svg+xml') {
       return Promise.resolve(null);
@@ -1132,11 +1149,8 @@ function HomeContent() {
               setProcessedImage(null);
               setProcessedImagePreview(null);
               setProcessedImageThumbnail(null);
-              setImagePreview(null);
-              setPrimaryImageDimensions(null);
-              setUploadedImage(null);
-              setSecondaryImage(null);
-              setSecondaryImagePreview(null);
+              clearPrimaryImageSelection();
+              clearSecondaryImageSelection();
             }}
             onOpenPricingModal={() => setShowPricingModal(true)}
             onProcessImage={handleProcessImage}
@@ -1148,6 +1162,8 @@ function HomeContent() {
             onSecondaryFileInputChange={(event) => handleImageUpload(event, 'secondary')}
             onSecondaryDragOver={handleDragOver}
             onSecondaryDrop={(event) => handleDrop(event, 'secondary')}
+            onClearPrimaryImage={clearPrimaryImageSelection}
+            onClearSecondaryImage={clearSecondaryImageSelection}
             errorMessage={errorMessage}
             successMessage={successMessage}
             accessToken={accessToken || undefined}
@@ -1238,11 +1254,8 @@ function HomeContent() {
             setBatchMode(false);
             setCurrentPage(method);
             applyStoredMethodUiState(method);
-            setImagePreview(null);
-            setPrimaryImageDimensions(null);
-            setUploadedImage(null);
-            setSecondaryImage(null);
-            setSecondaryImagePreview(null);
+            clearPrimaryImageSelection();
+            clearSecondaryImageSelection();
             if (method === 'prompt_edit') {
               setPromptInstruction('');
             }
