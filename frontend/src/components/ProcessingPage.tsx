@@ -393,6 +393,10 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   ];
   const isSeamlessLoop = method === "seamless_loop";
   const isExpandImage = method === "expand_image";
+  const serviceCostHint =
+    method === "extract_pattern"
+      ? "失败不扣积分，少于3张少扣0.5积分"
+      : "失败不扣积分";
   const seamFitValue = Math.max(0, Math.min(1, seamFit));
   const denoiseValue = Math.max(0, Math.min(1, denoise));
   const uploadZoneClasses = `border-2 border-dashed rounded-lg md:rounded-xl p-4 md:p-8 text-center transition flex items-center justify-center ${isProcessing
@@ -891,7 +895,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                 {isLoadingServiceCost
                   ? "价格加载中…"
                   : serviceCredits !== null
-                    ? `${formatCredits(serviceCredits)} 积分/次（失败不扣积分）`
+                    ? `${formatCredits(serviceCredits)} 积分/次（${serviceCostHint}）`
                     : "价格暂不可用，请稍后重试"}
               </div>
             </div>
