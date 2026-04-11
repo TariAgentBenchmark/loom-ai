@@ -1351,7 +1351,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                         </div>
 
                         <div className="flex-1 flex flex-col items-center justify-center gap-3 min-h-0">
-                          <div className="relative group w-full h-full flex items-center justify-center min-h-0">
+                          <div className="relative group w-full flex items-center justify-center min-h-0 max-h-[60vh]">
                             <img
                               src={resolveFileUrl(activeUrl)}
                               alt={`处理结果图 ${safeIndex + 1}`}
