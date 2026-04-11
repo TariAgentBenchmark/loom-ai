@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { History, Eye, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { History, Eye, ChevronLeft, ChevronRight, X, CheckCircle } from "lucide-react";
 import {
   ProcessingMethod,
   getProcessingMethodInfo,
@@ -280,6 +280,17 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   const [isDownloadingResult, setIsDownloadingResult] = useState(false);
   const [selectedResultIndex, setSelectedResultIndex] = useState(0);
   const [showWechatModal, setShowWechatModal] = useState(false);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+
+  // 成功消息出现时显示 toast，几秒后自动消失
+  useEffect(() => {
+    if (successMessage && !errorMessage) {
+      setShowSuccessToast(true);
+      const timer = setTimeout(() => setShowSuccessToast(false), 4000);
+      return () => clearTimeout(timer);
+    }
+    setShowSuccessToast(false);
+  }, [successMessage, errorMessage]);
   const isPromptReady =
     method !== "prompt_edit" || Boolean(promptInstruction?.trim());
   const isActionDisabled = !hasUploadedImage || isProcessing || !isPromptReady;
@@ -1278,16 +1289,25 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
           </div>
         </div>
 
-        <div className="flex-1 p-4 md:p-8 order-1 md:order-2">
+        <div className="flex-1 p-4 md:p-8 order-1 md:order-2 relative">
+          {/* 成功消息 toast 通知 */}
+          {showSuccessToast && successMessage && !errorMessage && (
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2 shadow-lg text-xs md:text-sm text-green-600 fade-in">
+              <CheckCircle className="h-4 w-4 shrink-0" />
+              <span>{successMessage}</span>
+              <button
+                type="button"
+                onClick={() => setShowSuccessToast(false)}
+                className="ml-1 p-0.5 rounded hover:bg-green-100 transition-colors"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
           <div className="flex flex-col items-center justify-center h-full space-y-3 md:space-y-4">
             {errorMessage && (
               <div className="w-full max-w-md md:max-w-lg mx-auto rounded-lg md:rounded-xl border border-red-200 bg-red-50 px-4 py-3 md:px-6 md:py-4 text-xs md:text-sm text-red-600 text-center">
                 {errorMessage}
-              </div>
-            )}
-            {successMessage && !errorMessage && (
-              <div className="w-full max-w-md md:max-w-lg mx-auto rounded-lg md:rounded-xl border border-green-200 bg-green-50 px-4 py-3 md:px-6 md:py-4 text-xs md:text-sm text-green-600 text-center">
-                {successMessage}
               </div>
             )}
             {isProcessing ? (
@@ -1305,9 +1325,6 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                   const useResultGallery =
                     method === "extract_pattern" && imageUrls.length > 1;
 
-                  const shouldOffsetPreview = Boolean(
-                    successMessage && !errorMessage,
-                  );
                   if (useResultGallery) {
                     const galleryUrls = imageUrls;
                     const safeIndex = Math.min(
@@ -1318,8 +1335,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
 
                     return (
                       <div
-                        className={`flex flex-col md:flex-row gap-2 md:gap-4 w-full h-full ${shouldOffsetPreview ? "mt-3 md:mt-4" : ""
-                          }`}
+                        className="flex flex-col md:flex-row gap-2 md:gap-4 w-full h-full"
                       >
                         <div className="flex md:flex-col gap-1.5 md:w-24 w-full md:flex-none overflow-x-auto md:overflow-y-auto md:max-h-full shrink-0">
                           {galleryUrls.map((url, index) => {
@@ -1443,8 +1459,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
 
                     return (
                       <div
-                        className={`flex flex-col md:flex-row gap-3 md:gap-4 w-full max-w-3xl mx-auto ${shouldOffsetPreview ? "mt-4 md:mt-6" : ""
-                          }`}
+                        className="flex flex-col md:flex-row gap-3 md:gap-4 w-full max-w-3xl mx-auto"
                       >
                         <div className="flex md:flex-col gap-2 md:w-24 w-full md:flex-none overflow-x-auto md:overflow-visible">
                           {imageUrls.map((url, index) => {
