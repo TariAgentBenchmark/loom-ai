@@ -1367,7 +1367,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                         </div>
 
                         <div className="flex-1 flex flex-col items-center justify-center gap-3 min-h-0">
-                          <div className="relative group w-full flex items-center justify-center min-h-0 max-h-[60vh]">
+                          <div className="relative group w-full flex-1 flex items-center justify-center min-h-0 max-h-[75vh]">
                             <img
                               src={resolveFileUrl(activeUrl)}
                               alt={`处理结果图 ${safeIndex + 1}`}
@@ -1490,12 +1490,12 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                           })}
                         </div>
 
-                        <div className="flex-1 flex flex-col items-center justify-center gap-3">
-                          <div className="relative group w-full flex justify-center">
+                        <div className="flex-1 flex flex-col items-center justify-center gap-3 min-h-0">
+                          <div className="relative group w-full flex-1 flex justify-center items-center min-h-0">
                             <img
                               src={resolveFileUrl(activeUrl)}
                               alt={`处理结果图 ${safeIndex + 1}`}
-                              className="max-w-full max-h-[55vh] w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-md cursor-pointer hover:shadow-lg transition-shadow"
+                              className="max-w-full max-h-full w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-md cursor-pointer hover:shadow-lg transition-shadow"
                               onClick={() =>
                                 handleProcessedImagePreview(
                                   activeUrl,
@@ -1577,8 +1577,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                   // 单张图片
                   return (
                     <>
-                      <div className="relative group mb-3 md:mb-4 w-full flex justify-center">
-                        <div className="w-full max-w-3xl h-[50vh] md:h-[55vh] flex items-center justify-center">
+                      <div className="relative group mb-3 md:mb-4 w-full flex-1 flex justify-center min-h-0">
+                        <div className="w-full h-full flex items-center justify-center">
                           {(() => {
                             const displayUrl = processedImageDisplay || processedImage;
                             const resolvedUrl = resolveFileUrl(displayUrl);
