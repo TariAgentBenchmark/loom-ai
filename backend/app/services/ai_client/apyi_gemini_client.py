@@ -112,7 +112,7 @@ class ApyiGeminiClient(BaseAIClient):
         resolution: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        使用Apyi的 Gemini-3-Pro-Image-Preview 生成高分辨率图片。
+        使用Apyi的 Gemini-3.1-Flash-Image-Preview (Nano Banana 2) 生成高分辨率图片。
 
         Args:
             image_bytes: 图片字节数据
@@ -121,7 +121,7 @@ class ApyiGeminiClient(BaseAIClient):
             aspect_ratio: 可选的宽高比
             resolution: 可选分辨率（1K/2K/4K）
         """
-        endpoint = "/v1beta/models/gemini-3-pro-image-preview:generateContent"
+        endpoint = "/v1beta/models/gemini-3.1-flash-image-preview:generateContent"
         image_base64 = self._image_to_base64(image_bytes, "PNG" if mime_type == "image/png" else "JPEG")
 
         data: Dict[str, Any] = {
@@ -161,7 +161,7 @@ class ApyiGeminiClient(BaseAIClient):
             data["generationConfig"]["imageConfig"] = image_config
 
         logger.info(
-            "Processing image with Gemini-3-Pro preview: aspect_ratio=%s, resolution=%s",
+            "Processing image with Gemini-3.1-Flash preview: aspect_ratio=%s, resolution=%s",
             image_config.get("aspectRatio"),
             image_config.get("image_size"),
         )
@@ -179,12 +179,12 @@ class ApyiGeminiClient(BaseAIClient):
         resolution: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        使用 Gemini-3-Pro-Image-Preview，支持多张图片输入。
+        使用 Gemini-3.1-Flash-Image-Preview (Nano Banana 2)，支持多张图片输入。
         """
         if not image_bytes_list:
             raise ValueError("至少需要一张图片")
 
-        endpoint = "/v1beta/models/gemini-3-pro-image-preview:generateContent"
+        endpoint = "/v1beta/models/gemini-3.1-flash-image-preview:generateContent"
         parts = [{"text": prompt}]
 
         for image_bytes in image_bytes_list:
@@ -226,7 +226,7 @@ class ApyiGeminiClient(BaseAIClient):
             data["generationConfig"]["imageConfig"] = image_config
 
         logger.info(
-            "Processing multi-image with Gemini-3-Pro preview: aspect_ratio=%s, resolution=%s, width=%s, height=%s, images=%s",
+            "Processing multi-image with Gemini-3.1-Flash preview: aspect_ratio=%s, resolution=%s, width=%s, height=%s, images=%s",
             image_config.get("aspectRatio"),
             image_config.get("image_size"),
             image_config.get("width"),
