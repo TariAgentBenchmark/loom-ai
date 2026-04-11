@@ -1177,9 +1177,21 @@ export const downloadTaskFile = async (
 
   const contentDisposition = ensured.headers.get("content-disposition") ?? "";
   const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
-  const filename =
-    filenameMatch?.[1] ??
-    `${taskId}.${fileType === "original" ? "jpg" : "png"}`;
+
+  let fallbackExt = fileType === "original" ? "jpg" : "png";
+  // 从响应 URL 中推断实际扩展名（处理 OSS 预签名等场景）
+  try {
+    const respUrl = ensured.url || "";
+    const pathPart = respUrl.split("?")[0];
+    const urlExt = pathPart.split(".").pop()?.toLowerCase();
+    if (urlExt && /^[a-z0-9]{2,5}$/.test(urlExt)) {
+      fallbackExt = urlExt;
+    }
+  } catch {
+    // 保持默认 fallbackExt
+  }
+
+  const filename = filenameMatch?.[1] ?? `tuyun.${fallbackExt}`;
 
   return { blob, filename };
 };

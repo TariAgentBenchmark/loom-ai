@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import os
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -408,22 +408,33 @@ async def download_task_file(
                     media_type="application/zip"
                 )
         else:
-            # 单个文件：OSS直接跳转预签名，本地则返回文件
-            single_url = file_urls[0]
-            
-            if file_service.is_managed_oss_ref(single_url):
-                presigned = await file_service.generate_presigned_url_for_full_url(single_url)
-                redirect_url = presigned or single_url
-                return RedirectResponse(url=redirect_url, status_code=307)
+            # 单个文件：读取文件字节并流式返回（确保 Content-Disposition 正确传递文件名）
+            from io import BytesIO
 
-            file_path = file_service.get_file_path(single_url)
-            
-            if not os.path.exists(file_path):
-                raise HTTPException(status_code=404, detail="文件不存在")
-            
+            single_url = file_urls[0]
             download_name = build_download_filename(filenames[0])
             if download_name == "tuyun":
-                download_name = build_download_filename(file_path)
+                download_name = build_download_filename(single_url)
+
+            if file_service.is_managed_oss_ref(single_url):
+                try:
+                    file_bytes = await file_service.read_file(single_url)
+                except Exception:
+                    raise HTTPException(status_code=404, detail="文件不存在")
+
+                headers = {
+                    "Content-Disposition": f'attachment; filename="{download_name}"'
+                }
+                return StreamingResponse(
+                    BytesIO(file_bytes),
+                    headers=headers,
+                    media_type="application/octet-stream",
+                )
+
+            file_path = file_service.get_file_path(single_url)
+
+            if not os.path.exists(file_path):
+                raise HTTPException(status_code=404, detail="文件不存在")
 
             return FileResponse(
                 path=file_path,
