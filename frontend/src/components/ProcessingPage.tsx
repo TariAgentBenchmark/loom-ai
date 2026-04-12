@@ -282,14 +282,13 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   const [showWechatModal, setShowWechatModal] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
 
-  // 成功消息出现时显示 toast，几秒后自动消失
+  // 成功消息出现时显示 toast，手动关闭
   useEffect(() => {
     if (successMessage && !errorMessage) {
       setShowSuccessToast(true);
-      const timer = setTimeout(() => setShowSuccessToast(false), 4000);
-      return () => clearTimeout(timer);
+    } else {
+      setShowSuccessToast(false);
     }
-    setShowSuccessToast(false);
   }, [successMessage, errorMessage]);
   const isPromptReady =
     method !== "prompt_edit" || Boolean(promptInstruction?.trim());
