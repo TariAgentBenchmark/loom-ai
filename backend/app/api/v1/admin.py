@@ -1163,6 +1163,7 @@ async def create_user(
         )
 
         db.add(user)
+        auth_service.ensure_user_referral_code(db, user)
         if invitation_code_id:
             code_record.usage_count = (code_record.usage_count or 0) + 1
         db.commit()

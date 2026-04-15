@@ -8,7 +8,7 @@ from passlib.context import CryptContext
 from jose import JWTError, jwt
 
 from app.core.config import settings
-from app.models.user import User, MembershipType, UserStatus
+from app.models.user import User, MembershipType, UserStatus, UserReferralSource
 from app.models.agent import (
     Agent,
     InvitationCode,
@@ -16,6 +16,8 @@ from app.models.agent import (
     AgentCommissionMode,
     InvitationCodeStatus,
 )
+from app.models.credit import CreditSource
+from app.models.phone_verification import PhoneVerification
 from app.services.credit_math import to_decimal
 
 # 密码加密上下文
@@ -122,9 +124,65 @@ class AuthService:
     def ensure_default_admin_invite(self, db: Session) -> None:
         """Ensure default admin agent and invitation code exist."""
         admin_user = self._get_default_admin_user(db)
+        self.ensure_user_referral_code(db, admin_user)
         admin_agent = self._get_or_create_admin_agent(db, admin_user)
         self._get_or_create_default_invitation_code(db, admin_agent)
         db.commit()
+
+    def _generate_user_referral_code(self, db: Session, length: int = 8) -> str:
+        alphabet = string.ascii_uppercase + string.digits
+        while True:
+            code_value = "".join(secrets.choice(alphabet) for _ in range(length))
+            exists = (
+                db.query(User.id)
+                .filter(User.referral_code == code_value)
+                .first()
+            )
+            if not exists:
+                return code_value
+
+    def ensure_user_referral_code(self, db: Session, user: User) -> str:
+        existing_code = (user.referral_code or "").strip().upper()
+        if existing_code:
+            user.referral_code = existing_code
+            return existing_code
+
+        user.referral_code = self._generate_user_referral_code(db)
+        db.flush()
+        return user.referral_code
+
+    async def _reward_referrer(
+        self,
+        db: Session,
+        referrer_user: Optional[User],
+        reward_amount,
+        source: str,
+        description: str,
+        invited_user: User,
+    ) -> None:
+        if not referrer_user or referrer_user.id == invited_user.id:
+            return
+
+        reward_value = to_decimal(reward_amount)
+        if reward_value <= to_decimal(0):
+            return
+
+        referrer_user.add_credits(reward_value)
+
+        from app.services.credit_service import CreditService
+
+        credit_service = CreditService()
+        await credit_service.record_transaction(
+            db=db,
+            user_id=referrer_user.id,
+            amount=reward_value,
+            source=source,
+            description=description,
+            metadata={
+                "invitedUserId": invited_user.user_id,
+                "invitedUserPhone": invited_user.phone,
+            },
+        )
 
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
         """验证密码"""
@@ -181,6 +239,7 @@ class AuthService:
         nickname: Optional[str] = None,
         email: Optional[str] = None,
         invitation_code: Optional[str] = None,
+        user_referral_code: Optional[str] = None,
         agent_link_token: Optional[str] = None,
     ) -> User:
         """注册新用户"""
@@ -196,14 +255,27 @@ class AuthService:
             if existing_email_user:
                 raise Exception("邮箱已存在")
 
+        phone_verification = (
+            db.query(PhoneVerification).filter(PhoneVerification.phone == phone).first()
+        )
+        if not phone_verification or not phone_verification.is_phone_verified:
+            raise Exception("请先完成手机号验证")
+
         agent = None
         code_record = None
         link_record = None
+        referrer_user = None
+        referral_source = None
+        explicit_agent_invitation = False
 
         if agent_link_token and agent_link_token.strip():
             raise Exception("代理注册链接已停用，请使用邀请码注册")
 
+        if invitation_code and invitation_code.strip() and user_referral_code and user_referral_code.strip():
+            raise Exception("代理邀请和好友邀请不能同时使用")
+
         if invitation_code and invitation_code.strip():
+            explicit_agent_invitation = True
             code_value = invitation_code.strip().upper()
             code_record = (
                 db.query(InvitationCode)
@@ -212,6 +284,21 @@ class AuthService:
             )
             if not code_record:
                 raise Exception("邀请码无效")
+            referral_source = UserReferralSource.AGENT.value
+        elif user_referral_code and user_referral_code.strip():
+            referral_code_value = user_referral_code.strip().upper()
+            referrer_user = (
+                db.query(User)
+                .filter(User.referral_code == referral_code_value)
+                .first()
+            )
+            if not referrer_user:
+                raise Exception("邀请链接无效")
+            referral_source = UserReferralSource.USER.value
+
+            admin_user = self._get_default_admin_user(db)
+            admin_agent = self._get_or_create_admin_agent(db, admin_user)
+            code_record = self._get_or_create_default_invitation_code(db, admin_agent)
         else:
             admin_user = self._get_default_admin_user(db)
             admin_agent = self._get_or_create_admin_agent(db, admin_user)
@@ -231,7 +318,10 @@ class AuthService:
         )
         if not agent or agent.status != AgentStatus.ACTIVE:
             raise Exception("所属代理商不可用")
-        
+
+        if explicit_agent_invitation and agent.owner_user_id:
+            referrer_user = db.query(User).filter(User.id == agent.owner_user_id).first()
+
         # 创建新用户
         user = User(
             user_id=f"user_{uuid.uuid4().hex[:12]}",
@@ -242,11 +332,16 @@ class AuthService:
             credits=to_decimal(3),  # 新用户赠送3积分
             membership_type=MembershipType.FREE,
             status=UserStatus.ACTIVE,
+            referral_code=self._generate_user_referral_code(db),
+            referrer_user_id=referrer_user.id if referrer_user else None,
+            referral_source=referral_source,
             agent_id=agent.id if agent else None,
             invitation_code_id=code_record.id if code_record else None,
             agent_referral_link_id=link_record.id if link_record else None,
+            is_phone_verified=True,
+            phone_verified_at=phone_verification.phone_verified_at,
         )
-        
+
         db.add(user)
 
         # 使用次数 +1
@@ -265,10 +360,29 @@ class AuthService:
             db=db,
             user_id=user.id,
             amount=to_decimal(3),
-            source="registration",
+            source=CreditSource.REGISTRATION.value,
             description="新用户注册赠送"
         )
-        
+
+        if referral_source == UserReferralSource.USER.value:
+            await self._reward_referrer(
+                db=db,
+                referrer_user=referrer_user,
+                reward_amount=to_decimal(1),
+                source=CreditSource.USER_REFERRAL.value,
+                description="邀请新用户奖励",
+                invited_user=user,
+            )
+        elif referral_source == UserReferralSource.AGENT.value:
+            await self._reward_referrer(
+                db=db,
+                referrer_user=referrer_user,
+                reward_amount=to_decimal(2),
+                source=CreditSource.AGENT_INVITATION.value,
+                description="代理邀请新用户奖励",
+                invited_user=user,
+            )
+
         return user
 
     async def authenticate_user(self, db: Session, identifier: str, password: str) -> Optional[User]:

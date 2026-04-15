@@ -4,9 +4,10 @@ from pydantic import BaseModel
 from typing import Optional
 
 from app.core.database import get_db
-from app.models.user import User
+from app.models.user import User, UserReferralSource
 from app.api.dependencies import get_current_user
 from app.schemas.common import SuccessResponse
+from app.services.auth_service import AuthService
 from app.services.credit_math import to_float
 
 router = APIRouter()
@@ -19,9 +20,25 @@ class UserUpdate(BaseModel):
 
 @router.get("/profile")
 async def get_profile(
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """获取用户信息"""
+    auth_service = AuthService()
+    if not current_user.referral_code:
+        auth_service.ensure_user_referral_code(db, current_user)
+        db.commit()
+        db.refresh(current_user)
+
+    referral_count = (
+        db.query(User)
+        .filter(
+            User.referrer_user_id == current_user.id,
+            User.referral_source == UserReferralSource.USER.value,
+        )
+        .count()
+    )
+
     return SuccessResponse(
         data={
             "userId": current_user.user_id,
@@ -44,6 +61,8 @@ async def get_profile(
             "managedAgentLevel": current_user.managed_agent.level if current_user.managed_agent else None,
             "managedAgentName": current_user.managed_agent.name if current_user.managed_agent else None,
             "managedAgentStatus": current_user.managed_agent.status.value if current_user.managed_agent else None,
+            "referralCode": current_user.referral_code,
+            "referralCount": referral_count,
         },
         message="获取用户信息成功"
     )

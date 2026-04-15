@@ -19,6 +19,8 @@ class CreditSource(PyEnum):
     PROCESSING = "processing"  # 服务消耗
     REFUND = "refund"  # 退款
     ADMIN_ADJUST = "admin_adjust"  # 管理员调整
+    USER_REFERRAL = "user_referral"  # 用户邀请奖励
+    AGENT_INVITATION = "agent_invitation"  # 代理邀请奖励
 
 
 class CreditTransaction(Base):

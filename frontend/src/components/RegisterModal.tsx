@@ -1,15 +1,28 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import PhoneVerification from './PhoneVerification';
+
+export type PrefilledInviteContext = {
+  type: 'agent' | 'user';
+  code: string;
+} | null;
 
 interface RegisterModalProps {
   isOpen: boolean;
   isSubmitting: boolean;
   errorMessage?: string;
-  prefilledInvitationCode?: string | null;
+  prefilledInvite?: PrefilledInviteContext;
   onClose: () => void;
-  onSubmit: (payload: { phone: string; password: string; confirmPassword: string; nickname?: string; email?: string; invitationCode?: string }) => Promise<void>;
+  onSubmit: (payload: {
+    phone: string;
+    password: string;
+    confirmPassword: string;
+    nickname?: string;
+    email?: string;
+    invitationCode?: string;
+    userReferralCode?: string;
+  }) => Promise<void>;
   onSwitchToLogin: () => void;
 }
 
@@ -17,7 +30,7 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
   isOpen, 
   isSubmitting, 
   errorMessage, 
-  prefilledInvitationCode,
+  prefilledInvite,
   onClose, 
   onSubmit,
   onSwitchToLogin
@@ -127,7 +140,10 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
         confirmPassword,
         nickname: nickname || undefined,
         email: email || undefined,
-        invitationCode: prefilledInvitationCode?.trim().toUpperCase() || undefined,
+        invitationCode:
+          prefilledInvite?.type === 'agent' ? prefilledInvite.code.trim().toUpperCase() : undefined,
+        userReferralCode:
+          prefilledInvite?.type === 'user' ? prefilledInvite.code.trim().toUpperCase() : undefined,
       });
       console.log('RegisterModal: onSubmit completed successfully');
       setPhone('');
@@ -235,9 +251,13 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
             )}
           </div>
 
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
-            已通过链接进入，将自动绑定
-          </div>
+          {prefilledInvite && (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+              {prefilledInvite.type === 'agent'
+                ? '已通过代理邀请链接进入，注册后将自动绑定对应渠道'
+                : '已通过好友邀请链接进入，注册后邀请人将获得 1 积分奖励'}
+            </div>
+          )}
 
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700" htmlFor="register-password">

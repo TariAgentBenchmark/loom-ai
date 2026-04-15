@@ -20,6 +20,11 @@ class UserStatus(PyEnum):
     INACTIVE = "inactive"
 
 
+class UserReferralSource(PyEnum):
+    USER = "user"
+    AGENT = "agent"
+
+
 class User(Base):
     """用户模型"""
     __tablename__ = "users"
@@ -34,6 +39,9 @@ class User(Base):
     agent_id = Column(Integer, ForeignKey("agents.id"), nullable=True, index=True)  # 代理商归属
     invitation_code_id = Column(Integer, ForeignKey("invitation_codes.id"), nullable=True, index=True)  # 使用的邀请码
     agent_referral_link_id = Column(Integer, ForeignKey("agent_referral_links.id"), nullable=True, index=True)  # 使用的代理注册链接
+    referral_code = Column(String(16), unique=True, index=True, nullable=True)  # 用户自己的邀请码
+    referrer_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)  # 邀请人
+    referral_source = Column(String(20), nullable=True)  # 邀请来源：user / agent
     is_test_user = Column(Boolean, default=False)  # 测试用户标识
     
     # 手机验证相关字段
@@ -92,6 +100,17 @@ class User(Base):
         back_populates="owner_user",
         uselist=False,
         foreign_keys="Agent.owner_user_id",
+    )
+    referrer = relationship(
+        "User",
+        remote_side=[id],
+        back_populates="referred_users",
+        foreign_keys=[referrer_user_id],
+    )
+    referred_users = relationship(
+        "User",
+        back_populates="referrer",
+        foreign_keys=[referrer_user_id],
     )
 
     def __repr__(self):

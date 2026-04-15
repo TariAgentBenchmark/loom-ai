@@ -504,6 +504,7 @@ export interface RegisterPayload {
   nickname?: string;
   email?: string; // Now optional
   invitationCode?: string;
+  userReferralCode?: string;
   agentLinkToken?: string;
 }
 
@@ -583,6 +584,8 @@ export interface UserProfile {
   managedAgentLevel?: number | null;
   managedAgentName?: string | null;
   managedAgentStatus?: string | null;
+  referralCode?: string | null;
+  referralCount?: number;
 }
 
 export interface ProcessingTaskData {
@@ -714,6 +717,7 @@ export const register = (payload: RegisterPayload) => {
       nickname?: string;
       email?: string;
       invitation_code?: string;
+      user_referral_code?: string;
       agent_link_token?: string;
     }
   >("/auth/register", {
@@ -723,6 +727,7 @@ export const register = (payload: RegisterPayload) => {
     nickname: payload.nickname,
     email: payload.email,
     invitation_code: payload.invitationCode,
+    user_referral_code: payload.userReferralCode,
     agent_link_token: payload.agentLinkToken,
   });
 };

@@ -17,9 +17,10 @@ import CreditHistoryModal from '../components/CreditHistoryModal';
 import ProcessingPage from '../components/ProcessingPage';
 import BatchProcessingWrapper from '../components/BatchProcessingWrapper';
 import LoginModal from '../components/LoginModal';
-import RegisterModal from '../components/RegisterModal';
+import RegisterModal, { type PrefilledInviteContext } from '../components/RegisterModal';
 import ForgotPasswordModal from '../components/ForgotPasswordModal';
 import DisclaimerBar from '../components/DisclaimerBar';
+import UserReferralModal from '../components/UserReferralModal';
 import { ProcessingMethod } from '../lib/processing';
 import {
   authenticate,
@@ -144,7 +145,8 @@ function HomeContent() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
-  const [prefilledInvitationCode, setPrefilledInvitationCode] = useState<string | null>(null);
+  const [showReferralModal, setShowReferralModal] = useState(false);
+  const [prefilledInvite, setPrefilledInvite] = useState<PrefilledInviteContext>(null);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
   const [processedImagePreview, setProcessedImagePreview] = useState<string | null>(null);
   const [processedImageThumbnail, setProcessedImageThumbnail] = useState<string | null>(null);
@@ -197,17 +199,26 @@ function HomeContent() {
   const currentMethodTask = currentMethod ? activeTasks[currentMethod] : undefined;
   const isCurrentMethodProcessing = Boolean(currentMethodTask);
   const currentTaskId = currentMethodTask?.taskId ?? null;
-  const inviteCode = useMemo(() => {
-    const token = searchParams.get('invite');
-    return token ? token.trim() : '';
+  const inviteContext = useMemo<PrefilledInviteContext>(() => {
+    const agentToken = searchParams.get('invite')?.trim();
+    if (agentToken) {
+      return { type: 'agent', code: agentToken.toUpperCase() };
+    }
+
+    const userToken = searchParams.get('ref')?.trim();
+    if (userToken) {
+      return { type: 'user', code: userToken.toUpperCase() };
+    }
+
+    return null;
   }, [searchParams]);
 
   useEffect(() => {
-    if (!inviteCode || isLoggedIn) {
+    if (isLoggedIn) {
       return;
     }
-    setPrefilledInvitationCode(inviteCode.toUpperCase());
-  }, [inviteCode, isLoggedIn]);
+    setPrefilledInvite(inviteContext);
+  }, [inviteContext, isLoggedIn]);
 
   // 比例换算：当选择扩图比例时，根据原图尺寸自动计算边距
   useEffect(() => {
@@ -574,6 +585,7 @@ function HomeContent() {
           errorMessage?.includes("手机号已存在") ||
           errorMessage?.includes("邮箱已存在") ||
           errorMessage?.includes("邀请码") ||
+          errorMessage?.includes("邀请链接") ||
           errorMessage?.includes("代理")
         ) {
           setRegisterError(errorMessage);
@@ -1292,6 +1304,7 @@ function HomeContent() {
           }}
           onOpenPricingModal={() => setShowPricingModal(true)}
           onOpenCreditHistory={() => setShowCreditHistoryModal(true)}
+          onOpenReferralModal={() => setShowReferralModal(true)}
           onOpenAgentManager={async () => {
             if (!accessToken) {
               setShowLoginModal(true);
@@ -1325,6 +1338,7 @@ function HomeContent() {
             setRegisterError('');
             setShowLoginModal(true);
             setShowRegisterModal(false);
+            setShowReferralModal(false);
             clearAuthTokens();
             rememberMeRef.current = false;
           }}
@@ -1385,7 +1399,7 @@ function HomeContent() {
         isOpen={showRegisterModal}
         isSubmitting={authState.status === 'authenticating'}
         errorMessage={registerError}
-        prefilledInvitationCode={prefilledInvitationCode}
+        prefilledInvite={prefilledInvite}
         onClose={() => {
           if (authState.status !== 'authenticating') {
             setShowRegisterModal(false);
@@ -1399,6 +1413,13 @@ function HomeContent() {
           setShowLoginModal(true);
           setRegisterError('');
         }}
+      />
+
+      <UserReferralModal
+        isOpen={showReferralModal}
+        onClose={() => setShowReferralModal(false)}
+        referralCode={accountProfile?.referralCode || null}
+        referralCount={accountProfile?.referralCount ?? 0}
       />
 
       <ForgotPasswordModal

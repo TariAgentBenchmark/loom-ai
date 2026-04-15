@@ -5,6 +5,7 @@ import {
   Bell,
   Crown,
   Download,
+  Gift,
   History,
   User,
   Zap,
@@ -35,6 +36,7 @@ interface HomeViewProps {
   onSelectBatchMode?: (method: ProcessingMethod) => void;
   onOpenPricingModal: () => void;
   onOpenCreditHistory: () => void;
+  onOpenReferralModal?: () => void;
   onLogout?: () => void;
   onLogin: () => void;
   onRegister?: () => void;
@@ -77,6 +79,7 @@ const HomeView: React.FC<HomeViewProps> = ({
   onSelectMethod,
   onOpenPricingModal,
   onOpenCreditHistory,
+  onOpenReferralModal,
   onLogout,
   onLogin,
   onRegister,
@@ -380,6 +383,18 @@ const HomeView: React.FC<HomeViewProps> = ({
                             <span>代理管理</span>
                           </button>
                         )}
+                        {isLoggedIn && onOpenReferralModal && (
+                          <button
+                            onClick={() => {
+                              setShowUserMenu(false);
+                              onOpenReferralModal();
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                          >
+                            <Gift className="h-4 w-4" />
+                            <span>我的邀请</span>
+                          </button>
+                        )}
                         {isLoggedIn && (
                           <button
                             onClick={() => {
@@ -535,6 +550,18 @@ const HomeView: React.FC<HomeViewProps> = ({
                       <span>代理管理</span>
                     </button>
                   )}
+                  {isLoggedIn && onOpenReferralModal && (
+                    <button
+                      onClick={() => {
+                        onOpenReferralModal();
+                        setSidebarOpen(false);
+                      }}
+                      className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center space-x-2"
+                    >
+                      <Gift className="h-3 w-3" />
+                      <span>我的邀请</span>
+                    </button>
+                  )}
                   <button
                     onClick={handleBatchDownload}
                     className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center space-x-2"
@@ -618,6 +645,15 @@ const HomeView: React.FC<HomeViewProps> = ({
                 >
                   <ShieldCheck className="h-3 w-3 md:h-4 md:w-4" />
                   <span>代理管理</span>
+                </button>
+              )}
+              {isLoggedIn && onOpenReferralModal && (
+                <button
+                  onClick={onOpenReferralModal}
+                  className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 md:p-3 rounded-lg text-xs md:text-sm font-medium transition-all flex items-center justify-center space-x-2"
+                >
+                  <Gift className="h-3 w-3 md:h-4 md:w-4" />
+                  <span>我的邀请</span>
                 </button>
               )}
               <button

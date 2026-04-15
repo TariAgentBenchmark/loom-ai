@@ -1,5 +1,5 @@
 from .agent import Agent, InvitationCode, AgentReferralLink, AgentCommissionMode
-from .user import User
+from .user import User, UserReferralSource
 from .task import Task
 from .batch_task import BatchTask
 from .task_log import TaskLog
@@ -21,6 +21,7 @@ __all__ = [
     "AgentReferralLink",
     "AgentCommissionMode",
     "User",
+    "UserReferralSource",
     "Task",
     "BatchTask",
     "TaskLog",
