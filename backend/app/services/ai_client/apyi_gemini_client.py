@@ -10,6 +10,8 @@ logger = logging.getLogger(__name__)
 class ApyiGeminiClient(BaseAIClient):
     """Apyi Gemini API客户端，支持自定义分辨率和宽高比"""
 
+    DEFAULT_PREVIEW_MODEL = "gemini-3.1-flash-image-preview"
+
     # 支持的宽高比列表
     SUPPORTED_ASPECT_RATIOS = [
         "21:9", "16:9", "4:3", "3:2", "1:1",
@@ -110,9 +112,10 @@ class ApyiGeminiClient(BaseAIClient):
         mime_type: str = "image/png",
         aspect_ratio: Optional[str] = None,
         resolution: Optional[str] = None,
+        model_name: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        使用Apyi的 Gemini-3.1-Flash-Image-Preview (Nano Banana 2) 生成高分辨率图片。
+        使用Apyi的预览图像模型生成高分辨率图片。
 
         Args:
             image_bytes: 图片字节数据
@@ -120,8 +123,14 @@ class ApyiGeminiClient(BaseAIClient):
             mime_type: 图片MIME类型
             aspect_ratio: 可选的宽高比
             resolution: 可选分辨率（1K/2K/4K）
+            model_name: 可选模型名，默认使用 gemini-3.1-flash-image-preview
         """
-        endpoint = "/v1beta/models/gemini-3.1-flash-image-preview:generateContent"
+        resolved_model_name = (
+            model_name.strip()
+            if isinstance(model_name, str) and model_name.strip()
+            else self.DEFAULT_PREVIEW_MODEL
+        )
+        endpoint = f"/v1beta/models/{resolved_model_name}:generateContent"
         image_base64 = self._image_to_base64(image_bytes, "PNG" if mime_type == "image/png" else "JPEG")
 
         data: Dict[str, Any] = {
@@ -161,7 +170,8 @@ class ApyiGeminiClient(BaseAIClient):
             data["generationConfig"]["imageConfig"] = image_config
 
         logger.info(
-            "Processing image with Gemini-3.1-Flash preview: aspect_ratio=%s, resolution=%s",
+            "Processing image with preview model %s: aspect_ratio=%s, resolution=%s",
+            resolved_model_name,
             image_config.get("aspectRatio"),
             image_config.get("image_size"),
         )
@@ -177,14 +187,20 @@ class ApyiGeminiClient(BaseAIClient):
         width: Optional[int] = None,
         height: Optional[int] = None,
         resolution: Optional[str] = None,
+        model_name: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        使用 Gemini-3.1-Flash-Image-Preview (Nano Banana 2)，支持多张图片输入。
+        使用预览图像模型，支持多张图片输入。
         """
         if not image_bytes_list:
             raise ValueError("至少需要一张图片")
 
-        endpoint = "/v1beta/models/gemini-3.1-flash-image-preview:generateContent"
+        resolved_model_name = (
+            model_name.strip()
+            if isinstance(model_name, str) and model_name.strip()
+            else self.DEFAULT_PREVIEW_MODEL
+        )
+        endpoint = f"/v1beta/models/{resolved_model_name}:generateContent"
         parts = [{"text": prompt}]
 
         for image_bytes in image_bytes_list:
@@ -226,7 +242,8 @@ class ApyiGeminiClient(BaseAIClient):
             data["generationConfig"]["imageConfig"] = image_config
 
         logger.info(
-            "Processing multi-image with Gemini-3.1-Flash preview: aspect_ratio=%s, resolution=%s, width=%s, height=%s, images=%s",
+            "Processing multi-image with preview model %s: aspect_ratio=%s, resolution=%s, width=%s, height=%s, images=%s",
+            resolved_model_name,
             image_config.get("aspectRatio"),
             image_config.get("image_size"),
             image_config.get("width"),

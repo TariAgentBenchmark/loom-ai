@@ -16,6 +16,7 @@ from app.services.ai_client.gqch_client import GQCHClient
 from app.services.ai_client.jimeng_client import JimengClient
 from app.services.ai_client.liblib_client import LiblibUpscaleAPI
 from app.services.ai_client.meitu_client import MeituClient
+from app.services.ai_client.tuzi_gemini_client import TuziGeminiClient
 from app.services.ai_client.vectorizer_client import VectorizerClient
 from app.services.ai_client.vector_webapi_client import VectorWebAPIClient
 from app.services.ai_client.a8_vectorizer_client import A8VectorizerClient
@@ -37,6 +38,7 @@ _PATTERN_TYPE_ALIASES = {
 }
 
 _COMBINED_VARIANTS = ("general_2", "combined_detail")
+_COMBINED_PREVIEW_MODEL = "gemini-3-pro-image-preview"
 _EMBROIDERY_MODE_ALIASES = {
     "yarn": "yarn",
     "wool": "yarn",
@@ -55,6 +57,7 @@ class AIClient:
         self.gemini_client = GeminiClient()
         self.apyi_gemini_client = ApyiGeminiClient()
         self.apyi_openai_client = ApyiOpenAIClient()
+        self.tuzi_gemini_client = TuziGeminiClient()
         self.ai302_grok_client = AI302GrokClient()
         self.jimeng_client = JimengClient()
         self.vectorizer_client = VectorizerClient()
@@ -362,6 +365,18 @@ class AIClient:
             try:
                 merged_options = dict(options or {})
                 merged_options["pattern_type"] = pt
+                if pt == "general_2":
+                    prompt = self.image_utils._build_pattern_prompt(pt)
+                    result = await self.tuzi_gemini_client.generate_image_preview(
+                        image_bytes,
+                        prompt,
+                        "image/png",
+                        aspect_ratio=merged_options.get("aspect_ratio"),
+                        resolution="4K",
+                        model_name=_COMBINED_PREVIEW_MODEL,
+                    )
+                    url = self.tuzi_gemini_client._extract_image_url(result)
+                    return url.strip() if isinstance(url, str) and url.strip() else None
                 result = await self.image_utils.extract_pattern(image_bytes, merged_options)
                 if not result:
                     return None
@@ -391,7 +406,7 @@ class AIClient:
                 return None
 
         async def _run_grok302_extract() -> Optional[str]:
-            """Use 302.AI Grok image edit; fallback to Gemini-3 on unavailability."""
+            """Use 302.AI Grok image edit only; no fallback on failure."""
             image_url = options.get("original_image_url")
             aspect_ratio = options.get("aspect_ratio")
 
@@ -403,32 +418,7 @@ class AIClient:
                 )
                 return self.ai302_grok_client.extract_image_url(result)
             except Exception as exc:
-                logger.warning("Combined pattern 302.AI Grok failed, fallback to Gemini-3: %s", str(exc))
-
-            try:
-                fallback_prompt = (
-                    "整性 (Outpainting & Integrity - 核心加强)\n\n"
-                    "拒绝残缺： 确保画面边缘和扩展区域的所有花朵/几何图形都是结构完整的。严禁出现只有一半、被切断或破碎的花型。\n\n"
-                    "腰头区域：去褶皱还原 (保持不变)\n\n"
-                    "数字解压： 识别腰部的高密度是物理挤压造成的。必须将挤在一起的图案\"拉开\"、\"摊平\"，恢复其原本的自然间距和大小，与主体图案保持一致。\n\n"
-                    "裤装/裙装隐形合并逻辑 (保持不变)\n\n"
-                    "裤装缝合： 彻底忽略裤腿缝隙，将双腿图案合并为连续宽幅平面。\n\n"
-                    "顺势排列： 图案走势顺应版型（裤装垂直），但不画出任何物理轮廓线。\n\n"
-                    "画质：超高清印花级\n\n"
-                    "刀锋锐利： 8K+分辨率，边缘锐利，无模糊，保留手绘/数码原稿的细腻笔触。\n\n"
-                    "排除列表 (加强版)： 排除：图案拥挤，花型被切断，边缘残缺，腰部假性密集，裤子/裙子轮廓，缝隙，阴影，模糊"
-                )
-                result = await self.image_utils.apyi_gemini_client.generate_image_preview(
-                    image_bytes,
-                    fallback_prompt,
-                    "image/png",
-                    aspect_ratio=aspect_ratio,
-                    resolution="4K",
-                )
-                url = self.image_utils.apyi_gemini_client._extract_image_url(result)
-                return url.strip() if isinstance(url, str) and url.strip() else None
-            except Exception as exc:
-                logger.warning("Combined pattern Gemini-3 failed: %s", str(exc))
+                logger.warning("Combined pattern 302.AI Grok failed: %s", str(exc))
                 return None
 
         async def _run_branch_with_timeout(

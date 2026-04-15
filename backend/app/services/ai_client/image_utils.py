@@ -185,6 +185,11 @@ class ImageProcessingUtils:
         aspect_ratio = options.get("aspect_ratio")
         width = options.get("width")
         height = options.get("height")
+        preview_model_name = (
+            options.get("preview_model").strip()
+            if isinstance(options.get("preview_model"), str) and options.get("preview_model").strip()
+            else None
+        )
 
         secondary_image_bytes = options.get("secondary_image_bytes")
         image_list: List[bytes] = [image_bytes]
@@ -317,7 +322,7 @@ class ImageProcessingUtils:
                 return ",".join(image_urls)
             return self.gpt4o_client._extract_image_url(result)
         else:
-            # general_2/positioning 模式使用 gemini-3-pro-image-preview
+            # general_2/positioning 模式使用可配置的 Gemini preview 模型
             if pattern_type in ["general_2", "positioning"]:
                 # positioning 使用 2K，其余使用 4K
                 resolution = "2K" if pattern_type == "positioning" else "4K"
@@ -327,6 +332,7 @@ class ImageProcessingUtils:
                     "image/png",
                     aspect_ratio=aspect_ratio,
                     resolution=resolution,
+                    model_name=preview_model_name,
                 )
             else:
                 # 其他模式（含 combined_detail）使用 gemini-2.5-flash-image
