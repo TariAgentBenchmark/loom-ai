@@ -145,6 +145,22 @@ class ProcessingService:
             "creditAdjustmentApplied": to_float(applied_discount),
         }
 
+    def _can_skip_result_materialization_failure(
+        self,
+        task: Task,
+        total_result_count: int,
+    ) -> bool:
+        if task.type != TaskType.EXTRACT_PATTERN.value:
+            return False
+
+        pattern_type = (
+            str((task.options or {}).get("pattern_type") or "general_1")
+            .strip()
+            .lower()
+            .replace("-", "_")
+        )
+        return pattern_type in {"combined", "composite"} and total_result_count > 1
+
     def _resolve_service_key(self, task_type: str) -> str:
         service_key = self.service_key_map.get(task_type)
         if not service_key:
@@ -674,21 +690,32 @@ class ProcessingService:
                                     result_bytes, filename, "results", validate_dimensions=False, validate_file_size=False
                                 )
                     except Exception as exc:
+                        can_skip_failure = self._can_skip_result_materialization_failure(
+                            task,
+                            len(result_urls),
+                        )
                         self._log_task_event(
                             db,
                             task,
                             event="result_materialization_failed",
-                            message="Failed to download or persist downstream result file",
-                            level="error",
+                            message=(
+                                "Failed to download or persist downstream result file"
+                                if not can_skip_failure
+                                else "Skipped downstream result after download/persist failure"
+                            ),
+                            level="error" if not can_skip_failure else "warning",
                             details={
                                 "resultIndex": idx,
                                 "resultUrl": single_result_url,
                                 "resultSource": result_source,
                                 "downstream": downstream_details,
                                 "error": str(exc),
+                                "skipped": can_skip_failure,
                             },
                         )
                         db.commit()
+                        if can_skip_failure:
+                            continue
                         raise
 
                     final_result_urls.append(final_url)
@@ -704,6 +731,9 @@ class ProcessingService:
                                 }
                             except Exception as exc:
                                 logger.warning("获取结果图片尺寸失败: %s", exc)
+
+                if not final_result_urls:
+                    raise Exception("未获取到可保存的处理结果")
 
                 # 合并结果URL和文件名
                 final_result_url = ",".join(final_result_urls)

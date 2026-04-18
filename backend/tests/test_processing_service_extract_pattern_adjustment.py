@@ -78,3 +78,17 @@ def test_full_extract_pattern_result_keeps_original_credit_charge():
         "actualResultCount": 2,
         "creditAdjustmentApplied": 0.0,
     }
+
+
+def test_combined_extract_pattern_allows_skipping_single_result_materialization_failure():
+    service = ProcessingService()
+    task = _build_task(pattern_type="combined", credits_used="1.0")
+
+    assert service._can_skip_result_materialization_failure(task, 3) is True
+
+
+def test_non_combined_extract_pattern_does_not_skip_result_materialization_failure():
+    service = ProcessingService()
+    task = _build_task(pattern_type="general_1", num_images=4, credits_used="1.0")
+
+    assert service._can_skip_result_materialization_failure(task, 3) is False
