@@ -255,7 +255,7 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
               {prefilledInvite.type === 'agent'
                 ? '已通过代理邀请链接进入，注册后将自动绑定对应渠道'
-                : '已通过好友邀请链接进入，注册后邀请人将获得 1 积分奖励'}
+                : '已通过好友邀请链接进入，注册后邀请人将获得 2 积分奖励'}
             </div>
           )}
 

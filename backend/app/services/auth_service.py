@@ -368,7 +368,7 @@ class AuthService:
             await self._reward_referrer(
                 db=db,
                 referrer_user=referrer_user,
-                reward_amount=to_decimal(1),
+                reward_amount=to_decimal(2),
                 source=CreditSource.USER_REFERRAL.value,
                 description="邀请新用户奖励",
                 invited_user=user,

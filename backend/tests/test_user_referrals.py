@@ -98,7 +98,7 @@ def test_register_with_user_referral_rewards_inviter(client, db_session):
     assert new_user.referral_code
 
     db_session.refresh(inviter)
-    assert inviter.credits == to_decimal("6")
+    assert inviter.credits == to_decimal("7")
 
     reward_txn = (
         db_session.query(CreditTransaction)
@@ -109,7 +109,7 @@ def test_register_with_user_referral_rewards_inviter(client, db_session):
         .first()
     )
     assert reward_txn is not None
-    assert reward_txn.amount == to_decimal("1")
+    assert reward_txn.amount == to_decimal("2")
 
 
 def test_register_with_agent_invitation_rewards_agent_owner(client, db_session):
