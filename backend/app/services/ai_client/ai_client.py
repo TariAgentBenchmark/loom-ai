@@ -38,7 +38,7 @@ _PATTERN_TYPE_ALIASES = {
 }
 
 _COMBINED_VARIANTS = ("general_2", "combined_detail")
-_COMBINED_PREVIEW_MODEL = "gemini-3-pro-image-preview"
+_COMBINED_PREVIEW_MODEL = "gemini-3-pro-image-preview-4k"
 _EMBROIDERY_MODE_ALIASES = {
     "yarn": "yarn",
     "wool": "yarn",

@@ -203,7 +203,7 @@ async def test_extract_pattern_combined_routes_general_2_to_tuzi(monkeypatch):
     assert captured["kwargs"] == {
         "aspect_ratio": "1:1",
         "resolution": "4K",
-        "model_name": "gemini-3-pro-image-preview",
+        "model_name": "gemini-3-pro-image-preview-4k",
     }
 
 
