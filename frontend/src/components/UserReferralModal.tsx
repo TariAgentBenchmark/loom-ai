@@ -49,7 +49,7 @@ const UserReferralModal: React.FC<UserReferralModalProps> = ({
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">我的邀请</h2>
-            <p className="text-xs text-gray-500">邀请 1 位新用户，奖励 1 积分。</p>
+            <p className="text-xs text-gray-500">邀请 1 位新用户，奖励 2 积分。</p>
           </div>
           <button
             type="button"
@@ -75,7 +75,7 @@ const UserReferralModal: React.FC<UserReferralModalProps> = ({
                 <Gift className="h-4 w-4" />
                 <span>奖励规则</span>
               </div>
-              <div className="mt-2 text-sm font-semibold text-emerald-900">每邀请 1 人奖励 1 积分</div>
+              <div className="mt-2 text-sm font-semibold text-emerald-900">每邀请 1 人奖励 2 积分</div>
             </div>
           </div>
 
