@@ -849,6 +849,9 @@ const AdminAgentInvitationManager: React.FC = () => {
                 <div className="mt-1 text-sm text-gray-800 font-mono break-all">
                   {buildInviteUrl(editingAgent.invitationCode) || "—"}
                 </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  通过该链接注册的新用户会自动绑定代理，邀请人奖励 2 积分。
+                </p>
               </div>
             </div>
 

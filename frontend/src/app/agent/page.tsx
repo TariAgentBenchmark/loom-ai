@@ -173,6 +173,7 @@ const AgentPage: React.FC = () => {
               <div>
                 <div className="text-xs text-gray-500">邀请注册人数</div>
                 <div className="text-lg font-semibold text-gray-900">{agentInfo.invitedCount ?? 0}</div>
+                <div className="mt-1 text-xs text-gray-500">每邀请 1 位新用户，奖励 2 积分。</div>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-500">邀请链接</span>

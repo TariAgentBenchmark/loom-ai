@@ -130,6 +130,9 @@ const AgentManagementModal: React.FC<AgentManagementModalProps> = ({ open, acces
                     {copied ? "已复制" : "复制链接"}
                   </button>
                 </div>
+                <div className="mt-1 text-xs text-gray-500">
+                  通过该链接注册的新用户会自动绑定渠道，邀请人奖励 2 积分。
+                </div>
               </div>
               <div className="space-y-1 text-sm text-gray-600">
                 <div>联系方式：{agentInfo.contact || "—"}</div>
