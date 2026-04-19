@@ -263,8 +263,6 @@ const AgentPage: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">订单号</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">用户</th>
                   <th className="px-3 py-2 text-left font-medium text-gray-600">充值金额</th>
                   <th className="px-3 py-2 text-left font-medium text-gray-600">佣金</th>
                   <th className="px-3 py-2 text-left font-medium text-gray-600">比例</th>
@@ -275,11 +273,6 @@ const AgentPage: React.FC = () => {
               <tbody className="divide-y divide-gray-100">
                 {ledgerItems.map((item) => (
                   <tr key={item.orderId}>
-                    <td className="px-3 py-2 text-gray-900">{item.orderId}</td>
-                    <td className="px-3 py-2 text-gray-700">
-                      <div className="font-semibold text-gray-900">{item.userPhone || item.userId}</div>
-                      <div className="text-xs text-gray-500">ID: {item.userId}</div>
-                    </td>
                     <td className="px-3 py-2 text-gray-900">¥{yuan(item.amount)}</td>
                     <td className="px-3 py-2 text-emerald-600">¥{yuan(item.commission)}</td>
                     <td className="px-3 py-2 text-gray-700">{(item.rate * 100).toFixed(0)}%</td>
@@ -299,7 +292,7 @@ const AgentPage: React.FC = () => {
                 ))}
                 {ledgerItems.length === 0 && (
                   <tr>
-                    <td className="px-3 py-4 text-center text-sm text-gray-500" colSpan={7}>
+                    <td className="px-3 py-4 text-center text-sm text-gray-500" colSpan={5}>
                       暂无数据
                     </td>
                   </tr>
