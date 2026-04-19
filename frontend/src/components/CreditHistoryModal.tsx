@@ -22,9 +22,34 @@ const formatAmount = (transaction: CreditTransaction) => {
 };
 
 const typeLabel = (type: string) => {
-  if (type === 'earn') return '充值';
+  if (type === 'earn') return '获得';
   if (type === 'spend') return '消费';
   return '其他';
+};
+
+const sourceLabel = (transaction: CreditTransaction) => {
+  switch (transaction.source) {
+    case 'purchase':
+      return '充值';
+    case 'registration':
+      return '注册赠送';
+    case 'user_referral':
+      return '邀请奖励';
+    case 'agent_invitation':
+      return '代理邀请奖励';
+    case 'transfer_in':
+      return '转入';
+    case 'transfer_out':
+      return '转出';
+    case 'refund':
+      return '退款';
+    case 'admin_adjust':
+      return '管理调整';
+    case 'processing':
+      return '消费';
+    default:
+      return typeLabel(transaction.type);
+  }
 };
 
 const typeBadgeClasses = (type: string) => {
@@ -119,7 +144,7 @@ const CreditHistoryModal: React.FC<CreditHistoryModalProps> = ({ accessToken, on
   const summaryCards = useMemo(
     () => [
       {
-        title: '充值总计',
+        title: '获得总计',
         value: summary.totalEarned.toFixed(2),
         accent: 'text-emerald-600',
         icon: ArrowDownCircle,
@@ -145,8 +170,8 @@ const CreditHistoryModal: React.FC<CreditHistoryModalProps> = ({ accessToken, on
       <div className="w-full max-w-4xl bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">充值 / 消费记录</h2>
-            <p className="text-xs text-gray-500">查看积分充值、消耗明细，便于核对账单</p>
+            <h2 className="text-lg font-semibold text-gray-900">积分明细</h2>
+            <p className="text-xs text-gray-500">查看积分获得、消耗明细，便于核对账单</p>
           </div>
           <button
             onClick={onClose}
@@ -180,7 +205,7 @@ const CreditHistoryModal: React.FC<CreditHistoryModalProps> = ({ accessToken, on
               <span className="text-xs text-gray-600">类型</span>
               {[
                 { key: '', label: '全部' },
-                { key: 'earn', label: '充值' },
+                { key: 'earn', label: '获得' },
                 { key: 'spend', label: '消费' },
               ].map((item) => (
                 <button
@@ -267,7 +292,7 @@ const CreditHistoryModal: React.FC<CreditHistoryModalProps> = ({ accessToken, on
                                 txn.type,
                               )}`}
                             >
-                              {typeLabel(txn.type)}
+                              {sourceLabel(txn)}
                             </span>
                             <span className="text-xs text-gray-500">{formatDateTime(txn.createdAt)}</span>
                           </div>

@@ -668,6 +668,7 @@ export interface CreditTransaction {
   type: string;
   amount: number;
   balance: number;
+  source?: string;
   description: string;
   relatedTaskId?: string | null;
   relatedOrderId?: string | null;

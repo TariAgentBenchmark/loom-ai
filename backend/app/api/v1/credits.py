@@ -80,6 +80,7 @@ async def get_transactions(
                 "type": txn.type,
                 "amount": to_float(txn.amount),
                 "balance": to_float(txn.balance_after),
+                "source": txn.source,
                 "description": txn.description,
                 "relatedTaskId": txn.related_task_id,
                 "relatedOrderId": txn.related_order_id,
