@@ -404,7 +404,7 @@ const HomeView: React.FC<HomeViewProps> = ({
                             className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
                           >
                             <Crown className="h-4 w-4" />
-                            <span>充值消费记录</span>
+                            <span>积分明细</span>
                           </button>
                         )}
                         <hr className="my-2" />
