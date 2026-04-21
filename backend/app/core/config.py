@@ -236,7 +236,6 @@ class Settings(BaseSettings):
     base_url: str = "http://localhost:8000"
     default_invitation_code: str = ""
     default_admin_email: str = "admin@loom-ai.com"
-
     # 邮件配置
     smtp_host: str = "smtp.gmail.com"
     smtp_port: int = 587

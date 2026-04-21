@@ -3,6 +3,7 @@ from datetime import datetime
 from app.models.agent import Agent, AgentCommissionMode, AgentStatus, InvitationCode, InvitationCodeStatus
 from app.models.credit import CreditSource, CreditTransaction
 from app.models.phone_verification import PhoneVerification
+from app.models.system_setting import SystemSetting
 from app.models.user import MembershipType, User, UserReferralSource, UserStatus
 from app.services.auth_service import AuthService
 from app.services.credit_math import to_decimal
@@ -96,9 +97,10 @@ def test_register_with_user_referral_rewards_inviter(client, db_session):
     assert new_user.referrer_user_id == inviter.id
     assert new_user.referral_source == UserReferralSource.USER.value
     assert new_user.referral_code
+    assert new_user.credits == to_decimal("5")
 
     db_session.refresh(inviter)
-    assert inviter.credits == to_decimal("7")
+    assert inviter.credits == to_decimal("15")
 
     reward_txn = (
         db_session.query(CreditTransaction)
@@ -109,7 +111,18 @@ def test_register_with_user_referral_rewards_inviter(client, db_session):
         .first()
     )
     assert reward_txn is not None
-    assert reward_txn.amount == to_decimal("2")
+    assert reward_txn.amount == to_decimal("10")
+
+    invitee_reward_txn = (
+        db_session.query(CreditTransaction)
+        .filter(
+            CreditTransaction.user_id == new_user.id,
+            CreditTransaction.source == CreditSource.REFERRAL_REGISTRATION.value,
+        )
+        .first()
+    )
+    assert invitee_reward_txn is not None
+    assert invitee_reward_txn.amount == to_decimal("5")
 
 
 def test_register_with_agent_invitation_rewards_agent_owner(client, db_session):
@@ -175,6 +188,29 @@ def test_register_with_agent_invitation_rewards_agent_owner(client, db_session):
     )
     assert reward_txn is not None
     assert reward_txn.amount == to_decimal("2")
+
+
+def test_reward_settings_endpoint_returns_current_values(client, db_session):
+    db_session.add_all(
+        [
+            SystemSetting(key="registration_reward", value="4", description="普通注册赠送积分"),
+            SystemSetting(key="user_referral_inviter_reward", value="12", description="好友邀请人奖励"),
+            SystemSetting(key="user_referral_invited_reward", value="6", description="好友被邀请人奖励"),
+            SystemSetting(key="agent_invitation_referrer_reward", value="4", description="代理邀请人奖励"),
+        ]
+    )
+    db_session.commit()
+
+    response = client.get("/api/v1/auth/reward-settings")
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data == {
+        "registrationReward": 4.0,
+        "userReferralInviterReward": 12.0,
+        "userReferralInviteeReward": 6.0,
+        "agentInvitationReward": 4.0,
+    }
 
 
 def test_user_profile_returns_referral_code_and_count(client, db_session):

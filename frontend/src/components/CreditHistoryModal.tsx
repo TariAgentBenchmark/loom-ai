@@ -33,6 +33,8 @@ const sourceLabel = (transaction: CreditTransaction) => {
       return '充值';
     case 'registration':
       return '注册赠送';
+    case 'referral_registration':
+      return '邀请注册奖励';
     case 'user_referral':
       return '邀请奖励';
     case 'agent_invitation':

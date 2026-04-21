@@ -14,6 +14,7 @@ from .membership_package import (
     UserMembership,
     NewUserBonus,
 )
+from .system_setting import SystemSetting
 
 __all__ = [
     "Agent",
@@ -35,4 +36,5 @@ __all__ = [
     "ServicePriceVariant",
     "UserMembership",
     "NewUserBonus",
+    "SystemSetting",
 ]

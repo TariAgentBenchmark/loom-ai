@@ -13,6 +13,7 @@ class TransactionType(PyEnum):
 
 class CreditSource(PyEnum):
     REGISTRATION = "registration"  # 注册赠送
+    REFERRAL_REGISTRATION = "referral_registration"  # 好友邀请注册奖励
     PURCHASE = "purchase"  # 购买套餐
     TRANSFER_IN = "transfer_in"  # 转入
     TRANSFER_OUT = "transfer_out"  # 转出

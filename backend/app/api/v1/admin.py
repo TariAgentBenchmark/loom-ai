@@ -44,6 +44,7 @@ from app.models.agent import (
 )
 from app.models.agent_commission import AgentCommission, AgentCommissionStatus
 from app.models.notification import Notification, NotificationType
+from app.models.system_setting import SystemSetting
 from app.api.dependencies import get_current_active_admin
 from app.api.decorators import admin_required, admin_route
 from app.schemas.common import SuccessResponse, PaginationMeta, FileInfo
@@ -264,6 +265,20 @@ class AdminServiceVariantUpdateRequest(BaseModel):
     )
     description: Optional[str] = Field(None, description="Variant description")
     active: Optional[bool] = Field(None, description="Whether the variant is active")
+
+
+class AdminReferralRewardSettingsResponse(BaseModel):
+    registrationReward: float
+    userReferralInviterReward: float
+    userReferralInviteeReward: float
+    agentInvitationReward: float
+
+
+class AdminReferralRewardSettingsUpdateRequest(BaseModel):
+    registrationReward: CreditBalance = Field(..., description="普通注册赠送积分")
+    userReferralInviterReward: CreditBalance = Field(..., description="好友邀请人奖励")
+    userReferralInviteeReward: CreditBalance = Field(..., description="好友被邀请人奖励")
+    agentInvitationReward: CreditBalance = Field(..., description="代理邀请人奖励")
 
 
 # Order Management Models
@@ -1696,6 +1711,63 @@ async def update_service_variant_price_admin(
         if str(exc) == "SERVICE_NOT_FOUND":
             raise HTTPException(status_code=404, detail="服务不存在")
         raise HTTPException(status_code=400, detail="更新子模式失败")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/referral-rewards", dependencies=[Depends(admin_route())])
+async def get_referral_reward_settings_admin(
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin),
+):
+    """获取邀请奖励配置（管理员专用）"""
+    try:
+        auth_service = AuthService()
+        settings_data = auth_service.get_reward_settings(db)
+        await log_admin_action(
+            db=db,
+            admin=current_admin,
+            action="view_referral_reward_settings",
+            target_type="system_setting",
+            target_id="referral_rewards",
+            details=settings_data,
+        )
+        return SuccessResponse(data=settings_data, message="获取邀请奖励配置成功")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/referral-rewards", dependencies=[Depends(admin_route())])
+async def update_referral_reward_settings_admin(
+    update_request: AdminReferralRewardSettingsUpdateRequest,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin),
+):
+    """更新邀请奖励配置（管理员专用）"""
+    try:
+        auth_service = AuthService()
+        settings_data = auth_service.update_reward_settings(
+            db,
+            {
+                "registration_reward": update_request.registrationReward,
+                "user_referral_inviter_reward": update_request.userReferralInviterReward,
+                "user_referral_invited_reward": update_request.userReferralInviteeReward,
+                "agent_invitation_referrer_reward": update_request.agentInvitationReward,
+            },
+        )
+        await log_admin_action(
+            db=db,
+            admin=current_admin,
+            action="update_referral_reward_settings",
+            target_type="system_setting",
+            target_id="referral_rewards",
+            details=settings_data,
+        )
+        return SuccessResponse(data=settings_data, message="邀请奖励配置更新成功")
     except HTTPException:
         raise
     except Exception as e:

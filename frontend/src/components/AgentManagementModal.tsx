@@ -131,7 +131,7 @@ const AgentManagementModal: React.FC<AgentManagementModalProps> = ({ open, acces
                   </button>
                 </div>
                 <div className="mt-1 text-xs text-gray-500">
-                  通过该链接注册的新用户会自动绑定渠道，邀请人奖励 2 积分。
+                  通过该链接注册的新用户会自动绑定渠道，邀请奖励按当前系统配置发放。
                 </div>
               </div>
               <div className="space-y-1 text-sm text-gray-600">

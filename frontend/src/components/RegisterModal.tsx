@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import PhoneVerification from './PhoneVerification';
+import { ReferralRewardSettings } from '../lib/api';
 
 export type PrefilledInviteContext = {
   type: 'agent' | 'user';
@@ -13,6 +14,7 @@ interface RegisterModalProps {
   isSubmitting: boolean;
   errorMessage?: string;
   prefilledInvite?: PrefilledInviteContext;
+  rewardSettings?: ReferralRewardSettings;
   onClose: () => void;
   onSubmit: (payload: {
     phone: string;
@@ -31,6 +33,7 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
   isSubmitting, 
   errorMessage, 
   prefilledInvite,
+  rewardSettings,
   onClose, 
   onSubmit,
   onSwitchToLogin
@@ -48,6 +51,9 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
   const [verificationCooldownSeconds, setVerificationCooldownSeconds] = useState(60);
   const [initialVerificationCountdown, setInitialVerificationCountdown] = useState(0);
   const [showOptionalFields, setShowOptionalFields] = useState(false);
+  const inviterReward = rewardSettings?.userReferralInviterReward ?? 10;
+  const inviteeReward = rewardSettings?.userReferralInviteeReward ?? 5;
+  const agentInvitationReward = rewardSettings?.agentInvitationReward ?? 2;
 
   if (!isOpen) {
     return null;
@@ -254,8 +260,8 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
           {prefilledInvite && (
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
               {prefilledInvite.type === 'agent'
-                ? '已通过代理邀请链接进入，注册后将自动绑定对应渠道，邀请人将获得 2 积分奖励'
-                : '已通过好友邀请链接进入，注册后邀请人将获得 2 积分奖励'}
+                ? `已通过代理邀请链接进入，注册后将自动绑定对应渠道，邀请人将获得 ${agentInvitationReward} 积分奖励`
+                : `已通过好友邀请链接进入，注册后邀请人将获得 ${inviterReward} 积分，你也将获得 ${inviteeReward} 积分`}
             </div>
           )}
 

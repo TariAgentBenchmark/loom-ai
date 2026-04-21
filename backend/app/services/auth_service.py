@@ -18,7 +18,8 @@ from app.models.agent import (
 )
 from app.models.credit import CreditSource
 from app.models.phone_verification import PhoneVerification
-from app.services.credit_math import to_decimal
+from app.models.system_setting import SystemSetting
+from app.services.credit_math import to_decimal, to_float
 
 # 密码加密上下文
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -26,6 +27,20 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class AuthService:
     """认证服务"""
+
+    REFERRAL_REWARD_DEFAULTS = {
+        "registration_reward": to_decimal("3"),
+        "user_referral_inviter_reward": to_decimal("10"),
+        "user_referral_invited_reward": to_decimal("5"),
+        "agent_invitation_referrer_reward": to_decimal("2"),
+    }
+
+    REFERRAL_REWARD_DESCRIPTIONS = {
+        "registration_reward": "普通注册赠送积分",
+        "user_referral_inviter_reward": "好友邀请场景下邀请人获得的积分",
+        "user_referral_invited_reward": "好友邀请场景下被邀请人获得的积分",
+        "agent_invitation_referrer_reward": "代理邀请场景下邀请人获得的积分",
+    }
     
     def __init__(self):
         self.secret_key = settings.secret_key
@@ -150,6 +165,67 @@ class AuthService:
         user.referral_code = self._generate_user_referral_code(db)
         db.flush()
         return user.referral_code
+
+    def _normalize_reward_value(self, value: Any, fallback):
+        try:
+            normalized = to_decimal(value)
+        except Exception:
+            normalized = fallback
+        return max(normalized, to_decimal(0))
+
+    def _get_reward_settings(self, db: Session) -> Dict[str, Any]:
+        defaults = self.REFERRAL_REWARD_DEFAULTS.copy()
+        rows = (
+            db.query(SystemSetting)
+            .filter(SystemSetting.key.in_(list(defaults.keys())))
+            .all()
+        )
+        for row in rows:
+            if row.key in defaults:
+                defaults[row.key] = self._normalize_reward_value(row.value, defaults[row.key])
+        return defaults
+
+    def get_reward_settings(self, db: Session) -> Dict[str, float]:
+        reward_settings = self._get_reward_settings(db)
+        return {
+            "registrationReward": to_float(reward_settings["registration_reward"]),
+            "userReferralInviterReward": to_float(reward_settings["user_referral_inviter_reward"]),
+            "userReferralInviteeReward": to_float(reward_settings["user_referral_invited_reward"]),
+            "agentInvitationReward": to_float(reward_settings["agent_invitation_referrer_reward"]),
+        }
+
+    def get_registration_reward_amount(self, db: Session, referral_source: Optional[str] = None):
+        reward_settings = self._get_reward_settings(db)
+        if referral_source == UserReferralSource.USER.value:
+            return reward_settings["user_referral_invited_reward"]
+        return reward_settings["registration_reward"]
+
+    def update_reward_settings(self, db: Session, payload: Dict[str, Any]) -> Dict[str, float]:
+        normalized = {
+            key: self._normalize_reward_value(payload.get(key), default)
+            for key, default in self.REFERRAL_REWARD_DEFAULTS.items()
+        }
+        existing = {
+            row.key: row
+            for row in db.query(SystemSetting)
+            .filter(SystemSetting.key.in_(list(normalized.keys())))
+            .all()
+        }
+        for key, value in normalized.items():
+            row = existing.get(key)
+            if row:
+                row.value = str(value)
+                row.description = self.REFERRAL_REWARD_DESCRIPTIONS[key]
+            else:
+                db.add(
+                    SystemSetting(
+                        key=key,
+                        value=str(value),
+                        description=self.REFERRAL_REWARD_DESCRIPTIONS[key],
+                    )
+                )
+        db.commit()
+        return self.get_reward_settings(db)
 
     async def _reward_referrer(
         self,
@@ -322,6 +398,13 @@ class AuthService:
         if explicit_agent_invitation and agent.owner_user_id:
             referrer_user = db.query(User).filter(User.id == agent.owner_user_id).first()
 
+        reward_settings = self._get_reward_settings(db)
+        registration_reward = (
+            reward_settings["user_referral_invited_reward"]
+            if referral_source == UserReferralSource.USER.value
+            else reward_settings["registration_reward"]
+        )
+
         # 创建新用户
         user = User(
             user_id=f"user_{uuid.uuid4().hex[:12]}",
@@ -329,7 +412,7 @@ class AuthService:
             hashed_password=self.get_password_hash(password),
             nickname=nickname or phone,  # 如果没有昵称，使用手机号
             phone=phone,  # 现在是必需的
-            credits=to_decimal(3),  # 新用户赠送3积分
+            credits=registration_reward,
             membership_type=MembershipType.FREE,
             status=UserStatus.ACTIVE,
             referral_code=self._generate_user_referral_code(db),
@@ -356,19 +439,28 @@ class AuthService:
         # 记录注册赠送积分
         from app.services.credit_service import CreditService
         credit_service = CreditService()
-        await credit_service.record_transaction(
-            db=db,
-            user_id=user.id,
-            amount=to_decimal(3),
-            source=CreditSource.REGISTRATION.value,
-            description="新用户注册赠送"
-        )
+        if registration_reward > to_decimal(0):
+            await credit_service.record_transaction(
+                db=db,
+                user_id=user.id,
+                amount=registration_reward,
+                source=(
+                    CreditSource.REFERRAL_REGISTRATION.value
+                    if referral_source == UserReferralSource.USER.value
+                    else CreditSource.REGISTRATION.value
+                ),
+                description=(
+                    "好友邀请注册奖励"
+                    if referral_source == UserReferralSource.USER.value
+                    else "新用户注册赠送"
+                ),
+            )
 
         if referral_source == UserReferralSource.USER.value:
             await self._reward_referrer(
                 db=db,
                 referrer_user=referrer_user,
-                reward_amount=to_decimal(2),
+                reward_amount=reward_settings["user_referral_inviter_reward"],
                 source=CreditSource.USER_REFERRAL.value,
                 description="邀请新用户奖励",
                 invited_user=user,
@@ -377,7 +469,7 @@ class AuthService:
             await self._reward_referrer(
                 db=db,
                 referrer_user=referrer_user,
-                reward_amount=to_decimal(2),
+                reward_amount=reward_settings["agent_invitation_referrer_reward"],
                 source=CreditSource.AGENT_INVITATION.value,
                 description="代理邀请新用户奖励",
                 invited_user=user,

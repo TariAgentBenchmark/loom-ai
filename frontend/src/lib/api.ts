@@ -588,6 +588,20 @@ export interface UserProfile {
   referralCount?: number;
 }
 
+export interface ReferralRewardSettings {
+  registrationReward: number;
+  userReferralInviterReward: number;
+  userReferralInviteeReward: number;
+  agentInvitationReward: number;
+}
+
+export interface AdminReferralRewardSettingsUpdatePayload {
+  registrationReward: number;
+  userReferralInviterReward: number;
+  userReferralInviteeReward: number;
+  agentInvitationReward: number;
+}
+
 export interface ProcessingTaskData {
   taskId: string;
   status: string;
@@ -962,6 +976,23 @@ export const getPublicServicePrices = async () => {
       err instanceof Error && err.message === "Failed to fetch"
         ? "网络连接异常或被浏览器拦截，请稍后重试"
         : ((err as Error)?.message ?? "请求失败");
+    throw new Error(message);
+  }
+};
+
+export const getReferralRewardSettings = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/reward-settings`, {
+      method: 'GET',
+    });
+
+    const ensured = await ensureSuccess(response);
+    return jsonResponse<ApiSuccessResponse<ReferralRewardSettings>>(ensured);
+  } catch (err) {
+    const message =
+      err instanceof Error && err.message === 'Failed to fetch'
+        ? '网络连接异常或被浏览器拦截，请稍后重试'
+        : ((err as Error)?.message ?? '请求失败');
     throw new Error(message);
   }
 };
@@ -1855,6 +1886,19 @@ export const adminGetServicePrices = (
 
   return getJson<AdminServicePriceList>(path, accessToken);
 };
+
+export const adminGetReferralRewardSettings = (accessToken: string) =>
+  getJson<ReferralRewardSettings>("/admin/referral-rewards", accessToken);
+
+export const adminUpdateReferralRewardSettings = (
+  payload: AdminReferralRewardSettingsUpdatePayload,
+  accessToken: string,
+) =>
+  putJson<ReferralRewardSettings, AdminReferralRewardSettingsUpdatePayload>(
+    "/admin/referral-rewards",
+    payload,
+    accessToken,
+  );
 
 export const adminUpdateServicePrice = (
   serviceKey: string,

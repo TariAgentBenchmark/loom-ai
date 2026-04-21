@@ -36,6 +36,7 @@ import {
 } from '../lib/auth';
 import {
   ApiSuccessResponse,
+  ReferralRewardSettings,
   UserProfile,
   createProcessingTask,
   CreditBalanceResponse,
@@ -50,6 +51,7 @@ import {
   resetPasswordByPhone,
   ResetPasswordByPhonePayload,
   agentGetManagedAgent,
+  getReferralRewardSettings,
 } from '../lib/api';
 import {
   clearAuthTokens,
@@ -182,6 +184,7 @@ function HomeContent() {
   const [isCreatingTask, setIsCreatingTask] = useState(false);
   const [batchMode, setBatchMode] = useState(false);
   const [showAgentAlertModal, setShowAgentAlertModal] = useState(false);
+  const [referralRewardSettings, setReferralRewardSettings] = useState<ReferralRewardSettings | undefined>(undefined);
 
   const methodUiStateRef = useRef<MethodUiStateMap>({});
   const pollingRefs = useRef<Record<string, ReturnType<typeof setInterval>>>({});
@@ -219,6 +222,29 @@ function HomeContent() {
     }
     setPrefilledInvite(inviteContext);
   }, [inviteContext, isLoggedIn]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadReferralRewardSettings = async () => {
+      try {
+        const response = await getReferralRewardSettings();
+        if (!cancelled) {
+          setReferralRewardSettings(response.data);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.warn('获取邀请奖励配置失败，已回退到默认文案', error);
+        }
+      }
+    };
+
+    void loadReferralRewardSettings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // 比例换算：当选择扩图比例时，根据原图尺寸自动计算边距
   useEffect(() => {
@@ -1400,6 +1426,7 @@ function HomeContent() {
         isSubmitting={authState.status === 'authenticating'}
         errorMessage={registerError}
         prefilledInvite={prefilledInvite}
+        rewardSettings={referralRewardSettings}
         onClose={() => {
           if (authState.status !== 'authenticating') {
             setShowRegisterModal(false);
@@ -1420,6 +1447,7 @@ function HomeContent() {
         onClose={() => setShowReferralModal(false)}
         referralCode={accountProfile?.referralCode || null}
         referralCount={accountProfile?.referralCount ?? 0}
+        rewardSettings={referralRewardSettings}
       />
 
       <ForgotPasswordModal

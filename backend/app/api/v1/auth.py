@@ -1,4 +1,5 @@
 import logging
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -17,6 +18,10 @@ router = APIRouter()
 auth_service = AuthService()
 security = HTTPBearer()
 logger = logging.getLogger(__name__)
+
+
+def _format_credit_amount(amount: Decimal) -> str:
+    return f"{float(amount):g}"
 
 
 class UserRegister(BaseModel):
@@ -105,7 +110,8 @@ async def register(
             user_referral_code=user_data.user_referral_code,
             agent_link_token=user_data.agent_link_token,
         )
-        
+        registration_reward = auth_service.get_registration_reward_amount(db, user.referral_source)
+
         return SuccessResponse(
             data={
                 "userId": user.user_id,
@@ -117,7 +123,7 @@ async def register(
                 "agentId": user.agent_id,
                 "invitationCodeId": user.invitation_code_id,
             },
-            message="注册成功，已赠送3积分"
+            message=f"注册成功，已赠送{_format_credit_amount(registration_reward)}积分"
         )
         
     except Exception as e:
@@ -131,6 +137,11 @@ async def register(
         if "手机号已存在" in str(e) or "邮箱已存在" in str(e):
             raise HTTPException(status_code=409, detail=str(e))
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/reward-settings")
+async def get_reward_settings(db: Session = Depends(get_db)):
+    return SuccessResponse(data=auth_service.get_reward_settings(db), message="获取奖励配置成功")
 
 
 @router.post("/login")
