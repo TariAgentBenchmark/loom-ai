@@ -16,7 +16,6 @@ from app.services.ai_client.gqch_client import GQCHClient
 from app.services.ai_client.jimeng_client import JimengClient
 from app.services.ai_client.liblib_client import LiblibUpscaleAPI
 from app.services.ai_client.meitu_client import MeituClient
-from app.services.ai_client.tuzi_gemini_client import TuziGeminiClient
 from app.services.ai_client.vectorizer_client import VectorizerClient
 from app.services.ai_client.vector_webapi_client import VectorWebAPIClient
 from app.services.ai_client.a8_vectorizer_client import A8VectorizerClient
@@ -57,7 +56,6 @@ class AIClient:
         self.gemini_client = GeminiClient()
         self.apyi_gemini_client = ApyiGeminiClient()
         self.apyi_openai_client = ApyiOpenAIClient()
-        self.tuzi_gemini_client = TuziGeminiClient()
         self.ai302_grok_client = AI302GrokClient()
         self.jimeng_client = JimengClient()
         self.vectorizer_client = VectorizerClient()
@@ -367,7 +365,7 @@ class AIClient:
                 merged_options["pattern_type"] = pt
                 if pt == "general_2":
                     prompt = self.image_utils._build_pattern_prompt(pt)
-                    result = await self.tuzi_gemini_client.generate_image_preview(
+                    result = await self.apyi_gemini_client.generate_image_preview(
                         image_bytes,
                         prompt,
                         "image/png",
@@ -375,7 +373,7 @@ class AIClient:
                         resolution="4K",
                         model_name=_COMBINED_PREVIEW_MODEL,
                     )
-                    url = self.tuzi_gemini_client._extract_image_url(result)
+                    url = self.apyi_gemini_client._extract_image_url(result)
                     return url.strip() if isinstance(url, str) and url.strip() else None
                 result = await self.image_utils.extract_pattern(image_bytes, merged_options)
                 if not result:
