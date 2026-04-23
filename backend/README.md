@@ -76,7 +76,7 @@ REDIS_URL=redis://localhost:6379/0
 ### API密钥获取
 
 - **Apyi API**: 在 https://api.apiyi.com 获取API密钥
-- 支持GPT-4o图像生成和Gemini-2.5-flash-image处理
+- 支持 gpt-image-2-all 图像生成和Gemini-2.5-flash-image处理
 - 支持OpenAI兼容的图像编辑和对话功能
 - **RunningHub**: 在 https://www.runninghub.cn 控制台获取 API Key 与 workflowId，用于线条/矢量工作流与VR2完美放大高清流程
 
@@ -160,7 +160,7 @@ uv run python scripts/migrate_sqlite_to_postgres.py \
 
 ### AI服务集成
 
-- **GPT-4o**: 用于图像生成和复杂处理
+- **gpt-image-2-all**: 用于图像生成和复杂处理
 - **Gemini-2.5-flash-image**: 用于图像编辑和分析
 - 支持异步处理，提高响应速度
 

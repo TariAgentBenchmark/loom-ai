@@ -6,9 +6,8 @@ from typing import Any, Dict, List, Optional
 
 from app.core.config import settings
 from app.services.ai_client.gemini_client import GeminiClient
-from app.services.ai_client.gpt4o_client import GPT4oClient
 from app.services.ai_client.apyi_gemini_client import ApyiGeminiClient
-from app.services.ai_client.apyi_openai_client import ApyiOpenAIClient
+from app.services.ai_client.apyi_openai_client import ApyiOpenAIClient, GPT_IMAGE_2_ALL_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +17,6 @@ class ImageProcessingUtils:
     
     def __init__(self):
         self.gemini_client = GeminiClient()
-        self.gpt4o_client = GPT4oClient()
         self.apyi_gemini_client = ApyiGeminiClient()
         self.apyi_openai_client = ApyiOpenAIClient()
 
@@ -301,21 +299,35 @@ class ImageProcessingUtils:
 
             return "1024x1024"
 
-        # 烫画/胸前花类型使用Apyi OpenAI模型，生成2张图片
+        def _with_gpt_image_2_size_hint(base_prompt: str, size: str) -> str:
+            # gpt-image-2-all does not accept the old size field; carry it as prompt intent.
+            return f"生成图片尺寸/构图参考：{size}。{base_prompt}"
+
+        async def _generate_gpt_image_2_urls(count: int, size: str) -> List[str]:
+            prompt_with_size = _with_gpt_image_2_size_hint(prompt, size)
+
+            async def _call_once() -> List[str]:
+                result = await self.apyi_openai_client.generate_image(
+                    prompt_with_size,
+                    n=1,
+                    size=None,
+                    model=GPT_IMAGE_2_ALL_MODEL,
+                    image_bytes=image_bytes,
+                )
+                image_urls = self.apyi_openai_client._extract_image_urls(result)
+                if image_urls:
+                    return image_urls
+                return [self.apyi_openai_client._extract_image_url(result)]
+
+            batches = await asyncio.gather(
+                *(_call_once() for _ in range(max(1, count)))
+            )
+            return [url for batch in batches for url in batch if url]
+
+        # 烫画/胸前花类型使用 Apyi gpt-image-2-all，生成2张图片
         if pattern_type == "fine":
             size = _build_size()
-            model_option = options.get("model")
-            model = model_option.strip() if isinstance(model_option, str) and model_option.strip() else "gpt-4o-image"
-
-            result = await self.apyi_openai_client.generate_image(
-                prompt,
-                n=2,
-                size=size,
-                model=model,
-                image_bytes=image_bytes,  # 传递输入图像数据
-            )
-            image_urls = self.apyi_openai_client._extract_image_urls(result)
-            # 返回逗号分隔的URL字符串
+            image_urls = await _generate_gpt_image_2_urls(2, size)
             return ",".join(image_urls)
         elif pattern_type == "denim":
             num_images = self._coerce_positive_int(options.get("num_images"))
@@ -325,17 +337,8 @@ class ImageProcessingUtils:
                 num_images = 1
 
             size = _build_denim_size()
-            result = await self.gpt4o_client.process_image(
-                image_bytes,
-                prompt,
-                "image/png",
-                n=num_images,
-                size=size,
-            )
-            image_urls = self.gpt4o_client._extract_image_urls(result)
-            if image_urls:
-                return ",".join(image_urls)
-            return self.gpt4o_client._extract_image_url(result)
+            image_urls = await _generate_gpt_image_2_urls(num_images, size)
+            return ",".join(image_urls)
         else:
             # general_2/positioning 模式使用可配置的 Gemini preview 模型
             if pattern_type in ["general_2", "positioning"]:

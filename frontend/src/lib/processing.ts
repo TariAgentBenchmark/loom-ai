@@ -169,7 +169,7 @@ export const AI_MODEL_METHODS: ProcessingMethod[] = [
   "prompt_edit", // AI用嘴改图 - 使用Gemini
   "embroidery", // AI刺绣 - 毛线(Gemini) / 刺绣(RunningHub)
   "flat_to_3d", // AI平面转3D - 使用即梦
-  "extract_pattern", // AI提取花型 - 使用Gemini/GPT-4o
+  "extract_pattern", // AI提取花型 - 使用Gemini/gpt-image-2-all
   "noise_removal", // AI布纹去噪 - 使用Gemini
   "similar_image", // AI相似图 - RunningHub工作流
 ];

@@ -206,7 +206,7 @@ class BaseAIClient:
     def _extract_image_url(self, api_response: Dict[str, Any]) -> str:
         """从API响应中提取图片URL"""
         try:
-            # 检查chat/completion响应格式（gpt-4o-image模型）
+            # 检查chat/completion图像响应格式
             if "choices" in api_response and isinstance(api_response["choices"], list):
                 choice = api_response["choices"][0] if api_response["choices"] else None
                 if choice and "message" in choice:
@@ -242,7 +242,7 @@ class BaseAIClient:
                     if text_matches:
                         return text_matches[0]
 
-            # GPT-4o / OpenAI兼容响应格式
+            # OpenAI兼容图像响应格式
             if "data" in api_response and isinstance(api_response["data"], list):
                 first_item = api_response["data"][0] if api_response["data"] else None
                 if isinstance(first_item, dict):
@@ -318,7 +318,7 @@ class BaseAIClient:
     def _extract_image_urls(self, api_response: Dict[str, Any]) -> List[str]:
         """从API响应中提取多张图片URL"""
         try:
-            # 检查chat/completion响应格式（gpt-4o-image模型）
+            # 检查chat/completion图像响应格式
             if "choices" in api_response and isinstance(api_response["choices"], list):
                 choice = api_response["choices"][0] if api_response["choices"] else None
                 if choice and "message" in choice:
@@ -370,7 +370,7 @@ class BaseAIClient:
                                 unique_urls.append(url)
                         return unique_urls
 
-            # GPT-4o响应格式 - 返回多张图片
+            # OpenAI兼容图像响应格式 - 返回多张图片
             if "data" in api_response and isinstance(api_response["data"], list):
                 urls: List[str] = []
                 for item in api_response["data"]:

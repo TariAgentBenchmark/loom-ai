@@ -11,9 +11,12 @@ from app.services.ai_client.exceptions import AIClientException
 
 logger = logging.getLogger(__name__)
 
+GPT_IMAGE_2_ALL_MODEL = "gpt-image-2-all"
+DEPRECATED_IMAGE_CHAT_MODELS = {"gpt-4o-image", "sora_image"}
+
 
 class ApyiOpenAIClient(BaseAIClient):
-    """Apyi OpenAI兼容API客户端，支持图像编辑和GPT-4o"""
+    """Apyi OpenAI兼容API客户端，支持图像编辑和图像生成。"""
 
     def __init__(self):
         """初始化Apyi OpenAI客户端"""
@@ -87,14 +90,22 @@ class ApyiOpenAIClient(BaseAIClient):
             size: 输出图像尺寸，支持 256x256、512x512、1024x1024，None 表示使用服务默认值
             response_format: 返回格式，可选值如 url 或 b64_json，None 表示使用服务默认值
             model: 使用的图像生成模型，默认 gpt-image-1
-            image_bytes: 输入图像的字节数据（用于gpt-4o-image模型）
-            image_url: 输入图像的URL（用于gpt-4o-image模型）
+            image_bytes: 输入图像的字节数据（用于图像 chat 模型）
+            image_url: 输入图像的URL（用于图像 chat 模型）
 
         Returns:
             API响应数据
         """
-        # 如果使用gpt-4o-image模型，使用chat/completions端点
-        if model == "gpt-4o-image":
+        if model in DEPRECATED_IMAGE_CHAT_MODELS:
+            logger.warning(
+                "Deprecated Apyi image model %s requested; routing to %s",
+                model,
+                GPT_IMAGE_2_ALL_MODEL,
+            )
+            model = GPT_IMAGE_2_ALL_MODEL
+
+        # Apyi image chat models use chat/completions and may reject images/generations params.
+        if model == GPT_IMAGE_2_ALL_MODEL:
             return await self._generate_image_with_chat_model(
                 prompt, image_bytes, image_url, n, size, model
             )
@@ -130,18 +141,18 @@ class ApyiOpenAIClient(BaseAIClient):
         image_url: Optional[str] = None,
         n: int = 1,
         size: Optional[str] = None,
-        model: str = "gpt-4o-image"
+        model: str = GPT_IMAGE_2_ALL_MODEL
     ) -> Dict[str, Any]:
         """
-        使用chat/completions端点生成图像（适用于gpt-4o-image模型）
+        使用chat/completions端点生成图像（适用于 Apyi 图像多模态模型）
 
         Args:
             prompt: 生成指令文本
             image_bytes: 输入图像的字节数据（可选）
             image_url: 输入图像的URL（可选）
             n: 生成的图像数量，默认为1
-            size: 图像尺寸（对于gpt-4o-image可能不适用）
-            model: 使用的模型，默认为gpt-4o-image
+            size: 图像尺寸（对于图像 chat 模型可能不适用）
+            model: 使用的模型，默认为 gpt-image-2-all
 
         Returns:
             API响应数据
@@ -182,8 +193,8 @@ class ApyiOpenAIClient(BaseAIClient):
             ]
         }
 
-        # 添加n参数来指定生成的图片数量
-        if n > 1:
+        # gpt-image-2-all 每次只返回 1 张图，不支持 n/size 等图片端点参数。
+        if n > 1 and model != GPT_IMAGE_2_ALL_MODEL:
             data["n"] = n
 
         logger.info(f"Generating image with chat model {model}: {prompt[:100]}...")

@@ -172,7 +172,7 @@ class Settings(BaseSettings):
     runninghub_workflow_id_extract_general1_1img: str = "2011803052889612290"
     runninghub_extract_general1_1img_node_id: str = "184"
     runninghub_extract_general1_1img_field_name: str = "image"
-    # 提取花型综合模式 RunningHub 工作流（第四张，第三张改为GPT-4o）
+    # 提取花型综合模式 RunningHub 工作流
     runninghub_workflow_id_extract_combined_3: str = "2006977645929570305"
     runninghub_workflow_id_extract_combined_4: str = "2004397396601831426"
     runninghub_extract_combined_node_id: str = "184"

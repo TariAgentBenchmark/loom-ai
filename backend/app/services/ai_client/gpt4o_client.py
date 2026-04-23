@@ -1,35 +1,34 @@
-import asyncio
 import logging
-from io import BytesIO
-from random import uniform
 from typing import Any, Dict
 
-import httpx
-
 from app.services.ai_client.base_client import BaseAIClient
-from app.services.api_limiter import api_limiter
-from app.services.ai_client.exceptions import AIClientException
+from app.services.ai_client.apyi_openai_client import GPT_IMAGE_2_ALL_MODEL
 
 logger = logging.getLogger(__name__)
 
 
 class GPT4oClient(BaseAIClient):
-    """GPT-4o API客户端"""
+    """Legacy image client wrapper, now routed to Apyi gpt-image-2-all."""
     
     def __init__(self):
         super().__init__(api_name="gpt4o")
     
     async def generate_image(self, prompt: str, size: str = "1024x1024") -> Dict[str, Any]:
-        """使用GPT-4o生成图片"""
-        endpoint = "/v1/images/generations"
+        """使用 gpt-image-2-all 生成图片。"""
+        endpoint = "/v1/chat/completions"
         data = {
-            "model": "gpt-4o-image-vip",
-            "prompt": prompt,
-            "n": 1,
-            "size": size
+            "model": GPT_IMAGE_2_ALL_MODEL,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": f"生成图片尺寸/构图参考：{size}。{prompt}"},
+                    ],
+                }
+            ],
         }
         
-        logger.info(f"Generating image with GPT-4o: {prompt[:100]}...")
+        logger.info("Generating image with %s: %s...", GPT_IMAGE_2_ALL_MODEL, prompt[:100])
         return await self._make_request("POST", endpoint, data)
 
     async def process_image(
@@ -40,92 +39,33 @@ class GPT4oClient(BaseAIClient):
         n: int = 1,
         size: str = "1024x1024",
     ) -> Dict[str, Any]:
-        """使用GPT-4o-image-vip处理图片"""
-        url = f"{self.base_url}/v1/images/edits"
-        
-        # 准备multipart form数据
-        files = {
-            'image': ('image.png', BytesIO(image_bytes), mime_type)
-        }
-        
+        """使用 gpt-image-2-all 处理图片。"""
+        endpoint = "/v1/chat/completions"
+        image_base64 = self._image_to_base64(
+            image_bytes,
+            "PNG" if mime_type == "image/png" else "JPEG",
+        )
         data = {
-            'model': 'gpt-4o-image-vip',
-            'prompt': prompt,
-            'n': str(n),
-            'size': size,
+            "model": GPT_IMAGE_2_ALL_MODEL,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": f"生成图片尺寸/构图参考：{size}。{prompt}"},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{mime_type};base64,{image_base64}"
+                            },
+                        },
+                    ],
+                }
+            ],
         }
-        
-        headers = {
-            "Authorization": f"Bearer {self.api_key}"
-        }
-        
-        logger.info(f"Processing image with GPT-4o (n={n}): {prompt[:100]}...")
-        
-        max_retries = 3
-        backoff_base = 1.5
-
-        async def _do_request():
-            for attempt in range(1, max_retries + 1):
-                try:
-                    async with httpx.AsyncClient(timeout=300.0) as client:
-                        response = await client.post(
-                            url,
-                            headers=headers,
-                            files=files,
-                            data=data
-                        )
-                        response.raise_for_status()
-                        return response.json()
-                
-                except httpx.HTTPStatusError as exc:
-                    status = exc.response.status_code
-                    body = exc.response.text
-                    if 500 <= status < 600 and attempt < max_retries:
-                        wait_seconds = backoff_base * (2 ** (attempt - 1)) + uniform(0, 0.5)
-                        logger.warning(
-                            "GPT-4o API request failed with %s (attempt %s/%s). Body: %s. Retrying in %.2fs",
-                            status,
-                            attempt,
-                            max_retries,
-                            body,
-                            wait_seconds,
-                        )
-                        await asyncio.sleep(wait_seconds)
-                        continue
-                    
-                    logger.error(f"GPT-4o API request failed: {status} - {body}")
-                    raise AIClientException(
-                        message=f"GPT-4o服务请求失败: {status}",
-                        api_name="GPT4o",
-                        status_code=status,
-                        response_body=body,
-                        request_data=data,
-                    )
-
-                except httpx.RequestError as exc:
-                    if attempt < max_retries:
-                        wait_seconds = backoff_base * (2 ** (attempt - 1)) + uniform(0, 0.5)
-                        logger.warning(
-                            "GPT-4o API request error '%s' (attempt %s/%s). Retrying in %.2fs",
-                            exc,
-                            attempt,
-                            max_retries,
-                            wait_seconds,
-                        )
-                        await asyncio.sleep(wait_seconds)
-                        continue
-
-                    logger.error(f"GPT-4o API request error: {str(exc)}")
-                    raise AIClientException(
-                        message=f"GPT-4o服务连接失败: {str(exc)}",
-                        api_name="GPT4o",
-                        request_data=data,
-                    )
-
-            raise AIClientException(
-                message="GPT-4o服务连接失败: 未知错误",
-                api_name="GPT4o",
-                request_data=data,
-            )
-
-        return await api_limiter.run("gpt4o", _do_request)
+        logger.info(
+            "Processing image with %s (requested_n=%s): %s...",
+            GPT_IMAGE_2_ALL_MODEL,
+            n,
+            prompt[:100],
+        )
+        return await self._make_request("POST", endpoint, data)

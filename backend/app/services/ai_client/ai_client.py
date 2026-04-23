@@ -89,13 +89,13 @@ class AIClient:
         """下载图片（兼容旧接口）"""
         return await self.base_client_utils._download_image_from_url(url)
 
-    # GPT-4o相关方法
+    # 旧图像模型兼容方法，实际由 GPT4oClient 路由到 gpt-image-2-all
     async def generate_image_gpt4o(self, prompt: str, size: str = "1024x1024") -> Dict[str, Any]:
-        """使用GPT-4o生成图片"""
+        """使用 gpt-image-2-all 生成图片"""
         return await self.gpt4o_client.generate_image(prompt, size)
 
     async def process_image_gpt4o(self, image_bytes: bytes, prompt: str, mime_type: str = "image/jpeg", n: int = 1) -> Dict[str, Any]:
-        """使用GPT-4o-image-vip处理图片"""
+        """使用 gpt-image-2-all 处理图片"""
         return await self.gpt4o_client.process_image(image_bytes, prompt, mime_type, n)
 
     # Gemini相关方法
