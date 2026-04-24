@@ -13,7 +13,12 @@ from PIL import Image
 from app.core.config import settings
 from app.services.oss_service import oss_service
 from app.services.api_limiter import api_limiter
-from app.services.ai_client.exceptions import AIClientException
+from app.services.ai_client.exceptions import (
+    AIClientException,
+    BRAND_PATTERN_REJECTED_MESSAGE,
+    MODEL_BLOCKED_MESSAGE,
+    SIMILARITY_REJECTED_MESSAGE,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -211,12 +216,8 @@ class BaseAIClient:
                 choice = api_response["choices"][0] if api_response["choices"] else None
                 if choice and "message" in choice:
                     message = choice["message"]
-                    content = message.get("content", "")
-
-                    # 检查是否包含政策违规错误
-                    if "违反了OpenAI的相关服务政策" in content or "政策" in content:
-                        logger.error("OpenAI policy violation detected: %s", content)
-                        raise Exception("暂时还不支持大牌花型哦")
+                    content = self._extract_chat_text_content(message)
+                    self._raise_for_chat_model_refusal(content, api_response)
 
                     # 首先尝试从markdown格式中提取图像URL
                     import re
@@ -257,6 +258,7 @@ class BaseAIClient:
                             return self._save_base64_image(base64_value)
 
             # Gemini响应格式 (需要根据实际响应调整)
+            self._raise_for_gemini_block(api_response)
             if "candidates" in api_response:
                 candidate = api_response["candidates"][0]
 
@@ -303,8 +305,7 @@ class BaseAIClient:
             raise Exception("无法从AI响应中提取图片")
 
         except Exception as e:
-            # 如果是我们自定义的政策违规错误，直接抛出
-            if str(e) == "暂时还不支持大牌花型哦":
+            if isinstance(e, AIClientException):
                 raise
 
             logger.error(
@@ -323,12 +324,8 @@ class BaseAIClient:
                 choice = api_response["choices"][0] if api_response["choices"] else None
                 if choice and "message" in choice:
                     message = choice["message"]
-                    content = message.get("content", "")
-
-                    # 检查是否包含政策违规错误
-                    if "违反了OpenAI的相关服务政策" in content or "政策" in content:
-                        logger.error("OpenAI policy violation detected: %s", content)
-                        raise Exception("暂时还不支持大牌花型哦")
+                    content = self._extract_chat_text_content(message)
+                    self._raise_for_chat_model_refusal(content, api_response)
 
                     urls = []
 
@@ -390,6 +387,7 @@ class BaseAIClient:
                     return urls
 
             # Gemini响应格式 - 目前只支持单张
+            self._raise_for_gemini_block(api_response)
             if "candidates" in api_response:
                 candidate = api_response["candidates"][0]
 
@@ -419,8 +417,7 @@ class BaseAIClient:
             raise Exception("无法从AI响应中提取图片")
 
         except Exception as e:
-            # 如果是我们自定义的政策违规错误，直接抛出
-            if str(e) == "暂时还不支持大牌花型哦":
+            if isinstance(e, AIClientException):
                 raise
 
             logger.error(
@@ -430,6 +427,70 @@ class BaseAIClient:
                 api_response
             )
             raise Exception(f"处理AI响应失败: {str(e)}")
+
+    def _extract_chat_text_content(self, message: Dict[str, Any]) -> str:
+        content = message.get("content", "")
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            texts: List[str] = []
+            for item in content:
+                if not isinstance(item, dict):
+                    continue
+                text = item.get("text")
+                if isinstance(text, str) and text.strip():
+                    texts.append(text.strip())
+            return "\n".join(texts)
+        if content is None:
+            return ""
+        return str(content)
+
+    def _raise_for_chat_model_refusal(
+        self, content: str, api_response: Dict[str, Any]
+    ) -> None:
+        normalized = (content or "").strip()
+        if not normalized:
+            return
+
+        if "第三方内容相似性" in normalized:
+            logger.error("Model similarity rejection detected: %s", normalized)
+            raise AIClientException(
+                message=SIMILARITY_REJECTED_MESSAGE,
+                api_name=self.api_name,
+                response_body=api_response,
+            )
+
+        if "违反了OpenAI的相关服务政策" in normalized or BRAND_PATTERN_REJECTED_MESSAGE in normalized:
+            logger.error("OpenAI policy violation detected: %s", normalized)
+            raise AIClientException(
+                message=BRAND_PATTERN_REJECTED_MESSAGE,
+                api_name=self.api_name,
+                response_body=api_response,
+            )
+
+    def _raise_for_gemini_block(self, api_response: Dict[str, Any]) -> None:
+        prompt_feedback = api_response.get("promptFeedback")
+        if not isinstance(prompt_feedback, dict):
+            return
+
+        block_reason = prompt_feedback.get("blockReason")
+        if not isinstance(block_reason, str) or not block_reason:
+            return
+
+        message = MODEL_BLOCKED_MESSAGE
+        if block_reason != "OTHER":
+            message = f"{MODEL_BLOCKED_MESSAGE}（{block_reason}）"
+
+        logger.error(
+            "Gemini response blocked before image generation: blockReason=%s response=%s",
+            block_reason,
+            _summarize_payload(api_response),
+        )
+        raise AIClientException(
+            message=message,
+            api_name=self.api_name,
+            response_body=api_response,
+        )
 
     def _process_gemini_response(self, content: Dict[str, Any]) -> str:
         """处理Gemini响应内容"""

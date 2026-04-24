@@ -4,6 +4,31 @@ from typing import Any, Callable, Dict, Optional
 
 import httpx
 
+BRAND_PATTERN_REJECTED_MESSAGE = "暂时还不支持大牌花型哦"
+SIMILARITY_REJECTED_MESSAGE = "当前图片触发模型相似性限制，请调整图片或提示词后重试。"
+MODEL_BLOCKED_MESSAGE = "当前请求触发模型限制，请调整图片或提示词后重试。"
+
+
+def extract_known_model_rejection_message(message: Optional[str]) -> Optional[str]:
+    """Map raw provider rejection text to a stable user-facing message."""
+    if not message:
+        return None
+
+    if BRAND_PATTERN_REJECTED_MESSAGE in message:
+        return BRAND_PATTERN_REJECTED_MESSAGE
+
+    if SIMILARITY_REJECTED_MESSAGE in message or "第三方内容相似性" in message:
+        return SIMILARITY_REJECTED_MESSAGE
+
+    if MODEL_BLOCKED_MESSAGE in message:
+        return MODEL_BLOCKED_MESSAGE
+
+    return None
+
+
+def is_known_model_rejection_message(message: Optional[str]) -> bool:
+    return extract_known_model_rejection_message(message) is not None
+
 
 class AIClientException(Exception):
     """AI客户端异常基类，包含API响应详情"""

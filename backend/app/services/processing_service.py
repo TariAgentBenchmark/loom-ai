@@ -216,6 +216,8 @@ class ProcessingService:
         elif task_type == TaskType.EXTRACT_PATTERN.value:
             if pattern_type in {"general_1", "positioning"}:
                 provider = "runninghub"
+            elif pattern_type in {"fine", "denim"}:
+                provider = "apyi_openai"
             elif pattern_type == "combined":
                 try:
                     route = AIModelRouteService.resolve_snapshot_from_options(
@@ -238,6 +240,8 @@ class ProcessingService:
         downstream: Dict[str, Any] = {"provider": provider}
         if engine:
             downstream["engine"] = engine
+        if task_type == TaskType.EXTRACT_PATTERN.value and pattern_type in {"fine", "denim"}:
+            downstream["model"] = "gpt-image-2-all"
         if pattern_type:
             downstream["patternType"] = pattern_type
         if embroidery_mode:

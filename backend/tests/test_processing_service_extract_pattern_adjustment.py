@@ -92,3 +92,19 @@ def test_non_combined_extract_pattern_does_not_skip_result_materialization_failu
     task = _build_task(pattern_type="general_1", num_images=4, credits_used="1.0")
 
     assert service._can_skip_result_materialization_failure(task, 3) is False
+
+
+def test_denim_extract_pattern_describes_apyi_openai_downstream():
+    service = ProcessingService()
+
+    downstream = service._describe_downstream(
+        TaskType.EXTRACT_PATTERN.value,
+        {"pattern_type": "denim", "num_images": 2},
+    )
+
+    assert downstream == {
+        "provider": "apyi_openai",
+        "model": "gpt-image-2-all",
+        "patternType": "denim",
+        "numImages": 2,
+    }
