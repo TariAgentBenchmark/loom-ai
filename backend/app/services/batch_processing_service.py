@@ -50,6 +50,12 @@ class BatchProcessingService:
         base_image: Optional[Tuple[bytes, str]] = None,  # (bytes, filename)
     ) -> BatchTask:
         """创建批量处理任务"""
+        options = self.processing_service.with_ai_model_route_snapshot(
+            db,
+            task_type,
+            options or {},
+            overwrite=True,
+        )
         
         if not images_data:
             raise Exception("请至少上传一张图片")

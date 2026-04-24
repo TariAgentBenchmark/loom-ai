@@ -602,6 +602,36 @@ export interface AdminReferralRewardSettingsUpdatePayload {
   agentInvitationReward: number;
 }
 
+export interface AIModelProviderOption {
+  provider: string;
+  label: string;
+  client: string;
+  models: string[];
+  defaultModel: string;
+  description?: string | null;
+}
+
+export interface AIModelRoute {
+  routeKey: string;
+  label: string;
+  description?: string | null;
+  provider: string;
+  model: string;
+  providers: AIModelProviderOption[];
+}
+
+export interface AIModelRoutesSettings {
+  routes: AIModelRoute[];
+}
+
+export interface AdminAIModelRoutesUpdatePayload {
+  routes: Array<{
+    routeKey: string;
+    provider: string;
+    model?: string | null;
+  }>;
+}
+
 export interface ProcessingTaskData {
   taskId: string;
   status: string;
@@ -1896,6 +1926,19 @@ export const adminUpdateReferralRewardSettings = (
 ) =>
   putJson<ReferralRewardSettings, AdminReferralRewardSettingsUpdatePayload>(
     "/admin/referral-rewards",
+    payload,
+    accessToken,
+  );
+
+export const adminGetAIModelRoutes = (accessToken: string) =>
+  getJson<AIModelRoutesSettings>("/admin/ai-model-routes", accessToken);
+
+export const adminUpdateAIModelRoutes = (
+  payload: AdminAIModelRoutesUpdatePayload,
+  accessToken: string,
+) =>
+  putJson<AIModelRoutesSettings, AdminAIModelRoutesUpdatePayload>(
+    "/admin/ai-model-routes",
     payload,
     accessToken,
   );

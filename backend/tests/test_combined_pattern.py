@@ -18,6 +18,10 @@ def _build_client() -> AIClient:
             _extract_image_url=lambda _result: None,
         ),
     )
+    client.apyi_gemini_client = SimpleNamespace(
+        generate_image_preview=None,
+        _extract_image_url=lambda _result: None,
+    )
     client.tuzi_gemini_client = SimpleNamespace(
         generate_image_preview=None,
         _extract_image_url=lambda _result: None,
@@ -39,7 +43,7 @@ async def test_extract_pattern_combined_returns_early_when_enough_results(monkey
             return "https://example.com/detail.png"
         raise AssertionError(f"unexpected pattern type: {pattern_type}")
 
-    async def fake_tuzi_generate_image_preview(*_args, **_kwargs):
+    async def fake_apyi_generate_image_preview(*_args, **_kwargs):
         await asyncio.sleep(0.01)
         return {"candidates": [{"content": {"parts": [{"text": "https://example.com/general.png"}]}}]}
 
@@ -61,12 +65,12 @@ async def test_extract_pattern_combined_returns_early_when_enough_results(monkey
     monkeypatch.setattr(settings, "extract_pattern_combined_early_return_success_count", 2)
     monkeypatch.setattr(client.image_utils, "extract_pattern", fake_extract_pattern)
     monkeypatch.setattr(
-        client.tuzi_gemini_client,
+        client.apyi_gemini_client,
         "generate_image_preview",
-        fake_tuzi_generate_image_preview,
+        fake_apyi_generate_image_preview,
     )
     monkeypatch.setattr(
-        client.tuzi_gemini_client,
+        client.apyi_gemini_client,
         "_extract_image_url",
         lambda _result: "https://example.com/general.png",
     )
@@ -98,7 +102,7 @@ async def test_extract_pattern_combined_allows_timeouts_when_other_branches_succ
             return "https://example.com/detail.png"
         raise AssertionError(f"unexpected pattern type: {pattern_type}")
 
-    async def fake_tuzi_generate_image_preview(*_args, **_kwargs):
+    async def fake_apyi_generate_image_preview(*_args, **_kwargs):
         return {"candidates": [{"content": {"parts": [{"text": "https://example.com/general.png"}]}}]}
 
     async def fast_edit_image(**_kwargs):
@@ -112,12 +116,12 @@ async def test_extract_pattern_combined_allows_timeouts_when_other_branches_succ
     monkeypatch.setattr(settings, "extract_pattern_combined_early_return_success_count", 4)
     monkeypatch.setattr(client.image_utils, "extract_pattern", fake_extract_pattern)
     monkeypatch.setattr(
-        client.tuzi_gemini_client,
+        client.apyi_gemini_client,
         "generate_image_preview",
-        fake_tuzi_generate_image_preview,
+        fake_apyi_generate_image_preview,
     )
     monkeypatch.setattr(
-        client.tuzi_gemini_client,
+        client.apyi_gemini_client,
         "_extract_image_url",
         lambda _result: "https://example.com/general.png",
     )
@@ -145,7 +149,7 @@ async def test_extract_pattern_combined_allows_timeouts_when_other_branches_succ
 
 
 @pytest.mark.asyncio
-async def test_extract_pattern_combined_routes_general_2_to_tuzi(monkeypatch):
+async def test_extract_pattern_combined_routes_general_2_to_apyi_by_default(monkeypatch):
     client = _build_client()
     captured = {}
 
@@ -154,7 +158,7 @@ async def test_extract_pattern_combined_routes_general_2_to_tuzi(monkeypatch):
             return "https://example.com/detail.png"
         raise AssertionError(f"unexpected pattern type: {options['pattern_type']}")
 
-    async def fake_tuzi_generate_image_preview(image_bytes, prompt, mime_type, **kwargs):
+    async def fake_apyi_generate_image_preview(image_bytes, prompt, mime_type, **kwargs):
         captured["image_bytes"] = image_bytes
         captured["prompt"] = prompt
         captured["mime_type"] = mime_type
@@ -171,12 +175,12 @@ async def test_extract_pattern_combined_routes_general_2_to_tuzi(monkeypatch):
     monkeypatch.setattr(settings, "extract_pattern_combined_early_return_success_count", 2)
     monkeypatch.setattr(client.image_utils, "extract_pattern", fake_extract_pattern)
     monkeypatch.setattr(
-        client.tuzi_gemini_client,
+        client.apyi_gemini_client,
         "generate_image_preview",
-        fake_tuzi_generate_image_preview,
+        fake_apyi_generate_image_preview,
     )
     monkeypatch.setattr(
-        client.tuzi_gemini_client,
+        client.apyi_gemini_client,
         "_extract_image_url",
         lambda _result: "https://example.com/general.png",
     )
@@ -205,6 +209,82 @@ async def test_extract_pattern_combined_routes_general_2_to_tuzi(monkeypatch):
         "resolution": "4K",
         "model_name": "gemini-3-pro-image-preview-4k",
     }
+
+
+@pytest.mark.asyncio
+async def test_extract_pattern_combined_routes_general_2_to_tuzi_from_snapshot(monkeypatch):
+    client = _build_client()
+    called = {"apyi": False, "tuzi": False}
+
+    async def fake_extract_pattern(_image_bytes, options):
+        if options["pattern_type"] == "combined_detail":
+            return "https://example.com/detail.png"
+        raise AssertionError(f"unexpected pattern type: {options['pattern_type']}")
+
+    async def fake_apyi_generate_image_preview(*_args, **_kwargs):
+        called["apyi"] = True
+        return {"ok": True}
+
+    async def fake_tuzi_generate_image_preview(*_args, **_kwargs):
+        called["tuzi"] = True
+        return {"ok": True}
+
+    async def slow_edit_image(**_kwargs):
+        await asyncio.sleep(10)
+
+    async def slow_runninghub(**_kwargs):
+        await asyncio.sleep(10)
+
+    monkeypatch.setattr(settings, "extract_pattern_combined_branch_timeout_seconds", 0.02)
+    monkeypatch.setattr(settings, "extract_pattern_combined_early_return_success_count", 2)
+    monkeypatch.setattr(client.image_utils, "extract_pattern", fake_extract_pattern)
+    monkeypatch.setattr(
+        client.apyi_gemini_client,
+        "generate_image_preview",
+        fake_apyi_generate_image_preview,
+    )
+    monkeypatch.setattr(
+        client.apyi_gemini_client,
+        "_extract_image_url",
+        lambda _result: "https://example.com/apyi.png",
+    )
+    monkeypatch.setattr(
+        client.tuzi_gemini_client,
+        "generate_image_preview",
+        fake_tuzi_generate_image_preview,
+    )
+    monkeypatch.setattr(
+        client.tuzi_gemini_client,
+        "_extract_image_url",
+        lambda _result: "https://example.com/tuzi.png",
+    )
+    monkeypatch.setattr(
+        client.runninghub_client,
+        "run_workflow_with_custom_nodes",
+        slow_runninghub,
+    )
+    monkeypatch.setattr(client.ai302_grok_client, "edit_image", slow_edit_image)
+    monkeypatch.setattr(client.ai302_grok_client, "extract_image_url", lambda _result: None)
+
+    result = await client._extract_pattern_combined(
+        b"fake-image",
+        {
+            "original_image_url": "https://example.com/source.png",
+            "aspect_ratio": "1:1",
+            "ai_model_routes": {
+                "extract_pattern.combined.general_2": {
+                    "provider": "tuzi",
+                    "model": "gemini-3-pro-image-preview-4k",
+                }
+            },
+        },
+    )
+
+    assert set(result.split(",")) == {
+        "https://example.com/tuzi.png",
+        "https://example.com/detail.png",
+    }
+    assert called == {"apyi": False, "tuzi": True}
 
 
 @pytest.mark.asyncio

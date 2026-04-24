@@ -51,6 +51,10 @@ from app.schemas.common import SuccessResponse, PaginationMeta, FileInfo
 from app.utils.result_filter import filter_result_strings
 from app.services.auth_service import AuthService
 from app.services.api_limiter import api_limiter
+from app.services.ai_model_route_service import (
+    AIModelRouteConfigError,
+    AIModelRouteService,
+)
 from app.services.credit_math import to_decimal, to_float
 from app.services.credit_service import CreditService
 from app.services.membership_service import MembershipService
@@ -279,6 +283,38 @@ class AdminReferralRewardSettingsUpdateRequest(BaseModel):
     userReferralInviterReward: CreditBalance = Field(..., description="好友邀请人奖励")
     userReferralInviteeReward: CreditBalance = Field(..., description="好友被邀请人奖励")
     agentInvitationReward: CreditBalance = Field(..., description="代理邀请人奖励")
+
+
+class AdminAIModelProviderOption(BaseModel):
+    provider: str
+    label: str
+    client: str
+    models: List[str]
+    defaultModel: str
+    description: Optional[str] = None
+
+
+class AdminAIModelRouteResponse(BaseModel):
+    routeKey: str
+    label: str
+    description: Optional[str] = None
+    provider: str
+    model: str
+    providers: List[AdminAIModelProviderOption]
+
+
+class AdminAIModelRoutesResponse(BaseModel):
+    routes: List[AdminAIModelRouteResponse]
+
+
+class AdminAIModelRouteUpdateItem(BaseModel):
+    routeKey: str = Field(..., description="模型路由key")
+    provider: str = Field(..., description="服务商")
+    model: Optional[str] = Field(None, description="模型名")
+
+
+class AdminAIModelRoutesUpdateRequest(BaseModel):
+    routes: List[AdminAIModelRouteUpdateItem]
 
 
 # Order Management Models
@@ -1768,6 +1804,66 @@ async def update_referral_reward_settings_admin(
             details=settings_data,
         )
         return SuccessResponse(data=settings_data, message="邀请奖励配置更新成功")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/ai-model-routes", dependencies=[Depends(admin_route())])
+async def get_ai_model_routes_admin(
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin),
+):
+    """获取 AI 模型路由配置（管理员专用）"""
+    try:
+        route_service = AIModelRouteService()
+        routes_data = route_service.get_admin_routes(db)
+        await log_admin_action(
+            db=db,
+            admin=current_admin,
+            action="view_ai_model_routes",
+            target_type="system_setting",
+            target_id="ai_model_routes",
+            details=routes_data,
+        )
+        return SuccessResponse(
+            data=AdminAIModelRoutesResponse(**routes_data).dict(),
+            message="获取AI模型路由配置成功",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/ai-model-routes", dependencies=[Depends(admin_route())])
+async def update_ai_model_routes_admin(
+    update_request: AdminAIModelRoutesUpdateRequest,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin),
+):
+    """更新 AI 模型路由配置（管理员专用）"""
+    try:
+        route_service = AIModelRouteService()
+        routes_data = route_service.update_routes(
+            db,
+            [item.dict() for item in update_request.routes],
+        )
+        await log_admin_action(
+            db=db,
+            admin=current_admin,
+            action="update_ai_model_routes",
+            target_type="system_setting",
+            target_id="ai_model_routes",
+            details=routes_data,
+        )
+        return SuccessResponse(
+            data=AdminAIModelRoutesResponse(**routes_data).dict(),
+            message="AI模型路由配置更新成功",
+        )
+    except AIModelRouteConfigError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     except HTTPException:
         raise
     except Exception as e:

@@ -9,6 +9,11 @@ from sqlalchemy.orm import Session
 from app.models.task import Task, TaskStatus, TaskType
 from app.models.user import User
 from app.services.ai_client import ai_client
+from app.services.ai_model_route_service import (
+    AI_MODEL_ROUTES_OPTION_KEY,
+    EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY,
+    AIModelRouteService,
+)
 from app.services.credit_math import to_decimal, to_float
 from app.services.credit_service import CreditService
 from app.services.file_service import FileService
@@ -28,6 +33,7 @@ class ProcessingService:
         self.file_service = FileService()
         self.membership_service = MembershipService()
         self.task_log_service = TaskLogService()
+        self.ai_model_route_service = AIModelRouteService()
 
         self.service_key_map = {
             TaskType.PROMPT_EDIT.value: "prompt_edit",
@@ -197,6 +203,7 @@ class ProcessingService:
         pattern_type = str(options.get("pattern_type") or "").lower()
         engine = str(options.get("engine") or "").lower()
         embroidery_mode = str(options.get("embroidery_mode") or "").lower()
+        route_snapshots = options.get(AI_MODEL_ROUTES_OPTION_KEY)
 
         provider = "apyi_gemini"
         if task_type in {
@@ -210,7 +217,14 @@ class ProcessingService:
             if pattern_type in {"general_1", "positioning"}:
                 provider = "runninghub"
             elif pattern_type == "combined":
-                provider = "runninghub+gemini+ai302_grok"
+                try:
+                    route = AIModelRouteService.resolve_snapshot_from_options(
+                        options,
+                        EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY,
+                    )
+                    provider = f"runninghub+{route['provider']}_gemini+ai302_grok"
+                except Exception:
+                    provider = "runninghub+gemini+ai302_grok"
         elif task_type == TaskType.VECTORIZE.value:
             provider = "a8_vectorizer+webapi"
         elif task_type == TaskType.EMBROIDERY.value and embroidery_mode == "embroidery":
@@ -230,7 +244,24 @@ class ProcessingService:
             downstream["embroideryMode"] = embroidery_mode
         if options.get("num_images") is not None:
             downstream["numImages"] = options.get("num_images")
+        if isinstance(route_snapshots, dict) and route_snapshots:
+            downstream["aiModelRoutes"] = route_snapshots
         return downstream
+
+    def with_ai_model_route_snapshot(
+        self,
+        db: Session,
+        task_type: str,
+        options: Optional[Dict[str, Any]],
+        *,
+        overwrite: bool = False,
+    ) -> Dict[str, Any]:
+        return self.ai_model_route_service.apply_route_snapshot(
+            db,
+            task_type,
+            options,
+            overwrite=overwrite,
+        )
 
     def _log_task_event(
         self,
@@ -302,6 +333,13 @@ class ProcessingService:
             except Exception as exc:
                 logger.warning("获取第二张图片信息失败: %s", exc)
             options["secondary_image_url"] = secondary_url
+
+        options = self.with_ai_model_route_snapshot(
+            db,
+            task_type,
+            options,
+            overwrite=True,
+        )
 
         # 计算所需积分
         service_key = self._resolve_service_key(task_type)
@@ -450,6 +488,15 @@ class ProcessingService:
             # 根据任务类型调用相应的AI处理方法
             start_time = datetime.utcnow()
             task_options = dict(task.options or {})
+            task_options = self.with_ai_model_route_snapshot(
+                db,
+                task.type,
+                task_options,
+                overwrite=False,
+            )
+            if task_options != (task.options or {}):
+                task.options = task_options
+                db.commit()
             if task.original_filename:
                 task_options.setdefault("original_filename", task.original_filename)
             if task.original_image_url:

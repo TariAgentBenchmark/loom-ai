@@ -8,6 +8,7 @@ from app.core.config import settings
 from app.services.ai_client.base_client import BaseAIClient
 from app.services.ai_client.gemini_client import GeminiClient
 from app.services.ai_client.apyi_gemini_client import ApyiGeminiClient
+from app.services.ai_client.tuzi_gemini_client import TuziGeminiClient
 from app.services.ai_client.apyi_openai_client import ApyiOpenAIClient
 from app.services.ai_client.ai302_grok_client import AI302GrokClient
 from app.services.ai_client.gpt4o_client import GPT4oClient
@@ -20,6 +21,10 @@ from app.services.ai_client.vectorizer_client import VectorizerClient
 from app.services.ai_client.vector_webapi_client import VectorWebAPIClient
 from app.services.ai_client.a8_vectorizer_client import A8VectorizerClient
 from app.services.ai_client.runninghub_client import RunningHubClient
+from app.services.ai_model_route_service import (
+    EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY,
+    AIModelRouteService,
+)
 from app.services.file_service import FileService
 
 logger = logging.getLogger(__name__)
@@ -37,7 +42,6 @@ _PATTERN_TYPE_ALIASES = {
 }
 
 _COMBINED_VARIANTS = ("general_2", "combined_detail")
-_COMBINED_PREVIEW_MODEL = "gemini-3-pro-image-preview-4k"
 _EMBROIDERY_MODE_ALIASES = {
     "yarn": "yarn",
     "wool": "yarn",
@@ -55,6 +59,7 @@ class AIClient:
         self.gpt4o_client = GPT4oClient()
         self.gemini_client = GeminiClient()
         self.apyi_gemini_client = ApyiGeminiClient()
+        self.tuzi_gemini_client = TuziGeminiClient()
         self.apyi_openai_client = ApyiOpenAIClient()
         self.ai302_grok_client = AI302GrokClient()
         self.jimeng_client = JimengClient()
@@ -365,15 +370,32 @@ class AIClient:
                 merged_options["pattern_type"] = pt
                 if pt == "general_2":
                     prompt = self.image_utils._build_pattern_prompt(pt)
-                    result = await self.apyi_gemini_client.generate_image_preview(
+                    route = AIModelRouteService.resolve_snapshot_from_options(
+                        merged_options,
+                        EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY,
+                    )
+                    provider = route["provider"]
+                    if provider == "apyi":
+                        gemini_client = self.apyi_gemini_client
+                    elif provider == "tuzi":
+                        gemini_client = self.tuzi_gemini_client
+                    else:
+                        raise ValueError(f"Unsupported Gemini provider: {provider}")
+
+                    logger.info(
+                        "Combined general_2 route provider=%s model=%s",
+                        provider,
+                        route["model"],
+                    )
+                    result = await gemini_client.generate_image_preview(
                         image_bytes,
                         prompt,
                         "image/png",
                         aspect_ratio=merged_options.get("aspect_ratio"),
                         resolution="4K",
-                        model_name=_COMBINED_PREVIEW_MODEL,
+                        model_name=route["model"],
                     )
-                    url = self.apyi_gemini_client._extract_image_url(result)
+                    url = gemini_client._extract_image_url(result)
                     return url.strip() if isinstance(url, str) and url.strip() else None
                 result = await self.image_utils.extract_pattern(image_bytes, merged_options)
                 if not result:
