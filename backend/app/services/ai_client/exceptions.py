@@ -72,6 +72,34 @@ class AIClientException(Exception):
 
         return "\n\n".join(parts)
 
+    def to_debug_payload(self, truncate_large_fields: bool = True) -> Dict[str, Any]:
+        """Return structured error details for admin logs and APIs."""
+        payload: Dict[str, Any] = {
+            "message": self.message,
+        }
+
+        if self.api_name:
+            payload["apiName"] = self.api_name
+
+        if self.status_code:
+            payload["statusCode"] = self.status_code
+
+        if self.response_body is not None:
+            payload["responseBody"] = (
+                self._truncate_large_fields(self.response_body)
+                if truncate_large_fields
+                else self.response_body
+            )
+
+        if self.request_data:
+            payload["requestData"] = (
+                self._truncate_large_fields(self.request_data)
+                if truncate_large_fields
+                else self.request_data
+            )
+
+        return payload
+
     def _format_response(self, data: Any, truncate: bool = True) -> str:
         """格式化响应数据，处理大字段"""
         try:

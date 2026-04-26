@@ -1383,6 +1383,7 @@ export interface AdminTaskDetail extends AdminUserTask {
   startedAt?: string | null;
   batchId?: number | null;
   logCount?: number;
+  downstreamError?: Record<string, any> | null;
 }
 
 export interface AdminCreditTransactionsResponse {

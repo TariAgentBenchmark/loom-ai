@@ -21,6 +21,7 @@ from app.services.ai_client.vectorizer_client import VectorizerClient
 from app.services.ai_client.vector_webapi_client import VectorWebAPIClient
 from app.services.ai_client.a8_vectorizer_client import A8VectorizerClient
 from app.services.ai_client.runninghub_client import RunningHubClient
+from app.services.ai_client.exceptions import AIClientException
 from app.services.ai_model_route_service import (
     EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY,
     AIModelRouteService,
@@ -339,6 +340,29 @@ class AIClient:
     def _split_urls(raw_result: str) -> List[str]:
         return [url.strip() for url in raw_result.split(",") if url and url.strip()]
 
+    @staticmethod
+    def _serialize_downstream_error(
+        exc: Exception,
+        *,
+        label: str,
+        attempt: Optional[int] = None,
+        extra: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        if isinstance(exc, AIClientException):
+            payload = exc.to_debug_payload(truncate_large_fields=True)
+        else:
+            payload = {
+                "message": str(exc),
+                "exceptionType": exc.__class__.__name__,
+            }
+
+        payload["label"] = label
+        if attempt is not None:
+            payload["attempt"] = attempt
+        if extra:
+            payload.update(extra)
+        return payload
+
     async def _extract_pattern_combined(
         self,
         image_bytes: bytes,
@@ -363,6 +387,7 @@ class AIClient:
             "刀锋锐利： 8K+分辨率，边缘锐利，无模糊，保留手绘/数码原稿的细腻笔触。\n\n"
             "排除列表 (加强版)： 排除：图案拥挤，花型被切断，边缘残缺，腰部假性密集，裤子/裙子轮廓，缝隙，阴影，模糊"
         )
+        branch_errors: List[Dict[str, Any]] = []
 
         async def _run_variant(pt: str) -> Optional[str]:
             try:
@@ -402,6 +427,9 @@ class AIClient:
                     return None
                 return result.split(",")[0].strip()
             except Exception as exc:
+                branch_errors.append(
+                    self._serialize_downstream_error(exc, label=pt)
+                )
                 logger.warning("Combined pattern variant %s failed: %s", pt, str(exc))
                 return None
 
@@ -418,6 +446,13 @@ class AIClient:
                     return None
                 return result_urls[0].strip()
             except Exception as exc:
+                branch_errors.append(
+                    self._serialize_downstream_error(
+                        exc,
+                        label="runninghub_combined",
+                        extra={"workflowId": workflow_id},
+                    )
+                )
                 logger.warning(
                     "Combined pattern RunningHub workflow %s failed: %s",
                     workflow_id,
@@ -438,6 +473,9 @@ class AIClient:
                 )
                 return self.ai302_grok_client.extract_image_url(result)
             except Exception as exc:
+                branch_errors.append(
+                    self._serialize_downstream_error(exc, label="grok302")
+                )
                 logger.warning("Combined pattern 302.AI Grok failed: %s", str(exc))
                 return None
 
@@ -449,6 +487,13 @@ class AIClient:
             try:
                 return await asyncio.wait_for(coroutine, timeout=timeout_seconds)
             except asyncio.TimeoutError:
+                branch_errors.append(
+                    {
+                        "label": label,
+                        "exceptionType": "TimeoutError",
+                        "message": f"Branch timed out after {timeout_seconds}s",
+                    }
+                )
                 logger.warning(
                     "Combined pattern branch %s timed out after %ss",
                     label,
@@ -539,7 +584,22 @@ class AIClient:
                 await asyncio.gather(*pending_tasks.keys(), return_exceptions=True)
 
         if not variant_urls:
-            raise Exception("AI提取花型失败：综合模型未获得结果")
+            raise AIClientException(
+                message="AI提取花型失败：综合模型未获得结果",
+                api_name="extract_pattern_combined",
+                response_body={
+                    "summary": {
+                        "patternType": "combined",
+                        "successfulResults": 0,
+                        "targetSuccessCount": target_success_count,
+                    },
+                    "branchErrors": branch_errors,
+                },
+                request_data={
+                    "patternType": "combined",
+                    "options": dict(options or {}),
+                },
+            )
 
         logger.info("Combined pattern produced %s urls", len(variant_urls))
         return ",".join(variant_urls[:4])
@@ -550,6 +610,7 @@ class AIClient:
         options: Dict[str, Any],
     ) -> str:
         ordered_results: List[str] = []
+        workflow_errors: List[Dict[str, Any]] = []
 
         # 获取图片数量参数，默认为4张
         num_images = options.get("num_images", 4)
@@ -658,6 +719,15 @@ class AIClient:
                             )
                         return cleaned_results
 
+                    workflow_errors.append(
+                        {
+                            "label": label,
+                            "attempt": attempt,
+                            "workflowId": workflow_id,
+                            "nodeIds": node_ids,
+                            "message": "RunningHub workflow returned no URLs",
+                        }
+                    )
                     logger.warning(
                         "RunningHub workflow %s attempt %s/%s returned no urls",
                         label,
@@ -671,6 +741,17 @@ class AIClient:
                         attempt,
                         workflow_attempts,
                         str(exc),
+                    )
+                    workflow_errors.append(
+                        self._serialize_downstream_error(
+                            exc,
+                            label=label,
+                            attempt=attempt,
+                            extra={
+                                "workflowId": workflow_id,
+                                "nodeIds": node_ids,
+                            },
+                        )
                     )
 
             logger.warning(
@@ -728,11 +809,44 @@ class AIClient:
                 await asyncio.gather(*pending_tasks, return_exceptions=True)
 
         if not ordered_results:
-            raise Exception("AI提取花型失败：通用1未获得结果")
+            raise AIClientException(
+                message="AI提取花型失败：通用1未获得结果",
+                api_name="RunningHub",
+                response_body={
+                    "summary": {
+                        "patternType": "general_1",
+                        "successfulResults": 0,
+                        "expectedResults": max_general1_results,
+                        "numImages": num_images,
+                    },
+                    "workflowErrors": workflow_errors,
+                },
+                request_data={
+                    "patternType": "general_1",
+                    "numImages": num_images,
+                    "options": dict(options or {}),
+                },
+            )
 
         if len(ordered_results) < max_general1_results:
-            raise Exception(
-                f"AI提取花型失败：通用1仅获得{len(ordered_results)}/{max_general1_results}张结果"
+            raise AIClientException(
+                message=f"AI提取花型失败：通用1仅获得{len(ordered_results)}/{max_general1_results}张结果",
+                api_name="RunningHub",
+                response_body={
+                    "summary": {
+                        "patternType": "general_1",
+                        "successfulResults": len(ordered_results),
+                        "expectedResults": max_general1_results,
+                        "numImages": num_images,
+                        "resultUrls": ordered_results,
+                    },
+                    "workflowErrors": workflow_errors,
+                },
+                request_data={
+                    "patternType": "general_1",
+                    "numImages": num_images,
+                    "options": dict(options or {}),
+                },
             )
 
         logger.info(

@@ -2,6 +2,7 @@ import uuid
 import random
 import secrets
 import string
+import json
 from decimal import Decimal, ROUND_HALF_UP
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
@@ -211,6 +212,7 @@ class AdminTaskDetailResponse(AdminUserTaskResponse):
     startedAt: Optional[str] = None
     batchId: Optional[int] = None
     logCount: int = 0
+    downstreamError: Optional[Dict[str, Any]] = None
 
 
 class CreditAdjustmentRequest(BaseModel):
@@ -725,6 +727,82 @@ def _format_task_log(log: TaskLog) -> AdminTaskLogResponse:
         details=log.details,
         createdAt=_isoformat(log.created_at),
     )
+
+
+def _parse_embedded_json(value: str) -> Any:
+    text = (value or "").strip()
+    if not text:
+        return None
+    if not text.startswith(("{", "[")):
+        return text
+    try:
+        return json.loads(text)
+    except Exception:
+        return text
+
+
+def _extract_downstream_error_from_error_message(
+    error_message: Optional[str],
+) -> Optional[Dict[str, Any]]:
+    if not error_message or "[下游API错误]" not in error_message:
+        return None
+
+    body = error_message.split("\n\n调用栈:", 1)[0]
+    body = body.replace("[下游API错误]", "", 1).strip()
+    if not body:
+        return None
+
+    sections = [
+        ("错误信息:", "message"),
+        ("API服务:", "apiName"),
+        ("HTTP状态码:", "statusCode"),
+        ("API响应内容:", "responseBody"),
+        ("请求参数:", "requestData"),
+    ]
+
+    parsed: Dict[str, Any] = {}
+    found_section = False
+    for index, (marker, key) in enumerate(sections):
+        start = body.find(marker)
+        if start == -1:
+            continue
+        found_section = True
+        value_start = start + len(marker)
+        value_end = len(body)
+        for next_marker, _ in sections[index + 1 :]:
+            next_pos = body.find(next_marker, value_start)
+            if next_pos != -1 and next_pos < value_end:
+                value_end = next_pos
+        raw_value = body[value_start:value_end].strip()
+        if not raw_value:
+            continue
+        if key == "statusCode":
+            parsed[key] = int(raw_value) if raw_value.isdigit() else raw_value
+        elif key in {"responseBody", "requestData"}:
+            parsed[key] = _parse_embedded_json(raw_value)
+        else:
+            parsed[key] = raw_value
+
+    if found_section:
+        return parsed or None
+
+    return {"message": body}
+
+
+def _get_task_downstream_error(db: Session, task: Task) -> Optional[Dict[str, Any]]:
+    if _task_logs_available(db):
+        latest_failure_log = (
+            db.query(TaskLog)
+            .filter(TaskLog.task_id == task.id, TaskLog.event == "task_failed")
+            .order_by(TaskLog.created_at.desc(), TaskLog.id.desc())
+            .first()
+        )
+        if latest_failure_log and isinstance(latest_failure_log.details, dict):
+            downstream_error = latest_failure_log.details.get("downstreamError")
+            if isinstance(downstream_error, dict):
+                return downstream_error
+
+    return _extract_downstream_error_from_error_message(task.error_message)
 
 
 async def _format_admin_task(
@@ -4339,6 +4417,7 @@ async def get_task_detail_admin(
                 "startedAt": _isoformat(task.started_at),
                 "batchId": task.batch_id,
                 "logCount": int(log_count),
+                "downstreamError": _get_task_downstream_error(db, task),
             }
         )
 

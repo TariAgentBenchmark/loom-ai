@@ -919,17 +919,23 @@ class ProcessingService:
                 task.mark_as_failed(admin_error_msg, error_code)
                 task.credits_used = to_decimal(0)
 
+                error_log_details = {
+                    "errorCode": error_code,
+                    "errorMessage": error_msg,
+                    "traceback": error_traceback,
+                }
+                if isinstance(e, AIClientException):
+                    error_log_details["downstreamError"] = e.to_debug_payload(
+                        truncate_large_fields=True
+                    )
+
                 self._log_task_event(
                     db,
                     task,
                     event="task_failed",
                     message="Task failed during processing",
                     level="error",
-                    details={
-                        "errorCode": error_code,
-                        "errorMessage": error_msg,
-                        "traceback": error_traceback,
-                    },
+                    details=error_log_details,
                 )
                 db.commit()
                 logger.error(f"Task {task_id} failed with {error_code}: {error_msg}\n{error_traceback}")

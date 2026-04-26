@@ -34,7 +34,10 @@ export default function AdminTaskBrowserPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedTaskPreview, setSelectedTaskPreview] = useState<HistoryTask | null>(null);
-  const [errorDetailTask, setErrorDetailTask] = useState<TaskRow | null>(null);
+  const [errorDetailTask, setErrorDetailTask] = useState<AdminTaskDetail | null>(null);
+  const [errorDetailLoading, setErrorDetailLoading] = useState(false);
+  const [errorDetailLogs, setErrorDetailLogs] = useState<AdminTaskLog[]>([]);
+  const [errorDetailLogsError, setErrorDetailLogsError] = useState<string | null>(null);
   const [taskDetail, setTaskDetail] = useState<AdminTaskDetail | null>(null);
   const [taskLogs, setTaskLogs] = useState<AdminTaskLog[]>([]);
   const [taskDetailOpen, setTaskDetailOpen] = useState(false);
@@ -324,6 +327,33 @@ export default function AdminTaskBrowserPage() {
     setTaskLogsError(null);
   };
 
+  const closeErrorDetail = () => {
+    setErrorDetailTask(null);
+    setErrorDetailLogs([]);
+    setErrorDetailLogsError(null);
+    setErrorDetailLoading(false);
+  };
+
+  const findLatestDownstreamError = (logs: AdminTaskLog[]): Record<string, any> | null => {
+    for (let index = logs.length - 1; index >= 0; index -= 1) {
+      const details = logs[index]?.details;
+      if (details && typeof details === "object" && details.downstreamError) {
+        return details.downstreamError as Record<string, any>;
+      }
+    }
+    return null;
+  };
+
+  const formatJsonBlock = (value: unknown) => {
+    if (value === null || value === undefined) return "";
+    if (typeof value === "string") return value;
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch {
+      return String(value);
+    }
+  };
+
   const openImagePreview = () => {
     if (!taskDetail) return;
     const historyTask = convertToHistoryTask(taskDetail);
@@ -386,6 +416,46 @@ export default function AdminTaskBrowserPage() {
     } finally {
       setTaskDetailLoading(false);
       setTaskLogsLoading(false);
+    }
+  };
+
+  const openErrorDetail = async (task: TaskRow) => {
+    if (!accessToken) return;
+
+    setErrorDetailLoading(true);
+    setErrorDetailLogs([]);
+    setErrorDetailLogsError(null);
+    setErrorDetailTask({
+      ...task,
+      options: null,
+      metadata: null,
+      processingTime: null,
+      startedAt: null,
+      batchId: null,
+      logCount: 0,
+      downstreamError: null,
+    });
+
+    try {
+      const [detailResp, logsResp] = await Promise.all([
+        adminGetTaskDetail(task.taskId, accessToken, { includeImages: false }),
+        adminGetTaskLogs(task.taskId, accessToken, { limit: 200, level: "error" }),
+      ]);
+
+      if (detailResp.success && detailResp.data) {
+        setErrorDetailTask(detailResp.data);
+      }
+
+      if (logsResp.success && logsResp.data) {
+        setErrorDetailLogs(logsResp.data.logs || []);
+      } else {
+        setErrorDetailLogsError("获取错误日志失败");
+      }
+    } catch (err) {
+      console.error("获取错误详情失败:", err);
+      setErrorDetailLogsError(err instanceof Error ? err.message : "获取错误详情失败");
+    } finally {
+      setErrorDetailLoading(false);
     }
   };
 
@@ -618,7 +688,7 @@ export default function AdminTaskBrowserPage() {
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      setErrorDetailTask(task);
+                                      void openErrorDetail(task);
                                     }}
                                     className="text-red-500 hover:text-red-700"
                                     title="查看错误详情"
@@ -935,13 +1005,19 @@ export default function AdminTaskBrowserPage() {
                 <h3 className="text-lg font-semibold text-gray-900">任务错误详情</h3>
               </div>
               <button
-                onClick={() => setErrorDetailTask(null)}
+                onClick={closeErrorDetail}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
             <div className="px-6 py-4">
+              {(() => {
+                const downstreamError =
+                  errorDetailTask.downstreamError ?? findLatestDownstreamError(errorDetailLogs);
+
+                return (
+                  <>
               <div className="mb-4 space-y-2">
                 <div className="flex items-center gap-2 text-sm">
                   <span className="font-medium text-gray-700">任务ID:</span>
@@ -966,18 +1042,97 @@ export default function AdminTaskBrowserPage() {
                   </div>
                 )}
               </div>
+
+              {errorDetailLoading && (
+                <div className="mb-4 rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700">
+                  正在加载错误详情和任务日志...
+                </div>
+              )}
+
+              {errorDetailLogsError && (
+                <div className="mb-4 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                  {errorDetailLogsError}
+                </div>
+              )}
+
+              {downstreamError && (
+                <div className="mb-4 space-y-4">
+                  <div className="font-medium text-gray-700">下游厂商原始返回:</div>
+                  <div className="space-y-3 rounded border border-red-200 bg-red-50 p-4">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <div className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
+                          API服务
+                        </div>
+                        <div className="rounded bg-white px-3 py-2 font-mono text-xs text-gray-800">
+                          {String(downstreamError.apiName || "-")}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
+                          HTTP状态码
+                        </div>
+                        <div className="rounded bg-white px-3 py-2 font-mono text-xs text-gray-800">
+                          {String(downstreamError.statusCode || "-")}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
+                        错误摘要
+                      </div>
+                      <div className="max-h-40 overflow-y-auto rounded bg-white p-3">
+                        <pre className="whitespace-pre-wrap font-mono text-xs text-gray-800">
+                          {String(downstreamError.message || "-")}
+                        </pre>
+                      </div>
+                    </div>
+
+                    {"responseBody" in downstreamError && (
+                      <div>
+                        <div className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
+                          原始响应体
+                        </div>
+                        <div className="max-h-64 overflow-y-auto rounded bg-white p-3">
+                          <pre className="whitespace-pre-wrap font-mono text-xs text-gray-800">
+                            {formatJsonBlock(downstreamError.responseBody)}
+                          </pre>
+                        </div>
+                      </div>
+                    )}
+
+                    {"requestData" in downstreamError && (
+                      <div>
+                        <div className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
+                          请求参数
+                        </div>
+                        <div className="max-h-48 overflow-y-auto rounded bg-white p-3">
+                          <pre className="whitespace-pre-wrap font-mono text-xs text-gray-800">
+                            {formatJsonBlock(downstreamError.requestData)}
+                          </pre>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div>
-                <div className="mb-2 font-medium text-gray-700">错误信息:</div>
+                <div className="mb-2 font-medium text-gray-700">应用侧错误信息:</div>
                 <div className="max-h-96 overflow-y-auto rounded border border-gray-200 bg-gray-50 p-4">
                   <pre className="whitespace-pre-wrap font-mono text-xs text-gray-800">
                     {errorDetailTask.errorMessage}
                   </pre>
                 </div>
               </div>
+                  </>
+                );
+              })()}
             </div>
             <div className="flex justify-end gap-2 border-t border-gray-200 px-6 py-4">
               <button
-                onClick={() => setErrorDetailTask(null)}
+                onClick={closeErrorDetail}
                 className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 关闭
