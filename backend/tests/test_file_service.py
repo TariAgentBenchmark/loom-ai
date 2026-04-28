@@ -65,7 +65,7 @@ async def test_ensure_preview_url_uses_oss_process_when_source_is_safe(monkeypat
 
 
 @pytest.mark.asyncio
-async def test_save_upload_file_normalizes_png_bytes_before_oss_upload():
+async def test_save_upload_file_preserves_detected_format_for_oss_upload():
     service = FileService()
     uploaded = {}
 
@@ -77,9 +77,10 @@ async def test_save_upload_file_normalizes_png_bytes_before_oss_upload():
             uploaded["bytes"] = file_bytes
             uploaded["filename"] = filename
             uploaded["prefix"] = prefix
+            uploaded["content_type"] = content_type
             return {
-                "object_key": f"{prefix}/normalized.png",
-                "url": "https://example.com/normalized.png",
+                "object_key": f"{prefix}/{filename}",
+                "url": f"https://example.com/{filename}",
             }
 
     service._oss_service = FakeOSSService()
@@ -92,7 +93,8 @@ async def test_save_upload_file_normalizes_png_bytes_before_oss_upload():
         validate_file_size=False,
     )
 
-    assert saved_ref == "results/normalized.png"
-    assert uploaded["filename"] == "result.png"
+    assert saved_ref == "results/result.jpg"
+    assert uploaded["filename"] == "result.jpg"
     assert uploaded["prefix"] == "results"
-    assert Image.open(BytesIO(uploaded["bytes"])).format == "PNG"
+    assert uploaded["content_type"] is None
+    assert Image.open(BytesIO(uploaded["bytes"])).format == "JPEG"

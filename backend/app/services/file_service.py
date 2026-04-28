@@ -369,33 +369,34 @@ class FileService:
         file_info = self.validate_file(file_bytes, filename, validate_dimensions=validate_dimensions, validate_file_size=validate_file_size)
         original_format = (file_info.get("format") or "").upper()
 
-        # 当目标扩展名是png且原始格式不同，尝试转换为PNG
         target_ext = filename.lower().split('.')[-1] if '.' in filename else 'png'
-        if target_ext == "png" and original_format and original_format != "PNG":
-            try:
-                source_format = original_format
-                image = Image.open(BytesIO(file_bytes))
-                if image.mode == "LA":
-                    image = image.convert("RGBA")
-                elif image.mode not in ("RGB", "RGBA"):
-                    image = image.convert("RGB")
-
-                buffer = BytesIO()
-                image.save(buffer, format="PNG")
-                file_bytes = buffer.getvalue()
-                original_format = "PNG"
-                file_info["format"] = "PNG"
-                file_info["size"] = len(file_bytes)
-                logger.debug("Normalized image to PNG before saving (original format: %s)", source_format)
-            except Exception as exc:
-                logger.warning("Failed to normalize image to PNG: %s", exc)
+        format_ext_map = {
+            "JPEG": "jpg",
+            "JPG": "jpg",
+            "PNG": "png",
+            "WEBP": "webp",
+            "BMP": "bmp",
+            "GIF": "gif",
+            "SVG": "svg",
+        }
+        file_ext = format_ext_map.get(original_format) or target_ext
+        storage_filename = filename
+        if file_ext and file_ext != target_ext:
+            filename_root, _ = os.path.splitext(filename)
+            storage_filename = f"{filename_root or uuid.uuid4().hex[:16]}.{file_ext}"
+            logger.info(
+                "Adjusted saved file extension to match detected format: original=%s detected=%s saved=%s",
+                filename,
+                original_format or "unknown",
+                storage_filename,
+            )
         
-        # 优先使用OSS存储。格式归一化必须在OSS上传前完成，否则会出现扩展名为.png但实际是JPEG/WebP的结果图。
+        # 优先使用OSS存储。上传文件名按真实图片格式修正，避免扩展名和字节内容不一致。
         if self.should_use_oss():
             try:
                 oss_result = await self.oss_service.upload_file(
                     file_bytes,
-                    filename,
+                    storage_filename,
                     prefix=subfolder
                 )
                 logger.info(
@@ -410,20 +411,6 @@ class FileService:
 
         # 本地存储
         # 生成唯一文件名
-        file_ext = target_ext
-        if original_format:
-            format_ext_map = {
-                "JPEG": "jpg",
-                "JPG": "jpg",
-                "PNG": "png",
-                "WEBP": "webp",
-                "BMP": "bmp",
-                "GIF": "gif",
-            }
-            expected_ext = format_ext_map.get(original_format)
-            if expected_ext and file_ext != expected_ext:
-                file_ext = expected_ext
-
         unique_filename = f"{uuid.uuid4().hex[:16]}.{file_ext}"
         
         # 构建文件路径

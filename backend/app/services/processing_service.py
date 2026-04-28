@@ -693,8 +693,9 @@ class ProcessingService:
                                 final_url = await self.file_service.save_upload_file(
                                     result_bytes, filename, "results", validate_dimensions=False, validate_file_size=False
                                 )
+                                filename = final_url.split("/")[-1]
                         else:
-                            # 其他任务返回PNG格式
+                            # 图片任务使用默认文件名；save_upload_file 会按真实图片格式修正扩展名。
                             if single_result_url.startswith("/files/results/"):
                                 # 本地文件，直接使用，不需要重新保存
                                 final_url = single_result_url
@@ -740,6 +741,7 @@ class ProcessingService:
                                 final_url = await self.file_service.save_upload_file(
                                     result_bytes, filename, "results", validate_dimensions=False, validate_file_size=False
                                 )
+                                filename = final_url.split("/")[-1]
                     except Exception as exc:
                         can_skip_failure = self._can_skip_result_materialization_failure(
                             task,
