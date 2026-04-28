@@ -1,6 +1,14 @@
 import pytest
+from io import BytesIO
+from PIL import Image
 
 from app.services.file_service import FileService
+
+
+def _make_image_bytes(fmt: str) -> bytes:
+    buffer = BytesIO()
+    Image.new("RGB", (12, 8), color=(12, 34, 56)).save(buffer, format=fmt)
+    return buffer.getvalue()
 
 
 @pytest.mark.asyncio
@@ -54,3 +62,37 @@ async def test_ensure_preview_url_uses_oss_process_when_source_is_safe(monkeypat
         },
         "expiration": None,
     }
+
+
+@pytest.mark.asyncio
+async def test_save_upload_file_normalizes_png_bytes_before_oss_upload():
+    service = FileService()
+    uploaded = {}
+
+    class FakeOSSService:
+        def is_configured(self):
+            return True
+
+        async def upload_file(self, file_bytes, filename, prefix="uploads", content_type=None):
+            uploaded["bytes"] = file_bytes
+            uploaded["filename"] = filename
+            uploaded["prefix"] = prefix
+            return {
+                "object_key": f"{prefix}/normalized.png",
+                "url": "https://example.com/normalized.png",
+            }
+
+    service._oss_service = FakeOSSService()
+
+    saved_ref = await service.save_upload_file(
+        _make_image_bytes("JPEG"),
+        "result.png",
+        "results",
+        validate_dimensions=False,
+        validate_file_size=False,
+    )
+
+    assert saved_ref == "results/normalized.png"
+    assert uploaded["filename"] == "result.png"
+    assert uploaded["prefix"] == "results"
+    assert Image.open(BytesIO(uploaded["bytes"])).format == "PNG"

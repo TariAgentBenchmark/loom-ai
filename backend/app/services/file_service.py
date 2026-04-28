@@ -367,8 +367,30 @@ class FileService:
         
         # 验证文件（可选择是否验证尺寸和大小）
         file_info = self.validate_file(file_bytes, filename, validate_dimensions=validate_dimensions, validate_file_size=validate_file_size)
+        original_format = (file_info.get("format") or "").upper()
+
+        # 当目标扩展名是png且原始格式不同，尝试转换为PNG
+        target_ext = filename.lower().split('.')[-1] if '.' in filename else 'png'
+        if target_ext == "png" and original_format and original_format != "PNG":
+            try:
+                source_format = original_format
+                image = Image.open(BytesIO(file_bytes))
+                if image.mode == "LA":
+                    image = image.convert("RGBA")
+                elif image.mode not in ("RGB", "RGBA"):
+                    image = image.convert("RGB")
+
+                buffer = BytesIO()
+                image.save(buffer, format="PNG")
+                file_bytes = buffer.getvalue()
+                original_format = "PNG"
+                file_info["format"] = "PNG"
+                file_info["size"] = len(file_bytes)
+                logger.debug("Normalized image to PNG before saving (original format: %s)", source_format)
+            except Exception as exc:
+                logger.warning("Failed to normalize image to PNG: %s", exc)
         
-        # 优先使用OSS存储
+        # 优先使用OSS存储。格式归一化必须在OSS上传前完成，否则会出现扩展名为.png但实际是JPEG/WebP的结果图。
         if self.should_use_oss():
             try:
                 oss_result = await self.oss_service.upload_file(
@@ -385,26 +407,6 @@ class FileService:
             except Exception as e:
                 logger.error("OSS上传失败，回退到本地存储: %s", str(e))
                 # 如果OSS上传失败，继续使用本地存储
-        
-        original_format = (file_info.get("format") or "").upper()
-
-        # 当目标扩展名是png且原始格式不同，尝试转换为PNG
-        target_ext = filename.lower().split('.')[-1] if '.' in filename else 'png'
-        if target_ext == "png" and original_format and original_format != "PNG":
-            try:
-                image = Image.open(BytesIO(file_bytes))
-                if image.mode == "LA":
-                    image = image.convert("RGBA")
-                elif image.mode not in ("RGB", "RGBA"):
-                    image = image.convert("RGB")
-
-                buffer = BytesIO()
-                image.save(buffer, format="PNG")
-                file_bytes = buffer.getvalue()
-                original_format = "PNG"
-                logger.debug("Normalized image to PNG before saving (original format: %s)", file_info.get("format"))
-            except Exception as exc:
-                logger.warning("Failed to normalize image to PNG: %s", exc)
 
         # 本地存储
         # 生成唯一文件名
