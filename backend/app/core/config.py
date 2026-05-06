@@ -119,7 +119,7 @@ class Settings(BaseSettings):
     runninghub_workflow_id_consistent_dewatermark: str = "2003092571939307521"
     runninghub_consistent_dewatermark_node_id: str = "166"
     runninghub_consistent_dewatermark_field_name: str = "image"
-    runninghub_workflow_id_seamless_loop: str = "1999722667404128258"
+    runninghub_workflow_id_seamless_loop: str = "2051633462460862466"
     runninghub_seamless_loop_image_node_id: str = "209"
     runninghub_seamless_loop_image_field_name: str = "image"
     runninghub_seamless_loop_direction_node_id: str = "458"
