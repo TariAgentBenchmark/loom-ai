@@ -661,35 +661,6 @@ export default function BatchUploadModal({
                         </div>
                     )}
 
-                    {/* Seamless loop options */}
-                    {method === 'seamless_loop' && (
-                        <div className="mt-6 space-y-4">
-                            <div>
-                                <h4 className="text-md font-semibold text-gray-900 mb-2">接缝方向</h4>
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                    {[
-                                        { value: 0, label: '四周拼接' },
-                                        { value: 1, label: '上下拼接' },
-                                        { value: 2, label: '左右拼接' },
-                                    ].map((item) => (
-                                        <button
-                                            key={item.value}
-                                            type="button"
-                                            onClick={() => onSeamDirectionChange?.(item.value)}
-                                            disabled={isProcessing}
-                                            className={`w-full rounded-lg border px-3 py-2 text-sm font-medium transition ${seamDirection === item.value
-                                                ? 'border-blue-500 bg-blue-50 text-blue-600'
-                                                : 'border-gray-200 text-gray-700 hover:border-blue-300 hover:bg-blue-50/60'
-                                                }`}
-                                        >
-                                            {item.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
                     {/* Instruction for prompt_edit - bottom */}
                     {showReferenceImage && (
                         <div className="mt-6">

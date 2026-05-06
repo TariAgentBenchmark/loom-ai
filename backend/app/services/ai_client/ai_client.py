@@ -292,24 +292,14 @@ class AIClient:
         original_filename: Optional[str] = None,
     ) -> str:
         """调用RunningHub实现无缝拼接/接循环"""
-        # 获取拼接方向参数，前端传的是0/1/2，需要映射到RunningHub的1/2/3
-        # 0 -> 1 (四周拼接)
-        # 1 -> 2 (上下拼接)
-        # 2 -> 3 (左右拼接)
-        frontend_direction = options.get("direction", 0) if options else 0
-        runninghub_direction = frontend_direction + 1
-
         rh_options = dict(options or {})
         rh_options["original_filename"] = original_filename or "seamless_loop.png"
 
-        result_urls = await self.runninghub_client.run_seamless_loop_workflow(
+        result_urls = await self.runninghub_client.run_workflow_with_custom_nodes(
             image_bytes=image_bytes,
             workflow_id=settings.runninghub_workflow_id_seamless_loop,
-            image_node_id=settings.runninghub_seamless_loop_image_node_id,
-            image_field_name=settings.runninghub_seamless_loop_image_field_name,
-            direction_node_id=settings.runninghub_seamless_loop_direction_node_id,
-            direction_field_name=settings.runninghub_seamless_loop_direction_field_name,
-            direction_value=runninghub_direction,
+            node_ids=settings.runninghub_seamless_loop_image_node_id,
+            field_name=settings.runninghub_seamless_loop_image_field_name,
             options=rh_options,
         )
 

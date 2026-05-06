@@ -400,11 +400,6 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     [expandEdges],
   );
   const expandEdgeControlsRef = useRef<ExpandEdgeControlsHandle>(null);
-  const seamDirectionOptions: { value: number; label: string }[] = [
-    { value: 0, label: "四周拼接" },
-    { value: 1, label: "上下拼接" },
-    { value: 2, label: "左右拼接" },
-  ];
   const isSeamlessLoop = method === "seamless_loop";
   const isExpandImage = method === "expand_image";
   const serviceCostHint =
@@ -431,7 +426,6 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     },
     [isProcessing, onClearSecondaryImage],
   );
-  const seamFitValue = Math.max(0, Math.min(1, seamFit));
   const denoiseValue = Math.max(0, Math.min(1, denoise));
   const uploadZoneClasses = `border-2 border-dashed rounded-lg md:rounded-xl p-4 md:p-8 text-center transition flex items-center justify-center ${isProcessing
     ? "cursor-not-allowed opacity-60 pointer-events-none"
@@ -1009,37 +1003,6 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                 onExpandPromptChange={onExpandPromptChange}
                 isProcessing={isProcessing}
               />
-            </div>
-          )}
-
-          {method === "seamless_loop" && (
-            <div className="mb-4 md:mb-6 space-y-4">
-              <div>
-                <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2">
-                  拼接方向
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {seamDirectionOptions.map((option) => {
-                    const isActive = seamDirection === option.value;
-                    return (
-                      <button
-                        type="button"
-                        key={option.value}
-                        onClick={() => onSeamDirectionChange?.(option.value)}
-                        className={`px-3 py-1.5 md:px-4 md:py-2 rounded-full border text-xs md:text-sm font-medium transition-all ${isActive
-                          ? "border-blue-500 bg-blue-50 text-blue-600 shadow-sm"
-                          : "border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50/60"
-                          }`}
-                      >
-                        {option.label}
-                      </button>
-                    );
-                  })}
-                </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  选择需要保持无缝的方向，默认处理四周接缝，也可仅调整单向拼接效果。
-                </p>
-              </div>
             </div>
           )}
 

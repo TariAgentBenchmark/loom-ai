@@ -184,11 +184,6 @@ export default function BatchProcessingWrapper({
                 payload.expandPrompt = expandPrompt;
             }
 
-            if (method === 'seamless_loop') {
-                payload.seamDirection = seamDirection;
-                payload.seamFit = seamFit;
-            }
-
             const response = await createBatchTask(payload);
             setBatchId(response.data.batchId);
             setShowUploadModal(false);
@@ -198,7 +193,7 @@ export default function BatchProcessingWrapper({
         } finally {
             setIsCreatingBatch(false);
         }
-    }, [method, accessToken, batchInstruction, embroideryMode, patternType, denimAspectRatio, denimImageCount, batchGeneralImageCount, upscaleEngine, expandRatio, expandEdges, expandPrompt, seamDirection, seamFit, onHistoryRefresh]);
+    }, [method, accessToken, batchInstruction, embroideryMode, patternType, denimAspectRatio, denimImageCount, batchGeneralImageCount, upscaleEngine, expandRatio, expandEdges, expandPrompt, onHistoryRefresh]);
 
     const handleComplete = useCallback(() => {
         // Batch processing completed

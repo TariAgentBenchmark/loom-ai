@@ -1084,11 +1084,6 @@ function HomeContent() {
       }
     }
 
-    if (currentPage === 'seamless_loop') {
-      payload.seamDirection = seamDirection;
-      payload.seamFit = Number(seamFit.toFixed(2));
-    }
-
     if (currentPage === 'similar_image') {
       const clamped = Math.max(0, Math.min(1, similarDenoise));
       payload.denoise = Number(clamped.toFixed(2));
