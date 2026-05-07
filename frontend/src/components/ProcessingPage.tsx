@@ -157,6 +157,117 @@ const CloudLoader: React.FC<CloudLoaderProps> = ({
   </>
 );
 
+interface ResultComparisonPanelProps {
+  originalUrl: string | null;
+  resultUrl: string;
+  resultAlt: string;
+  resultIndex?: number;
+  resultDownloadUrl: string;
+  totalResults?: number;
+  onPreviewResult: (url: string, index?: number, downloadUrl?: string) => void;
+  onNavigateResult?: (direction: number) => void;
+}
+
+const ResultComparisonPanel: React.FC<ResultComparisonPanelProps> = ({
+  originalUrl,
+  resultUrl,
+  resultAlt,
+  resultIndex,
+  resultDownloadUrl,
+  totalResults = 1,
+  onPreviewResult,
+  onNavigateResult,
+}) => {
+  const resolvedOriginalUrl = originalUrl ? resolveFileUrl(originalUrl) : "";
+  const resolvedResultUrl = resolveFileUrl(resultUrl);
+  const canNavigate = totalResults > 1 && Boolean(onNavigateResult);
+
+  return (
+    <div className="grid w-full grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
+      <div className="flex min-h-[240px] md:min-h-[420px] flex-col rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
+          <span className="text-sm font-semibold text-gray-900">原图</span>
+        </div>
+        <div className="flex flex-1 items-center justify-center bg-gray-50 p-3">
+          {resolvedOriginalUrl ? (
+            <img
+              src={resolvedOriginalUrl}
+              alt="原图"
+              className="max-h-[58vh] max-w-full w-auto h-auto object-contain rounded-lg border border-gray-200 bg-white shadow"
+            />
+          ) : (
+            <div className="flex h-full min-h-[180px] w-full items-center justify-center rounded-lg border border-dashed border-gray-200 bg-white text-sm text-gray-400">
+              暂无原图
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex min-h-[240px] md:min-h-[420px] flex-col rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
+          <span className="text-sm font-semibold text-gray-900">
+            {totalResults > 1 && resultIndex !== undefined
+              ? `结果图 ${resultIndex + 1}`
+              : "结果图"}
+          </span>
+          {totalResults > 1 && (
+            <span className="text-xs text-gray-500">
+              {resultIndex !== undefined ? resultIndex + 1 : 1}/{totalResults}
+            </span>
+          )}
+        </div>
+        <div className="flex flex-1 items-center justify-center bg-gray-50 p-3">
+          <div className="relative group flex h-full w-full items-center justify-center">
+            <img
+              src={resolvedResultUrl}
+              alt={resultAlt}
+              className="max-h-[58vh] max-w-full w-auto h-auto object-contain rounded-lg border border-gray-200 bg-white shadow-md cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() =>
+                onPreviewResult(resultUrl, resultIndex, resultDownloadUrl)
+              }
+            />
+            <button
+              onClick={() =>
+                onPreviewResult(resultUrl, resultIndex, resultDownloadUrl)
+              }
+              className="absolute top-2 right-2 p-2 bg-black bg-opacity-50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-opacity-70"
+              title="放大查看"
+            >
+              <Eye className="h-4 w-4" />
+            </button>
+            {canNavigate && (
+              <>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onNavigateResult?.(-1);
+                  }}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black bg-opacity-40 text-white hover:bg-opacity-70 transition"
+                  title="上一张"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onNavigateResult?.(1);
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black bg-opacity-40 text-white hover:bg-opacity-70 transition"
+                  title="下一张"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 interface ProcessingPageProps {
   method: ProcessingMethod;
   imagePreview: string | null;
@@ -164,6 +275,7 @@ interface ProcessingPageProps {
   processedImage: string | null;
   processedImageDisplay?: string | null;
   processedImageThumbnail?: string | null;
+  comparisonOriginalImage?: string | null;
   currentTaskId?: string;
   isProcessing: boolean;
   hasUploadedImage: boolean;
@@ -222,6 +334,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   processedImage,
   processedImageDisplay = null,
   processedImageThumbnail = null,
+  comparisonOriginalImage = null,
   currentTaskId,
   isProcessing,
   hasUploadedImage,
@@ -310,6 +423,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
       ),
     [processedImage, processedImageDisplay, processedImageThumbnail],
   );
+  const comparisonOriginalUrl = comparisonOriginalImage || imagePreview;
   const upscaleOptions: {
     value: "meitu_v2" | "runninghub_vr2" | "runninghub_4k_ultra";
     label: string;
@@ -1251,7 +1365,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
           </div>
         </div>
 
-        <div className="flex-1 p-4 md:p-8 order-1 md:order-2 relative">
+        <div className="flex-1 p-4 md:p-8 order-1 md:order-2 relative overflow-y-auto">
           {/* 成功消息 toast 通知 */}
           {showSuccessToast && successMessage && !errorMessage && (
             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2 shadow-lg text-xs md:text-sm text-green-600 fade-in">
@@ -1297,9 +1411,9 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
 
                     return (
                       <div
-                        className="flex flex-col md:flex-row gap-2 md:gap-4 w-full h-full"
+                        className="flex flex-col gap-3 md:gap-4 w-full h-full max-w-6xl mx-auto"
                       >
-                        <div className="flex md:flex-col gap-1.5 md:w-24 w-full md:flex-none overflow-x-auto md:overflow-y-auto md:max-h-full shrink-0">
+                        <div className="order-2 flex gap-1.5 w-full overflow-x-auto pb-1 shrink-0">
                           {galleryUrls.map((url, index) => {
                             const isActive = index === safeIndex;
                             return (
@@ -1328,60 +1442,19 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                           })}
                         </div>
 
-                        <div className="flex-1 flex flex-col items-center justify-center gap-3 min-h-0">
-                          <div className="relative group w-full flex-1 flex items-center justify-center min-h-0 max-h-[75vh]">
-                            <img
-                              src={resolveFileUrl(activeUrl)}
-                              alt={`处理结果图 ${safeIndex + 1}`}
-                              className="max-w-full max-h-full w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-md cursor-pointer hover:shadow-lg transition-shadow"
-                              onClick={() =>
-                                handleProcessedImagePreview(
-                                  activeUrl,
-                                  safeIndex,
-                                  processedImageUrls[safeIndex] || activeUrl,
-                                )
-                              }
-                            />
-                            <button
-                              onClick={() =>
-                                handleProcessedImagePreview(
-                                  activeUrl,
-                                  safeIndex,
-                                  processedImageUrls[safeIndex] || activeUrl,
-                                )
-                              }
-                              className="absolute top-2 right-2 p-1.5 bg-black bg-opacity-50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-opacity-70"
-                              title="放大查看"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                            {galleryUrls.length > 1 && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleNavigateResult(-1, galleryUrls.length);
-                                  }}
-                                  className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black bg-opacity-40 text-white hover:bg-opacity-70 transition"
-                                  title="上一张"
-                                >
-                                  <ChevronLeft className="h-5 w-5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleNavigateResult(1, galleryUrls.length);
-                                  }}
-                                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black bg-opacity-40 text-white hover:bg-opacity-70 transition"
-                                  title="下一张"
-                                >
-                                  <ChevronRight className="h-5 w-5" />
-                                </button>
-                              </>
-                            )}
-                          </div>
+                        <div className="order-1 flex-1 flex flex-col items-center justify-center gap-3 min-h-0">
+                          <ResultComparisonPanel
+                            originalUrl={comparisonOriginalUrl}
+                            resultUrl={activeUrl}
+                            resultAlt={`处理结果图 ${safeIndex + 1}`}
+                            resultIndex={safeIndex}
+                            resultDownloadUrl={processedImageUrls[safeIndex] || activeUrl}
+                            totalResults={galleryUrls.length}
+                            onPreviewResult={handleProcessedImagePreview}
+                            onNavigateResult={(direction) =>
+                              handleNavigateResult(direction, galleryUrls.length)
+                            }
+                          />
                           <div className="flex flex-wrap items-center justify-center gap-2 shrink-0">
                             <button
                               type="button"
@@ -1421,9 +1494,9 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
 
                     return (
                       <div
-                        className="flex flex-col md:flex-row gap-3 md:gap-4 w-full max-w-3xl mx-auto"
+                        className="flex flex-col gap-3 md:gap-4 w-full h-full max-w-6xl mx-auto"
                       >
-                        <div className="flex md:flex-col gap-2 md:w-24 w-full md:flex-none overflow-x-auto md:overflow-visible">
+                        <div className="order-2 flex gap-2 w-full overflow-x-auto pb-1 shrink-0">
                           {imageUrls.map((url, index) => {
                             const isActive = index === safeIndex;
                             return (
@@ -1452,60 +1525,19 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                           })}
                         </div>
 
-                        <div className="flex-1 flex flex-col items-center justify-center gap-3 min-h-0">
-                          <div className="relative group w-full flex-1 flex justify-center items-center min-h-0">
-                            <img
-                              src={resolveFileUrl(activeUrl)}
-                              alt={`处理结果图 ${safeIndex + 1}`}
-                              className="max-w-full max-h-full w-auto h-auto object-contain rounded-lg border border-gray-200 shadow-md cursor-pointer hover:shadow-lg transition-shadow"
-                              onClick={() =>
-                                handleProcessedImagePreview(
-                                  activeUrl,
-                                  safeIndex,
-                                  processedImageUrls[safeIndex] || activeUrl,
-                                )
-                              }
-                            />
-                            <button
-                              onClick={() =>
-                                handleProcessedImagePreview(
-                                  activeUrl,
-                                  safeIndex,
-                                  processedImageUrls[safeIndex] || activeUrl,
-                                )
-                              }
-                              className="absolute top-2 right-2 p-2 bg-black bg-opacity-50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-opacity-70"
-                              title="放大查看"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                            {imageUrls.length > 1 && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleNavigateResult(-1, imageUrls.length);
-                                  }}
-                                  className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black bg-opacity-40 text-white hover:bg-opacity-70 transition"
-                                  title="上一张"
-                                >
-                                  <ChevronLeft className="h-5 w-5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleNavigateResult(1, imageUrls.length);
-                                  }}
-                                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black bg-opacity-40 text-white hover:bg-opacity-70 transition"
-                                  title="下一张"
-                                >
-                                  <ChevronRight className="h-5 w-5" />
-                                </button>
-                              </>
-                            )}
-                          </div>
+                        <div className="order-1 flex-1 flex flex-col items-center justify-center gap-3 min-h-0">
+                          <ResultComparisonPanel
+                            originalUrl={comparisonOriginalUrl}
+                            resultUrl={activeUrl}
+                            resultAlt={`处理结果图 ${safeIndex + 1}`}
+                            resultIndex={safeIndex}
+                            resultDownloadUrl={processedImageUrls[safeIndex] || activeUrl}
+                            totalResults={imageUrls.length}
+                            onPreviewResult={handleProcessedImagePreview}
+                            onNavigateResult={(direction) =>
+                              handleNavigateResult(direction, imageUrls.length)
+                            }
+                          />
                           <div className="flex flex-wrap items-center justify-center gap-2">
                             <button
                               type="button"
@@ -1537,98 +1569,17 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                   }
 
                   // 单张图片
+                  const displayUrl = processedImageDisplay || processedImage;
+                  const downloadUrl = processedImageUrls[0] || displayUrl;
                   return (
-                    <>
-                      <div className="relative group mb-3 md:mb-4 w-full flex-1 flex justify-center min-h-0">
-                        <div className="w-full h-full flex items-center justify-center">
-                          {(() => {
-                            const displayUrl = processedImageDisplay || processedImage;
-                            const resolvedUrl = resolveFileUrl(displayUrl);
-                            console.log(
-                              "ProcessingPage: Displaying processed image",
-                              {
-                                originalUrl: processedImage,
-                                displayUrl,
-                                resolvedUrl,
-                                isSvg: displayUrl
-                                  .toLowerCase()
-                                  .includes(".svg"),
-                              },
-                            );
-
-                            // 检查是否是SVG文件
-                            if (displayUrl.toLowerCase().includes(".svg")) {
-                              console.log(
-                                "ProcessingPage: Detected SVG file, using <img> tag",
-                              );
-                              return (
-                                <img
-                                  src={resolvedUrl}
-                                  alt="Processed SVG"
-                                  className="w-auto h-auto max-w-full max-h-full object-contain rounded-lg border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
-                                  onClick={() =>
-                                    handleProcessedImagePreview(
-                                      displayUrl,
-                                      undefined,
-                                      processedImageUrls[0] || displayUrl,
-                                    )
-                                  }
-                                  onLoad={() =>
-                                    console.log(
-                                      "ProcessingPage: SVG loaded successfully",
-                                    )
-                                  }
-                                  onError={(e) =>
-                                    console.error(
-                                      "ProcessingPage: SVG failed to load",
-                                      e,
-                                    )
-                                  }
-                                />
-                              );
-                            }
-
-                            return (
-                              <img
-                                src={resolvedUrl}
-                                alt="Processed"
-                                className="w-auto h-auto max-w-full max-h-full object-contain rounded-lg border border-gray-200 shadow-lg cursor-pointer hover:shadow-xl transition-shadow"
-                                onClick={() =>
-                                  handleProcessedImagePreview(
-                                    displayUrl,
-                                    undefined,
-                                    processedImageUrls[0] || displayUrl,
-                                  )
-                                }
-                                onLoad={() =>
-                                  console.log(
-                                    "ProcessingPage: Image loaded successfully",
-                                  )
-                                }
-                                onError={(e) =>
-                                  console.error(
-                                    "ProcessingPage: Image failed to load",
-                                    e,
-                                  )
-                                }
-                              />
-                            );
-                          })()}
-                        </div>
-                        <button
-                          onClick={() =>
-                            handleProcessedImagePreview(
-                              processedImageDisplay || processedImage,
-                              undefined,
-                              processedImageUrls[0] || processedImageDisplay || processedImage || "",
-                            )
-                          }
-                          className="absolute top-2 right-2 p-2 bg-black bg-opacity-50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-opacity-70"
-                          title="放大查看"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                      </div>
+                    <div className="w-full h-full max-w-6xl mx-auto flex flex-col items-center justify-center gap-3 md:gap-4">
+                      <ResultComparisonPanel
+                        originalUrl={comparisonOriginalUrl}
+                        resultUrl={displayUrl}
+                        resultAlt="处理结果图"
+                        resultDownloadUrl={downloadUrl}
+                        onPreviewResult={handleProcessedImagePreview}
+                      />
                       <button
                         type="button"
                         onClick={handleDownloadProcessedResult}
@@ -1637,7 +1588,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                       >
                         {isDownloadingResult ? "下载中…" : "下载结果"}
                       </button>
-                    </>
+                    </div>
                   );
                 })()}
               </div>

@@ -98,6 +98,7 @@ type MethodViewState = {
   processedImage: string | null;
   processedImagePreview: string | null;
   processedImageThumbnail: string | null;
+  resultOriginalImage: string | null;
   successMessage: string;
   errorMessage: string;
 };
@@ -152,6 +153,7 @@ function HomeContent() {
   const [processedImage, setProcessedImage] = useState<string | null>(null);
   const [processedImagePreview, setProcessedImagePreview] = useState<string | null>(null);
   const [processedImageThumbnail, setProcessedImageThumbnail] = useState<string | null>(null);
+  const [resultOriginalImage, setResultOriginalImage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -325,12 +327,14 @@ function HomeContent() {
           processedImage: null,
           processedImagePreview: null,
           processedImageThumbnail: null,
+          resultOriginalImage: null,
           successMessage: '',
           errorMessage: '',
         };
         setProcessedImage(null);
         setProcessedImagePreview(null);
         setProcessedImageThumbnail(null);
+        setResultOriginalImage(null);
         setSuccessMessage('');
         setErrorMessage('');
         return;
@@ -340,6 +344,7 @@ function HomeContent() {
       setProcessedImage(stored?.processedImage ?? null);
       setProcessedImagePreview(stored?.processedImagePreview ?? null);
       setProcessedImageThumbnail(stored?.processedImageThumbnail ?? null);
+      setResultOriginalImage(stored?.resultOriginalImage ?? null);
       setSuccessMessage(stored?.successMessage ?? '');
       setErrorMessage(stored?.errorMessage ?? '');
     },
@@ -378,6 +383,7 @@ function HomeContent() {
         processedImage: null,
         processedImagePreview: null,
         processedImageThumbnail: null,
+        resultOriginalImage: null,
         successMessage: '',
         errorMessage: '',
       };
@@ -392,6 +398,10 @@ function HomeContent() {
           partial.processedImageThumbnail !== undefined
             ? partial.processedImageThumbnail
             : previous.processedImageThumbnail,
+        resultOriginalImage:
+          partial.resultOriginalImage !== undefined
+            ? partial.resultOriginalImage
+            : previous.resultOriginalImage,
         successMessage:
           partial.successMessage !== undefined ? partial.successMessage : previous.successMessage,
         errorMessage:
@@ -408,6 +418,9 @@ function HomeContent() {
         }
         if (partial.processedImageThumbnail !== undefined) {
           setProcessedImageThumbnail(partial.processedImageThumbnail);
+        }
+        if (partial.resultOriginalImage !== undefined) {
+          setResultOriginalImage(partial.resultOriginalImage);
         }
         if (partial.successMessage !== undefined) {
           setSuccessMessage(partial.successMessage);
@@ -428,6 +441,7 @@ function HomeContent() {
       processedImage,
       processedImagePreview,
       processedImageThumbnail,
+      resultOriginalImage,
       successMessage,
       errorMessage,
     };
@@ -436,6 +450,7 @@ function HomeContent() {
     processedImage,
     processedImagePreview,
     processedImageThumbnail,
+    resultOriginalImage,
     successMessage,
     errorMessage,
   ]);
@@ -827,6 +842,10 @@ function HomeContent() {
             statusData.result.processedImageThumbnail
             ?? statusData.result.processedImagePreview
             ?? statusData.result.processedImage,
+          resultOriginalImage:
+            statusData.result.originalImagePreview
+            ?? statusData.result.originalImage
+            ?? null,
           successMessage: '处理完成，可以下载结果',
           errorMessage: '',
         });
@@ -1016,6 +1035,7 @@ function HomeContent() {
     setProcessedImage(null);
     setProcessedImagePreview(null);
     setProcessedImageThumbnail(null);
+    setResultOriginalImage(imagePreview);
 
     const processingMethod = currentPage as ProcessingMethod;
     const payload: ProcessingRequestPayload = {
@@ -1159,6 +1179,7 @@ function HomeContent() {
             processedImage={processedImage}
             processedImageDisplay={processedImagePreview}
             processedImageThumbnail={processedImageThumbnail}
+            comparisonOriginalImage={resultOriginalImage || imagePreview}
             currentTaskId={currentTaskId || undefined}
             isProcessing={isCurrentMethodProcessing || isCreatingTask}
             hasUploadedImage={Boolean(uploadedImage)}
@@ -1182,6 +1203,7 @@ function HomeContent() {
               setProcessedImage(null);
               setProcessedImagePreview(null);
               setProcessedImageThumbnail(null);
+              setResultOriginalImage(null);
               clearPrimaryImageSelection();
               clearSecondaryImageSelection();
             }}
@@ -1209,6 +1231,7 @@ function HomeContent() {
                 setProcessedImage(null);
                 setProcessedImagePreview(null);
                 setProcessedImageThumbnail(null);
+                setResultOriginalImage(null);
                 setErrorMessage('');
                 setSuccessMessage('');
               }
@@ -1224,6 +1247,7 @@ function HomeContent() {
                 setProcessedImage(null);
                 setProcessedImagePreview(null);
                 setProcessedImageThumbnail(null);
+                setResultOriginalImage(null);
                 setErrorMessage('');
                 setSuccessMessage('');
               }
@@ -1349,6 +1373,7 @@ function HomeContent() {
             setProcessedImage(null);
             setProcessedImagePreview(null);
             setProcessedImageThumbnail(null);
+            setResultOriginalImage(null);
             setSuccessMessage('');
             setErrorMessage('');
             clearPersistedSession();
