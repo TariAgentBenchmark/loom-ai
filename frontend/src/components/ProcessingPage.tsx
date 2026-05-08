@@ -164,8 +164,14 @@ interface ResultComparisonPanelProps {
   resultIndex?: number;
   resultDownloadUrl: string;
   totalResults?: number;
+  thumbnailItems?: Array<{
+    index: number;
+    previewUrl: string;
+    label: string;
+  }>;
   onPreviewResult: (url: string, index?: number, downloadUrl?: string) => void;
   onNavigateResult?: (direction: number) => void;
+  onSelectResult?: (index: number) => void;
 }
 
 const ResultComparisonPanel: React.FC<ResultComparisonPanelProps> = ({
@@ -175,12 +181,16 @@ const ResultComparisonPanel: React.FC<ResultComparisonPanelProps> = ({
   resultIndex,
   resultDownloadUrl,
   totalResults = 1,
+  thumbnailItems = [],
   onPreviewResult,
   onNavigateResult,
+  onSelectResult,
 }) => {
   const resolvedOriginalUrl = originalUrl ? resolveFileUrl(originalUrl) : "";
   const resolvedResultUrl = resolveFileUrl(resultUrl);
   const canNavigate = totalResults > 1 && Boolean(onNavigateResult);
+  const showThumbnailOverlay =
+    thumbnailItems.length > 1 && resultIndex !== undefined && Boolean(onSelectResult);
 
   return (
     <div className="grid w-full grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
@@ -260,6 +270,40 @@ const ResultComparisonPanel: React.FC<ResultComparisonPanelProps> = ({
                   <ChevronRight className="h-5 w-5" />
                 </button>
               </>
+            )}
+            {showThumbnailOverlay && (
+              <div className="absolute bottom-3 left-1/2 z-10 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 gap-2 overflow-x-auto rounded-xl border border-white/70 bg-white/85 p-2 shadow-lg backdrop-blur">
+                {thumbnailItems.map((item) => {
+                  const isActive = item.index === resultIndex;
+                  return (
+                    <button
+                      key={`${item.previewUrl}-${item.index}`}
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onSelectResult?.(item.index);
+                      }}
+                      className={`flex shrink-0 flex-col items-center rounded-lg border px-1.5 py-1 text-[10px] transition ${
+                        isActive
+                          ? "border-blue-500 bg-blue-50 shadow-sm"
+                          : "border-gray-200 bg-white/90 hover:border-blue-300 hover:bg-gray-50"
+                      }`}
+                      title={`查看${item.label}`}
+                    >
+                      <div className="h-12 w-12 overflow-hidden rounded border border-dashed border-gray-200 bg-white">
+                        <img
+                          src={resolveFileUrl(item.previewUrl)}
+                          alt={`${item.label}缩略图`}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      <span className="mt-0.5 font-medium text-gray-700">
+                        {item.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
@@ -1413,35 +1457,6 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                       <div
                         className="flex flex-col gap-3 md:gap-4 w-full h-full max-w-6xl mx-auto"
                       >
-                        <div className="order-2 flex gap-1.5 w-full overflow-x-auto pb-1 shrink-0">
-                          {galleryUrls.map((url, index) => {
-                            const isActive = index === safeIndex;
-                            return (
-                              <button
-                                key={url + index}
-                                type="button"
-                                onClick={() => setSelectedResultIndex(index)}
-                                className={`flex flex-col items-center rounded border px-1 py-1 text-xs transition shrink-0 ${isActive
-                                  ? "border-blue-500 bg-blue-50 shadow-sm"
-                                  : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
-                                  }`}
-                                title={`查看图 ${index + 1}`}
-                              >
-                                <div className="w-12 h-16 md:w-16 md:h-20 rounded overflow-hidden border border-dashed border-gray-200 bg-white flex items-center justify-center">
-                                  <img
-                                    src={resolveFileUrl(thumbnailUrls[index] || url)}
-                                    alt={`图 ${index + 1} 缩略图`}
-                                    className="w-full h-full object-cover"
-                                  />
-                                </div>
-                                <span className="font-medium text-gray-700 text-[10px] mt-0.5">
-                                  图 {index + 1}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-
                         <div className="order-1 flex-1 flex flex-col items-center justify-center gap-3 min-h-0">
                           <ResultComparisonPanel
                             originalUrl={comparisonOriginalUrl}
@@ -1450,10 +1465,16 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                             resultIndex={safeIndex}
                             resultDownloadUrl={processedImageUrls[safeIndex] || activeUrl}
                             totalResults={galleryUrls.length}
+                            thumbnailItems={galleryUrls.map((url, index) => ({
+                              index,
+                              previewUrl: thumbnailUrls[index] || url,
+                              label: `图 ${index + 1}`,
+                            }))}
                             onPreviewResult={handleProcessedImagePreview}
                             onNavigateResult={(direction) =>
                               handleNavigateResult(direction, galleryUrls.length)
                             }
+                            onSelectResult={setSelectedResultIndex}
                           />
                           <div className="flex flex-wrap items-center justify-center gap-2 shrink-0">
                             <button
@@ -1496,35 +1517,6 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                       <div
                         className="flex flex-col gap-3 md:gap-4 w-full h-full max-w-6xl mx-auto"
                       >
-                        <div className="order-2 flex gap-2 w-full overflow-x-auto pb-1 shrink-0">
-                          {imageUrls.map((url, index) => {
-                            const isActive = index === safeIndex;
-                            return (
-                              <button
-                                key={url + index}
-                                type="button"
-                                onClick={() => setSelectedResultIndex(index)}
-                                className={`flex flex-col items-center rounded-md border px-1.5 py-1.5 text-xs transition ${isActive
-                                  ? "border-blue-500 bg-blue-50 shadow-sm"
-                                  : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
-                                  }`}
-                                title={`查看图 ${index + 1}`}
-                              >
-                                <div className="w-12 h-16 md:w-14 md:h-20 rounded overflow-hidden border border-dashed border-gray-200 bg-white flex items-center justify-center mb-0.5">
-                                  <img
-                                    src={resolveFileUrl(thumbnailUrls[index] || url)}
-                                    alt={`图 ${index + 1} 缩略图`}
-                                    className="w-full h-full object-cover"
-                                  />
-                                </div>
-                                <span className="font-medium text-gray-700 text-xs">
-                                  图 {index + 1}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-
                         <div className="order-1 flex-1 flex flex-col items-center justify-center gap-3 min-h-0">
                           <ResultComparisonPanel
                             originalUrl={comparisonOriginalUrl}
@@ -1533,10 +1525,16 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                             resultIndex={safeIndex}
                             resultDownloadUrl={processedImageUrls[safeIndex] || activeUrl}
                             totalResults={imageUrls.length}
+                            thumbnailItems={imageUrls.map((url, index) => ({
+                              index,
+                              previewUrl: thumbnailUrls[index] || url,
+                              label: `图 ${index + 1}`,
+                            }))}
                             onPreviewResult={handleProcessedImagePreview}
                             onNavigateResult={(direction) =>
                               handleNavigateResult(direction, imageUrls.length)
                             }
+                            onSelectResult={setSelectedResultIndex}
                           />
                           <div className="flex flex-wrap items-center justify-center gap-2">
                             <button
