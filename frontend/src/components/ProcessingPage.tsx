@@ -193,17 +193,17 @@ const ResultComparisonPanel: React.FC<ResultComparisonPanelProps> = ({
     thumbnailItems.length > 1 && resultIndex !== undefined && Boolean(onSelectResult);
 
   return (
-    <div className="grid w-full grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
-      <div className="flex min-h-[240px] md:min-h-[420px] flex-col rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+    <div className="grid w-full grid-cols-1 gap-3 md:gap-4 lg:h-full lg:min-h-0 lg:grid-cols-2">
+      <div className="flex min-h-[240px] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm md:min-h-[420px] lg:h-full lg:min-h-0">
         <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
           <span className="text-sm font-semibold text-gray-900">原图</span>
         </div>
-        <div className="flex flex-1 items-center justify-center bg-gray-50 p-3">
+        <div className="flex min-h-0 flex-1 items-center justify-center bg-gray-50 p-2 md:p-3">
           {resolvedOriginalUrl ? (
             <img
               src={resolvedOriginalUrl}
               alt="原图"
-              className="max-h-[58vh] max-w-full w-auto h-auto object-contain rounded-lg border border-gray-200 bg-white shadow"
+              className="h-auto max-h-[58vh] w-auto max-w-full rounded-lg border border-gray-200 bg-white object-contain shadow lg:h-full lg:max-h-none lg:w-full"
             />
           ) : (
             <div className="flex h-full min-h-[180px] w-full items-center justify-center rounded-lg border border-dashed border-gray-200 bg-white text-sm text-gray-400">
@@ -213,7 +213,7 @@ const ResultComparisonPanel: React.FC<ResultComparisonPanelProps> = ({
         </div>
       </div>
 
-      <div className="flex min-h-[240px] md:min-h-[420px] flex-col rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+      <div className="flex min-h-[240px] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm md:min-h-[420px] lg:h-full lg:min-h-0">
         <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
           <span className="text-sm font-semibold text-gray-900">
             {totalResults > 1 && resultIndex !== undefined
@@ -226,12 +226,12 @@ const ResultComparisonPanel: React.FC<ResultComparisonPanelProps> = ({
             </span>
           )}
         </div>
-        <div className="flex flex-1 items-center justify-center bg-gray-50 p-3">
+        <div className="flex min-h-0 flex-1 items-center justify-center bg-gray-50 p-2 md:p-3">
           <div className="relative group flex h-full w-full items-center justify-center">
             <img
               src={resolvedResultUrl}
               alt={resultAlt}
-              className="max-h-[58vh] max-w-full w-auto h-auto object-contain rounded-lg border border-gray-200 bg-white shadow-md cursor-pointer hover:shadow-lg transition-shadow"
+              className="h-auto max-h-[58vh] w-auto max-w-full cursor-pointer rounded-lg border border-gray-200 bg-white object-contain shadow-md transition-shadow hover:shadow-lg lg:h-full lg:max-h-none lg:w-full"
               onClick={() =>
                 onPreviewResult(resultUrl, resultIndex, resultDownloadUrl)
               }
@@ -272,7 +272,7 @@ const ResultComparisonPanel: React.FC<ResultComparisonPanelProps> = ({
               </>
             )}
             {showThumbnailOverlay && (
-              <div className="absolute bottom-3 left-1/2 z-10 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 gap-2 overflow-x-auto rounded-xl border border-white/70 bg-white/85 p-2 shadow-lg backdrop-blur">
+              <div className="absolute bottom-3 left-1/2 z-10 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 gap-2 overflow-x-auto">
                 {thumbnailItems.map((item) => {
                   const isActive = item.index === resultIndex;
                   return (
@@ -438,6 +438,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   const [selectedResultIndex, setSelectedResultIndex] = useState(0);
   const [showWechatModal, setShowWechatModal] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(false);
 
   // 成功消息出现时显示 toast，手动关闭
   useEffect(() => {
@@ -1455,7 +1456,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
 
                     return (
                       <div
-                        className="flex flex-col gap-3 md:gap-4 w-full h-full max-w-6xl mx-auto"
+                        className="flex h-full w-full flex-col gap-3 md:gap-4"
                       >
                         <div className="order-1 flex-1 flex flex-col items-center justify-center gap-3 min-h-0">
                           <ResultComparisonPanel
@@ -1515,7 +1516,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
 
                     return (
                       <div
-                        className="flex flex-col gap-3 md:gap-4 w-full h-full max-w-6xl mx-auto"
+                        className="flex h-full w-full flex-col gap-3 md:gap-4"
                       >
                         <div className="order-1 flex-1 flex flex-col items-center justify-center gap-3 min-h-0">
                           <ResultComparisonPanel
@@ -1570,7 +1571,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                   const displayUrl = processedImageDisplay || processedImage;
                   const downloadUrl = processedImageUrls[0] || displayUrl;
                   return (
-                    <div className="w-full h-full max-w-6xl mx-auto flex flex-col items-center justify-center gap-3 md:gap-4">
+                    <div className="flex h-full w-full flex-col items-center justify-center gap-3 md:gap-4">
                       <ResultComparisonPanel
                         originalUrl={comparisonOriginalUrl}
                         resultUrl={displayUrl}
@@ -1623,21 +1624,53 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
           </div>
         </div>
 
-        <div className="w-full md:w-80 bg-white border-l border-gray-200 p-4 md:p-6 overflow-y-auto order-3">
-          <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-3 md:mb-4 flex items-center">
-            <History className="h-4 w-4 md:h-5 md:w-5 mr-2 text-gray-600" />
-            历史记录
-          </h3>
-          {accessToken ? (
-            <HistoryList
-              accessToken={accessToken}
-              onTaskSelect={handleTaskSelect}
-              refreshToken={historyRefreshToken}
-            />
+        <div
+          className={`order-3 border-l border-gray-200 bg-white transition-all duration-200 ${
+            isHistoryCollapsed
+              ? "w-full overflow-hidden p-2 md:w-14"
+              : "w-full overflow-y-auto p-4 md:w-80 md:p-6"
+          }`}
+        >
+          {isHistoryCollapsed ? (
+            <button
+              type="button"
+              onClick={() => setIsHistoryCollapsed(false)}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 md:h-10 md:px-0"
+              title="展开历史记录"
+              aria-label="展开历史记录"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              <span className="md:hidden">历史记录</span>
+            </button>
           ) : (
-            <div className="text-center text-gray-400 py-6 md:py-8">
-              <p className="text-xs md:text-sm">请登录后查看历史记录</p>
-            </div>
+            <>
+              <div className="mb-3 flex items-center justify-between md:mb-4">
+                <h3 className="flex items-center text-base font-semibold text-gray-900 md:text-lg">
+                  <History className="mr-2 h-4 w-4 text-gray-600 md:h-5 md:w-5" />
+                  历史记录
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsHistoryCollapsed(true)}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
+                  title="收起历史记录"
+                  aria-label="收起历史记录"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+              {accessToken ? (
+                <HistoryList
+                  accessToken={accessToken}
+                  onTaskSelect={handleTaskSelect}
+                  refreshToken={historyRefreshToken}
+                />
+              ) : (
+                <div className="text-center text-gray-400 py-6 md:py-8">
+                  <p className="text-xs md:text-sm">请登录后查看历史记录</p>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
