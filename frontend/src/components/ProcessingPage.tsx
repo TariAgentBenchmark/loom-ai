@@ -438,7 +438,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   const [selectedResultIndex, setSelectedResultIndex] = useState(0);
   const [showWechatModal, setShowWechatModal] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
-  const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(false);
+  const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(true);
 
   // 成功消息出现时显示 toast，手动关闭
   useEffect(() => {
