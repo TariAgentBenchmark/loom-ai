@@ -1635,12 +1635,15 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
             <button
               type="button"
               onClick={() => setIsHistoryCollapsed(false)}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 md:h-10 md:px-0"
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 md:h-full md:min-h-[140px] md:flex-col md:px-0 md:py-4"
               title="展开历史记录"
               aria-label="展开历史记录"
             >
               <ChevronLeft className="h-4 w-4" />
               <span className="md:hidden">历史记录</span>
+              <span className="hidden text-xs leading-tight tracking-widest text-gray-500 [writing-mode:vertical-rl] md:inline">
+                历史记录
+              </span>
             </button>
           ) : (
             <>
