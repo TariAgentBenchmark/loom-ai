@@ -30,8 +30,11 @@ logger = logging.getLogger(__name__)
 
 
 def _display_credits(task) -> float:
-    """Return visible credits for a task, zeroing out failed ones."""
-    if task.status == TaskStatus.FAILED.value:
+    """Return visible credits for a task, zeroing out non-chargeable terminal states."""
+    if task.status in {
+        TaskStatus.FAILED.value,
+        TaskStatus.INSUFFICIENT_CREDITS.value,
+    }:
         return 0.0
     return to_float(task.credits_used)
 
@@ -730,6 +733,8 @@ async def get_task_status(
             progress = 100
         elif task.status == "failed":
             progress = 0
+        elif task.status == "insufficient_credits":
+            progress = 0
         
         response_data = {
             "taskId": task.task_id,
@@ -788,8 +793,8 @@ async def get_task_status(
                 "dimensions": task.result_dimensions
             }
         
-        # 如果任务失败，包含错误信息
-        if task.is_failed:
+        # 如果任务失败或积分不足，包含错误信息
+        if task.is_failed or task.is_insufficient_credits:
             error_message = mask_task_error_message(
                 task.error_message,
                 task.error_code,

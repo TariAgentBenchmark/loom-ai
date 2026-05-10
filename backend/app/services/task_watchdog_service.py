@@ -161,6 +161,12 @@ class TaskWatchdogService:
                 )
 
                 if retries >= settings.task_watchdog_max_retries:
+                    refunded_credits = await self.processing_service._refund_reserved_credits(
+                        db,
+                        task,
+                        description=f"{task.type_name}任务超时退回",
+                        reason="watchdog_timeout",
+                    )
                     task.mark_as_failed("任务超时，请重试", "WATCHDOG_TIMEOUT")
                     task.credits_used = 0
                     self._append_give_up_metadata(task, reason)
@@ -170,7 +176,11 @@ class TaskWatchdogService:
                         event="watchdog_give_up",
                         message="Task exceeded watchdog retry limit",
                         level="error",
-                        details={"retries": retries, "reason": reason},
+                        details={
+                            "retries": retries,
+                            "reason": reason,
+                            "refundedCredits": refunded_credits,
+                        },
                     )
                     db.commit()
                     continue

@@ -206,6 +206,7 @@ export default function AdminTaskBrowserPage() {
       processing: { label: "处理中", color: "bg-blue-100 text-blue-800" },
       queued: { label: "排队中", color: "bg-yellow-100 text-yellow-800" },
       failed: { label: "失败", color: "bg-red-100 text-red-800" },
+      insufficient_credits: { label: "积分不足", color: "bg-orange-100 text-orange-800" },
     };
     const config = statusConfig[status as keyof typeof statusConfig] || {
       label: status,
@@ -582,6 +583,7 @@ export default function AdminTaskBrowserPage() {
                 <option value="processing">处理中</option>
                 <option value="queued">排队中</option>
                 <option value="failed">失败</option>
+                <option value="insufficient_credits">积分不足</option>
               </select>
             </div>
             <div>
@@ -684,7 +686,7 @@ export default function AdminTaskBrowserPage() {
                             <td className="whitespace-nowrap px-6 py-4 text-sm">
                               <div className="flex items-center gap-2">
                                 {getStatusBadge(task.status)}
-                                {task.status === "failed" && task.errorMessage && (
+                                {(task.status === "failed" || task.status === "insufficient_credits") && task.errorMessage && (
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();

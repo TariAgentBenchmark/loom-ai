@@ -73,6 +73,7 @@ const HistoryList: React.FC<HistoryListProps> = ({
     { value: 'all', label: '全部状态' },
     { value: 'completed', label: '已完成' },
     { value: 'failed', label: '失败' },
+    { value: 'insufficient_credits', label: '积分不足' },
     { value: 'processing', label: '处理中' },
     { value: 'queued', label: '排队中' },
   ];
@@ -128,6 +129,8 @@ const HistoryList: React.FC<HistoryListProps> = ({
         return <CheckCircle className="h-4 w-4 text-green-500" />;
       case 'failed':
         return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'insufficient_credits':
+        return <XCircle className="h-4 w-4 text-orange-500" />;
       case 'processing':
         return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />;
       case 'queued':
@@ -143,6 +146,8 @@ const HistoryList: React.FC<HistoryListProps> = ({
         return '已完成';
       case 'failed':
         return '失败';
+      case 'insufficient_credits':
+        return '积分不足';
       case 'processing':
         return '处理中';
       case 'queued':

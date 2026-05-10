@@ -891,6 +891,31 @@ function HomeContent() {
           delete next[method];
           return next;
         });
+        if (accessToken) {
+          hydrateAccount(accessToken).catch(() => {
+            /* 静默忽略刷新错误 */
+          });
+        }
+        return;
+      }
+
+      if (statusData.status === 'insufficient_credits') {
+        updateMethodUiState(method, {
+          errorMessage: statusData.error?.message?.trim() || '积分不足，请充值后再试',
+          successMessage: '',
+        });
+        setHistoryRefreshToken((token) => token + 1);
+        clearTaskPolling(taskId);
+        updateActiveTasks((prev) => {
+          const next = { ...prev };
+          delete next[method];
+          return next;
+        });
+        if (accessToken) {
+          hydrateAccount(accessToken).catch(() => {
+            /* 静默忽略刷新错误 */
+          });
+        }
       }
     },
     [hydrateAccount, accessToken, clearTaskPolling, updateActiveTasks, updateMethodUiState],

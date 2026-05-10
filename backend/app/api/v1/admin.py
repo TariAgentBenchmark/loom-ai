@@ -815,7 +815,10 @@ async def _format_admin_task(
 
         file_service = FileService()
     credits_used_value = to_float(task.credits_used)
-    if task.status == TaskStatus.FAILED.value:
+    if task.status in {
+        TaskStatus.FAILED.value,
+        TaskStatus.INSUFFICIENT_CREDITS.value,
+    }:
         credits_used_value = 0.0
 
     original_image = None
@@ -883,6 +886,11 @@ async def _format_admin_task(
             dimensions=task.result_dimensions,
         )
 
+    has_task_error = task.status in {
+        TaskStatus.FAILED.value,
+        TaskStatus.INSUFFICIENT_CREDITS.value,
+    }
+
     return AdminUserTaskResponse(
         taskId=task.task_id,
         type=task.type,
@@ -895,10 +903,8 @@ async def _format_admin_task(
         resultFilename=task.result_filename,
         originalImage=original_image,
         resultImage=result_image,
-        errorMessage=task.error_message
-        if task.status == TaskStatus.FAILED.value
-        else None,
-        errorCode=task.error_code if task.status == TaskStatus.FAILED.value else None,
+        errorMessage=task.error_message if has_task_error else None,
+        errorCode=task.error_code if has_task_error else None,
     )
 
 

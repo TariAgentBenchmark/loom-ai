@@ -101,6 +101,7 @@ const AdminUserDetail: React.FC = () => {
     const mapping: Record<string, string> = {
       completed: "已完成",
       failed: "失败",
+      insufficient_credits: "积分不足",
       processing: "处理中",
       queued: "排队中",
     };
@@ -537,6 +538,8 @@ const AdminUserDetail: React.FC = () => {
                         className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                           task.status === "completed"
                             ? "bg-green-100 text-green-800"
+                            : task.status === "insufficient_credits"
+                            ? "bg-orange-100 text-orange-800"
                             : task.status === "failed"
                             ? "bg-red-100 text-red-800"
                             : "bg-gray-100 text-gray-800"

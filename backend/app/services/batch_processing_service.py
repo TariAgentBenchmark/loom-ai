@@ -246,7 +246,12 @@ class BatchProcessingService:
             ).count()
             failed = db.query(Task).filter(
                 Task.batch_id == batch_task.id,
-                Task.status == TaskStatus.FAILED.value
+                Task.status.in_(
+                    [
+                        TaskStatus.FAILED.value,
+                        TaskStatus.INSUFFICIENT_CREDITS.value,
+                    ]
+                )
             ).count()
             
             batch_task.update_progress(completed, failed)
@@ -294,7 +299,11 @@ class BatchProcessingService:
                 "filename": task.original_filename,
                 "status": task.status,
                 "resultUrl": result_url,
-                "errorMessage": task.error_message if task.is_failed else None,
+                "errorMessage": (
+                    task.error_message
+                    if task.is_failed or task.is_insufficient_credits
+                    else None
+                ),
             }
             task_statuses.append(task_status)
         

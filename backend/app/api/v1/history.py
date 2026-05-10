@@ -100,7 +100,10 @@ async def get_history_tasks(
 
         async def _format_task(task: Task):
             credits_used_value = to_float(task.credits_used)
-            if task.status == TaskStatus.FAILED.value:
+            if task.status in {
+                TaskStatus.FAILED.value,
+                TaskStatus.INSUFFICIENT_CREDITS.value,
+            }:
                 credits_used_value = 0.0
 
             (

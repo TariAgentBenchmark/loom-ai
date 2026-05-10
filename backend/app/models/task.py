@@ -26,6 +26,7 @@ class TaskStatus(PyEnum):
     PROCESSING = "processing"  # 处理中
     COMPLETED = "completed"  # 已完成
     FAILED = "failed"  # 失败
+    INSUFFICIENT_CREDITS = "insufficient_credits"  # 积分不足
 
 
 class Task(Base):
@@ -117,6 +118,11 @@ class Task(Base):
         return self.status == TaskStatus.FAILED.value
 
     @property
+    def is_insufficient_credits(self) -> bool:
+        """任务是否因积分不足终止"""
+        return self.status == TaskStatus.INSUFFICIENT_CREDITS.value
+
+    @property
     def is_processing(self) -> bool:
         """任务是否正在处理"""
         return self.status in [TaskStatus.QUEUED.value, TaskStatus.PROCESSING.value]
@@ -138,6 +144,13 @@ class Task(Base):
     def mark_as_failed(self, error_message: str, error_code: str = None):
         """标记任务为失败"""
         self.status = TaskStatus.FAILED.value
+        self.error_message = error_message
+        self.error_code = error_code
+        self.completed_at = func.now()
+
+    def mark_as_insufficient_credits(self, error_message: str = "积分不足，请充值后再试", error_code: str = "P007"):
+        """标记任务为积分不足"""
+        self.status = TaskStatus.INSUFFICIENT_CREDITS.value
         self.error_message = error_message
         self.error_code = error_code
         self.completed_at = func.now()

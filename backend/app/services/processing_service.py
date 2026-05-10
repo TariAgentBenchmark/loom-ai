@@ -287,6 +287,120 @@ class ProcessingService:
             details=details,
         )
 
+    async def _reserve_task_credits(self, db: Session, task: Task) -> bool:
+        """预占任务积分，避免并发提交时余额被重复使用。"""
+        metadata = dict(task.extra_metadata or {})
+        if metadata.get("creditsReserved"):
+            return True
+
+        credits_needed = to_decimal(task.credits_used or 0)
+        metadata["requiredCredits"] = to_float(credits_needed)
+
+        user = (
+            db.query(User)
+            .filter(User.id == task.user_id)
+            .with_for_update()
+            .populate_existing()
+            .first()
+        )
+        if not user:
+            raise Exception(f"找不到用户 {task.user_id}")
+
+        if credits_needed <= to_decimal(0) or user.is_admin:
+            metadata["creditsReserved"] = True
+            metadata["reservedCredits"] = 0.0
+            metadata["creditsReservedAt"] = datetime.utcnow().isoformat()
+            task.extra_metadata = metadata
+            db.commit()
+            return True
+
+        if not user.deduct_credits(credits_needed):
+            metadata["creditsReserved"] = False
+            metadata["reservedCredits"] = 0.0
+            metadata["insufficientCreditsAt"] = datetime.utcnow().isoformat()
+            metadata["currentCredits"] = to_float(user.credits or 0)
+            task.extra_metadata = metadata
+            task.credits_used = to_decimal(0)
+            task.mark_as_insufficient_credits()
+            self._log_task_event(
+                db,
+                task,
+                event="task_insufficient_credits",
+                message="Task was not queued because user credits were insufficient",
+                level="warning",
+                details={
+                    "requiredCredits": to_float(credits_needed),
+                    "currentCredits": to_float(user.credits or 0),
+                },
+            )
+            db.commit()
+            return False
+
+        metadata["creditsReserved"] = True
+        metadata["reservedCredits"] = to_float(credits_needed)
+        metadata["refundedCredits"] = 0.0
+        metadata["creditsReservedAt"] = datetime.utcnow().isoformat()
+        task.extra_metadata = metadata
+        db.commit()
+        return True
+
+    async def _refund_reserved_credits(
+        self,
+        db: Session,
+        task: Task,
+        *,
+        amount=None,
+        description: Optional[str] = None,
+        reason: str = "task_failed",
+    ) -> float:
+        """退回已预占积分。默认退回尚未退过的全部预占积分。"""
+        metadata = dict(task.extra_metadata or {})
+        if not metadata.get("creditsReserved"):
+            return 0.0
+
+        reserved = to_decimal(metadata.get("reservedCredits") or 0)
+        refunded = to_decimal(metadata.get("refundedCredits") or 0)
+        refundable = max(to_decimal(0), reserved - refunded)
+        refund_amount = refundable if amount is None else min(to_decimal(amount), refundable)
+        if refund_amount <= to_decimal(0):
+            return 0.0
+
+        user = (
+            db.query(User)
+            .filter(User.id == task.user_id)
+            .with_for_update()
+            .populate_existing()
+            .first()
+        )
+        if not user:
+            raise Exception(f"找不到用户 {task.user_id}")
+
+        if not user.is_admin:
+            user.add_credits(refund_amount)
+
+        metadata["refundedCredits"] = to_float(refunded + refund_amount)
+        metadata["lastCreditRefundAt"] = datetime.utcnow().isoformat()
+        metadata["lastCreditRefundReason"] = reason
+        task.extra_metadata = metadata
+        db.commit()
+
+        if not user.is_admin:
+            await self.credit_service.record_transaction(
+                db=db,
+                user_id=user.id,
+                amount=refund_amount,
+                source="processing_refund",
+                description=description or f"{task.type_name}处理退回",
+                related_task_id=task.task_id,
+                metadata={
+                    "reason": reason,
+                    "reservedCredits": to_float(reserved),
+                    "refundAmount": to_float(refund_amount),
+                },
+            )
+
+        return to_float(refund_amount)
+
     async def create_task(
         self,
         db: Session,
@@ -359,10 +473,6 @@ class ProcessingService:
             if credits_needed is None:
                 raise Exception("服务价格未配置，请联系管理员")
 
-        # 检查积分是否足够
-        if not user.can_afford(credits_needed):
-            raise Exception("积分不足，请充值后再试")
-
         # 创建任务记录
         task = Task(
             task_id=f"task_{task_type}_{uuid.uuid4().hex[:12]}",
@@ -384,6 +494,15 @@ class ProcessingService:
         db.add(task)
         db.commit()
         db.refresh(task)
+
+        credits_reserved = await self._reserve_task_credits(db, task)
+        db.refresh(task)
+        if not credits_reserved:
+            logger.info(
+                "Task %s stopped before processing due to insufficient credits",
+                task.task_id,
+            )
+            return task
 
         self._log_task_event(
             db,
@@ -417,13 +536,27 @@ class ProcessingService:
             if not task:
                 logger.error(f"Task {task_id} not found")
                 return
-            if task.status in [TaskStatus.COMPLETED.value, TaskStatus.FAILED.value]:
+            if task.status in [
+                TaskStatus.COMPLETED.value,
+                TaskStatus.FAILED.value,
+                TaskStatus.INSUFFICIENT_CREDITS.value,
+            ]:
                 logger.info(
                     "Task %s already %s, skip processing",
                     task_id,
                     task.status,
                 )
                 return
+
+            if not (task.extra_metadata or {}).get("creditsReserved"):
+                credits_reserved = await self._reserve_task_credits(db, task)
+                db.refresh(task)
+                if not credits_reserved:
+                    logger.info(
+                        "Task %s stopped before processing due to insufficient credits",
+                        task.task_id,
+                    )
+                    return
 
             # Prevent concurrent duplicate processing runs.
             processing_token = uuid.uuid4().hex
@@ -832,20 +965,18 @@ class ProcessingService:
                     )
                     db.commit()
 
-                # 扣除积分并更新处理次数
                 user = db.query(User).filter(User.id == task.user_id).first()
                 if not user:
                     raise Exception(f"找不到用户 {task.user_id}")
 
-                if not user.deduct_credits(task.credits_used):
-                    task.mark_as_failed("积分不足，请充值后再试", "P007")
-                    task.credits_used = to_decimal(0)
-                    db.commit()
-                    logger.warning(
-                        "Task %s failed during settlement due to insufficient credits",
-                        task_id,
+                if adjustment_info["creditAdjustmentApplied"] > 0:
+                    await self._refund_reserved_credits(
+                        db,
+                        task,
+                        amount=adjustment_info["creditAdjustmentApplied"],
+                        description=f"{task.type_name}部分出图退回",
+                        reason="partial_extract_pattern_result",
                     )
-                    return
 
                 user.increment_processed_count()
 
@@ -918,6 +1049,13 @@ class ProcessingService:
                     db.commit()
                     return
 
+                refunded_credits = await self._refund_reserved_credits(
+                    db,
+                    task,
+                    description=f"{task.type_name}处理失败退回",
+                    reason="task_failed",
+                )
+
                 task.mark_as_failed(admin_error_msg, error_code)
                 task.credits_used = to_decimal(0)
 
@@ -925,6 +1063,7 @@ class ProcessingService:
                     "errorCode": error_code,
                     "errorMessage": error_msg,
                     "traceback": error_traceback,
+                    "refundedCredits": refunded_credits,
                 }
                 if isinstance(e, AIClientException):
                     error_log_details["downstreamError"] = e.to_debug_payload(
@@ -955,6 +1094,12 @@ class ProcessingService:
                     admin_error_msg = (
                         f"[服务内部错误] {str(e)}\n\n调用栈:\n{error_traceback}"
                     )
+                    refunded_credits = await self._refund_reserved_credits(
+                        db_ref,
+                        task_ref,
+                        description=f"{task_ref.type_name}处理失败退回",
+                        reason="task_failed_preprocessing",
+                    )
                     task_ref.mark_as_failed(admin_error_msg, "SERVICE_ERROR")
                     task_ref.credits_used = to_decimal(0)
                     self._log_task_event(
@@ -967,6 +1112,7 @@ class ProcessingService:
                             "errorCode": "SERVICE_ERROR",
                             "errorMessage": str(e),
                             "traceback": error_traceback,
+                            "refundedCredits": refunded_credits,
                         },
                     )
                     db_ref.commit()
