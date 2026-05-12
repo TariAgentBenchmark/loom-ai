@@ -256,6 +256,13 @@ SERVICE_PRICE_VARIANTS = [
         "variant_name": "通用2",
         "description": "AI高清（通用2算法）",
     },
+    {
+        "parent_service_key": "prompt_edit",
+        "variant_key": "pro_4k",
+        "variant_name": "香蕉Pro 4K",
+        "description": "AI用嘴改图（香蕉Pro，4K超高清输出）",
+        "price_credits": 1.0,
+    },
 ]
 
 # 新用户福利配置

@@ -1,4 +1,4 @@
-import { ProcessingMethod } from "./processing";
+import { ProcessingMethod, PromptEditMode } from "./processing";
 import { getStoredRefreshToken, updateAuthTokens } from "./tokenManager";
 
 const DEFAULT_API_BASE_URL =
@@ -681,6 +681,7 @@ export interface ServiceCostQueryOptions {
   patternType?: string;
   numImages?: number;
   upscaleEngine?: string;
+  promptEditMode?: PromptEditMode;
 }
 
 export interface ServicePriceItem {
@@ -804,7 +805,7 @@ export interface ProcessingRequestPayload {
   accessToken: string;
   embroideryMode?: "yarn" | "embroidery";
   instruction?: string;
-  model?: "new" | "original";
+  model?: "new" | "original" | "pro_4k";
   patternType?: string;
   aspectRatio?: string;
   width?: number;
@@ -970,6 +971,12 @@ export const getServiceCost = async (
   }
   if (options?.upscaleEngine) {
     params.append("upscale_engine", options.upscaleEngine);
+  }
+  if (options?.promptEditMode) {
+    params.append(
+      "prompt_edit_model",
+      options.promptEditMode === "pro_4k" ? "pro_4k" : "new",
+    );
   }
 
   try {
@@ -2307,6 +2314,7 @@ export interface BatchProcessingRequestPayload {
   accessToken: string;
   embroideryMode?: "yarn" | "embroidery";
   instruction?: string;
+  model?: "new" | "original" | "pro_4k";
   patternType?: string;
   aspectRatio?: string;
   width?: number;
@@ -2331,6 +2339,7 @@ export const createBatchTask = (payload: BatchProcessingRequestPayload) => {
     accessToken,
     embroideryMode,
     instruction,
+    model,
     patternType,
     aspectRatio,
     width,
@@ -2370,6 +2379,7 @@ export const createBatchTask = (payload: BatchProcessingRequestPayload) => {
   // Add method-specific parameters
   if (method === "prompt_edit" && instruction) {
     formData.append("instruction", instruction);
+    formData.append("model", model ?? "new");
   }
 
   if (method === "embroidery") {

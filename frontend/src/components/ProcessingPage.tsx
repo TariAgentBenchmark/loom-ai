@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { History, Eye, ChevronLeft, ChevronRight, X, CheckCircle } from "lucide-react";
 import {
   ProcessingMethod,
+  PromptEditMode,
   getProcessingMethodInfo,
   resolvePricingServiceKey,
 } from "../lib/processing";
@@ -341,6 +342,8 @@ interface ProcessingPageProps {
   accessToken?: string;
   promptInstruction?: string;
   onPromptInstructionChange?: (value: string) => void;
+  promptEditMode?: PromptEditMode;
+  onPromptEditModeChange?: (value: PromptEditMode) => void;
   embroideryMode?: "yarn" | "embroidery";
   onEmbroideryModeChange?: (value: "yarn" | "embroidery") => void;
   patternType?: string;
@@ -400,6 +403,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   accessToken,
   promptInstruction,
   onPromptInstructionChange,
+  promptEditMode = "standard",
+  onPromptEditModeChange,
   embroideryMode = "embroidery",
   onEmbroideryModeChange,
   patternType,
@@ -491,6 +496,22 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
         description: "超高清4K放大模式，极致细节还原，适合需要大幅面输出的场景。",
       },
     ];
+  const promptEditModeOptions: {
+    value: PromptEditMode;
+    label: string;
+    description: string;
+  }[] = [
+    {
+      value: "standard",
+      label: "标准 2K",
+      description: "当前稳定模式，适合日常修图，速度和成本更平衡。",
+    },
+    {
+      value: "pro_4k",
+      label: "香蕉 Pro 4K",
+      description: "调用香蕉 Pro 4K 模型，输出更高清，适合需要印刷或大图交付的场景。",
+    },
+  ];
   const patternTypeOptions: { value: string; label: string; hint?: string }[] =
     [
       { value: "general", label: "通用模型" },
@@ -624,6 +645,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
         patternType,
         upscaleEngine,
         numImages,
+        promptEditMode,
       });
 
       if (accessToken) {
@@ -632,6 +654,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
             patternType,
             numImages,
             upscaleEngine,
+            promptEditMode,
           });
           resolvedCost = response.unit_cost ?? response.total_cost ?? null;
         } catch (error) {
@@ -664,7 +687,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [method, accessToken, patternType, upscaleEngine, effectiveGeneralImageCount]);
+  }, [method, accessToken, patternType, upscaleEngine, effectiveGeneralImageCount, promptEditMode]);
 
   useEffect(() => {
     setSelectedResultIndex(0);
@@ -1353,6 +1376,34 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
 
           {method === "prompt_edit" && (
             <div className="mb-4 md:mb-6 space-y-3 md:space-y-4">
+              <div>
+                <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2">
+                  输出模式
+                </h4>
+                <div className="grid grid-cols-2 gap-3">
+                  {promptEditModeOptions.map((option) => {
+                    const isActive = promptEditMode === option.value;
+                    return (
+                      <button
+                        type="button"
+                        key={option.value}
+                        onClick={() => onPromptEditModeChange?.(option.value)}
+                        className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-all ${isActive
+                          ? "border-blue-500 bg-blue-50 shadow-sm"
+                          : "border-gray-200 hover:border-blue-300 hover:bg-blue-50/60"
+                          }`}
+                      >
+                        <span className="text-sm md:text-base font-semibold text-gray-900">
+                          {option.label}
+                        </span>
+                        <span className="text-xs text-gray-500 leading-snug">
+                          {option.description}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm md:text-base font-semibold text-gray-900">

@@ -11,6 +11,8 @@ from app.services.ai_client.apyi_openai_client import ApyiOpenAIClient, GPT_IMAG
 
 logger = logging.getLogger(__name__)
 
+PROMPT_EDIT_PRO_4K_MODEL = "gemini-3-pro-image-preview-4k"
+
 
 class ImageProcessingUtils:
     """图片处理工具类"""
@@ -171,14 +173,29 @@ class ImageProcessingUtils:
         if not instruction:
             raise Exception("请提供修改指令")
 
-        model_choice = (options.get("model") or "new").strip().lower()
-        if model_choice not in {"new", "original"}:
+        model_choice = (
+            str(options.get("model") or "new").strip().lower().replace("-", "_")
+        )
+        if model_choice in {
+            "pro4k",
+            "banana_pro_4k",
+            "nano_banana_pro_4k",
+            "gemini_3_pro_4k",
+            "gemini_3_pro_image_preview_4k",
+        }:
+            model_choice = "pro_4k"
+        if model_choice not in {"new", "original", "pro_4k"}:
             model_choice = "new"
 
         if model_choice == "original":
             prefix = (
                 "你是一名专业的服装与电商图片修图师，偏好保守的风格调整，"
                 "执行时保持原图细节与主体结构稳定，不引入额外装饰。"
+            )
+        elif model_choice == "pro_4k":
+            prefix = (
+                "你是一名专业的图像编辑与商业设计AI助手，使用香蕉Pro 4K模型处理图片，"
+                "在准确执行用户指令的同时输出超高清、细节稳定、适合设计交付的结果。"
             )
         else:
             prefix = (
@@ -198,11 +215,23 @@ class ImageProcessingUtils:
         aspect_ratio = options.get("aspect_ratio")
         width = options.get("width")
         height = options.get("height")
+        requested_resolution = (
+            str(options.get("resolution")).strip().upper()
+            if options.get("resolution") is not None
+            else None
+        )
+        resolution = (
+            "4K"
+            if model_choice == "pro_4k"
+            else requested_resolution or "2K"
+        )
         preview_model_name = (
             options.get("preview_model").strip()
             if isinstance(options.get("preview_model"), str) and options.get("preview_model").strip()
             else None
         )
+        if model_choice == "pro_4k":
+            preview_model_name = preview_model_name or PROMPT_EDIT_PRO_4K_MODEL
 
         secondary_image_bytes = options.get("secondary_image_bytes")
         image_list: List[bytes] = [image_bytes]
@@ -220,6 +249,8 @@ class ImageProcessingUtils:
                     aspect_ratio=aspect_ratio,
                     width=width,
                     height=height,
+                    resolution=resolution,
+                    model_name=preview_model_name,
                 )
                 url = self.apyi_gemini_client._extract_image_url(result)
                 if url:

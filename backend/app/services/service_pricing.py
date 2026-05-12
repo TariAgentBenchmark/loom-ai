@@ -12,6 +12,7 @@ PATTERN_VARIANTS = {
     "denim",
 }
 UPSCALE_VARIANTS = {"meitu_v2", "runninghub_vr2", "runninghub_4k_ultra"}
+PROMPT_EDIT_VARIANTS = {"pro_4k"}
 
 
 def _normalize_pattern_type(raw_value: Optional[str]) -> Optional[str]:
@@ -50,6 +51,23 @@ def _normalize_upscale_engine(raw_value: Optional[str]) -> Optional[str]:
     return normalized
 
 
+def _normalize_prompt_edit_model(raw_value: Optional[Any]) -> Optional[str]:
+    """Normalize prompt-edit output/model choices for pricing."""
+    if raw_value is None:
+        return None
+    normalized = str(raw_value).strip().lower().replace("-", "_")
+    if normalized in {
+        "pro_4k",
+        "pro4k",
+        "banana_pro_4k",
+        "nano_banana_pro_4k",
+        "gemini_3_pro_4k",
+        "gemini_3_pro_image_preview_4k",
+    }:
+        return "pro_4k"
+    return None
+
+
 def _split_legacy_variant_key(service_key: str) -> tuple[str, Optional[str]]:
     if service_key.startswith("extract_pattern_"):
         legacy = service_key[len("extract_pattern_") :]
@@ -58,6 +76,8 @@ def _split_legacy_variant_key(service_key: str) -> tuple[str, Optional[str]]:
         return "extract_pattern", legacy
     if service_key.startswith("upscale_"):
         return "upscale", service_key[len("upscale_") :]
+    if service_key.startswith("prompt_edit_"):
+        return "prompt_edit", service_key[len("prompt_edit_") :]
     return service_key, None
 
 
@@ -121,9 +141,20 @@ def resolve_pricing_target(
         raw_engine = opts.get("engine") or opts.get("upscale_engine") or legacy_variant
         variant_key = _normalize_upscale_engine(raw_engine)
 
+    if base_key == "prompt_edit":
+        raw_model = (
+            opts.get("prompt_edit_model")
+            or opts.get("model")
+            or opts.get("resolution_mode")
+            or legacy_variant
+        )
+        variant_key = _normalize_prompt_edit_model(raw_model)
+
     if variant_key and base_key == "extract_pattern" and variant_key not in PATTERN_VARIANTS:
         variant_key = None
     if variant_key and base_key == "upscale" and variant_key not in UPSCALE_VARIANTS:
+        variant_key = None
+    if variant_key and base_key == "prompt_edit" and variant_key not in PROMPT_EDIT_VARIANTS:
         variant_key = None
 
     pricing_key = f"{base_key}_{variant_key}" if variant_key else base_key

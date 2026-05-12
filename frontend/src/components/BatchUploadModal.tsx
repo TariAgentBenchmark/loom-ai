@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, DragEvent, ChangeEvent, useRef } from 'react';
-import { ProcessingMethod } from '../lib/processing';
+import { ProcessingMethod, PromptEditMode } from '../lib/processing';
 import ExpandEdgeControls from './ExpandEdgeControls';
 
 interface BatchUploadModalProps {
@@ -15,6 +15,8 @@ interface BatchUploadModalProps {
     showReferenceImage?: boolean;  // 是否显示基准图上传（仅用于 prompt_edit）
     instruction?: string; // prompt_edit 的修改指令
     onInstructionChange?: (value: string) => void;
+    promptEditMode?: PromptEditMode;
+    onPromptEditModeChange?: (value: PromptEditMode) => void;
     embroideryMode?: 'yarn' | 'embroidery';
     onEmbroideryModeChange?: (value: 'yarn' | 'embroidery') => void;
     patternType?: string;
@@ -65,6 +67,8 @@ export default function BatchUploadModal({
     showReferenceImage = false,
     instruction,
     onInstructionChange,
+    promptEditMode = 'standard',
+    onPromptEditModeChange,
     embroideryMode = 'embroidery',
     onEmbroideryModeChange,
     patternType,
@@ -95,6 +99,22 @@ export default function BatchUploadModal({
     const patternTypeOptions: { value: string; label: string }[] = [
         { value: 'general', label: '通用模型' },
         { value: 'denim', label: '牛仔风格专用' },
+    ];
+    const promptEditModeOptions: {
+        value: PromptEditMode;
+        label: string;
+        description: string;
+    }[] = [
+        {
+            value: 'standard',
+            label: '标准 2K',
+            description: '当前稳定模式，适合日常修图。',
+        },
+        {
+            value: 'pro_4k',
+            label: '香蕉 Pro 4K',
+            description: '4K超高清输出，适合印刷或大图交付。',
+        },
     ];
     const embroideryModeOptions: {
         value: 'yarn' | 'embroidery';
@@ -523,6 +543,38 @@ export default function BatchUploadModal({
                                         >
                                             <div className="text-sm font-semibold text-gray-900">{option.label}</div>
                                             <p className="mt-1 text-xs text-gray-600">{option.description}</p>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {method === 'prompt_edit' && (
+                        <div className="mb-6 space-y-3">
+                            <h3 className="text-sm md:text-base font-semibold text-gray-900">
+                                输出模式
+                            </h3>
+                            <div className="grid grid-cols-2 gap-3">
+                                {promptEditModeOptions.map((option) => {
+                                    const isActive = promptEditMode === option.value;
+                                    return (
+                                        <button
+                                            key={option.value}
+                                            type="button"
+                                            onClick={() => onPromptEditModeChange?.(option.value)}
+                                            disabled={isProcessing}
+                                            className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-all ${isActive
+                                                ? 'border-blue-500 bg-blue-50 shadow-sm'
+                                                : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/60'
+                                                }`}
+                                        >
+                                            <span className="text-sm md:text-base font-semibold text-gray-900">
+                                                {option.label}
+                                            </span>
+                                            <span className="text-xs text-gray-500 leading-snug">
+                                                {option.description}
+                                            </span>
                                         </button>
                                     );
                                 })}

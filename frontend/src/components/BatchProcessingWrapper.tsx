@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { ProcessingMethod, resolvePricingServiceKey } from '../lib/processing';
+import { ProcessingMethod, PromptEditMode, resolvePricingServiceKey } from '../lib/processing';
 import {
     createBatchTask,
     BatchProcessingRequestPayload,
@@ -17,6 +17,8 @@ interface BatchProcessingWrapperProps {
     onBack: () => void;
     onHistoryRefresh?: () => void;
     promptInstruction?: string;
+    promptEditMode?: PromptEditMode;
+    onPromptEditModeChange?: (value: PromptEditMode) => void;
     embroideryMode?: 'yarn' | 'embroidery';
     onEmbroideryModeChange?: (value: 'yarn' | 'embroidery') => void;
     patternType?: string;
@@ -44,6 +46,8 @@ export default function BatchProcessingWrapper({
     onBack,
     onHistoryRefresh,
     promptInstruction,
+    promptEditMode = 'standard',
+    onPromptEditModeChange,
     embroideryMode,
     onEmbroideryModeChange,
     patternType,
@@ -91,6 +95,7 @@ export default function BatchProcessingWrapper({
                 patternType,
                 numImages,
                 upscaleEngine,
+                promptEditMode,
             });
 
             if (accessToken) {
@@ -99,6 +104,7 @@ export default function BatchProcessingWrapper({
                         patternType,
                         numImages,
                         upscaleEngine,
+                        promptEditMode,
                     });
                     resolvedCost = response.unit_cost ?? response.total_cost ?? null;
                 } catch (err) {
@@ -129,7 +135,7 @@ export default function BatchProcessingWrapper({
         return () => {
             isMounted = false;
         };
-    }, [method, accessToken, patternType, upscaleEngine, batchGeneralImageCount]);
+    }, [method, accessToken, patternType, upscaleEngine, batchGeneralImageCount, promptEditMode]);
 
     const handleStartBatch = useCallback(async (files: File[], referenceImage: File | null) => {
         setError('');
@@ -150,6 +156,7 @@ export default function BatchProcessingWrapper({
 
             if (method === 'prompt_edit') {
                 payload.instruction = batchInstruction;
+                payload.model = promptEditMode === 'pro_4k' ? 'pro_4k' : 'new';
             }
 
             if (method === 'embroidery') {
@@ -193,7 +200,7 @@ export default function BatchProcessingWrapper({
         } finally {
             setIsCreatingBatch(false);
         }
-    }, [method, accessToken, batchInstruction, embroideryMode, patternType, denimAspectRatio, denimImageCount, batchGeneralImageCount, upscaleEngine, expandRatio, expandEdges, expandPrompt, onHistoryRefresh]);
+    }, [method, accessToken, batchInstruction, promptEditMode, embroideryMode, patternType, denimAspectRatio, denimImageCount, batchGeneralImageCount, upscaleEngine, expandRatio, expandEdges, expandPrompt, onHistoryRefresh]);
 
     const handleComplete = useCallback(() => {
         // Batch processing completed
@@ -254,6 +261,8 @@ export default function BatchProcessingWrapper({
                 showReferenceImage={method === 'prompt_edit'}
                 instruction={batchInstruction}
                 onInstructionChange={setBatchInstruction}
+                promptEditMode={promptEditMode}
+                onPromptEditModeChange={onPromptEditModeChange}
                 embroideryMode={embroideryMode}
                 onEmbroideryModeChange={onEmbroideryModeChange}
                 patternType={patternType}

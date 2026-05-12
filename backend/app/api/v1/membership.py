@@ -148,6 +148,7 @@ async def get_service_cost(
     pattern_type: str = None,
     num_images: int = None,
     upscale_engine: str = None,
+    prompt_edit_model: str = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -160,6 +161,8 @@ async def get_service_cost(
         options["num_images"] = num_images
     if upscale_engine:
         options["engine"] = upscale_engine
+    if prompt_edit_model:
+        options["model"] = prompt_edit_model
 
     cost = await service.calculate_service_cost(db, service_key, quantity, options)
 
@@ -181,6 +184,7 @@ async def can_afford_service(
     pattern_type: str = None,
     num_images: int = None,
     upscale_engine: str = None,
+    prompt_edit_model: str = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -193,6 +197,8 @@ async def can_afford_service(
         options["num_images"] = num_images
     if upscale_engine:
         options["engine"] = upscale_engine
+    if prompt_edit_model:
+        options["model"] = prompt_edit_model
 
     can_afford = await service.can_afford_service(
         db, current_user.id, service_key, quantity, options

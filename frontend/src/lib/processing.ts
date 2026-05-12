@@ -11,6 +11,8 @@ export type ProcessingMethod =
   | "seamless_loop"
   | "similar_image";
 
+export type PromptEditMode = "standard" | "pro_4k";
+
 interface ProcessingMethodInfo {
   title: string;
   description: string;
@@ -217,8 +219,19 @@ const normalizeGeneralImageCount = (value?: number) => {
 
 export const resolvePricingServiceKey = (
   method: ProcessingMethod,
-  options?: { patternType?: string; upscaleEngine?: string; numImages?: number },
+  options?: {
+    patternType?: string;
+    upscaleEngine?: string;
+    numImages?: number;
+    promptEditMode?: PromptEditMode;
+  },
 ) => {
+  if (method === "prompt_edit") {
+    return options?.promptEditMode === "pro_4k"
+      ? "prompt_edit_pro_4k"
+      : "prompt_edit";
+  }
+
   if (method === "extract_pattern") {
     const patternType = normalizePatternTypeForPricing(options?.patternType);
     if (patternType === "general_1") {

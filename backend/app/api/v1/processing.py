@@ -126,7 +126,7 @@ async def prompt_edit_image(
         # 构建选项
         options = {
             "instruction": instruction_value,
-            "model": (model or "new").strip().lower() or "new",
+            "model": (model or "new").strip().lower().replace("-", "_") or "new",
         }
 
         # 添加分辨率参数

@@ -21,7 +21,7 @@ import RegisterModal, { type PrefilledInviteContext } from '../components/Regist
 import ForgotPasswordModal from '../components/ForgotPasswordModal';
 import DisclaimerBar from '../components/DisclaimerBar';
 import UserReferralModal from '../components/UserReferralModal';
-import { ProcessingMethod } from '../lib/processing';
+import { ProcessingMethod, PromptEditMode } from '../lib/processing';
 import {
   authenticate,
   clearPersistedSession,
@@ -164,6 +164,7 @@ function HomeContent() {
   const [showCreditHistoryModal, setShowCreditHistoryModal] = useState(false);
   const [currentPage, setCurrentPage] = useState<PageState>('home');
   const [promptInstruction, setPromptInstruction] = useState<string>('');
+  const [promptEditMode, setPromptEditMode] = useState<PromptEditMode>('standard');
   const [embroideryMode, setEmbroideryMode] = useState<'yarn' | 'embroidery'>('embroidery');
   const [patternType, setPatternType] = useState<string>('combined');
   const [denimAspectRatio, setDenimAspectRatio] = useState<string>('1:1');
@@ -1071,6 +1072,7 @@ function HomeContent() {
 
     if (currentPage === 'prompt_edit') {
       payload.instruction = trimmedInstruction;
+      payload.model = promptEditMode === 'pro_4k' ? 'pro_4k' : 'new';
       if (secondaryImage) {
         payload.image2 = secondaryImage;
       }
@@ -1212,6 +1214,7 @@ function HomeContent() {
               setCurrentPage('home');
               setBatchMode(false);
               setPromptInstruction('');
+              setPromptEditMode('standard');
               setEmbroideryMode('embroidery');
               setPatternType('combined');
               setDenimAspectRatio('1:1');
@@ -1249,6 +1252,8 @@ function HomeContent() {
             accessToken={accessToken || undefined}
             promptInstruction={promptInstruction}
             onPromptInstructionChange={setPromptInstruction}
+            promptEditMode={promptEditMode}
+            onPromptEditModeChange={setPromptEditMode}
             embroideryMode={embroideryMode}
             onEmbroideryModeChange={(value) => {
               setEmbroideryMode(value);
@@ -1304,6 +1309,8 @@ function HomeContent() {
               onBack={handleBatchModeClose}
               onHistoryRefresh={handleBatchHistoryRefresh}
               promptInstruction={promptInstruction}
+              promptEditMode={promptEditMode}
+              onPromptEditModeChange={setPromptEditMode}
               embroideryMode={embroideryMode}
               onEmbroideryModeChange={setEmbroideryMode}
               patternType={patternType}
@@ -1340,6 +1347,7 @@ function HomeContent() {
             clearSecondaryImageSelection();
             if (method === 'prompt_edit') {
               setPromptInstruction('');
+              setPromptEditMode('standard');
             }
             if (method === 'extract_pattern') {
               setPatternType('combined');
@@ -1371,6 +1379,9 @@ function HomeContent() {
             setBatchMode(true);
             setCurrentPage(method);
             applyStoredMethodUiState(method);
+            if (method === 'prompt_edit') {
+              setPromptEditMode('standard');
+            }
           }}
           onOpenPricingModal={() => setShowPricingModal(true)}
           onOpenCreditHistory={() => setShowCreditHistoryModal(true)}

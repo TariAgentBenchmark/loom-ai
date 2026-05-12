@@ -31,6 +31,7 @@ async def create_batch_task(
     images: List[UploadFile] = File(...),
     reference_image: Optional[UploadFile] = File(None),
     instruction: Optional[str] = Form(None),
+    model: str = Form("new"),
     pattern_type: Optional[str] = Form(None),
     embroidery_mode: Optional[str] = Form(None),
     quality: Optional[str] = Form(None),
@@ -83,6 +84,7 @@ async def create_batch_task(
         
         if task_type == "prompt_edit" and instruction:
             options["instruction"] = instruction.strip()
+            options["model"] = (model or "new").strip().lower().replace("-", "_") or "new"
             if not options["instruction"]:
                 raise HTTPException(status_code=400, detail="请填写修改指令")
         elif task_type == "prompt_edit" and not instruction:
