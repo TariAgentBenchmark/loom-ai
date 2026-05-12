@@ -499,17 +499,14 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   const promptEditModeOptions: {
     value: PromptEditMode;
     label: string;
-    description: string;
   }[] = [
     {
       value: "standard",
-      label: "标准 2K",
-      description: "当前稳定模式，适合日常修图，速度和成本更平衡。",
+      label: "2K",
     },
     {
       value: "pro_4k",
-      label: "香蕉 Pro 4K",
-      description: "调用香蕉 Pro 4K 模型，输出更高清，适合需要印刷或大图交付的场景。",
+      label: "4K",
     },
   ];
   const patternTypeOptions: { value: string; label: string; hint?: string }[] =
@@ -1388,16 +1385,13 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                         type="button"
                         key={option.value}
                         onClick={() => onPromptEditModeChange?.(option.value)}
-                        className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-all ${isActive
+                        className={`flex items-center justify-center rounded-xl border px-4 py-3 text-center transition-all ${isActive
                           ? "border-blue-500 bg-blue-50 shadow-sm"
                           : "border-gray-200 hover:border-blue-300 hover:bg-blue-50/60"
                           }`}
                       >
                         <span className="text-sm md:text-base font-semibold text-gray-900">
                           {option.label}
-                        </span>
-                        <span className="text-xs text-gray-500 leading-snug">
-                          {option.description}
                         </span>
                       </button>
                     );

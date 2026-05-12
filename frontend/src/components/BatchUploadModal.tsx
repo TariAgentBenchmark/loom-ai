@@ -103,17 +103,14 @@ export default function BatchUploadModal({
     const promptEditModeOptions: {
         value: PromptEditMode;
         label: string;
-        description: string;
     }[] = [
         {
             value: 'standard',
-            label: '标准 2K',
-            description: '当前稳定模式，适合日常修图。',
+            label: '2K',
         },
         {
             value: 'pro_4k',
-            label: '香蕉 Pro 4K',
-            description: '4K超高清输出，适合印刷或大图交付。',
+            label: '4K',
         },
     ];
     const embroideryModeOptions: {
@@ -564,16 +561,13 @@ export default function BatchUploadModal({
                                             type="button"
                                             onClick={() => onPromptEditModeChange?.(option.value)}
                                             disabled={isProcessing}
-                                            className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-all ${isActive
+                                            className={`flex items-center justify-center rounded-xl border px-4 py-3 text-center transition-all ${isActive
                                                 ? 'border-blue-500 bg-blue-50 shadow-sm'
                                                 : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/60'
                                                 }`}
                                         >
                                             <span className="text-sm md:text-base font-semibold text-gray-900">
                                                 {option.label}
-                                            </span>
-                                            <span className="text-xs text-gray-500 leading-snug">
-                                                {option.description}
                                             </span>
                                         </button>
                                     );
