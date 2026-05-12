@@ -218,42 +218,7 @@ const HistoryList: React.FC<HistoryListProps> = ({
     if (!task.resultImage) return;
 
     try {
-      // 检查是否有多张图片
-      const urls = splitCombinedImageRefs(task.resultImage.url);
-      const filenames = task.resultImage.filename.split(',').map(f => f.trim());
-      
-      if (urls.length > 1) {
-        // 多张图片，逐个下载
-        for (let i = 0; i < urls.length; i++) {
-          const response = await fetch(resolveFileUrl(urls[i]));
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = filenames[i] || `result_${i + 1}.png`;
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
-          
-          // 延迟避免浏览器阻止多个下载
-          if (i < urls.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
-        }
-      } else {
-        // 单张图片
-        const response = await fetch(resolveFileUrl(task.resultImage.url));
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = task.resultImage.filename;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      }
+      await downloadProcessedImage(task);
     } catch (err) {
       console.error('下载失败:', err);
     }
@@ -303,28 +268,9 @@ const HistoryList: React.FC<HistoryListProps> = ({
 
     try {
       for (const task of selectedTasksData) {
-        if (task.resultImage) {
-          // 检查是否有多张图片
-          const urls = splitCombinedImageRefs(task.resultImage.url);
-          const filenames = task.resultImage.filename.split(',').map(f => f.trim());
-          
-          // 下载所有图片
-          for (let i = 0; i < urls.length; i++) {
-            const response = await fetch(resolveFileUrl(urls[i]));
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filenames[i] || `${task.taskId}_result_${i + 1}.png`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-            
-            // 添加延迟以避免浏览器阻止多个下载
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
-        }
+        await downloadProcessedImage(task);
+        // 添加延迟以避免浏览器阻止多个下载
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
     } catch (err) {
       console.error('批量下载失败:', err);
