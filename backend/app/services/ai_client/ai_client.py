@@ -1025,6 +1025,11 @@ class AIClient:
             options=rh_options,
         )
 
+        if options is not None:
+            for metadata_key in ("runninghub_task_id", "runninghub_output_urls"):
+                if metadata_key in rh_options:
+                    options[metadata_key] = rh_options[metadata_key]
+
         cleaned_urls = [url.strip() for url in result_urls if url and url.strip()]
         if not cleaned_urls:
             raise Exception("RunningHub扩图未返回结果图片")

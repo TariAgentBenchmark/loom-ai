@@ -287,6 +287,29 @@ class ProcessingService:
             details=details,
         )
 
+    def _capture_downstream_result_metadata(
+        self,
+        task: Task,
+        task_options: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        """Persist provider task identity so UI results can be matched to upstream jobs."""
+        runninghub_task_id = task_options.get("runninghub_task_id")
+        runninghub_output_urls = task_options.get("runninghub_output_urls")
+
+        if not runninghub_task_id and not runninghub_output_urls:
+            return None
+
+        details: Dict[str, Any] = {"provider": "runninghub"}
+        if runninghub_task_id:
+            details["taskId"] = runninghub_task_id
+        if runninghub_output_urls:
+            details["outputUrls"] = runninghub_output_urls
+
+        metadata = dict(task.extra_metadata or {})
+        metadata["downstreamResult"] = details
+        task.extra_metadata = metadata
+        return details
+
     async def _reserve_task_credits(self, db: Session, task: Task) -> bool:
         """预占任务积分，避免并发提交时余额被重复使用。"""
         metadata = dict(task.extra_metadata or {})
@@ -751,15 +774,22 @@ class ProcessingService:
                 raw_result_urls = [
                     url.strip() for url in str(result_url).split(",") if url.strip()
                 ]
+                downstream_result_metadata = self._capture_downstream_result_metadata(
+                    task,
+                    task_options,
+                )
+                ai_result_details = {
+                    "resultCount": len(raw_result_urls) or 1,
+                    "resultUrl": result_url,
+                }
+                if downstream_result_metadata:
+                    ai_result_details["downstreamResult"] = downstream_result_metadata
                 self._log_task_event(
                     db,
                     task,
                     event="ai_processing_result",
                     message="AI returned result URLs",
-                    details={
-                        "resultCount": len(raw_result_urls) or 1,
-                        "resultUrl": result_url,
-                    },
+                    details=ai_result_details,
                 )
                 db.commit()
 

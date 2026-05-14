@@ -190,7 +190,8 @@ class RunningHubClient:
         """Run the positioning workflow and return comma separated result URLs."""
 
         workflow_id = self._ensure_configured()
-        options = options or {}
+        if options is None:
+            options = {}
         filename = options.get("original_filename") or "positioning.png"
 
         uploaded_name = await self._upload_file(image_bytes, filename)
@@ -237,7 +238,8 @@ class RunningHubClient:
         if not resolved_field_name:
             raise Exception("RunningHub缺少字段配置 field_name")
 
-        options = options or {}
+        if options is None:
+            options = {}
         filename = options.get("original_filename") or "runninghub.png"
 
         uploaded_name = await self._upload_file(image_bytes, filename)
@@ -262,7 +264,10 @@ class RunningHubClient:
             )
 
         task_id = await self._submit_task(node_info_list, resolved_workflow_id)
-        return await self._poll_task(task_id)
+        options["runninghub_task_id"] = task_id
+        result_urls = await self._poll_task(task_id)
+        options["runninghub_output_urls"] = result_urls
+        return result_urls
 
     async def run_seamless_loop_workflow(
         self,
@@ -289,7 +294,8 @@ class RunningHubClient:
             options: 额外参数
         """
         resolved_workflow_id = self._ensure_configured(workflow_id)
-        options = options or {}
+        if options is None:
+            options = {}
         filename = options.get("original_filename") or "seamless_loop.png"
 
         # Upload image
@@ -310,7 +316,10 @@ class RunningHubClient:
         ]
 
         task_id = await self._submit_task(node_info_list, resolved_workflow_id)
-        return await self._poll_task(task_id)
+        options["runninghub_task_id"] = task_id
+        result_urls = await self._poll_task(task_id)
+        options["runninghub_output_urls"] = result_urls
+        return result_urls
 
     async def run_expand_image_workflow(
         self,
@@ -366,7 +375,8 @@ class RunningHubClient:
         from io import BytesIO
 
         resolved_workflow_id = self._ensure_configured(workflow_id)
-        options = options or {}
+        if options is None:
+            options = {}
         filename = options.get("original_filename") or "expand_image.png"
 
         # Get image dimensions
@@ -457,7 +467,10 @@ class RunningHubClient:
         )
 
         task_id = await self._submit_task(node_info_list, resolved_workflow_id)
-        return await self._poll_task(task_id)
+        options["runninghub_task_id"] = task_id
+        result_urls = await self._poll_task(task_id)
+        options["runninghub_output_urls"] = result_urls
+        return result_urls
 
     async def run_ai_app_v2(
         self,
@@ -471,7 +484,8 @@ class RunningHubClient:
         if not ai_app_id:
             raise Exception("RunningHub AI App尚未配置")
 
-        options = options or {}
+        if options is None:
+            options = {}
         filename = options.get("original_filename") or "runninghub.png"
         uploaded_name = await self._upload_binary_v2(image_bytes, filename)
 
@@ -572,6 +586,11 @@ class RunningHubClient:
             if prompt_tips:
                 self.logger.debug("RunningHub prompt tips: %s", prompt_tips)
 
+            self.logger.info(
+                "RunningHub task created: workflow_id=%s task_id=%s",
+                workflow_id,
+                task_id,
+            )
             return task_id
 
         except AIClientException:
@@ -613,7 +632,16 @@ class RunningHubClient:
             result_data = data.get("data")
 
             if code == 0 and result_data:
-                urls = [item.get("fileUrl") for item in result_data if item.get("fileUrl")]
+                output_summaries = [
+                    {
+                        "nodeId": item.get("nodeId"),
+                        "fileType": item.get("fileType"),
+                        "fileUrl": item.get("fileUrl"),
+                    }
+                    for item in result_data
+                    if item.get("fileUrl")
+                ]
+                urls = [item["fileUrl"] for item in output_summaries]
                 if not urls:
                     self.logger.warning(
                         "RunningHub task returned no URLs: task_id=%s response=%s",
@@ -627,6 +655,11 @@ class RunningHubClient:
                         response_body=data,
                         request_data={"task_id": task_id},
                     )
+                self.logger.info(
+                    "RunningHub task outputs: task_id=%s outputs=%s",
+                    task_id,
+                    output_summaries,
+                )
                 return urls
 
             if code == 805:

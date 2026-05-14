@@ -33,6 +33,8 @@ async def test_expand_image_sets_target_megapixels_from_requested_canvas(monkeyp
     monkeypatch.setattr(client, "_submit_task", fake_submit_task)
     monkeypatch.setattr(client, "_poll_task", fake_poll_task)
 
+    metadata = {}
+
     result = await client.run_expand_image_workflow(
         image_bytes=_make_image_bytes(1264, 1480),
         workflow_id="workflow_123",
@@ -49,11 +51,14 @@ async def test_expand_image_sets_target_megapixels_from_requested_canvas(monkeyp
         margin_field_name="value",
         target_megapixels_node_id="230",
         target_megapixels_field_name="megapixels",
+        options=metadata,
     )
 
     assert result == ["https://example.com/result.png"]
     assert captured["workflow_id"] == "workflow_123"
     assert captured["task_id"] == "task_123"
+    assert metadata["runninghub_task_id"] == "task_123"
+    assert metadata["runninghub_output_urls"] == ["https://example.com/result.png"]
     assert captured["node_info_list"] == [
         {"nodeId": "166", "fieldName": "image", "fieldValue": "api/input.png"},
         {"nodeId": "200", "fieldName": "value", "fieldValue": 148},
