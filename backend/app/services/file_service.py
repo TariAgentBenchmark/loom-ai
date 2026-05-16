@@ -1,5 +1,7 @@
 import asyncio
 import os
+import subprocess
+import tempfile
 import uuid
 import aiofiles
 import httpx
@@ -19,6 +21,8 @@ OSS_IMAGE_PROCESS_MAX_SOURCE_SIZE = 20 * 1024 * 1024
 REMOTE_DOWNLOAD_MAX_ATTEMPTS = 3
 REMOTE_DOWNLOAD_RETRY_BASE_SECONDS = 1.0
 VECTOR_DOCUMENT_EXTENSIONS = {"eps", "pdf", "dxf"}
+EPS_PREVIEW_MAX_SIZE = (1600, 1600)
+EPS_PREVIEW_GS_TIMEOUT_SECONDS = 60
 
 
 class FileService:
@@ -299,6 +303,73 @@ class FileService:
 
     async def ensure_thumbnail_url(self, file_url: Optional[str]) -> Optional[str]:
         return await self.ensure_variant_url(file_url, variant="thumbnail")
+
+    async def create_eps_preview(
+        self,
+        eps_bytes: bytes,
+        *,
+        max_size: tuple[int, int] = EPS_PREVIEW_MAX_SIZE,
+    ) -> bytes:
+        """Render EPS bytes to a browser-previewable PNG."""
+        return await asyncio.to_thread(
+            self._render_eps_preview_sync,
+            eps_bytes,
+            max_size,
+        )
+
+    def _render_eps_preview_sync(
+        self,
+        eps_bytes: bytes,
+        max_size: tuple[int, int],
+    ) -> bytes:
+        if not eps_bytes.lstrip().startswith(b"%!PS"):
+            raise ValueError("不是有效的 EPS/PostScript 文件")
+
+        with tempfile.TemporaryDirectory(prefix="loomai_eps_preview_") as tmp_dir:
+            input_path = os.path.join(tmp_dir, "input.eps")
+            output_path = os.path.join(tmp_dir, "preview.png")
+
+            with open(input_path, "wb") as fp:
+                fp.write(eps_bytes)
+
+            cmd = [
+                "gs",
+                "-dSAFER",
+                "-dBATCH",
+                "-dNOPAUSE",
+                "-dEPSCrop",
+                "-dTextAlphaBits=4",
+                "-dGraphicsAlphaBits=4",
+                "-sDEVICE=pngalpha",
+                "-r96",
+                f"-sOutputFile={output_path}",
+                input_path,
+            ]
+            try:
+                completed = subprocess.run(
+                    cmd,
+                    check=False,
+                    capture_output=True,
+                    timeout=EPS_PREVIEW_GS_TIMEOUT_SECONDS,
+                )
+            except FileNotFoundError as exc:
+                raise RuntimeError("Ghostscript 未安装，无法生成 EPS 预览图") from exc
+            except subprocess.TimeoutExpired as exc:
+                raise RuntimeError("生成 EPS 预览图超时") from exc
+
+            if completed.returncode != 0:
+                stderr = completed.stderr.decode("utf-8", errors="ignore")[-1000:]
+                raise RuntimeError(f"Ghostscript 渲染 EPS 失败: {stderr}")
+
+            image = Image.open(output_path)
+            image.load()
+            if image.mode not in {"RGB", "RGBA"}:
+                image = image.convert("RGBA")
+            image.thumbnail(max_size, Image.Resampling.LANCZOS)
+
+            buffer = BytesIO()
+            image.save(buffer, format="PNG", optimize=True)
+            return buffer.getvalue()
 
     def validate_file(self, file_bytes: bytes, filename: str, validate_dimensions: bool = True, validate_file_size: bool = True) -> Dict[str, Any]:
         """验证文件

@@ -22,6 +22,7 @@ from app.utils.result_filter import (
     filter_result_strings,
     split_and_clean_csv,
 )
+from app.utils.result_previews import get_result_preview_urls
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -144,13 +145,27 @@ async def get_history_tasks(
                     task.result_image_url,
                     task.result_filename,
                 )
+                explicit_preview_refs = get_result_preview_urls(
+                    task.extra_metadata,
+                    expected_count=len(filtered_urls),
+                )
                 resolved_results = await asyncio.gather(
+                    *(
+                        _resolve_image_urls(
+                            file_service,
+                            explicit_preview_refs[index] or url,
+                            semaphore,
+                        )
+                        for index, url in enumerate(filtered_urls)
+                    )
+                )
+                resolved_downloads = await asyncio.gather(
                     *(
                         _resolve_image_urls(file_service, url, semaphore)
                         for url in filtered_urls
                     )
                 )
-                signed_urls = [resolved[0] for resolved in resolved_results if resolved[0]]
+                signed_urls = [resolved[0] for resolved in resolved_downloads if resolved[0]]
                 preview_urls = [resolved[1] for resolved in resolved_results if resolved[1]]
                 thumbnail_urls = [resolved[2] for resolved in resolved_results if resolved[2]]
 
@@ -240,13 +255,23 @@ async def get_task_detail(
                 task.result_image_url,
                 task.result_filename,
             )
+            explicit_preview_refs = get_result_preview_urls(
+                task.extra_metadata,
+                expected_count=len(filtered_urls),
+            )
             signed_urls = []
             preview_urls = []
             thumbnail_urls = []
-            for url in filtered_urls:
+            for index, url in enumerate(filtered_urls):
                 clean_url = url.strip()
-                preview_url = await file_service.ensure_preview_url(clean_url)
-                thumbnail_url = await file_service.ensure_thumbnail_url(clean_url)
+                preview_ref = (
+                    explicit_preview_refs[index]
+                    if index < len(explicit_preview_refs)
+                    else ""
+                )
+                preview_source = preview_ref or clean_url
+                preview_url = await file_service.ensure_preview_url(preview_source)
+                thumbnail_url = await file_service.ensure_thumbnail_url(preview_source)
                 accessible_url = await file_service.ensure_accessible_url(clean_url)
                 signed_urls.append(accessible_url or clean_url)
                 preview_urls.append(preview_url or accessible_url or clean_url)

@@ -20,7 +20,7 @@ const getFileExtension = (value: string): string => {
 };
 
 const isPreviewableFile = (filename: string, url: string): boolean => {
-  const ext = getFileExtension(filename) || getFileExtension(url);
+  const ext = getFileExtension(url) || getFileExtension(filename);
   return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(ext);
 };
 

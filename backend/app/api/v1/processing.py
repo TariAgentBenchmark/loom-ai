@@ -13,6 +13,7 @@ from app.utils.result_filter import (
     filter_result_strings,
     split_and_clean_csv,
 )
+from app.utils.result_previews import get_result_preview_urls
 from app.utils.exceptions import UserFacingException
 from app.utils.task_errors import mask_task_error_message
 
@@ -747,18 +748,29 @@ async def get_task_status(
         
         # 如果任务完成，包含结果信息
         if task.is_completed and task.result_image_url:
+            await processing_service.ensure_result_previews(db, task)
             filtered_urls, _ = filter_result_strings(
                 task.type,
                 task.result_image_url,
                 task.result_filename,
             )
+            explicit_preview_refs = get_result_preview_urls(
+                task.extra_metadata,
+                expected_count=len(filtered_urls),
+            )
             signed_urls = []
             preview_urls = []
             thumbnail_urls = []
-            for url in filtered_urls:
+            for index, url in enumerate(filtered_urls):
                 clean_url = url.strip()
-                preview_url = await file_service.ensure_preview_url(clean_url)
-                thumbnail_url = await file_service.ensure_thumbnail_url(clean_url)
+                preview_ref = (
+                    explicit_preview_refs[index]
+                    if index < len(explicit_preview_refs)
+                    else ""
+                )
+                preview_source = preview_ref or clean_url
+                preview_url = await file_service.ensure_preview_url(preview_source)
+                thumbnail_url = await file_service.ensure_thumbnail_url(preview_source)
                 accessible_url = await file_service.ensure_accessible_url(clean_url)
                 signed_urls.append(accessible_url or clean_url)
                 preview_urls.append(preview_url or accessible_url or clean_url)
@@ -769,7 +781,11 @@ async def get_task_status(
             processed_value = ",".join(signed_urls) if signed_urls else task.result_image_url
             # Main processing view should show full-quality results immediately after
             # completion; compressed previews remain available through history/admin APIs.
-            processed_preview_value = processed_value
+            processed_preview_value = (
+                ",".join(preview_urls)
+                if any(explicit_preview_refs) and preview_urls
+                else processed_value
+            )
             processed_thumbnail_value = (
                 ",".join(thumbnail_urls)
                 if thumbnail_urls

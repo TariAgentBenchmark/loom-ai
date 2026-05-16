@@ -204,8 +204,9 @@ const ResultComparisonPanel: React.FC<ResultComparisonPanelProps> = ({
 }) => {
   const resolvedOriginalUrl = originalUrl ? resolveFileUrl(originalUrl) : "";
   const resolvedResultUrl = resolveFileUrl(resultUrl);
-  const resultExtension = getResultExtension(resultDownloadUrl || resultUrl);
-  const canPreviewResult = isPreviewableResultExtension(resultExtension);
+  const previewExtension = getResultExtension(resultUrl);
+  const downloadExtension = getResultExtension(resultDownloadUrl || resultUrl);
+  const canPreviewResult = isPreviewableResultExtension(previewExtension);
   const canNavigate = totalResults > 1 && Boolean(onNavigateResult);
   const showThumbnailOverlay =
     thumbnailItems.length > 1 && resultIndex !== undefined && Boolean(onSelectResult);
@@ -271,7 +272,7 @@ const ResultComparisonPanel: React.FC<ResultComparisonPanelProps> = ({
                 <FileText className="h-12 w-12 text-blue-500" />
                 <div>
                   <p className="text-sm font-semibold text-gray-900">
-                    {resultExtension.toUpperCase()} 矢量文件
+                    {downloadExtension.toUpperCase()} 矢量文件
                   </p>
                   <p className="mt-1 text-xs text-gray-500">
                     当前浏览器无法直接预览，请下载后打开。

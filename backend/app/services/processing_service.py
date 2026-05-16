@@ -2,7 +2,7 @@ import asyncio
 import logging
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
@@ -21,7 +21,11 @@ from app.services.file_service import FileService
 from app.services.membership_service import MembershipService
 from app.services.service_pricing import resolve_pricing_key
 from app.services.task_log_service import TaskLogService
-from app.utils.result_filter import filter_result_lists
+from app.utils.result_filter import filter_result_lists, filter_result_strings
+from app.utils.result_previews import (
+    get_result_preview_urls,
+    with_result_previews,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -310,6 +314,132 @@ class ProcessingService:
         metadata["downstreamResult"] = details
         task.extra_metadata = metadata
         return details
+
+    @staticmethod
+    def _get_result_extension(
+        file_ref: Optional[str],
+        filename: Optional[str] = None,
+    ) -> str:
+        candidate = filename or file_ref or ""
+        sanitized = candidate.split("?", 1)[0].split("#", 1)[0]
+        basename = sanitized.rsplit("/", 1)[-1]
+        if "." not in basename:
+            return ""
+        return basename.rsplit(".", 1)[-1].lower()
+
+    async def _maybe_create_result_preview(
+        self,
+        db: Session,
+        task: Task,
+        *,
+        result_index: int,
+        result_url: str,
+        result_filename: str,
+        result_bytes: bytes,
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """Create a browser-previewable derivative for non-browser vector outputs."""
+        if task.type != TaskType.VECTORIZE.value:
+            return None, None
+
+        result_ext = self._get_result_extension(result_url, result_filename)
+        if result_ext != "eps":
+            return None, None
+
+        try:
+            eps_bytes = result_bytes or await self.file_service.read_file(result_url)
+            preview_bytes = await self.file_service.create_eps_preview(eps_bytes)
+            preview_filename = f"preview_{task.task_id}_{result_index}.png"
+            preview_url = await self.file_service.save_upload_file(
+                preview_bytes,
+                preview_filename,
+                "results",
+                validate_dimensions=False,
+                validate_file_size=False,
+            )
+            saved_filename = preview_url.split("/")[-1]
+            self._log_task_event(
+                db,
+                task,
+                event="result_preview_created",
+                message="Created browser preview for vector result",
+                details={
+                    "resultIndex": result_index,
+                    "resultUrl": result_url,
+                    "previewUrl": preview_url,
+                },
+            )
+            return preview_url, saved_filename
+        except Exception as exc:
+            logger.warning(
+                "生成 EPS 预览图失败: task=%s result=%s error=%s",
+                task.task_id,
+                result_url,
+                exc,
+            )
+            self._log_task_event(
+                db,
+                task,
+                event="result_preview_failed",
+                message="Failed to create browser preview for vector result",
+                level="warning",
+                details={
+                    "resultIndex": result_index,
+                    "resultUrl": result_url,
+                    "error": str(exc),
+                },
+            )
+            return None, None
+
+    async def ensure_result_previews(self, db: Session, task: Task) -> None:
+        """Best-effort lazy backfill for completed EPS tasks missing preview metadata."""
+        if not task.is_completed or not task.result_image_url:
+            return
+
+        filtered_urls, filtered_filenames = filter_result_strings(
+            task.type,
+            task.result_image_url,
+            task.result_filename,
+        )
+        if not filtered_urls:
+            return
+
+        existing_urls = get_result_preview_urls(
+            task.extra_metadata,
+            expected_count=len(filtered_urls),
+        )
+        preview_urls: List[str] = list(existing_urls)
+        preview_filenames: List[str] = [""] * len(filtered_urls)
+        changed = False
+
+        for idx, result_url in enumerate(filtered_urls):
+            if preview_urls[idx]:
+                continue
+            result_filename = (
+                filtered_filenames[idx]
+                if idx < len(filtered_filenames) and filtered_filenames[idx]
+                else result_url.rsplit("/", 1)[-1]
+            )
+            preview_url, preview_filename = await self._maybe_create_result_preview(
+                db,
+                task,
+                result_index=idx,
+                result_url=result_url,
+                result_filename=result_filename,
+                result_bytes=b"",
+            )
+            if preview_url:
+                preview_urls[idx] = preview_url
+                preview_filenames[idx] = preview_filename or ""
+                changed = True
+
+        if changed:
+            task.extra_metadata = with_result_previews(
+                task.extra_metadata,
+                preview_urls,
+                preview_filenames,
+            )
+            db.commit()
+            db.refresh(task)
 
     async def _reserve_task_credits(self, db: Session, task: Task) -> bool:
         """预占任务积分，避免并发提交时余额被重复使用。"""
@@ -811,6 +941,8 @@ class ProcessingService:
                 # 处理所有结果图片
                 final_result_urls = []
                 result_filenames = []
+                result_preview_urls = []
+                result_preview_filenames = []
                 total_size = 0
                 result_dimensions = None
                 downstream_details = self._describe_downstream(task.type, task_options)
@@ -940,6 +1072,16 @@ class ProcessingService:
 
                     final_result_urls.append(final_url)
                     result_filenames.append(filename)
+                    preview_url, preview_filename = await self._maybe_create_result_preview(
+                        db,
+                        task,
+                        result_index=idx,
+                        result_url=final_url,
+                        result_filename=filename,
+                        result_bytes=result_bytes,
+                    )
+                    result_preview_urls.append(preview_url or "")
+                    result_preview_filenames.append(preview_filename or "")
                     if result_bytes:
                         total_size += len(result_bytes)
                         if result_dimensions is None:
@@ -977,6 +1119,13 @@ class ProcessingService:
                     return
 
                 # 标记任务完成
+                if any(result_preview_urls):
+                    task.extra_metadata = with_result_previews(
+                        task.extra_metadata,
+                        result_preview_urls,
+                        result_preview_filenames,
+                    )
+
                 task.mark_as_completed(
                     result_url=final_result_url,
                     result_filename=result_filename,

@@ -50,6 +50,7 @@ from app.api.dependencies import get_current_active_admin
 from app.api.decorators import admin_required, admin_route
 from app.schemas.common import SuccessResponse, PaginationMeta, FileInfo
 from app.utils.result_filter import filter_result_strings
+from app.utils.result_previews import get_result_preview_urls
 from app.services.auth_service import AuthService
 from app.services.api_limiter import api_limiter
 from app.services.ai_model_route_service import (
@@ -857,13 +858,23 @@ async def _format_admin_task(
             task.result_image_url,
             task.result_filename,
         )
+        explicit_preview_refs = get_result_preview_urls(
+            task.extra_metadata,
+            expected_count=len(filtered_urls),
+        )
         signed_urls = []
         preview_urls = []
         thumbnail_urls = []
-        for url in filtered_urls:
+        for index, url in enumerate(filtered_urls):
             clean_url = url.strip()
-            preview_url = await file_service.ensure_preview_url(clean_url)
-            thumbnail_url = await file_service.ensure_thumbnail_url(clean_url)
+            preview_ref = (
+                explicit_preview_refs[index]
+                if index < len(explicit_preview_refs)
+                else ""
+            )
+            preview_source = preview_ref or clean_url
+            preview_url = await file_service.ensure_preview_url(preview_source)
+            thumbnail_url = await file_service.ensure_thumbnail_url(preview_source)
             accessible_url = await file_service.ensure_accessible_url(clean_url)
             signed_urls.append(accessible_url or clean_url)
             preview_urls.append(preview_url or accessible_url or clean_url)
