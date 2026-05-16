@@ -114,7 +114,10 @@ class OSSService:
                     'gif': 'image/gif',
                     'bmp': 'image/bmp',
                     'webp': 'image/webp',
-                    'svg': 'image/svg+xml'
+                    'svg': 'image/svg+xml',
+                    'eps': 'application/postscript',
+                    'pdf': 'application/pdf',
+                    'dxf': 'image/vnd.dxf',
                 }
                 content_type = content_type_map.get(ext, 'application/octet-stream')
             
@@ -173,7 +176,10 @@ class OSSService:
                     'gif': 'image/gif',
                     'bmp': 'image/bmp',
                     'webp': 'image/webp',
-                    'svg': 'image/svg+xml'
+                    'svg': 'image/svg+xml',
+                    'eps': 'application/postscript',
+                    'pdf': 'application/pdf',
+                    'dxf': 'image/vnd.dxf',
                 }
                 content_type = content_type_map.get(ext, 'application/octet-stream')
 

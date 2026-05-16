@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { X, Download, ZoomIn, ZoomOut, RotateCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Download, ZoomIn, ZoomOut, RotateCw, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
 import { resolveFileUrl } from '../lib/api';
 
 interface ProcessedImagePreviewProps {
@@ -16,6 +16,19 @@ interface ProcessedImagePreviewProps {
   hasPrev?: boolean;
   hasNext?: boolean;
 }
+
+const getFileExtension = (value: string): string => {
+  const sanitized = value.split(/[?#]/)[0] ?? value;
+  const filename = sanitized.split('/').pop() ?? sanitized;
+  const parts = filename.split('.');
+  if (parts.length < 2) return '';
+  return (parts.pop() ?? '').toLowerCase();
+};
+
+const isPreviewableFile = (filename: string, url: string): boolean => {
+  const ext = getFileExtension(filename) || getFileExtension(url);
+  return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(ext);
+};
 
 const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({
   image,
@@ -312,12 +325,35 @@ const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({
           >
             {(() => {
               const resolvedUrl = resolveFileUrl(image.url);
+              const canPreview = isPreviewableFile(image.filename, image.url);
               console.log('ProcessedImagePreview: Displaying image', {
                 originalUrl: image.url,
                 resolvedUrl,
                 filename: image.filename,
+                canPreview,
                 isSvg: image.filename.toLowerCase().includes('.svg') || image.url.toLowerCase().includes('.svg')
               });
+
+              if (!canPreview) {
+                const extension = (
+                  getFileExtension(image.filename) ||
+                  getFileExtension(image.url) ||
+                  'file'
+                ).toUpperCase();
+                return (
+                  <div className="flex min-h-[260px] min-w-[260px] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-white/25 bg-white px-6 text-center text-gray-600">
+                    <FileText className="h-14 w-14 text-blue-500" />
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {extension} 矢量文件
+                      </p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        当前浏览器无法直接预览，请下载后打开。
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
 
               const isSvg =
                 image.filename.toLowerCase().includes('.svg') ||

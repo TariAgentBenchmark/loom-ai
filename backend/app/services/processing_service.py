@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.task import Task, TaskStatus, TaskType
 from app.models.user import User
 from app.services.ai_client import ai_client
@@ -228,7 +229,7 @@ class ProcessingService:
                 except Exception:
                     provider = "runninghub+gemini+ai302_grok"
         elif task_type == TaskType.VECTORIZE.value:
-            provider = "a8_vectorizer+webapi"
+            provider = f"{settings.vectorizer_primary_provider}_vectorizer+a8_vectorizer+webapi"
         elif task_type == TaskType.EMBROIDERY.value and embroidery_mode == "embroidery":
             provider = "runninghub"
         elif task_type == TaskType.UPSCALE.value:
@@ -701,7 +702,7 @@ class ProcessingService:
                         image_bytes, task_options
                     )
                 elif task.type == TaskType.VECTORIZE.value:
-                    result_url = await ai_client.vectorize_image_a8_svg(
+                    result_url = await ai_client.vectorize_image_webapi(
                         image_bytes, task_options
                     )
                 elif task.type == TaskType.EXTRACT_PATTERN.value:
@@ -822,7 +823,7 @@ class ProcessingService:
                         # 获取结果文件信息
                         # 根据任务类型确定文件格式
                         if task.type == TaskType.VECTORIZE.value:
-                            # 矢量化任务返回SVG格式
+                            # 矢量化任务可能返回 SVG 或 EPS，按实际扩展名保存。
                             if single_result_url.startswith("/files/results/"):
                                 # 本地文件，直接使用，不需要重新保存
                                 final_url = single_result_url
@@ -851,7 +852,10 @@ class ProcessingService:
                                 result_bytes = await self.file_service.download_from_url(
                                     single_result_url
                                 )
-                                filename = f"result_{task.task_id}_{idx}.svg"
+                                source_ext = result_source.get("extension") or "svg"
+                                if source_ext not in {"svg", "eps"}:
+                                    source_ext = "svg"
+                                filename = f"result_{task.task_id}_{idx}.{source_ext}"
                                 # 保存结果文件（AI生成的图片可能分辨率和文件大小都很高，跳过验证）
                                 final_url = await self.file_service.save_upload_file(
                                     result_bytes, filename, "results", validate_dimensions=False, validate_file_size=False

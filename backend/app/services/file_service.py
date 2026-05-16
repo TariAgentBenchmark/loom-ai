@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 OSS_IMAGE_PROCESS_MAX_SOURCE_SIZE = 20 * 1024 * 1024
 REMOTE_DOWNLOAD_MAX_ATTEMPTS = 3
 REMOTE_DOWNLOAD_RETRY_BASE_SECONDS = 1.0
+VECTOR_DOCUMENT_EXTENSIONS = {"eps", "pdf", "dxf"}
 
 
 class FileService:
@@ -314,6 +315,17 @@ class FileService:
         
         # 检查文件扩展名
         file_ext = filename.lower().split('.')[-1] if '.' in filename else ''
+        # 对于AI生成的非浏览器图片矢量文件，保存时跳过普通图片白名单和PIL解析。
+        if file_ext in VECTOR_DOCUMENT_EXTENSIONS and not validate_dimensions:
+            return {
+                "valid": True,
+                "width": 0,
+                "height": 0,
+                "format": file_ext.upper(),
+                "mode": "BINARY",
+                "size": len(file_bytes),
+            }
+
         if file_ext not in self.allowed_extensions:
             raise UserFacingException(f"不支持的文件格式，支持格式: {', '.join(self.allowed_extensions)}")
         
@@ -327,6 +339,7 @@ class FileService:
                 "mode": "RGB",
                 "size": len(file_bytes)
             }
+
         
         # 检查图片是否有效
         try:

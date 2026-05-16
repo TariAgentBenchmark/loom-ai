@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import { X, Download, ZoomIn, ZoomOut, RotateCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Download, ZoomIn, ZoomOut, RotateCw, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
 import { HistoryTask, downloadTaskFile, resolveFileUrl, splitCombinedImageRefs } from '../lib/api';
 import { formatDateTime } from '../lib/datetime';
 
@@ -10,6 +10,19 @@ interface ImagePreviewProps {
   onClose: () => void;
   accessToken: string;
 }
+
+const getFileExtension = (value: string): string => {
+  const sanitized = value.split(/[?#]/)[0] ?? value;
+  const filename = sanitized.split('/').pop() ?? sanitized;
+  const parts = filename.split('.');
+  if (parts.length < 2) return '';
+  return (parts.pop() ?? '').toLowerCase();
+};
+
+const isPreviewableFile = (filename: string, url: string): boolean => {
+  const ext = getFileExtension(filename) || getFileExtension(url);
+  return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(ext);
+};
 
 const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken }) => {
   const [scale, setScale] = useState(1);
@@ -433,12 +446,38 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
               >
                 {(() => {
                   const resolvedUrl = resolveFileUrl(currentImage.url);
+                  const canPreview = isPreviewableFile(
+                    currentImage.filename,
+                    currentImage.url,
+                  );
                   console.log('ImagePreview: Displaying image', {
                     originalUrl: currentImage.url,
                     resolvedUrl,
                     filename: currentImage.filename,
+                    canPreview,
                     isSvg: currentImage.filename.toLowerCase().includes('.svg') || currentImage.url.toLowerCase().includes('.svg')
                   });
+
+                  if (!canPreview) {
+                    const extension = (
+                      getFileExtension(currentImage.filename) ||
+                      getFileExtension(currentImage.url) ||
+                      'file'
+                    ).toUpperCase();
+                    return (
+                      <div className="flex min-h-[260px] min-w-[260px] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-white/25 bg-white px-6 text-center text-gray-600">
+                        <FileText className="h-14 w-14 text-blue-500" />
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {extension} 矢量文件
+                          </p>
+                          <p className="mt-1 text-xs text-gray-500">
+                            当前浏览器无法直接预览，请下载后打开。
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  }
                   
                   const isSvg =
                     currentImage.filename.toLowerCase().includes('.svg') ||

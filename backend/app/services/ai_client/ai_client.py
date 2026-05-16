@@ -20,6 +20,7 @@ from app.services.ai_client.meitu_client import MeituClient
 from app.services.ai_client.vectorizer_client import VectorizerClient
 from app.services.ai_client.vector_webapi_client import VectorWebAPIClient
 from app.services.ai_client.a8_vectorizer_client import A8VectorizerClient
+from app.services.ai_client.zfy_vectorizer_client import ZfyVectorizerClient
 from app.services.ai_client.runninghub_client import RunningHubClient
 from app.services.ai_client.exceptions import AIClientException
 from app.services.ai_model_route_service import (
@@ -67,6 +68,7 @@ class AIClient:
         self.vectorizer_client = VectorizerClient()
         self.vector_webapi_client = VectorWebAPIClient()
         self.a8_vectorizer_client = A8VectorizerClient()
+        self.zfy_vectorizer_client = ZfyVectorizerClient()
         self.meitu_client = MeituClient()
         self.image_utils = ImageProcessingUtils()
         self.base_client_utils = BaseAIClient()
@@ -1065,13 +1067,65 @@ class AIClient:
             opts.get("vectorFormat")
             or opts.get("vectorformat")
             or opts.get("format")
-            or ".svg"
+            or settings.vectorizer_default_format
+            or ".eps"
         )
         original_filename = opts.get("original_filename")
+        provider = str(
+            opts.get("provider")
+            or opts.get("vectorizer_provider")
+            or settings.vectorizer_primary_provider
+            or "zfy"
+        ).strip().lower()
 
-        original_filename = opts.get("original_filename")
+        if provider in {"zfy", "a6", "new"}:
+            try:
+                zfy_fmt = vector_format.lstrip(".").lower()
+                if zfy_fmt not in {"eps", "svg"}:
+                    zfy_fmt = "eps"
 
-        # 优先尝试使用A8矢量化API
+                logger.info(
+                    "Attempting vectorization with ZFY API, format: %s",
+                    zfy_fmt,
+                )
+                return await self.zfy_vectorizer_client.image_to_vector(
+                    image_bytes,
+                    fmt=zfy_fmt,
+                    filename=original_filename,
+                )
+            except Exception as exc:
+                if not settings.vectorizer_fallback_to_legacy:
+                    raise
+                logger.warning(
+                    "ZFY vectorization failed, falling back to legacy APIs: %s",
+                    str(exc),
+                )
+                return await self._vectorize_image_legacy(
+                    image_bytes,
+                    vector_format=vector_format,
+                    original_filename=original_filename,
+                )
+
+        if provider in {"webapi", "mm"}:
+            return await self.vector_webapi_client.convert_image(
+                image_bytes,
+                vector_format=vector_format,
+                filename=original_filename,
+            )
+
+        return await self._vectorize_image_legacy(
+            image_bytes,
+            vector_format=vector_format,
+            original_filename=original_filename,
+        )
+
+    async def _vectorize_image_legacy(
+        self,
+        image_bytes: bytes,
+        vector_format: str,
+        original_filename: Optional[str] = None,
+    ) -> str:
+        """旧矢量化链路：A8 优先，失败后降级到 mm.kknc WebAPI。"""
         try:
             # A8 API需要的格式参数是 'eps' 或 'svg'，去掉点号
             a8_fmt = vector_format.lstrip('.').lower()

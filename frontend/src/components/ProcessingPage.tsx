@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { History, Eye, ChevronLeft, ChevronRight, X, CheckCircle } from "lucide-react";
+import { History, Eye, ChevronLeft, ChevronRight, X, CheckCircle, FileText } from "lucide-react";
 import {
   ProcessingMethod,
   PromptEditMode,
@@ -33,6 +33,21 @@ const formatCredits = (value: number) => {
   const formatted = value.toFixed(2).replace(/\.00$/, "");
   return formatted.replace(/(\.\d*[1-9])0$/, "$1");
 };
+
+const getResultExtension = (value: string): string => {
+  const sanitized = value.split(/[?#]/)[0] ?? value;
+  const filename = sanitized.split("/").pop() ?? sanitized;
+  const parts = filename.split(".");
+  if (parts.length < 2) {
+    return "png";
+  }
+  return (parts.pop() ?? "png").toLowerCase();
+};
+
+const isPreviewableResultExtension = (extension: string): boolean =>
+  ["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg"].includes(
+    extension.replace(/^\./, "").toLowerCase(),
+  );
 
 const CLOUD_KEYFRAMES = `
 @keyframes loomCloudFloat {
@@ -189,6 +204,8 @@ const ResultComparisonPanel: React.FC<ResultComparisonPanelProps> = ({
 }) => {
   const resolvedOriginalUrl = originalUrl ? resolveFileUrl(originalUrl) : "";
   const resolvedResultUrl = resolveFileUrl(resultUrl);
+  const resultExtension = getResultExtension(resultDownloadUrl || resultUrl);
+  const canPreviewResult = isPreviewableResultExtension(resultExtension);
   const canNavigate = totalResults > 1 && Boolean(onNavigateResult);
   const showThumbnailOverlay =
     thumbnailItems.length > 1 && resultIndex !== undefined && Boolean(onSelectResult);
@@ -229,23 +246,39 @@ const ResultComparisonPanel: React.FC<ResultComparisonPanelProps> = ({
         </div>
         <div className="flex min-h-0 flex-1 items-center justify-center bg-gray-50 p-2 md:p-3">
           <div className="relative group flex h-full w-full items-center justify-center">
-            <img
-              src={resolvedResultUrl}
-              alt={resultAlt}
-              className="h-auto max-h-[58vh] w-auto max-w-full cursor-pointer rounded-lg border border-gray-200 bg-white object-contain shadow-md transition-shadow hover:shadow-lg lg:h-full lg:max-h-none lg:w-full"
-              onClick={() =>
-                onPreviewResult(resultUrl, resultIndex, resultDownloadUrl)
-              }
-            />
-            <button
-              onClick={() =>
-                onPreviewResult(resultUrl, resultIndex, resultDownloadUrl)
-              }
-              className="absolute top-2 right-2 p-2 bg-black bg-opacity-50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-opacity-70"
-              title="放大查看"
-            >
-              <Eye className="h-4 w-4" />
-            </button>
+            {canPreviewResult ? (
+              <>
+                <img
+                  src={resolvedResultUrl}
+                  alt={resultAlt}
+                  className="h-auto max-h-[58vh] w-auto max-w-full cursor-pointer rounded-lg border border-gray-200 bg-white object-contain shadow-md transition-shadow hover:shadow-lg lg:h-full lg:max-h-none lg:w-full"
+                  onClick={() =>
+                    onPreviewResult(resultUrl, resultIndex, resultDownloadUrl)
+                  }
+                />
+                <button
+                  onClick={() =>
+                    onPreviewResult(resultUrl, resultIndex, resultDownloadUrl)
+                  }
+                  className="absolute top-2 right-2 p-2 bg-black bg-opacity-50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-opacity-70"
+                  title="放大查看"
+                >
+                  <Eye className="h-4 w-4" />
+                </button>
+              </>
+            ) : (
+              <div className="flex h-full min-h-[220px] w-full flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-gray-200 bg-white px-4 text-center text-gray-600">
+                <FileText className="h-12 w-12 text-blue-500" />
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {resultExtension.toUpperCase()} 矢量文件
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    当前浏览器无法直接预览，请下载后打开。
+                  </p>
+                </div>
+              </div>
+            )}
             {canNavigate && (
               <>
                 <button
@@ -292,11 +325,19 @@ const ResultComparisonPanel: React.FC<ResultComparisonPanelProps> = ({
                       title={`查看${item.label}`}
                     >
                       <div className="h-12 w-12 overflow-hidden rounded border border-dashed border-gray-200 bg-white">
-                        <img
-                          src={resolveFileUrl(item.previewUrl)}
-                          alt={`${item.label}缩略图`}
-                          className="h-full w-full object-cover"
-                        />
+                        {isPreviewableResultExtension(
+                          getResultExtension(item.previewUrl),
+                        ) ? (
+                          <img
+                            src={resolveFileUrl(item.previewUrl)}
+                            alt={`${item.label}缩略图`}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-blue-500">
+                            <FileText className="h-5 w-5" />
+                          </div>
+                        )}
                       </div>
                       <span className="mt-0.5 font-medium text-gray-700">
                         {item.label}
@@ -803,9 +844,10 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
 
   const normalizeFormat = (
     extension: string,
-  ): "png" | "jpg" | "svg" | "zip" => {
+  ): "png" | "jpg" | "svg" | "eps" | "zip" => {
     const normalized = extension.replace(/^\./, "").toLowerCase();
     if (normalized === "svg") return "svg";
+    if (normalized === "eps") return "eps";
     if (normalized === "jpg" || normalized === "jpeg") return "jpg";
     if (normalized === "zip") return "zip";
     return "png";
