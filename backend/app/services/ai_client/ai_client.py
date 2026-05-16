@@ -1044,7 +1044,7 @@ class AIClient:
         image_bytes: bytes,
         options: Optional[Dict[str, Any]] = None,
     ) -> str:
-        """AI矢量化(转SVG) - 使用Vectorizer.ai API"""
+        """AI矢量化 - 使用Vectorizer.ai API"""
         return await self.vectorizer_client.vectorize_image(image_bytes, options)
 
     async def vectorize_image_webapi(

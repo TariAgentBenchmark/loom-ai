@@ -731,7 +731,7 @@ const HomeView: React.FC<HomeViewProps> = ({
                 <div className="flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-xl md:rounded-2xl bg-gradient-to-br from-purple-50 to-pink-50 shadow-lg mx-auto mb-3 md:mb-4 group-hover:shadow-xl transition-all">
                   <img src="/optimized/AI矢量化转SVG.webp" alt="矢量化" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
                 </div>
-                <h4 className="text-lg md:text-xl font-bold text-gray-900 mb-2 md:mb-3">AI矢量化(转SVG)</h4>
+                <h4 className="text-lg md:text-xl font-bold text-gray-900 mb-2 md:mb-3">AI矢量化</h4>
                 <p className="text-sm text-gray-600 leading-relaxed">
                   使用AI一键将图片变成矢量图，线条清晰，图片还原。助力您的产品设计。
                 </p>

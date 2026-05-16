@@ -58,7 +58,7 @@ const HistoryList: React.FC<HistoryListProps> = ({
   const typeOptions = [
     { value: 'all', label: '全部类型' },
     { value: 'prompt_edit', label: 'AI用嘴改图' },
-    { value: 'vectorize', label: 'AI矢量化(转SVG)' },
+    { value: 'vectorize', label: 'AI矢量化' },
     { value: 'extract_pattern', label: 'AI提取花型' },
     { value: 'remove_watermark', label: 'AI智能去水印' },
     { value: 'denoise', label: 'AI布纹去噪' },

@@ -559,7 +559,7 @@ export default function AdminTaskBrowserPage() {
                 <option value="">全部类型</option>
                 <option value="remove_watermark">AI智能去水印</option>
                 <option value="extract_pattern">AI提取花型</option>
-                <option value="vectorize">AI矢量化(转SVG)</option>
+                <option value="vectorize">AI矢量化</option>
                 <option value="upscale">AI高清</option>
                 <option value="seamless">AI四方连续转换</option>
                 <option value="denoise">AI布纹去噪</option>

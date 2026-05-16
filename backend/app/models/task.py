@@ -9,7 +9,7 @@ from app.core.database import Base
 class TaskType(PyEnum):
     PROMPT_EDIT = "prompt_edit"  # AI用嘴改图
     SEAMLESS = "seamless"  # AI四方连续转换
-    VECTORIZE = "vectorize"  # AI矢量化(转SVG)
+    VECTORIZE = "vectorize"  # AI矢量化
     EXTRACT_PATTERN = "extract_pattern"  # AI提取花型
     REMOVE_WATERMARK = "remove_watermark"  # AI智能去水印
     DENOISE = "denoise"  # AI布纹去噪
@@ -94,7 +94,7 @@ class Task(Base):
         type_names = {
             TaskType.PROMPT_EDIT.value: "AI用嘴改图",
             TaskType.SEAMLESS.value: "AI四方连续转换",
-            TaskType.VECTORIZE.value: "AI矢量化(转SVG)",
+            TaskType.VECTORIZE.value: "AI矢量化",
             TaskType.EXTRACT_PATTERN.value: "AI提取花型",
             TaskType.REMOVE_WATERMARK.value: "AI智能去水印",
             TaskType.DENOISE.value: "AI布纹去噪",

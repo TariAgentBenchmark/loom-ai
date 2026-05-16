@@ -169,7 +169,7 @@ async def vectorize_image(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """AI矢量化(转SVG)"""
+    """AI矢量化"""
     try:
         # 记录上传文件大小
         file_size = 0

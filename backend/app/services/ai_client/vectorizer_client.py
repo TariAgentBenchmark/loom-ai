@@ -25,7 +25,7 @@ class VectorizerClient:
         image_bytes: bytes,
         options: Optional[Dict[str, Any]] = None,
     ) -> str:
-        """AI矢量化(转SVG) - 使用Vectorizer.ai API"""
+        """AI矢量化 - 使用Vectorizer.ai API"""
         try:
             # 准备文件数据
             files = {

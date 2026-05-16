@@ -38,7 +38,7 @@ export const processingMethodInfo: Record<
     ],
   },
   style: {
-    title: "AI矢量化(转SVG)",
+    title: "AI矢量化",
     description:
       "使用AI一键将图片变成矢量图，线条清晰，图片还原。助力您的产品设计。",
     icon: "/optimized/AI矢量化转SVG.webp",
@@ -47,7 +47,7 @@ export const processingMethodInfo: Record<
       "建议使用背景干净、线条清晰的原图",
       "系统自动分析内容并输出矢量图",
       "AI自动矢量化处理",
-      "生成高质量SVG矢量图",
+      "生成高质量矢量文件",
     ],
   },
   embroidery: {
