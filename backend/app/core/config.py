@@ -79,7 +79,7 @@ class Settings(BaseSettings):
     vectorizer_api_secret: str = ""
     vectorizer_primary_provider: str = "zfy"
     vectorizer_default_format: str = ".eps"
-    vectorizer_fallback_to_legacy: bool = True
+    vectorizer_fallback_to_legacy: bool = False
     vector_zfy_base_url: str = "https://a6.zifeiyuai.top:2345"
     vector_zfy_api_key: str = ""
     vector_zfy_poll_timeout: int = 3000

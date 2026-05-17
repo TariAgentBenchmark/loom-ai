@@ -68,6 +68,50 @@ class ZfyVectorizerClient:
             )
         return {"zfyai-api-key": self.api_key}
 
+    async def _request_with_retries(
+        self,
+        method: str,
+        url: str,
+        *,
+        purpose: str,
+        attempts: int = 4,
+        **kwargs,
+    ) -> httpx.Response:
+        last_exc: Optional[httpx.RequestError] = None
+
+        for attempt in range(1, attempts + 1):
+            try:
+                async with api_limiter.slot("zfy_vectorizer"):
+                    async with httpx.AsyncClient(
+                        timeout=300.0,
+                        verify=False,
+                    ) as client:
+                        request = getattr(client, method)
+                        return await request(url, **kwargs)
+            except httpx.RequestError as exc:
+                last_exc = exc
+                if attempt >= attempts:
+                    logger.warning(
+                        "ZFY %s request failed after %s attempts: %s",
+                        purpose,
+                        attempt,
+                        exc,
+                    )
+                    break
+
+                delay = min(2 ** (attempt - 1), 8)
+                logger.warning(
+                    "ZFY %s request failed (%s/%s): %s; retrying in %ss",
+                    purpose,
+                    attempt,
+                    attempts,
+                    exc,
+                    delay,
+                )
+                await asyncio.sleep(delay)
+
+        raise last_exc or httpx.RequestError(f"ZFY {purpose} request failed")
+
     async def image_to_vector(
         self,
         image_bytes: bytes,
@@ -87,14 +131,14 @@ class ZfyVectorizerClient:
             data = {"format": fmt}
 
             logger.info("Uploading image to ZFY vectorizer API, format=%s", fmt)
-            async with api_limiter.slot("zfy_vectorizer"):
-                async with httpx.AsyncClient(timeout=300.0, verify=False) as client:
-                    response = await client.post(
-                        f"{self.base_url}/add_task",
-                        headers=request_headers,
-                        files=files,
-                        data=data,
-                    )
+            response = await self._request_with_retries(
+                "post",
+                f"{self.base_url}/add_task",
+                purpose="add_task",
+                headers=request_headers,
+                files=files,
+                data=data,
+            )
 
             if response.status_code != 200:
                 raise AIClientException(
@@ -129,13 +173,13 @@ class ZfyVectorizerClient:
 
             start_time = time.time()
             while True:
-                async with api_limiter.slot("zfy_vectorizer"):
-                    async with httpx.AsyncClient(timeout=300.0, verify=False) as client:
-                        response = await client.get(
-                            f"{self.base_url}/try_get",
-                            headers=request_headers,
-                            params={"taskid": task_id},
-                        )
+                response = await self._request_with_retries(
+                    "get",
+                    f"{self.base_url}/try_get",
+                    purpose="try_get",
+                    headers=request_headers,
+                    params={"taskid": task_id},
+                )
 
                 if response.status_code != 200:
                     raise AIClientException(
@@ -168,13 +212,13 @@ class ZfyVectorizerClient:
 
                 await asyncio.sleep(wait_interval)
 
-            async with api_limiter.slot("zfy_vectorizer"):
-                async with httpx.AsyncClient(timeout=300.0, verify=False) as client:
-                    response = await client.get(
-                        f"{self.base_url}/get_image",
-                        headers=request_headers,
-                        params={"taskid": task_id},
-                    )
+            response = await self._request_with_retries(
+                "get",
+                f"{self.base_url}/get_image",
+                purpose="get_image",
+                headers=request_headers,
+                params={"taskid": task_id},
+            )
 
             if response.status_code != 200:
                 raise AIClientException(

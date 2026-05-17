@@ -3,6 +3,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import sys
 import os
 
+import httpx
+
 # Add the parent directory to the path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -162,6 +164,33 @@ async def test_vectorize_image_webapi_zfy_falls_back_to_legacy(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_vectorize_image_webapi_zfy_does_not_fallback_by_default(monkeypatch):
+    monkeypatch.setattr(settings, "vectorizer_primary_provider", "zfy")
+    monkeypatch.setattr(settings, "vectorizer_fallback_to_legacy", False)
+
+    with patch('app.services.ai_client.ai_client.ZfyVectorizerClient') as MockZfy, \
+         patch('app.services.ai_client.ai_client.A8VectorizerClient') as MockA8, \
+         patch('app.services.ai_client.ai_client.VectorWebAPIClient') as MockWebAPI:
+        mock_zfy_instance = MockZfy.return_value
+        mock_a8_instance = MockA8.return_value
+        mock_webapi_instance = MockWebAPI.return_value
+
+        mock_zfy_instance.image_to_vector = AsyncMock(side_effect=Exception("ZFY down"))
+
+        client = AIClient()
+
+        with pytest.raises(Exception, match="ZFY down"):
+            await client.vectorize_image_webapi(
+                b"fake_image_bytes",
+                options={"vectorFormat": ".eps"},
+            )
+
+        mock_zfy_instance.image_to_vector.assert_called_once()
+        mock_a8_instance.image_to_vector.assert_not_called()
+        mock_webapi_instance.convert_image.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_save_generated_eps_result(monkeypatch, tmp_path):
     monkeypatch.setattr(settings, "upload_path", str(tmp_path))
 
@@ -189,3 +218,46 @@ def test_zfy_detects_eps_response():
         )
         == "eps"
     )
+
+
+@pytest.mark.asyncio
+async def test_zfy_retries_transient_request_errors(monkeypatch):
+    calls = 0
+    response = httpx.Response(200, json={"code": 0})
+
+    class FakeAsyncClient:
+        def __init__(self, **_kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def get(self, url, **_kwargs):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                request = httpx.Request("GET", url)
+                raise httpx.ConnectError("temporary connect failure", request=request)
+            return response
+
+    monkeypatch.setattr(
+        "app.services.ai_client.zfy_vectorizer_client.httpx.AsyncClient",
+        FakeAsyncClient,
+    )
+    sleep = AsyncMock()
+    monkeypatch.setattr("app.services.ai_client.zfy_vectorizer_client.asyncio.sleep", sleep)
+
+    client = ZfyVectorizerClient(api_key="test-key")
+    result = await client._request_with_retries(
+        "get",
+        "https://example.com/try_get",
+        purpose="try_get",
+        attempts=2,
+    )
+
+    assert result is response
+    assert calls == 2
+    sleep.assert_awaited_once_with(1)
