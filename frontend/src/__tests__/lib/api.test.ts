@@ -1,4 +1,8 @@
-import { downloadTaskFile, splitCombinedImageRefs } from "../../lib/api";
+import {
+  createProcessingDownloadUrl,
+  downloadTaskFile,
+  splitCombinedImageRefs,
+} from "../../lib/api";
 
 describe("splitCombinedImageRefs", () => {
   it("keeps x-oss-process commas inside a single preview URL", () => {
@@ -63,5 +67,59 @@ describe("downloadTaskFile", () => {
       "Bearer token",
     );
     expect(result.filename).toBe("tuyun.png");
+  });
+});
+
+describe("createProcessingDownloadUrl", () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    if (originalFetch) {
+      global.fetch = originalFetch;
+    } else {
+      delete (global as Partial<typeof global>).fetch;
+    }
+    jest.restoreAllMocks();
+  });
+
+  it("creates a short-lived stream download URL for a selected result", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      headers: {
+        get: (name: string) =>
+          name.toLowerCase() === "content-type" ? "application/json" : null,
+      },
+      json: async () => ({
+        success: true,
+        data: {
+          token: "download-token",
+          expiresIn: 300,
+        },
+        message: "下载链接创建成功",
+        timestamp: "2026-05-17T00:00:00Z",
+      }),
+    });
+    global.fetch = fetchMock;
+
+    const url = await createProcessingDownloadUrl(
+      "task_1",
+      "access-token",
+      "png",
+      2,
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "/processing/result/task_1/download-token?format=png&file_index=2",
+      ),
+      expect.objectContaining({ method: "POST" }),
+    );
+    const requestOptions = fetchMock.mock.calls[0][1] as RequestInit;
+    expect((requestOptions.headers as Headers).get("Authorization")).toBe(
+      "Bearer access-token",
+    );
+    expect(url).toContain(
+      "/processing/result/task_1/stream-download?token=download-token",
+    );
   });
 });

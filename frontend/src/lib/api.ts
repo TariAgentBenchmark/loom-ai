@@ -670,6 +670,13 @@ export interface DownloadResult {
   filename: string;
 }
 
+export type ProcessingDownloadFormat = "png" | "jpg" | "svg" | "eps" | "zip";
+
+interface ProcessingDownloadTokenData {
+  token: string;
+  expiresIn: number;
+}
+
 export interface ServiceCostResponse {
   service_key: string;
   quantity: number;
@@ -924,7 +931,7 @@ export const getProcessingStatus = (taskId: string, accessToken: string) =>
 export const downloadProcessingResult = async (
   taskId: string,
   accessToken: string,
-  format: "png" | "jpg" | "svg" | "eps" | "zip" = "png",
+  format: ProcessingDownloadFormat = "png",
 ): Promise<DownloadResult> => {
   const response = await fetch(
     `${API_BASE_URL}/processing/result/${taskId}/download?format=${format}`,
@@ -952,6 +959,34 @@ export const downloadProcessingResult = async (
   const filename = filenameMatch?.[1] ?? `tuyun.${defaultExtension}`;
 
   return { blob, filename };
+};
+
+export const createProcessingDownloadUrl = async (
+  taskId: string,
+  accessToken: string,
+  format: ProcessingDownloadFormat = "png",
+  fileIndex?: number,
+): Promise<string> => {
+  const params = new URLSearchParams({ format });
+  if (fileIndex !== undefined) {
+    params.set("file_index", fileIndex.toString());
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/processing/result/${taskId}/download-token?${params.toString()}`,
+    {
+      method: "POST",
+      headers: withAuthHeader(undefined, accessToken),
+    },
+  );
+
+  const ensured = await ensureSuccess(response);
+  const payload = await jsonResponse<ApiSuccessResponse<ProcessingDownloadTokenData>>(
+    ensured,
+  );
+
+  const streamParams = new URLSearchParams({ token: payload.data.token });
+  return `${API_BASE_URL}/processing/result/${taskId}/stream-download?${streamParams.toString()}`;
 };
 
 export const getServiceCost = async (

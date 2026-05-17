@@ -12,7 +12,7 @@ import {
   resolveFileUrl,
   HistoryTask,
   getServiceCost,
-  downloadProcessingResult,
+  createProcessingDownloadUrl,
   getPublicServicePrices,
   splitCombinedImageRefs,
 } from "../lib/api";
@@ -834,6 +834,15 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     window.URL.revokeObjectURL(url);
   };
 
+  const triggerNativeDownload = (url: string) => {
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.rel = "noopener";
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+  };
+
   const fetchAndDownload = async (url: string, filename: string) => {
     const response = await fetch(resolveFileUrl(url));
     if (!response.ok) {
@@ -865,12 +874,12 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
       setIsDownloadingResult(true);
       if (accessToken && currentTaskId) {
         const format = normalizeFormat(extension);
-        const { blob, filename } = await downloadProcessingResult(
+        const downloadUrl = await createProcessingDownloadUrl(
           currentTaskId,
           accessToken,
           format,
         );
-        downloadBlob(blob, filename);
+        triggerNativeDownload(downloadUrl);
       } else {
         await fetchAndDownload(primaryUrl, fallbackName);
       }
@@ -886,7 +895,18 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     const filename = buildDownloadName(extension, index);
     try {
       setIsDownloadingResult(true);
-      await fetchAndDownload(url, filename);
+      if (accessToken && currentTaskId) {
+        const format = normalizeFormat(extension);
+        const downloadUrl = await createProcessingDownloadUrl(
+          currentTaskId,
+          accessToken,
+          format,
+          index,
+        );
+        triggerNativeDownload(downloadUrl);
+      } else {
+        await fetchAndDownload(url, filename);
+      }
     } catch (error) {
       console.error("下载图片失败:", error);
     } finally {
@@ -900,12 +920,12 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     try {
       setIsDownloadingResult(true);
       if (accessToken && currentTaskId) {
-        const { blob, filename } = await downloadProcessingResult(
+        const downloadUrl = await createProcessingDownloadUrl(
           currentTaskId,
           accessToken,
           "zip",
         );
-        downloadBlob(blob, filename);
+        triggerNativeDownload(downloadUrl);
       } else {
         for (let i = 0; i < processedImageUrls.length; i += 1) {
           const extension = extractExtension(processedImageUrls[i]);
