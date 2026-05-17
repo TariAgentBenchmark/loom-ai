@@ -16,7 +16,7 @@ from app.models.task import Task, TaskStatus
 from app.api.dependencies import get_current_user
 from app.schemas.common import SuccessResponse
 from app.services.credit_math import to_float
-from app.utils.downloads import build_download_filename
+from app.utils.downloads import build_download_filename, normalize_filename_for_content
 from app.utils.result_filter import (
     filter_result_lists,
     filter_result_strings,
@@ -359,6 +359,7 @@ async def get_task_detail(
 async def download_task_file(
     task_id: str,
     file_type: str = "result",  # "result" for processed image, "original" for original image
+    file_index: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -399,6 +400,14 @@ async def download_task_file(
             else:
                 fallback_name = task.result_filename or "result.png"
                 filenames = [fallback_name] * len(filtered_urls)
+
+            if file_index is not None:
+                if file_index < 0 or file_index >= len(file_urls):
+                    raise HTTPException(status_code=400, detail="无效的文件索引")
+                file_urls = [file_urls[file_index]]
+                filenames = [
+                    filenames[file_index] if file_index < len(filenames) else ""
+                ]
         else:
             raise HTTPException(status_code=400, detail="无效的文件类型")
         
@@ -423,11 +432,21 @@ async def download_task_file(
                         if clean_url.startswith("/files/"):
                             file_path = file_service.get_file_path(clean_url)
                             if os.path.exists(file_path):
-                                zip_file.write(file_path, clean_fname or os.path.basename(file_path))
+                                with open(file_path, "rb") as fp:
+                                    content = fp.read()
+                                entry_name = normalize_filename_for_content(
+                                    clean_fname or os.path.basename(file_path),
+                                    content,
+                                )
+                                zip_file.writestr(entry_name, content)
                         else:
                             # 远程文件直接以字节写入 ZIP，避免创建遗留临时文件
                             content = await file_service.read_file(clean_url)
-                            zip_file.writestr(clean_fname or os.path.basename(clean_url), content)
+                            entry_name = normalize_filename_for_content(
+                                clean_fname or os.path.basename(clean_url),
+                                content,
+                            )
+                            zip_file.writestr(entry_name, content)
                 
                 download_name = build_download_filename(None, "zip")
                 return FileResponse(
@@ -444,30 +463,29 @@ async def download_task_file(
             if download_name == "tuyun":
                 download_name = build_download_filename(single_url)
 
-            if file_service.is_managed_oss_ref(single_url):
-                try:
+            try:
+                if file_service.is_managed_oss_ref(single_url):
                     file_bytes = await file_service.read_file(single_url)
-                except Exception:
-                    raise HTTPException(status_code=404, detail="文件不存在")
+                else:
+                    file_path = file_service.get_file_path(single_url)
 
-                headers = {
-                    "Content-Disposition": f'attachment; filename="{download_name}"'
-                }
-                return StreamingResponse(
-                    BytesIO(file_bytes),
-                    headers=headers,
-                    media_type="application/octet-stream",
-                )
+                    if not os.path.exists(file_path):
+                        raise HTTPException(status_code=404, detail="文件不存在")
 
-            file_path = file_service.get_file_path(single_url)
-
-            if not os.path.exists(file_path):
+                    file_bytes = await file_service.read_file(single_url)
+            except HTTPException:
+                raise
+            except Exception:
                 raise HTTPException(status_code=404, detail="文件不存在")
 
-            return FileResponse(
-                path=file_path,
-                filename=download_name,
-                media_type="application/octet-stream"
+            download_name = normalize_filename_for_content(download_name, file_bytes)
+            headers = {
+                "Content-Disposition": f'attachment; filename="{download_name}"'
+            }
+            return StreamingResponse(
+                BytesIO(file_bytes),
+                headers=headers,
+                media_type="application/octet-stream",
             )
         
     except HTTPException:

@@ -135,12 +135,20 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
         task.taskId,
         accessToken,
         showOriginal ? 'original' : 'result',
+        !showOriginal && hasMultipleResults ? currentResultIndex : undefined,
       );
       triggerBrowserDownload(blob, filename);
     } catch (err) {
       console.error('下载失败:', err);
     }
-  }, [accessToken, showOriginal, task, triggerBrowserDownload]);
+  }, [
+    accessToken,
+    currentResultIndex,
+    hasMultipleResults,
+    showOriginal,
+    task,
+    triggerBrowserDownload,
+  ]);
 
   const handleDownloadAll = useCallback(async () => {
     if (!task || !hasMultipleResults) return;

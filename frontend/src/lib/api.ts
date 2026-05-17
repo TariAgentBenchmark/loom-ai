@@ -1239,9 +1239,15 @@ export const downloadTaskFile = async (
   taskId: string,
   accessToken: string,
   fileType: "original" | "result" = "result",
+  fileIndex?: number,
 ): Promise<DownloadResult> => {
+  const params = new URLSearchParams({ file_type: fileType });
+  if (fileIndex !== undefined) {
+    params.set("file_index", fileIndex.toString());
+  }
+
   const response = await fetch(
-    `${API_BASE_URL}/history/tasks/${taskId}/download?file_type=${fileType}`,
+    `${API_BASE_URL}/history/tasks/${taskId}/download?${params.toString()}`,
     {
       method: "GET",
       headers: withAuthHeader(undefined, accessToken),
