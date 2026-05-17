@@ -1,4 +1,7 @@
 import {
+  createAdminTaskDownloadUrl,
+  createBatchDownloadUrl,
+  createHistoryTaskDownloadUrl,
   createProcessingDownloadUrl,
   downloadTaskFile,
   splitCombinedImageRefs,
@@ -120,6 +123,97 @@ describe("createProcessingDownloadUrl", () => {
     );
     expect(url).toContain(
       "/processing/result/task_1/stream-download?token=download-token",
+    );
+  });
+});
+
+describe("streaming download URL helpers", () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    if (originalFetch) {
+      global.fetch = originalFetch;
+    } else {
+      delete (global as Partial<typeof global>).fetch;
+    }
+    jest.restoreAllMocks();
+  });
+
+  const mockTokenResponse = () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      headers: {
+        get: (name: string) =>
+          name.toLowerCase() === "content-type" ? "application/json" : null,
+      },
+      json: async () => ({
+        success: true,
+        data: {
+          token: "download-token",
+          expiresIn: 300,
+        },
+        message: "下载链接创建成功",
+        timestamp: "2026-05-17T00:00:00Z",
+      }),
+    });
+    global.fetch = fetchMock;
+    return fetchMock;
+  };
+
+  it("creates a history task stream download URL", async () => {
+    const fetchMock = mockTokenResponse();
+
+    const url = await createHistoryTaskDownloadUrl(
+      "task_1",
+      "access-token",
+      "result",
+      1,
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "/history/tasks/task_1/download-token?file_type=result&file_index=1",
+      ),
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(url).toContain(
+      "/history/tasks/task_1/stream-download?token=download-token",
+    );
+  });
+
+  it("creates an admin task stream download URL", async () => {
+    const fetchMock = mockTokenResponse();
+
+    const url = await createAdminTaskDownloadUrl(
+      "task_1",
+      "admin-token",
+      "original",
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "/admin/tasks/task_1/download-token?file_type=original",
+      ),
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(url).toContain(
+      "/admin/tasks/task_1/stream-download?token=download-token",
+    );
+  });
+
+  it("creates a batch stream download URL", async () => {
+    const fetchMock = mockTokenResponse();
+
+    const url = await createBatchDownloadUrl("batch_1", "access-token");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "/processing/batch/download/batch_1/download-token",
+      ),
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(url).toContain(
+      "/processing/batch/download/batch_1/stream-download?token=download-token",
     );
   });
 });

@@ -3,10 +3,8 @@ import asyncio
 from typing import Optional
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-import os
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -15,17 +13,21 @@ from app.models.user import User
 from app.models.task import Task, TaskStatus
 from app.api.dependencies import get_current_user
 from app.schemas.common import SuccessResponse
+from app.services.auth_service import AuthService
 from app.services.credit_math import to_float
-from app.utils.downloads import build_download_filename, normalize_filename_for_content
 from app.utils.result_filter import (
-    filter_result_lists,
     filter_result_strings,
-    split_and_clean_csv,
 )
 from app.utils.result_previews import get_result_preview_urls
+from app.utils.streaming_downloads import (
+    build_task_download_response,
+    select_task_download_entries,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+auth_service = AuthService()
+DOWNLOAD_TOKEN_EXPIRE_SECONDS = 300
 
 
 try:
@@ -376,118 +378,124 @@ async def download_task_file(
         if task.status != "completed":
             raise HTTPException(status_code=400, detail="任务尚未完成")
         
-        # 根据file_type决定下载哪个文件
-        if file_type == "original":
-            if not task.original_image_url:
-                raise HTTPException(status_code=404, detail="原图文件不存在")
-            file_urls = [task.original_image_url]
-            filenames = [task.original_filename]
-        elif file_type == "result":
-            if not task.result_image_url:
-                raise HTTPException(status_code=404, detail="结果文件不存在")
-            raw_urls = split_and_clean_csv(task.result_image_url)
-            raw_filenames = split_and_clean_csv(task.result_filename)
-            filtered_urls, filtered_filenames = filter_result_lists(
-                task.type,
-                raw_urls,
-                raw_filenames,
-            )
-            if not filtered_urls:
-                raise HTTPException(status_code=404, detail="结果文件不存在")
-            file_urls = filtered_urls
-            if filtered_filenames:
-                filenames = filtered_filenames
-            else:
-                fallback_name = task.result_filename or "result.png"
-                filenames = [fallback_name] * len(filtered_urls)
-
-            if file_index is not None:
-                if file_index < 0 or file_index >= len(file_urls):
-                    raise HTTPException(status_code=400, detail="无效的文件索引")
-                file_urls = [file_urls[file_index]]
-                filenames = [
-                    filenames[file_index] if file_index < len(filenames) else ""
-                ]
-        else:
-            raise HTTPException(status_code=400, detail="无效的文件类型")
-        
         # 增加下载次数
         task.increment_download_count()
         db.commit()
         
         from app.services.file_service import FileService
-        file_service = FileService()
+        return await build_task_download_response(
+            task,
+            FileService(),
+            file_type=file_type,
+            file_index=file_index,
+        )
         
-        if len(file_urls) > 1:
-            # 多个文件，返回ZIP压缩包（OSS文件会先下载到临时目录）
-            import zipfile
-            import tempfile
-            
-            with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_file:
-                with zipfile.ZipFile(temp_file.name, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-                    for url, fname in zip(file_urls, filenames):
-                        clean_url = url.strip()
-                        clean_fname = fname.strip()
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-                        if clean_url.startswith("/files/"):
-                            file_path = file_service.get_file_path(clean_url)
-                            if os.path.exists(file_path):
-                                with open(file_path, "rb") as fp:
-                                    content = fp.read()
-                                entry_name = normalize_filename_for_content(
-                                    clean_fname or os.path.basename(file_path),
-                                    content,
-                                )
-                                zip_file.writestr(entry_name, content)
-                        else:
-                            # 远程文件直接以字节写入 ZIP，避免创建遗留临时文件
-                            content = await file_service.read_file(clean_url)
-                            entry_name = normalize_filename_for_content(
-                                clean_fname or os.path.basename(clean_url),
-                                content,
-                            )
-                            zip_file.writestr(entry_name, content)
-                
-                download_name = build_download_filename(None, "zip")
-                return FileResponse(
-                    path=temp_file.name,
-                    filename=download_name,
-                    media_type="application/zip"
-                )
-        else:
-            # 单个文件：读取文件字节并流式返回（确保 Content-Disposition 正确传递文件名）
-            from io import BytesIO
 
-            single_url = file_urls[0]
-            download_name = build_download_filename(filenames[0])
-            if download_name == "tuyun":
-                download_name = build_download_filename(single_url)
+@router.post("/tasks/{task_id}/download-token")
+async def create_task_download_token(
+    task_id: str,
+    file_type: str = "result",
+    file_index: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """创建短期下载令牌，用于历史记录原生流式下载。"""
+    try:
+        task = db.query(Task).filter(
+            Task.task_id == task_id,
+            Task.user_id == current_user.id,
+        ).first()
 
-            try:
-                if file_service.is_managed_oss_ref(single_url):
-                    file_bytes = await file_service.read_file(single_url)
-                else:
-                    file_path = file_service.get_file_path(single_url)
+        if not task:
+            raise HTTPException(status_code=404, detail="任务不存在")
 
-                    if not os.path.exists(file_path):
-                        raise HTTPException(status_code=404, detail="文件不存在")
+        if task.status != "completed":
+            raise HTTPException(status_code=400, detail="任务尚未完成")
 
-                    file_bytes = await file_service.read_file(single_url)
-            except HTTPException:
-                raise
-            except Exception:
-                raise HTTPException(status_code=404, detail="文件不存在")
+        select_task_download_entries(task, file_type, file_index)
 
-            download_name = normalize_filename_for_content(download_name, file_bytes)
-            headers = {
-                "Content-Disposition": f'attachment; filename="{download_name}"'
-            }
-            return StreamingResponse(
-                BytesIO(file_bytes),
-                headers=headers,
-                media_type="application/octet-stream",
-            )
-        
+        token = auth_service.create_access_token(
+            {
+                "sub": current_user.user_id,
+                "scope": "history_task_download",
+                "task_id": task_id,
+                "file_type": file_type,
+                "file_index": file_index,
+            },
+            expires_delta=timedelta(seconds=DOWNLOAD_TOKEN_EXPIRE_SECONDS),
+        )
+
+        return SuccessResponse(
+            data={
+                "token": token,
+                "expiresIn": DOWNLOAD_TOKEN_EXPIRE_SECONDS,
+            },
+            message="下载链接创建成功",
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/tasks/{task_id}/stream-download")
+async def stream_task_file_download(
+    task_id: str,
+    token: str,
+    db: Session = Depends(get_db),
+):
+    """通过短期令牌下载历史任务文件。"""
+    try:
+        payload = auth_service.verify_token(token)
+        if not payload or payload.get("scope") != "history_task_download":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="下载链接无效")
+
+        if payload.get("task_id") != task_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="下载链接无效")
+
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="下载链接无效")
+
+        user = db.query(User).filter(User.user_id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="下载链接无效")
+
+        if user.status.value != "active":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="账户已被暂停")
+
+        task = db.query(Task).filter(
+            Task.task_id == task_id,
+            Task.user_id == user.id,
+        ).first()
+
+        if not task:
+            raise HTTPException(status_code=404, detail="任务不存在")
+
+        if task.status != "completed":
+            raise HTTPException(status_code=400, detail="任务尚未完成")
+
+        task.increment_download_count()
+        db.commit()
+
+        file_index = payload.get("file_index")
+        if file_index is not None:
+            file_index = int(file_index)
+
+        from app.services.file_service import FileService
+        return await build_task_download_response(
+            task,
+            FileService(),
+            file_type=payload.get("file_type") or "result",
+            file_index=file_index,
+        )
+
     except HTTPException:
         raise
     except Exception as e:

@@ -123,15 +123,12 @@ const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({
     if (!image) return;
 
     try {
-      const response = await fetch(resolveFileUrl(image.downloadUrl || image.url));
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
+      a.href = resolveFileUrl(image.downloadUrl || image.url);
       a.download = image.filename;
+      a.rel = 'noopener';
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err) {
       console.error('下载失败:', err);

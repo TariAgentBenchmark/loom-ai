@@ -823,20 +823,12 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     return `tuyun.${cleanExt}`;
   };
 
-  const downloadBlob = (blob: Blob, filename: string) => {
-    const url = window.URL.createObjectURL(blob);
+  const triggerNativeDownload = (url: string, filename?: string) => {
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = filename;
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-    window.URL.revokeObjectURL(url);
-  };
-
-  const triggerNativeDownload = (url: string) => {
-    const anchor = document.createElement("a");
-    anchor.href = url;
+    if (filename) {
+      anchor.download = filename;
+    }
     anchor.rel = "noopener";
     document.body.appendChild(anchor);
     anchor.click();
@@ -844,12 +836,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   };
 
   const fetchAndDownload = async (url: string, filename: string) => {
-    const response = await fetch(resolveFileUrl(url));
-    if (!response.ok) {
-      throw new Error(`下载失败，状态码: ${response.status}`);
-    }
-    const blob = await response.blob();
-    downloadBlob(blob, filename);
+    triggerNativeDownload(resolveFileUrl(url), filename);
   };
 
   const normalizeFormat = (

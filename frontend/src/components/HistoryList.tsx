@@ -20,7 +20,7 @@ import {
   HistoryTask,
   getHistoryTasks,
   getTaskDetail,
-  downloadTaskFile,
+  createHistoryTaskDownloadUrl,
   resolveFileUrl,
   splitCombinedImageRefs,
 } from '../lib/api';
@@ -226,14 +226,12 @@ const HistoryList: React.FC<HistoryListProps> = ({
 
   const downloadOriginalImage = async (task: HistoryTask) => {
     try {
-      const { blob, filename } = await downloadTaskFile(task.taskId, accessToken, 'original');
-      const url = window.URL.createObjectURL(blob);
+      const url = await createHistoryTaskDownloadUrl(task.taskId, accessToken, 'original');
       const a = document.createElement('a');
       a.href = url;
-      a.download = filename;
+      a.rel = 'noopener';
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err) {
       console.error('下载原图失败:', err);
@@ -242,14 +240,12 @@ const HistoryList: React.FC<HistoryListProps> = ({
 
   const downloadProcessedImage = async (task: HistoryTask) => {
     try {
-      const { blob, filename } = await downloadTaskFile(task.taskId, accessToken, 'result');
-      const url = window.URL.createObjectURL(blob);
+      const url = await createHistoryTaskDownloadUrl(task.taskId, accessToken, 'result');
       const a = document.createElement('a');
       a.href = url;
-      a.download = filename;
+      a.rel = 'noopener';
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err) {
       console.error('下载处理后的图片失败:', err);

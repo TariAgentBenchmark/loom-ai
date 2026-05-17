@@ -9,6 +9,7 @@ import {
   adminGetTaskDetail,
   adminGetTaskLogs,
   adminSearchUserSuggestions,
+  createAdminTaskDownloadUrl,
   type AdminTaskDetail,
   type AdminTaskLog,
   type AdminUserTask,
@@ -994,6 +995,7 @@ export default function AdminTaskBrowserPage() {
           task={selectedTaskPreview}
           onClose={() => setSelectedTaskPreview(null)}
           accessToken={accessToken}
+          createDownloadUrl={createAdminTaskDownloadUrl}
         />
       )}
 

@@ -671,8 +671,9 @@ export interface DownloadResult {
 }
 
 export type ProcessingDownloadFormat = "png" | "jpg" | "svg" | "eps" | "zip";
+export type TaskDownloadFileType = "original" | "result";
 
-interface ProcessingDownloadTokenData {
+interface DownloadTokenData {
   token: string;
   expiresIn: number;
 }
@@ -981,12 +982,68 @@ export const createProcessingDownloadUrl = async (
   );
 
   const ensured = await ensureSuccess(response);
-  const payload = await jsonResponse<ApiSuccessResponse<ProcessingDownloadTokenData>>(
+  const payload = await jsonResponse<ApiSuccessResponse<DownloadTokenData>>(
     ensured,
   );
 
   const streamParams = new URLSearchParams({ token: payload.data.token });
   return `${API_BASE_URL}/processing/result/${taskId}/stream-download?${streamParams.toString()}`;
+};
+
+export const createHistoryTaskDownloadUrl = async (
+  taskId: string,
+  accessToken: string,
+  fileType: TaskDownloadFileType = "result",
+  fileIndex?: number,
+): Promise<string> => {
+  const params = new URLSearchParams({ file_type: fileType });
+  if (fileIndex !== undefined) {
+    params.set("file_index", fileIndex.toString());
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/history/tasks/${taskId}/download-token?${params.toString()}`,
+    {
+      method: "POST",
+      headers: withAuthHeader(undefined, accessToken),
+    },
+  );
+
+  const ensured = await ensureSuccess(response);
+  const payload = await jsonResponse<ApiSuccessResponse<DownloadTokenData>>(
+    ensured,
+  );
+
+  const streamParams = new URLSearchParams({ token: payload.data.token });
+  return `${API_BASE_URL}/history/tasks/${taskId}/stream-download?${streamParams.toString()}`;
+};
+
+export const createAdminTaskDownloadUrl = async (
+  taskId: string,
+  accessToken: string,
+  fileType: TaskDownloadFileType = "result",
+  fileIndex?: number,
+): Promise<string> => {
+  const params = new URLSearchParams({ file_type: fileType });
+  if (fileIndex !== undefined) {
+    params.set("file_index", fileIndex.toString());
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/admin/tasks/${taskId}/download-token?${params.toString()}`,
+    {
+      method: "POST",
+      headers: withAuthHeader(undefined, accessToken),
+    },
+  );
+
+  const ensured = await ensureSuccess(response);
+  const payload = await jsonResponse<ApiSuccessResponse<DownloadTokenData>>(
+    ensured,
+  );
+
+  const streamParams = new URLSearchParams({ token: payload.data.token });
+  return `${API_BASE_URL}/admin/tasks/${taskId}/stream-download?${streamParams.toString()}`;
 };
 
 export const getServiceCost = async (
@@ -2499,6 +2556,27 @@ export const downloadBatchResults = async (
   );
 
   return response.data.files;
+};
+
+export const createBatchDownloadUrl = async (
+  batchId: string,
+  accessToken: string,
+): Promise<string> => {
+  const response = await fetch(
+    `${API_BASE_URL}/processing/batch/download/${batchId}/download-token`,
+    {
+      method: "POST",
+      headers: withAuthHeader(undefined, accessToken),
+    },
+  );
+
+  const ensured = await ensureSuccess(response);
+  const payload = await jsonResponse<ApiSuccessResponse<DownloadTokenData>>(
+    ensured,
+  );
+
+  const streamParams = new URLSearchParams({ token: payload.data.token });
+  return `${API_BASE_URL}/processing/batch/download/${batchId}/stream-download?${streamParams.toString()}`;
 };
 
 export interface AdminNotification {

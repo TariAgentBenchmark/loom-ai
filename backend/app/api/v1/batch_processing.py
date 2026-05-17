@@ -2,25 +2,28 @@ import logging
 import asyncio
 import time
 from copy import deepcopy
+from datetime import timedelta
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
 from sqlalchemy.orm import Session
-from io import BytesIO
 
 from app.core.database import get_db
 from app.models.user import User
 from app.services.batch_processing_service import BatchProcessingService
+from app.services.auth_service import AuthService
 from app.api.dependencies import get_current_user
 from app.schemas.common import SuccessResponse
 from app.utils.task_errors import mask_task_error_message
+from app.utils.streaming_downloads import build_download_response
 
 router = APIRouter()
 batch_processing_service = BatchProcessingService()
+auth_service = AuthService()
 logger = logging.getLogger(__name__)
 
 BATCH_STATUS_CACHE_TTL_SECONDS = 1.0
+BATCH_DOWNLOAD_TOKEN_EXPIRE_SECONDS = 300
 _batch_status_cache: dict[tuple[str, int, bool], tuple[float, dict]] = {}
 _batch_status_locks: dict[tuple[str, int, bool], asyncio.Lock] = {}
 
@@ -242,6 +245,104 @@ async def download_batch_results(
         raise
     except Exception as e:
         logger.error(f"Failed to get batch download URLs: {str(e)}", exc_info=True)
+        error_msg = str(e)
+        if "尚未完成" in error_msg or "没有已完成" in error_msg:
+            raise HTTPException(status_code=400, detail=error_msg)
+        raise HTTPException(status_code=500, detail="服务器火爆,重试一下。")
+
+
+@router.post("/batch/download/{batch_id}/download-token")
+async def create_batch_download_token(
+    batch_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """创建批量结果短期下载令牌，用于原生流式 ZIP 下载。"""
+    try:
+        result_files = await batch_processing_service.get_batch_download_urls(
+            db,
+            batch_id,
+            current_user.id,
+        )
+
+        if not result_files:
+            raise HTTPException(status_code=404, detail="批量任务不存在或没有已完成的结果")
+
+        token = auth_service.create_access_token(
+            {
+                "sub": current_user.user_id,
+                "scope": "batch_result_download",
+                "batch_id": batch_id,
+            },
+            expires_delta=timedelta(seconds=BATCH_DOWNLOAD_TOKEN_EXPIRE_SECONDS),
+        )
+
+        return SuccessResponse(
+            data={
+                "token": token,
+                "expiresIn": BATCH_DOWNLOAD_TOKEN_EXPIRE_SECONDS,
+            },
+            message="下载链接创建成功",
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to create batch download token: %s", str(e), exc_info=True)
+        error_msg = str(e)
+        if "尚未完成" in error_msg or "没有已完成" in error_msg:
+            raise HTTPException(status_code=400, detail=error_msg)
+        raise HTTPException(status_code=500, detail="服务器火爆,重试一下。")
+
+
+@router.get("/batch/download/{batch_id}/stream-download")
+async def stream_batch_download_results(
+    batch_id: str,
+    token: str,
+    db: Session = Depends(get_db),
+):
+    """通过短期令牌流式下载批量任务结果 ZIP。"""
+    try:
+        payload = auth_service.verify_token(token)
+        if not payload or payload.get("scope") != "batch_result_download":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="下载链接无效")
+
+        if payload.get("batch_id") != batch_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="下载链接无效")
+
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="下载链接无效")
+
+        user = db.query(User).filter(User.user_id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="下载链接无效")
+
+        if user.status.value != "active":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="账户已被暂停")
+
+        result_files = await batch_processing_service.get_batch_download_urls(
+            db,
+            batch_id,
+            user.id,
+        )
+
+        if not result_files:
+            raise HTTPException(status_code=404, detail="批量任务不存在或没有已完成的结果")
+
+        from app.services.file_service import FileService
+        return await build_download_response(
+            FileService(),
+            [
+                (file_info["url"], file_info.get("filename", ""))
+                for file_info in result_files
+            ],
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to stream batch download: %s", str(e), exc_info=True)
         error_msg = str(e)
         if "尚未完成" in error_msg or "没有已完成" in error_msg:
             raise HTTPException(status_code=400, detail=error_msg)

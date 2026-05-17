@@ -3,7 +3,7 @@ import zipfile
 
 import pytest
 
-from app.api.v1 import processing
+from app.utils.streaming_downloads import iter_streaming_zip
 
 
 class _FakeOssService:
@@ -29,7 +29,7 @@ async def test_streaming_zip_outputs_valid_archive_and_normalizes_extensions(tmp
     file_service = _FakeFileService(tmp_path)
     chunks = [
         chunk
-        async for chunk in processing._iter_streaming_zip(
+        async for chunk in iter_streaming_zip(
             file_service,
             [
                 ("/files/results/image.bin", "image.dat"),

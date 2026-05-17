@@ -51,6 +51,10 @@ from app.api.decorators import admin_required, admin_route
 from app.schemas.common import SuccessResponse, PaginationMeta, FileInfo
 from app.utils.result_filter import filter_result_strings
 from app.utils.result_previews import get_result_preview_urls
+from app.utils.streaming_downloads import (
+    build_task_download_response,
+    select_task_download_entries,
+)
 from app.services.auth_service import AuthService
 from app.services.api_limiter import api_limiter
 from app.services.ai_model_route_service import (
@@ -62,6 +66,7 @@ from app.services.credit_service import CreditService
 from app.services.membership_service import MembershipService
 
 router = APIRouter()
+download_auth_service = AuthService()
 
 CreditBalance = condecimal(max_digits=12, decimal_places=2, ge=0, le=1_000_000)
 CreditDelta = condecimal(max_digits=12, decimal_places=2)
@@ -4389,6 +4394,137 @@ async def get_all_tasks(
             },
             message="获取任务列表成功",
         )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/tasks/{task_id}/download", dependencies=[Depends(admin_route())])
+async def download_task_file_admin(
+    task_id: str,
+    file_type: str = Query("result", description="original 或 result"),
+    file_index: Optional[int] = Query(None, description="结果文件序号"),
+    db: Session = Depends(get_db),
+):
+    """管理员下载任意任务文件（兼容旧式鉴权下载，响应本身为流式）。"""
+    try:
+        task = db.query(Task).filter(Task.task_id == task_id).first()
+        if not task:
+            raise HTTPException(status_code=404, detail="任务不存在")
+
+        if task.status != TaskStatus.COMPLETED.value:
+            raise HTTPException(status_code=400, detail="任务尚未完成")
+
+        task.increment_download_count()
+        db.commit()
+
+        from app.services.file_service import FileService
+        return await build_task_download_response(
+            task,
+            FileService(),
+            file_type=file_type,
+            file_index=file_index,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/tasks/{task_id}/download-token")
+async def create_admin_task_download_token(
+    task_id: str,
+    file_type: str = Query("result", description="original 或 result"),
+    file_index: Optional[int] = Query(None, description="结果文件序号"),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin),
+):
+    """创建管理员任务短期下载令牌，用于原生流式下载。"""
+    try:
+        task = db.query(Task).filter(Task.task_id == task_id).first()
+        if not task:
+            raise HTTPException(status_code=404, detail="任务不存在")
+
+        if task.status != TaskStatus.COMPLETED.value:
+            raise HTTPException(status_code=400, detail="任务尚未完成")
+
+        select_task_download_entries(task, file_type, file_index)
+
+        token = download_auth_service.create_access_token(
+            {
+                "sub": current_admin.user_id,
+                "scope": "admin_task_download",
+                "task_id": task_id,
+                "file_type": file_type,
+                "file_index": file_index,
+            },
+            expires_delta=timedelta(seconds=300),
+        )
+
+        return SuccessResponse(
+            data={
+                "token": token,
+                "expiresIn": 300,
+            },
+            message="下载链接创建成功",
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/tasks/{task_id}/stream-download")
+async def stream_admin_task_file_download(
+    task_id: str,
+    token: str,
+    db: Session = Depends(get_db),
+):
+    """通过短期令牌下载管理员任务文件。"""
+    try:
+        payload = download_auth_service.verify_token(token)
+        if not payload or payload.get("scope") != "admin_task_download":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="下载链接无效")
+
+        if payload.get("task_id") != task_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="下载链接无效")
+
+        admin_user_id = payload.get("sub")
+        if not admin_user_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="下载链接无效")
+
+        admin_user = db.query(User).filter(User.user_id == admin_user_id).first()
+        if not admin_user or not admin_user.is_admin:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="下载链接无效")
+
+        if admin_user.status.value != "active":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="账户已被暂停")
+
+        task = db.query(Task).filter(Task.task_id == task_id).first()
+        if not task:
+            raise HTTPException(status_code=404, detail="任务不存在")
+
+        if task.status != TaskStatus.COMPLETED.value:
+            raise HTTPException(status_code=400, detail="任务尚未完成")
+
+        task.increment_download_count()
+        db.commit()
+
+        file_index = payload.get("file_index")
+        if file_index is not None:
+            file_index = int(file_index)
+
+        from app.services.file_service import FileService
+        return await build_task_download_response(
+            task,
+            FileService(),
+            file_type=payload.get("file_type") or "result",
+            file_index=file_index,
+        )
+
     except HTTPException:
         raise
     except Exception as e:

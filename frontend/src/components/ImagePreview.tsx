@@ -2,13 +2,25 @@
 
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { X, Download, ZoomIn, ZoomOut, RotateCw, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
-import { HistoryTask, downloadTaskFile, resolveFileUrl, splitCombinedImageRefs } from '../lib/api';
+import {
+  HistoryTask,
+  TaskDownloadFileType,
+  createHistoryTaskDownloadUrl,
+  resolveFileUrl,
+  splitCombinedImageRefs,
+} from '../lib/api';
 import { formatDateTime } from '../lib/datetime';
 
 interface ImagePreviewProps {
   task: HistoryTask | null;
   onClose: () => void;
   accessToken: string;
+  createDownloadUrl?: (
+    taskId: string,
+    accessToken: string,
+    fileType: TaskDownloadFileType,
+    fileIndex?: number,
+  ) => Promise<string>;
 }
 
 const getFileExtension = (value: string): string => {
@@ -24,7 +36,12 @@ const isPreviewableFile = (filename: string, url: string): boolean => {
   return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(ext);
 };
 
-const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken }) => {
+const ImagePreview: React.FC<ImagePreviewProps> = ({
+  task,
+  onClose,
+  accessToken,
+  createDownloadUrl = createHistoryTaskDownloadUrl,
+}) => {
   const [scale, setScale] = useState(1);
   const [initialScale, setInitialScale] = useState(1);
   const [rotation, setRotation] = useState(0);
@@ -116,14 +133,12 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
     });
   }, [resultFilenames, resultPage, resultUrls]);
 
-  const triggerBrowserDownload = useCallback((blob: Blob, filename: string) => {
-    const url = window.URL.createObjectURL(blob);
+  const triggerBrowserDownload = useCallback((url: string) => {
     const a = document.createElement('a');
     a.href = url;
-    a.download = filename;
+    a.rel = 'noopener';
     document.body.appendChild(a);
     a.click();
-    window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
   }, []);
 
@@ -131,18 +146,19 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
     if (!task) return;
 
     try {
-      const { blob, filename } = await downloadTaskFile(
+      const url = await createDownloadUrl(
         task.taskId,
         accessToken,
         showOriginal ? 'original' : 'result',
         !showOriginal && hasMultipleResults ? currentResultIndex : undefined,
       );
-      triggerBrowserDownload(blob, filename);
+      triggerBrowserDownload(url);
     } catch (err) {
       console.error('下载失败:', err);
     }
   }, [
     accessToken,
+    createDownloadUrl,
     currentResultIndex,
     hasMultipleResults,
     showOriginal,
@@ -154,12 +170,12 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ task, onClose, accessToken 
     if (!task || !hasMultipleResults) return;
 
     try {
-      const { blob, filename } = await downloadTaskFile(task.taskId, accessToken, 'result');
-      triggerBrowserDownload(blob, filename);
+      const url = await createDownloadUrl(task.taskId, accessToken, 'result');
+      triggerBrowserDownload(url);
     } catch (err) {
       console.error('下载全部失败:', err);
     }
-  }, [accessToken, hasMultipleResults, task, triggerBrowserDownload]);
+  }, [accessToken, createDownloadUrl, hasMultipleResults, task, triggerBrowserDownload]);
 
   const handleZoomIn = useCallback(() => {
     setScale(prev => {
