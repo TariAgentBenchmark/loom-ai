@@ -95,6 +95,7 @@ type PersistedProcessingTaskEntry = {
 type PersistedProcessingTaskMap = Partial<Record<ProcessingMethod, PersistedProcessingTaskEntry>>;
 
 type MethodViewState = {
+  taskId: string | null;
   processedImage: string | null;
   processedImagePreview: string | null;
   processedImageThumbnail: string | null;
@@ -150,6 +151,7 @@ function HomeContent() {
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
   const [showReferralModal, setShowReferralModal] = useState(false);
   const [prefilledInvite, setPrefilledInvite] = useState<PrefilledInviteContext>(null);
+  const [resultTaskId, setResultTaskId] = useState<string | null>(null);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
   const [processedImagePreview, setProcessedImagePreview] = useState<string | null>(null);
   const [processedImageThumbnail, setProcessedImageThumbnail] = useState<string | null>(null);
@@ -204,7 +206,7 @@ function HomeContent() {
   const currentMethod = currentPage === 'home' ? null : currentPage;
   const currentMethodTask = currentMethod ? activeTasks[currentMethod] : undefined;
   const isCurrentMethodProcessing = Boolean(currentMethodTask);
-  const currentTaskId = currentMethodTask?.taskId ?? null;
+  const currentTaskId = currentMethodTask?.taskId ?? resultTaskId;
   const inviteContext = useMemo<PrefilledInviteContext>(() => {
     const agentToken = searchParams.get('invite')?.trim();
     if (agentToken) {
@@ -325,6 +327,7 @@ function HomeContent() {
       if (!hasActiveTask) {
         // 没有进行中的任务时，不保留上次结果，回到初始状态
         methodUiStateRef.current[method] = {
+          taskId: null,
           processedImage: null,
           processedImagePreview: null,
           processedImageThumbnail: null,
@@ -332,6 +335,7 @@ function HomeContent() {
           successMessage: '',
           errorMessage: '',
         };
+        setResultTaskId(null);
         setProcessedImage(null);
         setProcessedImagePreview(null);
         setProcessedImageThumbnail(null);
@@ -342,6 +346,7 @@ function HomeContent() {
       }
 
       const stored = methodUiStateRef.current[method];
+      setResultTaskId(stored?.taskId ?? null);
       setProcessedImage(stored?.processedImage ?? null);
       setProcessedImagePreview(stored?.processedImagePreview ?? null);
       setProcessedImageThumbnail(stored?.processedImageThumbnail ?? null);
@@ -381,6 +386,7 @@ function HomeContent() {
   const updateMethodUiState = useCallback(
     (method: ProcessingMethod, partial: Partial<MethodViewState>) => {
       const previous = methodUiStateRef.current[method] ?? {
+        taskId: null,
         processedImage: null,
         processedImagePreview: null,
         processedImageThumbnail: null,
@@ -389,6 +395,8 @@ function HomeContent() {
         errorMessage: '',
       };
       const next: MethodViewState = {
+        taskId:
+          partial.taskId !== undefined ? partial.taskId : previous.taskId,
         processedImage:
           partial.processedImage !== undefined ? partial.processedImage : previous.processedImage,
         processedImagePreview:
@@ -411,6 +419,9 @@ function HomeContent() {
       methodUiStateRef.current[method] = next;
 
       if (currentMethod === method) {
+        if (partial.taskId !== undefined) {
+          setResultTaskId(partial.taskId);
+        }
         if (partial.processedImage !== undefined) {
           setProcessedImage(partial.processedImage);
         }
@@ -439,6 +450,7 @@ function HomeContent() {
       return;
     }
     methodUiStateRef.current[currentMethod] = {
+      taskId: resultTaskId,
       processedImage,
       processedImagePreview,
       processedImageThumbnail,
@@ -448,6 +460,7 @@ function HomeContent() {
     };
   }, [
     currentMethod,
+    resultTaskId,
     processedImage,
     processedImagePreview,
     processedImageThumbnail,
@@ -836,6 +849,7 @@ function HomeContent() {
 
       if (statusData.status === 'completed' && statusData.result?.processedImage) {
         updateMethodUiState(method, {
+          taskId,
           processedImage: statusData.result.processedImage,
           processedImagePreview:
             statusData.result.processedImagePreview ?? statusData.result.processedImage,
@@ -1058,6 +1072,7 @@ function HomeContent() {
 
     setErrorMessage('');
     setSuccessMessage('');
+    setResultTaskId(null);
     setProcessedImage(null);
     setProcessedImagePreview(null);
     setProcessedImageThumbnail(null);
@@ -1228,6 +1243,7 @@ function HomeContent() {
               setSeamFit(0.5);
               setErrorMessage('');
               setSuccessMessage('');
+              setResultTaskId(null);
               setProcessedImage(null);
               setProcessedImagePreview(null);
               setProcessedImageThumbnail(null);
@@ -1262,6 +1278,7 @@ function HomeContent() {
                 setProcessedImagePreview(null);
                 setProcessedImageThumbnail(null);
                 setResultOriginalImage(null);
+                setResultTaskId(null);
                 setErrorMessage('');
                 setSuccessMessage('');
               }
@@ -1278,6 +1295,7 @@ function HomeContent() {
                 setProcessedImagePreview(null);
                 setProcessedImageThumbnail(null);
                 setResultOriginalImage(null);
+                setResultTaskId(null);
                 setErrorMessage('');
                 setSuccessMessage('');
               }
@@ -1406,6 +1424,7 @@ function HomeContent() {
             setActiveTasks({});
             methodUiStateRef.current = {};
             hasLoadedPersistedTasksRef.current = false;
+            setResultTaskId(null);
             setProcessedImage(null);
             setProcessedImagePreview(null);
             setProcessedImageThumbnail(null);
