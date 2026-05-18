@@ -4,17 +4,22 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { X, Download, ZoomIn, ZoomOut, RotateCw, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
 import { resolveFileUrl } from '../lib/api';
 
+interface ProcessedPreviewImage {
+  url: string;
+  filename: string;
+  downloadUrl?: string;
+  index?: number;
+}
+
 interface ProcessedImagePreviewProps {
-  image: {
-    url: string;
-    filename: string;
-    downloadUrl?: string;
-  } | null;
+  image: ProcessedPreviewImage | null;
   onClose: () => void;
   onPrev?: () => void;
   onNext?: () => void;
   hasPrev?: boolean;
   hasNext?: boolean;
+  onDownload?: (image: ProcessedPreviewImage) => Promise<void> | void;
+  isDownloading?: boolean;
 }
 
 const getFileExtension = (value: string): string => {
@@ -36,7 +41,9 @@ const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({
   onPrev,
   onNext,
   hasPrev = false,
-  hasNext = false
+  hasNext = false,
+  onDownload,
+  isDownloading = false
 }) => {
   const [scale, setScale] = useState(1);
   const [initialScale, setInitialScale] = useState(1);
@@ -123,17 +130,11 @@ const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({
     if (!image) return;
 
     try {
-      const a = document.createElement('a');
-      a.href = resolveFileUrl(image.downloadUrl || image.url);
-      a.download = image.filename;
-      a.rel = 'noopener';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      await onDownload?.(image);
     } catch (err) {
       console.error('下载失败:', err);
     }
-  }, [image]);
+  }, [image, onDownload]);
 
   const handleZoomIn = useCallback(() => {
     setScale(prev => {
@@ -258,8 +259,9 @@ const ProcessedImagePreview: React.FC<ProcessedImagePreviewProps> = ({
 
             <button
               onClick={handleDownload}
-              className="p-1.5 md:p-2 text-white hover:bg-white hover:bg-opacity-20 rounded transition"
-              title="下载"
+              disabled={!onDownload || isDownloading}
+              className="p-1.5 md:p-2 text-white hover:bg-white hover:bg-opacity-20 rounded transition disabled:cursor-not-allowed disabled:opacity-50"
+              title={isDownloading ? '下载中' : '下载'}
             >
               <Download className="h-4 w-4 md:h-5 md:w-5" />
             </button>

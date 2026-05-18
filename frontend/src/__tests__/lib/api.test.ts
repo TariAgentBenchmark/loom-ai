@@ -3,7 +3,6 @@ import {
   createBatchDownloadUrl,
   createHistoryTaskDownloadUrl,
   createProcessingDownloadUrl,
-  downloadTaskFile,
   splitCombinedImageRefs,
 } from "../../lib/api";
 
@@ -28,48 +27,6 @@ describe("splitCombinedImageRefs", () => {
       "results/2026/04/01/b.png",
       "/files/results/c.png",
     ]);
-  });
-});
-
-describe("downloadTaskFile", () => {
-  const originalFetch = global.fetch;
-
-  afterEach(() => {
-    if (originalFetch) {
-      global.fetch = originalFetch;
-    } else {
-      delete (global as Partial<typeof global>).fetch;
-    }
-    jest.restoreAllMocks();
-  });
-
-  it("passes a result index when downloading the current image", async () => {
-    const fetchMock = jest.fn().mockResolvedValue({
-      ok: true,
-      url: "http://localhost/api/v1/history/tasks/task_1/download?file_type=result&file_index=2",
-      headers: {
-        get: (name: string) => {
-          if (name.toLowerCase() === "content-disposition") {
-            return 'attachment; filename="tuyun.png"';
-          }
-          return null;
-        },
-      },
-      blob: async () => new Blob(["image"]),
-    });
-    global.fetch = fetchMock;
-
-    const result = await downloadTaskFile("task_1", "token", "result", 2);
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining("/history/tasks/task_1/download?file_type=result&file_index=2"),
-      expect.objectContaining({ method: "GET" }),
-    );
-    const requestOptions = fetchMock.mock.calls[0][1] as RequestInit;
-    expect((requestOptions.headers as Headers).get("Authorization")).toBe(
-      "Bearer token",
-    );
-    expect(result.filename).toBe("tuyun.png");
   });
 });
 

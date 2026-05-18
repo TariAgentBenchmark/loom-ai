@@ -480,6 +480,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     url: string;
     filename: string;
     downloadUrl: string;
+    index?: number;
   } | null>(null);
   const [isDownloadingResult, setIsDownloadingResult] = useState(false);
   const [selectedResultIndex, setSelectedResultIndex] = useState(0);
@@ -775,6 +776,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
       url,
       filename,
       downloadUrl: downloadUrl || url,
+      index,
     });
   };
 
@@ -812,31 +814,13 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     return rawExt.toLowerCase();
   };
 
-  const buildDownloadName = (extension: string, index?: number) => {
-    const normalizedExt = extension.replace(/^\./, "").toLowerCase();
-    const effectiveExt =
-      normalizedExt === "jpeg" ? "jpg" : normalizedExt || "png";
-    const cleanExt = effectiveExt.replace(/[^a-z0-9]/g, "") || "png";
-    if (typeof index === "number") {
-      return `tuyun_${index + 1}.${cleanExt}`;
-    }
-    return `tuyun.${cleanExt}`;
-  };
-
-  const triggerNativeDownload = (url: string, filename?: string) => {
+  const triggerNativeDownload = (url: string) => {
     const anchor = document.createElement("a");
     anchor.href = url;
-    if (filename) {
-      anchor.download = filename;
-    }
     anchor.rel = "noopener";
     document.body.appendChild(anchor);
     anchor.click();
     document.body.removeChild(anchor);
-  };
-
-  const fetchAndDownload = async (url: string, filename: string) => {
-    triggerNativeDownload(resolveFileUrl(url), filename);
   };
 
   const normalizeFormat = (
@@ -855,7 +839,6 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
 
     const primaryUrl = processedImageUrls[0];
     const extension = extractExtension(primaryUrl);
-    const fallbackName = buildDownloadName(extension);
 
     try {
       setIsDownloadingResult(true);
@@ -868,7 +851,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
         );
         triggerNativeDownload(downloadUrl);
       } else {
-        await fetchAndDownload(primaryUrl, fallbackName);
+        throw new Error("缺少任务下载凭证，无法创建流式下载链接");
       }
     } catch (error) {
       console.error("下载结果失败:", error);
@@ -877,9 +860,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     }
   };
 
-  const handleDownloadSingleImage = async (url: string, index: number) => {
+  const handleDownloadSingleImage = async (url: string, index?: number) => {
     const extension = extractExtension(url);
-    const filename = buildDownloadName(extension, index);
     try {
       setIsDownloadingResult(true);
       if (accessToken && currentTaskId) {
@@ -892,7 +874,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
         );
         triggerNativeDownload(downloadUrl);
       } else {
-        await fetchAndDownload(url, filename);
+        throw new Error("缺少任务下载凭证，无法创建流式下载链接");
       }
     } catch (error) {
       console.error("下载图片失败:", error);
@@ -914,14 +896,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
         );
         triggerNativeDownload(downloadUrl);
       } else {
-        for (let i = 0; i < processedImageUrls.length; i += 1) {
-          const extension = extractExtension(processedImageUrls[i]);
-          const filename = buildDownloadName(extension, i);
-          await fetchAndDownload(processedImageUrls[i], filename);
-          if (i < processedImageUrls.length - 1) {
-            await new Promise((resolve) => setTimeout(resolve, 400));
-          }
-        }
+        throw new Error("缺少任务下载凭证，无法创建流式下载链接");
       }
     } catch (error) {
       console.error("批量下载失败:", error);
@@ -1789,6 +1764,20 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
           onClose={handleCloseProcessedImagePreview}
           onPrev={() => handlePreviewNavigation("prev")}
           onNext={() => handlePreviewNavigation("next")}
+          onDownload={async (previewImage) => {
+            const previewIndex =
+              typeof previewImage.index === "number"
+                ? previewImage.index
+                : processedDisplayUrls.findIndex(
+                    (url) => url === previewImage.url,
+                  );
+
+            await handleDownloadSingleImage(
+              previewImage.downloadUrl || previewImage.url,
+              previewIndex >= 0 ? previewIndex : 0,
+            );
+          }}
+          isDownloading={isDownloadingResult}
           hasPrev={(() => {
             if (!processedDisplayUrls.length || !processedImagePreview) return false;
             const currentIndex = processedDisplayUrls.findIndex(

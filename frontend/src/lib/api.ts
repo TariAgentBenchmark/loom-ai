@@ -665,11 +665,6 @@ export interface ProcessingStatusData {
   };
 }
 
-export interface DownloadResult {
-  blob: Blob;
-  filename: string;
-}
-
 export type ProcessingDownloadFormat = "png" | "jpg" | "svg" | "eps" | "zip";
 export type TaskDownloadFileType = "original" | "result";
 
@@ -928,39 +923,6 @@ export const createProcessingTask = (payload: ProcessingRequestPayload) => {
 
 export const getProcessingStatus = (taskId: string, accessToken: string) =>
   getJson<ProcessingStatusData>(`/processing/status/${taskId}`, accessToken);
-
-export const downloadProcessingResult = async (
-  taskId: string,
-  accessToken: string,
-  format: ProcessingDownloadFormat = "png",
-): Promise<DownloadResult> => {
-  const response = await fetch(
-    `${API_BASE_URL}/processing/result/${taskId}/download?format=${format}`,
-    {
-      method: "GET",
-      headers: withAuthHeader(undefined, accessToken),
-    },
-  );
-
-  const ensured = await ensureSuccess(response);
-  const blob = await ensured.blob();
-
-  const contentDisposition = ensured.headers.get("content-disposition") ?? "";
-  const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
-  const defaultExtension =
-    format === "jpg"
-      ? "jpg"
-      : format === "svg"
-        ? "svg"
-        : format === "eps"
-          ? "eps"
-          : format === "zip"
-            ? "zip"
-            : "png";
-  const filename = filenameMatch?.[1] ?? `tuyun.${defaultExtension}`;
-
-  return { blob, filename };
-};
 
 export const createProcessingDownloadUrl = async (
   taskId: string,
@@ -1326,49 +1288,6 @@ export const getHistoryTasks = (
 
 export const getTaskDetail = (taskId: string, accessToken: string) =>
   getJson<TaskDetail>(`/history/tasks/${taskId}`, accessToken);
-
-export const downloadTaskFile = async (
-  taskId: string,
-  accessToken: string,
-  fileType: "original" | "result" = "result",
-  fileIndex?: number,
-): Promise<DownloadResult> => {
-  const params = new URLSearchParams({ file_type: fileType });
-  if (fileIndex !== undefined) {
-    params.set("file_index", fileIndex.toString());
-  }
-
-  const response = await fetch(
-    `${API_BASE_URL}/history/tasks/${taskId}/download?${params.toString()}`,
-    {
-      method: "GET",
-      headers: withAuthHeader(undefined, accessToken),
-    },
-  );
-
-  const ensured = await ensureSuccess(response);
-  const blob = await ensured.blob();
-
-  const contentDisposition = ensured.headers.get("content-disposition") ?? "";
-  const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
-
-  let fallbackExt = fileType === "original" ? "jpg" : "png";
-  // 从响应 URL 中推断实际扩展名（处理 OSS 预签名等场景）
-  try {
-    const respUrl = ensured.url || "";
-    const pathPart = respUrl.split("?")[0];
-    const urlExt = pathPart.split(".").pop()?.toLowerCase();
-    if (urlExt && /^[a-z0-9]{2,5}$/.test(urlExt)) {
-      fallbackExt = urlExt;
-    }
-  } catch {
-    // 保持默认 fallbackExt
-  }
-
-  const filename = filenameMatch?.[1] ?? `tuyun.${fallbackExt}`;
-
-  return { blob, filename };
-};
 
 // Admin API types and functions
 export interface AdminUser {
@@ -2536,27 +2455,6 @@ export const createBatchTask = (payload: BatchProcessingRequestPayload) => {
 
 export const getBatchStatus = (batchId: string, accessToken: string) =>
   getJson<BatchTaskStatus>(`/processing/batch/status/${batchId}`, accessToken);
-
-export interface BatchDownloadFile {
-  url: string;
-  filename: string;
-}
-
-export interface BatchDownloadResponse {
-  files: BatchDownloadFile[];
-}
-
-export const downloadBatchResults = async (
-  batchId: string,
-  accessToken: string,
-): Promise<BatchDownloadFile[]> => {
-  const response = await getJson<BatchDownloadResponse>(
-    `/processing/batch/download/${batchId}`,
-    accessToken
-  );
-
-  return response.data.files;
-};
 
 export const createBatchDownloadUrl = async (
   batchId: string,
