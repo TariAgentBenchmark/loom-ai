@@ -336,10 +336,6 @@ class RunningHubClient:
         left_node_id: str,
         right_node_id: str,
         margin_field_name: str,
-        target_megapixels_node_id: Optional[str] = None,
-        target_megapixels_field_name: Optional[str] = None,
-        min_target_megapixels: float = 1.5,
-        max_target_megapixels: float = 8.0,
         prompt: Optional[str] = None,
         prompt_node_id: Optional[str] = None,
         prompt_field_name: Optional[str] = None,
@@ -362,10 +358,6 @@ class RunningHubClient:
             left_node_id: 左边距节点ID
             right_node_id: 右边距节点ID
             margin_field_name: 边距字段名称
-            target_megapixels_node_id: 目标输出像素数节点ID
-            target_megapixels_field_name: 目标输出像素数字段名
-            min_target_megapixels: 目标像素数下限，避免小图质量下降
-            max_target_megapixels: 目标像素数上限，避免过大的RH任务
             prompt: 扩图提示词
             prompt_node_id: 提示词节点ID
             prompt_field_name: 提示词字段名
@@ -390,7 +382,6 @@ class RunningHubClient:
         right_pixels = int(width * expand_right)
         target_width = max(1, width + left_pixels + right_pixels)
         target_height = max(1, height + top_pixels + bottom_pixels)
-        target_megapixels = (target_width * target_height) / 1_000_000
 
         # Upload image
         uploaded_name = await self._upload_file(image_bytes, filename)
@@ -424,20 +415,6 @@ class RunningHubClient:
             },
         ]
 
-        resolved_target_megapixels_node_id = str(target_megapixels_node_id or "").strip()
-        resolved_target_megapixels_field_name = str(target_megapixels_field_name or "").strip()
-        if resolved_target_megapixels_node_id and resolved_target_megapixels_field_name:
-            min_mp = max(0.1, float(min_target_megapixels or 0))
-            max_mp = max(min_mp, float(max_target_megapixels or min_mp))
-            clamped_megapixels = min(max(target_megapixels, min_mp), max_mp)
-            node_info_list.append(
-                {
-                    "nodeId": resolved_target_megapixels_node_id,
-                    "fieldName": resolved_target_megapixels_field_name,
-                    "fieldValue": round(clamped_megapixels, 3),
-                }
-            )
-
         prompt_text = str(prompt or "").strip()
         resolved_prompt_node_id = str(prompt_node_id or "").strip()
         resolved_prompt_field_name = str(prompt_field_name or "").strip()
@@ -456,13 +433,12 @@ class RunningHubClient:
                 )
 
         self.logger.info(
-            "Submitting expand image workflow %s (image: %dx%d target: %dx%d %.3fMP) with nodes: %s",
+            "Submitting expand image workflow %s (image: %dx%d target: %dx%d) with nodes: %s",
             resolved_workflow_id,
             width,
             height,
             target_width,
             target_height,
-            target_megapixels,
             node_info_list,
         )
 

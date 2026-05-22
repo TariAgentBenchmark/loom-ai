@@ -13,7 +13,7 @@ def _make_image_bytes(width: int, height: int) -> bytes:
 
 
 @pytest.mark.asyncio
-async def test_expand_image_sets_target_megapixels_from_requested_canvas(monkeypatch):
+async def test_expand_image_uses_workflow_default_megapixels(monkeypatch):
     client = RunningHubClient(api_key="test-key")
     captured = {}
 
@@ -49,8 +49,6 @@ async def test_expand_image_sets_target_megapixels_from_requested_canvas(monkeyp
         left_node_id="202",
         right_node_id="203",
         margin_field_name="value",
-        target_megapixels_node_id="230",
-        target_megapixels_field_name="megapixels",
         options=metadata,
     )
 
@@ -65,5 +63,4 @@ async def test_expand_image_sets_target_megapixels_from_requested_canvas(monkeyp
         {"nodeId": "201", "fieldName": "value", "fieldValue": 148},
         {"nodeId": "202", "fieldName": "value", "fieldValue": 126},
         {"nodeId": "203", "fieldName": "value", "fieldValue": 126},
-        {"nodeId": "230", "fieldName": "megapixels", "fieldValue": 2.692},
     ]
