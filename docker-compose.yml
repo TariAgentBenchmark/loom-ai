@@ -34,6 +34,7 @@ services:
       - APIYI_API_KEY=${APIYI_API_KEY:-}
       - AI302_API_KEY=${AI302_API_KEY:-}
       - AI302_BASE_URL=${AI302_BASE_URL:-https://api.302ai.com}
+      - AI302_FILE_BASE_URL=${AI302_FILE_BASE_URL:-https://file.302ai.cn}
       - TUZI_API_KEY=${TUZI_API_KEY:-}
       - TUZI_BASE_URL=${TUZI_BASE_URL:-https://api.tu-zi.com}
       - MEITU_API_KEY=${MEITU_API_KEY:-}

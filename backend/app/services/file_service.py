@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
 from app.core.config import settings
+from app.services.ai_client.ai302_urls import rewrite_ai302_file_url
 from app.utils.exceptions import UserFacingException
 
 logger = logging.getLogger(__name__)
@@ -542,50 +543,69 @@ class FileService:
 
     async def download_from_url(self, url: str) -> bytes:
         """从URL下载文件"""
-        parsed = urlparse(url)
-        host = parsed.netloc or "unknown-host"
-        path = parsed.path or "/"
+        original_parsed = urlparse(url)
+        original_host = original_parsed.netloc or "unknown-host"
+        original_path = original_parsed.path or "/"
         timeout = httpx.Timeout(connect=10.0, read=60.0, write=60.0, pool=30.0)
         last_error: Optional[Exception] = None
+        candidate_urls = [url]
+        rewritten_url = rewrite_ai302_file_url(url)
+        if rewritten_url and rewritten_url != url:
+            candidate_urls = [rewritten_url, url]
 
-        for attempt in range(1, REMOTE_DOWNLOAD_MAX_ATTEMPTS + 1):
-            try:
-                async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-                    response = await client.get(url)
-                    response.raise_for_status()
-                    if attempt > 1:
-                        logger.info(
-                            "远程文件下载重试成功: host=%s path=%s attempt=%s size=%s",
-                            host,
-                            path,
-                            attempt,
-                            len(response.content),
-                        )
-                    return response.content
-            except Exception as exc:
-                last_error = exc
-                logger.warning(
-                    "远程文件下载失败: host=%s path=%s attempt=%s/%s error=%s",
-                    host,
-                    path,
-                    attempt,
-                    REMOTE_DOWNLOAD_MAX_ATTEMPTS,
-                    str(exc),
-                )
-                if attempt < REMOTE_DOWNLOAD_MAX_ATTEMPTS:
-                    await asyncio.sleep(
-                        REMOTE_DOWNLOAD_RETRY_BASE_SECONDS * attempt
+        for candidate_url in candidate_urls:
+            parsed = urlparse(candidate_url)
+            host = parsed.netloc or "unknown-host"
+            path = parsed.path or "/"
+
+            for attempt in range(1, REMOTE_DOWNLOAD_MAX_ATTEMPTS + 1):
+                try:
+                    async with httpx.AsyncClient(
+                        timeout=timeout,
+                        follow_redirects=True,
+                    ) as client:
+                        response = await client.get(candidate_url)
+                        response.raise_for_status()
+                        if attempt > 1 or candidate_url != url:
+                            logger.info(
+                                "远程文件下载成功: host=%s path=%s attempt=%s "
+                                "size=%s rewritten=%s",
+                                host,
+                                path,
+                                attempt,
+                                len(response.content),
+                                candidate_url != url,
+                            )
+                        return response.content
+                except Exception as exc:
+                    last_error = exc
+                    logger.warning(
+                        "远程文件下载失败: host=%s path=%s attempt=%s/%s "
+                        "error=%s rewritten=%s",
+                        host,
+                        path,
+                        attempt,
+                        REMOTE_DOWNLOAD_MAX_ATTEMPTS,
+                        str(exc),
+                        candidate_url != url,
                     )
+                    if attempt < REMOTE_DOWNLOAD_MAX_ATTEMPTS:
+                        await asyncio.sleep(
+                            REMOTE_DOWNLOAD_RETRY_BASE_SECONDS * attempt
+                        )
 
         logger.error(
             "远程文件下载最终失败: host=%s path=%s attempts=%s error=%s",
-            host,
-            path,
-            REMOTE_DOWNLOAD_MAX_ATTEMPTS,
+            original_host,
+            original_path,
+            REMOTE_DOWNLOAD_MAX_ATTEMPTS * len(candidate_urls),
             str(last_error),
         )
         raise Exception(
-            f"下载文件失败(host={host}, path={path}, attempts={REMOTE_DOWNLOAD_MAX_ATTEMPTS}): {str(last_error)}"
+            "下载文件失败("
+            f"host={original_host}, path={original_path}, "
+            f"attempts={REMOTE_DOWNLOAD_MAX_ATTEMPTS * len(candidate_urls)}"
+            f"): {str(last_error)}"
         )
 
     async def delete_file(self, file_url: str) -> bool:

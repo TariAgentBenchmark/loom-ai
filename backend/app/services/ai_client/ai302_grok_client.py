@@ -3,6 +3,7 @@ from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
 from app.core.config import settings
+from app.services.ai_client.ai302_urls import rewrite_ai302_file_url
 from app.services.ai_client.base_client import BaseAIClient
 
 logger = logging.getLogger(__name__)
@@ -73,24 +74,29 @@ class AI302GrokClient(BaseAIClient):
 
     @staticmethod
     def extract_image_url(api_response: Dict[str, Any]) -> str:
-        images = api_response.get("images")
-        if isinstance(images, list):
-            for item in images:
+        def first_url(items: Any) -> Optional[str]:
+            if not isinstance(items, list):
+                return None
+            for item in items:
                 if not isinstance(item, dict):
                     continue
                 url = item.get("url")
                 if isinstance(url, str) and url.strip():
-                    return url.strip()
+                    return rewrite_ai302_file_url(url.strip()) or url.strip()
+            return None
+
+        url = first_url(api_response.get("images"))
+        if url:
+            return url
 
         data = api_response.get("data")
+        url = first_url(data)
+        if url:
+            return url
+
         if isinstance(data, dict):
-            nested_images = data.get("images")
-            if isinstance(nested_images, list):
-                for item in nested_images:
-                    if not isinstance(item, dict):
-                        continue
-                    url = item.get("url")
-                    if isinstance(url, str) and url.strip():
-                        return url.strip()
+            url = first_url(data.get("images"))
+            if url:
+                return url
 
         raise ValueError("302.AI Grok response missing image url")

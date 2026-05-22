@@ -65,6 +65,7 @@ class Settings(BaseSettings):
     # 302.AI API配置
     ai302_api_key: str = ""
     ai302_base_url: str = "https://api.302ai.com"
+    ai302_file_base_url: str = "https://file.302ai.cn"
     
     # 美图API配置
     meitu_api_key: str = ""
