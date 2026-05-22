@@ -2,7 +2,7 @@ import pytest
 
 from app.core.config import settings
 from app.services.ai_client.ai302_grok_client import AI302GrokClient
-from app.services.ai_client.ai302_urls import rewrite_ai302_file_url
+from app.utils.ai302_urls import rewrite_ai302_file_url
 
 
 def test_rewrite_ai302_file_url_uses_domestic_file_host(monkeypatch):

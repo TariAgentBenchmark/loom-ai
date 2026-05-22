@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
 from app.core.config import settings
-from app.services.ai_client.ai302_urls import rewrite_ai302_file_url
+from app.utils.ai302_urls import rewrite_ai302_file_url
 from app.utils.exceptions import UserFacingException
 
 logger = logging.getLogger(__name__)
