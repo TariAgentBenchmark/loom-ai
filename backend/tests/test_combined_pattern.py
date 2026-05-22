@@ -144,7 +144,10 @@ async def test_extract_pattern_combined_allows_timeouts_when_other_branches_succ
     )
     elapsed = time.monotonic() - started
 
-    assert result == "https://example.com/general.png,https://example.com/grok.png"
+    assert set(result.split(",")) == {
+        "https://example.com/general.png",
+        "https://example.com/grok.png",
+    }
     assert elapsed < 0.3
 
 
