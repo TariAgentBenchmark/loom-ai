@@ -17,6 +17,7 @@ import CreditHistoryModal from '../components/CreditHistoryModal';
 import ProcessingPage from '../components/ProcessingPage';
 import BatchProcessingWrapper from '../components/BatchProcessingWrapper';
 import LoginModal from '../components/LoginModal';
+import DesktopLoginView from '../components/DesktopLoginView';
 import RegisterModal, { type PrefilledInviteContext } from '../components/RegisterModal';
 import ForgotPasswordModal from '../components/ForgotPasswordModal';
 import DisclaimerBar from '../components/DisclaimerBar';
@@ -216,6 +217,7 @@ function HomeContent() {
       searchParams.get(DESKTOP_LOGIN_QUERY_PARAM) === '1',
     [searchParams],
   );
+  const shouldUseDesktopLoginView = shouldOpenDesktopLogin && (!hasCheckedStoredSession || !isLoggedIn);
   const inviteContext = useMemo<PrefilledInviteContext>(() => {
     const agentToken = searchParams.get('invite')?.trim();
     if (agentToken) {
@@ -559,18 +561,6 @@ function HomeContent() {
         setHasCheckedStoredSession(true);
       });
   }, [hydrateAccount]);
-
-  useEffect(() => {
-    if (!shouldOpenDesktopLogin || !hasCheckedStoredSession) {
-      return;
-    }
-
-    if (isLoggedIn || authState.status === 'authenticating') {
-      return;
-    }
-
-    setShowLoginModal(true);
-  }, [shouldOpenDesktopLogin, hasCheckedStoredSession, isLoggedIn, authState.status]);
 
   const authenticateAndLoad = useCallback(
     async (credentials: { identifier: string; password: string; rememberMe: boolean }) => {
@@ -1200,6 +1190,19 @@ function HomeContent() {
       });
   };
 
+  const openLoginSurface = useCallback(() => {
+    setAuthError('');
+
+    if (shouldOpenDesktopLogin) {
+      setShowLoginModal(false);
+      setShowRegisterModal(false);
+      setShowForgotPasswordModal(false);
+      return;
+    }
+
+    setShowLoginModal(true);
+  }, [shouldOpenDesktopLogin]);
+
   const renderPricingModal = () =>
     showPricingModal ? (
       <PricingModal
@@ -1207,7 +1210,7 @@ function HomeContent() {
         isLoggedIn={isLoggedIn}
         onLogin={() => {
           setShowPricingModal(false);
-          setShowLoginModal(true);
+          openLoginSurface();
         }}
         accessToken={accessToken || undefined}
       />
@@ -1232,6 +1235,125 @@ function HomeContent() {
     },
     [],
   );
+
+  const renderLoginModal = () => (
+    <LoginModal
+      isOpen={showLoginModal && !shouldUseDesktopLoginView}
+      isSubmitting={authState.status === 'authenticating'}
+      errorMessage={authError}
+      onClose={() => {
+        if (authState.status !== 'authenticating') {
+          setShowLoginModal(false);
+        }
+      }}
+      onSubmit={async (payload) => {
+        await authenticateAndLoad(payload);
+      }}
+      onSwitchToRegister={() => {
+        setShowLoginModal(false);
+        setShowRegisterModal(true);
+        setAuthError('');
+      }}
+      onForgotPassword={() => {
+        if (authState.status === 'authenticating') {
+          return;
+        }
+        setShowLoginModal(false);
+        setShowRegisterModal(false);
+        setShowForgotPasswordModal(true);
+        setAuthError('');
+      }}
+    />
+  );
+
+  const renderRegisterModal = () => (
+    <RegisterModal
+      isOpen={showRegisterModal}
+      isSubmitting={authState.status === 'authenticating'}
+      errorMessage={registerError}
+      prefilledInvite={prefilledInvite}
+      rewardSettings={referralRewardSettings}
+      onClose={() => {
+        if (authState.status !== 'authenticating') {
+          setShowRegisterModal(false);
+        }
+      }}
+      onSubmit={async (payload) => {
+        await registerAndLoad(payload);
+      }}
+      onSwitchToLogin={() => {
+        setShowRegisterModal(false);
+        setRegisterError('');
+
+        if (shouldUseDesktopLoginView) {
+          setShowLoginModal(false);
+          return;
+        }
+
+        setShowLoginModal(true);
+      }}
+    />
+  );
+
+  const renderForgotPasswordModal = () => (
+    <ForgotPasswordModal
+      isOpen={showForgotPasswordModal}
+      onClose={() => setShowForgotPasswordModal(false)}
+      onSendCode={requestPasswordResetCode}
+      onSubmit={async (payload) => {
+        await resetPasswordViaPhone(payload);
+      }}
+      onSwitchToLogin={() => {
+        setAuthError('');
+
+        if (shouldUseDesktopLoginView) {
+          setShowLoginModal(false);
+          return;
+        }
+
+        setShowLoginModal(true);
+      }}
+    />
+  );
+
+  if (shouldUseDesktopLoginView) {
+    return (
+      <div className="notranslate min-h-screen flex flex-col">
+        <div className="flex-1">
+          <DesktopLoginView
+            isSubmitting={authState.status === 'authenticating'}
+            isCheckingSession={!hasCheckedStoredSession}
+            errorMessage={authError}
+            onSubmit={async (payload) => {
+              await authenticateAndLoad(payload);
+            }}
+            onSwitchToRegister={() => {
+              if (authState.status === 'authenticating') {
+                return;
+              }
+              setShowRegisterModal(true);
+              setShowForgotPasswordModal(false);
+              setShowLoginModal(false);
+              setAuthError('');
+            }}
+            onForgotPassword={() => {
+              if (authState.status === 'authenticating') {
+                return;
+              }
+              setShowForgotPasswordModal(true);
+              setShowRegisterModal(false);
+              setShowLoginModal(false);
+              setAuthError('');
+            }}
+          />
+        </div>
+
+        <DisclaimerBar />
+        {renderRegisterModal()}
+        {renderForgotPasswordModal()}
+      </div>
+    );
+  }
 
   return (
     <div className="notranslate min-h-screen flex flex-col">
@@ -1379,7 +1501,7 @@ function HomeContent() {
         <HomeView
           onSelectMethod={(method) => {
             if (!isLoggedIn) {
-              setShowLoginModal(true);
+              openLoginSurface();
               return;
             }
             setBatchMode(false);
@@ -1415,7 +1537,7 @@ function HomeContent() {
           }}
           onSelectBatchMode={(method) => {
             if (!isLoggedIn) {
-              setShowLoginModal(true);
+              openLoginSurface();
               return;
             }
             setBatchMode(true);
@@ -1430,7 +1552,7 @@ function HomeContent() {
           onOpenReferralModal={() => setShowReferralModal(true)}
           onOpenAgentManager={async () => {
             if (!accessToken) {
-              setShowLoginModal(true);
+              openLoginSurface();
               return;
             }
 
@@ -1461,14 +1583,14 @@ function HomeContent() {
             setCreditBalance(undefined);
             setAuthError('');
             setRegisterError('');
-            setShowLoginModal(true);
+            setShowLoginModal(!shouldOpenDesktopLogin);
             setShowRegisterModal(false);
             setShowReferralModal(false);
             clearAuthTokens();
             rememberMeRef.current = false;
           }}
           onLogin={() => {
-            setShowLoginModal(true);
+            openLoginSurface();
             setShowRegisterModal(false);
           }}
           onRegister={() => {
@@ -1481,7 +1603,7 @@ function HomeContent() {
           authError={authError}
           accountSummary={accountSummary}
           creditBalance={creditBalance}
-          onOpenLoginModal={() => setShowLoginModal(true)}
+          onOpenLoginModal={openLoginSurface}
           accessToken={accessToken || undefined}
           historyRefreshToken={historyRefreshToken}
           hasAgentManagement={hasAgentManagement}
@@ -1492,54 +1614,8 @@ function HomeContent() {
       <DisclaimerBar />
       {renderPricingModal()}
       {renderCreditHistoryModal()}
-      <LoginModal
-        isOpen={showLoginModal}
-        isSubmitting={authState.status === 'authenticating'}
-        errorMessage={authError}
-        onClose={() => {
-          if (authState.status !== 'authenticating') {
-            setShowLoginModal(false);
-          }
-        }}
-        onSubmit={async (payload) => {
-          await authenticateAndLoad(payload);
-        }}
-        onSwitchToRegister={() => {
-          setShowLoginModal(false);
-          setShowRegisterModal(true);
-          setAuthError('');
-        }}
-        onForgotPassword={() => {
-          if (authState.status === 'authenticating') {
-            return;
-          }
-          setShowLoginModal(false);
-          setShowRegisterModal(false);
-          setShowForgotPasswordModal(true);
-          setAuthError('');
-        }}
-      />
-
-      <RegisterModal
-        isOpen={showRegisterModal}
-        isSubmitting={authState.status === 'authenticating'}
-        errorMessage={registerError}
-        prefilledInvite={prefilledInvite}
-        rewardSettings={referralRewardSettings}
-        onClose={() => {
-          if (authState.status !== 'authenticating') {
-            setShowRegisterModal(false);
-          }
-        }}
-        onSubmit={async (payload) => {
-          await registerAndLoad(payload);
-        }}
-        onSwitchToLogin={() => {
-          setShowRegisterModal(false);
-          setShowLoginModal(true);
-          setRegisterError('');
-        }}
-      />
+      {renderLoginModal()}
+      {renderRegisterModal()}
 
       <UserReferralModal
         isOpen={showReferralModal}
@@ -1549,18 +1625,7 @@ function HomeContent() {
         rewardSettings={referralRewardSettings}
       />
 
-      <ForgotPasswordModal
-        isOpen={showForgotPasswordModal}
-        onClose={() => setShowForgotPasswordModal(false)}
-        onSendCode={requestPasswordResetCode}
-        onSubmit={async (payload) => {
-          await resetPasswordViaPhone(payload);
-        }}
-        onSwitchToLogin={() => {
-          setShowLoginModal(true);
-          setAuthError('');
-        }}
-      />
+      {renderForgotPasswordModal()}
 
       {/* Agent Alert Modal */}
       {showAgentAlertModal && (
