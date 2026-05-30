@@ -13,6 +13,7 @@ const DEFAULT_PRODUCTION_URL = "https://tuyunai.cn";
 const ALLOWED_EXTERNAL_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tel:"]);
 const DESKTOP_QUERY_PARAM = "desktop";
 const DESKTOP_LOGIN_QUERY_PARAM = "desktopLogin";
+const APP_ICON_PATH = path.join(__dirname, "resources", "icon.png");
 
 let mainWindow = null;
 let targetUrl = null;
@@ -200,6 +201,7 @@ function createMainWindow() {
     minHeight: 700,
     title: "LoomAI",
     backgroundColor: "#f8fafc",
+    icon: APP_ICON_PATH,
     show: false,
     autoHideMenuBar: process.platform !== "darwin",
     webPreferences: {

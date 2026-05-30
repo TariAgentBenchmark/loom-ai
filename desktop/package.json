@@ -31,16 +31,19 @@
       "main.cjs",
       "preload.cjs",
       "offline.html",
+      "resources/icon.png",
       "package.json"
     ],
     "mac": {
       "category": "public.app-category.graphics-design",
+      "icon": "resources/icon.icns",
       "target": [
         "dmg",
         "zip"
       ]
     },
     "win": {
+      "icon": "resources/icon.ico",
       "target": [
         "nsis",
         "portable"
@@ -48,6 +51,7 @@
     },
     "linux": {
       "category": "Graphics",
+      "icon": "resources/icon.png",
       "target": [
         "AppImage",
         "deb"
