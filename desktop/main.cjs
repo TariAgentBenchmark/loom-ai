@@ -11,6 +11,8 @@ const APP_ID = "cn.tuyunai.loomai";
 const DEFAULT_DEVELOPMENT_URL = "http://localhost:3000";
 const DEFAULT_PRODUCTION_URL = "https://tuyunai.cn";
 const ALLOWED_EXTERNAL_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tel:"]);
+const DESKTOP_QUERY_PARAM = "desktop";
+const DESKTOP_LOGIN_QUERY_PARAM = "desktopLogin";
 
 let mainWindow = null;
 let targetUrl = null;
@@ -49,7 +51,29 @@ function resolveTargetUrl() {
     process.env.LOOMAI_DESKTOP_URL ||
     (app.isPackaged ? process.env.LOOMAI_WEB_URL : process.env.LOOMAI_DEV_URL);
 
-  return normalizeUrl(configuredUrl, fallbackUrl);
+  return applyDesktopLaunchParams(normalizeUrl(configuredUrl, fallbackUrl));
+}
+
+function applyDesktopLaunchParams(urlString) {
+  if (process.env.LOOMAI_DESKTOP_LOGIN_ON_START === "0") {
+    return urlString;
+  }
+
+  try {
+    const parsedUrl = new URL(urlString);
+
+    if (!parsedUrl.searchParams.has(DESKTOP_QUERY_PARAM)) {
+      parsedUrl.searchParams.set(DESKTOP_QUERY_PARAM, "1");
+    }
+
+    if (!parsedUrl.searchParams.has(DESKTOP_LOGIN_QUERY_PARAM)) {
+      parsedUrl.searchParams.set(DESKTOP_LOGIN_QUERY_PARAM, "1");
+    }
+
+    return parsedUrl.toString();
+  } catch {
+    return urlString;
+  }
 }
 
 function isInternalNavigation(urlString) {

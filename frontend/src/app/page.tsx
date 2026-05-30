@@ -85,6 +85,8 @@ const MAX_IMAGE_DIMENSION = 3000;
 
 const POLLING_INTERVAL_MS = 3000;
 const ACTIVE_TASK_STORAGE_KEY = 'loomai:active-processing-task';
+const DESKTOP_QUERY_PARAM = 'desktop';
+const DESKTOP_LOGIN_QUERY_PARAM = 'desktopLogin';
 
 type PersistedProcessingTaskEntry = {
   taskId: string;
@@ -190,6 +192,7 @@ function HomeContent() {
   const [batchMode, setBatchMode] = useState(false);
   const [showAgentAlertModal, setShowAgentAlertModal] = useState(false);
   const [referralRewardSettings, setReferralRewardSettings] = useState<ReferralRewardSettings | undefined>(undefined);
+  const [hasCheckedStoredSession, setHasCheckedStoredSession] = useState(false);
 
   const methodUiStateRef = useRef<MethodUiStateMap>({});
   const pollingRefs = useRef<Record<string, ReturnType<typeof setInterval>>>({});
@@ -207,6 +210,12 @@ function HomeContent() {
   const currentMethodTask = currentMethod ? activeTasks[currentMethod] : undefined;
   const isCurrentMethodProcessing = Boolean(currentMethodTask);
   const currentTaskId = currentMethodTask?.taskId ?? resultTaskId;
+  const shouldOpenDesktopLogin = useMemo(
+    () =>
+      searchParams.get(DESKTOP_QUERY_PARAM) === '1' &&
+      searchParams.get(DESKTOP_LOGIN_QUERY_PARAM) === '1',
+    [searchParams],
+  );
   const inviteContext = useMemo<PrefilledInviteContext>(() => {
     const agentToken = searchParams.get('invite')?.trim();
     if (agentToken) {
@@ -515,6 +524,7 @@ function HomeContent() {
     if (!restored) {
       clearAuthTokens();
       rememberMeRef.current = false;
+      setHasCheckedStoredSession(true);
       return;
     }
 
@@ -533,6 +543,7 @@ function HomeContent() {
     });
 
     setAuthState(authenticated);
+    setHasCheckedStoredSession(true);
 
     hydrateAccount(restored.accessToken)
       .then(() => {
@@ -545,8 +556,21 @@ function HomeContent() {
         setCreditBalance(undefined);
         clearAuthTokens();
         rememberMeRef.current = false;
+        setHasCheckedStoredSession(true);
       });
   }, [hydrateAccount]);
+
+  useEffect(() => {
+    if (!shouldOpenDesktopLogin || !hasCheckedStoredSession) {
+      return;
+    }
+
+    if (isLoggedIn || authState.status === 'authenticating') {
+      return;
+    }
+
+    setShowLoginModal(true);
+  }, [shouldOpenDesktopLogin, hasCheckedStoredSession, isLoggedIn, authState.status]);
 
   const authenticateAndLoad = useCallback(
     async (credentials: { identifier: string; password: string; rememberMe: boolean }) => {

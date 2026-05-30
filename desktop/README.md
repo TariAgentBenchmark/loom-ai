@@ -44,6 +44,12 @@ LOOMAI_WEB_URL=https://your-web-domain.example npm run dist
 
 `LOOMAI_DESKTOP_URL` 优先级最高，适合开发和临时测试。`LOOMAI_WEB_URL` 适合打包生产桌面应用时指定 Web 入口。
 
+桌面端默认会在入口 URL 上附加 `desktop=1&desktopLogin=1`，前端会据此在启动时打开登录弹窗。普通 Web 访问不带这些参数，因此仍保持原来的首页行为。如果需要临时关闭桌面启动登录：
+
+```bash
+LOOMAI_DESKTOP_LOGIN_ON_START=0 npm run start
+```
+
 ## 打包
 
 ```bash
