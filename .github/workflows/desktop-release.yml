@@ -1,0 +1,177 @@
+name: Build Desktop Release
+
+on:
+  push:
+    tags:
+      - "v*"
+      - "desktop-v*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag, for example desktop-v0.1.0"
+        required: true
+        default: "desktop-v0.1.0"
+      web_url:
+        description: "Web app URL loaded by the packaged desktop app"
+        required: true
+        default: "https://tuyunai.cn"
+      draft:
+        description: "Create or update the GitHub Release as a draft"
+        type: boolean
+        required: true
+        default: true
+      prerelease:
+        description: "Mark the GitHub Release as a prerelease"
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-release-${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "20"
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
+  LOOMAI_WEB_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.web_url || 'https://tuyunai.cn' }}
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            runner: macos-latest
+            command: npm run dist:mac -- --publish never
+            artifact: desktop-macos
+          - name: Windows
+            runner: windows-latest
+            command: npm run dist:win -- --publish never
+            artifact: desktop-windows
+    env:
+      # Leave signing disabled until Apple Developer ID / Windows code-signing certs
+      # are configured as repository secrets.
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci --no-audit --no-fund
+
+      - name: Align desktop package version with release tag
+        working-directory: desktop
+        shell: bash
+        run: |
+          version="${RELEASE_TAG#desktop-v}"
+          version="${version#v}"
+          if [[ "$version" =~ ^[0-9]+(\.[0-9]+){1,2}([-.][0-9A-Za-z]+([-.][0-9A-Za-z]+)*)?$ ]]; then
+            npm version "$version" --no-git-tag-version --allow-same-version
+          else
+            echo "Release tag '$RELEASE_TAG' is not a semver tag; keeping package.json version."
+          fi
+
+      - name: Validate Electron entrypoints
+        working-directory: desktop
+        run: |
+          node --check main.cjs
+          node --check preload.cjs
+          node --check scripts/start-electron.cjs
+
+      - name: Build desktop installer
+        working-directory: desktop
+        run: ${{ matrix.command }}
+
+      - name: Collect release assets
+        shell: bash
+        run: |
+          mkdir -p desktop/release-assets
+          find desktop/dist -type f \
+            \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.blockmap" -o -name "*.yml" \) \
+            -print0 |
+            while IFS= read -r -d '' file; do
+              cp "$file" "desktop/release-assets/$(basename "$file")"
+            done
+          ls -la desktop/release-assets
+
+      - name: Upload desktop artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact }}
+          path: desktop/release-assets/*
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_DRAFT: ${{ github.event_name == 'workflow_dispatch' && inputs.draft || 'false' }}
+      RELEASE_PRERELEASE: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || 'false' }}
+    steps:
+      - name: Download desktop artifacts
+        uses: actions/download-artifact@v7
+        with:
+          pattern: desktop-*
+          path: downloaded-artifacts
+
+      - name: Prepare release assets
+        shell: bash
+        run: |
+          mkdir -p release-assets
+          find downloaded-artifacts -type f -print0 |
+            while IFS= read -r -d '' file; do
+              cp "$file" "release-assets/$(basename "$file")"
+            done
+          ls -la release-assets
+
+      - name: Create or update GitHub Release
+        shell: bash
+        run: |
+          mapfile -t files < <(find release-assets -type f | sort)
+          if [[ ${#files[@]} -eq 0 ]]; then
+            echo "No release assets found."
+            exit 1
+          fi
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "${files[@]}" --clobber
+            if [[ "$RELEASE_DRAFT" == "false" ]]; then
+              gh release edit "$RELEASE_TAG" --draft=false
+            fi
+            exit 0
+          fi
+
+          args=(
+            "--title"
+            "LoomAI Desktop ${RELEASE_TAG}"
+            "--generate-notes"
+            "--target"
+            "${GITHUB_SHA}"
+          )
+
+          if [[ "$RELEASE_DRAFT" == "true" ]]; then
+            args+=("--draft")
+          fi
+
+          if [[ "$RELEASE_PRERELEASE" == "true" ]]; then
+            args+=("--prerelease")
+          fi
+
+          gh release create "$RELEASE_TAG" "${files[@]}" "${args[@]}"

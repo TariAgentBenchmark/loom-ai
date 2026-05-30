@@ -22,6 +22,16 @@ npm run dev          # http://localhost:3000
 
 Tailwind CSS is pre-configured. Global styles live in `src/app/globals.css` and the App Router is used by default.
 
+## Desktop quickstart
+
+```bash
+cd desktop
+npm install
+npm run dev
+```
+
+The desktop app is an Electron shell that reuses the existing Web frontend. Development loads `http://localhost:3000`; packaged builds load `https://tuyunai.cn` by default. Override the target with `LOOMAI_DESKTOP_URL` or `LOOMAI_WEB_URL`. See `desktop/README.md` for packaging commands.
+
 ## Backend quickstart
 
 ```bash
