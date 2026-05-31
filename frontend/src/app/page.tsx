@@ -1348,7 +1348,6 @@ function HomeContent() {
           />
         </div>
 
-        <DisclaimerBar />
         {renderRegisterModal()}
         {renderForgotPasswordModal()}
       </div>

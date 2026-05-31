@@ -74,13 +74,13 @@ const DesktopLoginView: React.FC<DesktopLoginViewProps> = ({
                   src="/logo.png"
                   width={34}
                   height={20}
-                  alt="LoomAI"
+                  alt="图云AI"
                   priority
                   className="h-auto w-8"
                 />
               </div>
               <div>
-                <p className="text-sm font-semibold">LoomAI Desktop</p>
+                <p className="text-sm font-semibold">图云AI Desktop</p>
                 <p className="text-xs text-slate-400">桌面工作区</p>
               </div>
             </div>
@@ -131,20 +131,20 @@ const DesktopLoginView: React.FC<DesktopLoginViewProps> = ({
                         src="/logo.png"
                         width={34}
                         height={20}
-                        alt="LoomAI"
+                        alt="图云AI"
                         priority
                         className="h-auto w-8"
                       />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-slate-950">LoomAI Desktop</p>
+                      <p className="text-sm font-semibold text-slate-950">图云AI Desktop</p>
                       <p className="text-xs text-slate-500">桌面工作区</p>
                     </div>
                   </div>
                   <p className="text-sm font-semibold text-blue-700">桌面端登录</p>
                   <h2 className="mt-3 text-3xl font-semibold text-slate-950">欢迎回来</h2>
                   <p className="mt-3 text-sm leading-6 text-slate-500">
-                    {isCheckingSession ? '正在检查本机登录状态' : '使用手机号或邮箱继续使用 LoomAI。'}
+                    {isCheckingSession ? '正在检查本机登录状态' : '使用手机号或邮箱继续使用图云AI。'}
                   </p>
                 </div>
 
