@@ -114,6 +114,15 @@ const HomeView: React.FC<HomeViewProps> = ({
   const monthlyUsageText = isLoggedIn
     ? `本月已使用 ${monthlySpentLabel} 积分`
     : '登录后可查看本月积分使用情况';
+  const handleOpenCreditUsage = () => {
+    if (isLoggedIn) {
+      onOpenCreditHistory();
+      setSidebarOpen(false);
+      return;
+    }
+    onOpenLoginModal();
+    setSidebarOpen(false);
+  };
 
   // 打开任意全屏弹窗时锁定页面滚动，避免背景跟随滚动
   useEffect(() => {
@@ -490,13 +499,20 @@ const HomeView: React.FC<HomeViewProps> = ({
                   我的账户
                 </h3>
                 <div className="space-y-3">
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3">
+                  <button
+                    type="button"
+                    onClick={handleOpenCreditUsage}
+                    className="w-full rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 p-3 text-left transition hover:from-blue-100 hover:to-indigo-100 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  >
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs text-gray-600">剩余积分</span>
                       <span className="text-base font-bold text-blue-600">{creditsLabel}</span>
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">{monthlyUsageText}</div>
-                  </div>
+                    <div className="flex items-center justify-between gap-2 text-xs text-gray-500 mt-1">
+                      <span>{monthlyUsageText}</span>
+                      <span className="font-medium text-blue-600">{isLoggedIn ? '查看明细' : '去登录'}</span>
+                    </div>
+                  </button>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-gray-50 rounded-lg p-2 text-center">
                       <div className="text-base font-bold text-gray-900">{monthlyLabel}</div>
@@ -596,13 +612,20 @@ const HomeView: React.FC<HomeViewProps> = ({
               我的账户
             </h3>
             <div className="space-y-3">
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 md:p-4">
+              <button
+                type="button"
+                onClick={handleOpenCreditUsage}
+                className="w-full rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 p-3 text-left transition hover:from-blue-100 hover:to-indigo-100 focus:outline-none focus:ring-2 focus:ring-blue-200 md:p-4"
+              >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs md:text-sm text-gray-600">剩余积分</span>
                   <span className="text-base md:text-lg font-bold text-blue-600">{creditsLabel}</span>
                 </div>
-                <div className="text-xs text-gray-500 mt-1">{monthlyUsageText}</div>
-              </div>
+                <div className="flex items-center justify-between gap-2 text-xs text-gray-500 mt-1">
+                  <span>{monthlyUsageText}</span>
+                  <span className="font-medium text-blue-600">{isLoggedIn ? '查看明细' : '去登录'}</span>
+                </div>
+              </button>
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-gray-50 rounded-lg p-2 md:p-3 text-center">
                   <div className="text-base md:text-lg font-bold text-gray-900">{monthlyLabel}</div>
