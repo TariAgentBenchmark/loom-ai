@@ -39,6 +39,8 @@ import {
 } from "lucide-react";
 import { formatDateTime } from "../lib/datetime";
 
+const TRANSACTION_PAGE_SIZE = 10;
+
 const AdminUserDetail: React.FC = () => {
   const params = useParams();
   const router = useRouter();
@@ -69,6 +71,11 @@ const AdminUserDetail: React.FC = () => {
   const [userTasks, setUserTasks] = useState<AdminUserTask[]>([]);
   const [taskPage, setTaskPage] = useState(1);
   const [taskTotalPages, setTaskTotalPages] = useState(1);
+  const [transactionPage, setTransactionPage] = useState(1);
+  const [transactionTotal, setTransactionTotal] = useState(0);
+  const [transactionTotalPages, setTransactionTotalPages] = useState(1);
+  const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
+  const [transactionError, setTransactionError] = useState<string | null>(null);
   const [agents, setAgents] = useState<AdminAgent[]>([]);
   const [showAgentModal, setShowAgentModal] = useState(false);
   const [agentSelection, setAgentSelection] = useState("");
@@ -122,17 +129,25 @@ const AdminUserDetail: React.FC = () => {
     }
   }, [accessToken, userId]);
 
-  const fetchUserTransactions = useCallback(async () => {
+  const fetchUserTransactions = useCallback(async (page = 1) => {
     if (!accessToken || !userId) return;
 
     try {
+      setIsLoadingTransactions(true);
+      setTransactionError(null);
       const response = await adminGetUserTransactions(userId, accessToken, {
-        page: 1,
-        page_size: 10,
+        page,
+        page_size: TRANSACTION_PAGE_SIZE,
       });
       setTransactions(response.data.transactions);
+      setTransactionPage(response.data.pagination.page);
+      setTransactionTotal(response.data.pagination.total);
+      setTransactionTotalPages(Math.max(1, response.data.pagination.totalPages));
     } catch (err) {
       console.error("获取用户交易记录失败:", err);
+      setTransactionError(err instanceof Error ? err.message : "获取用户交易记录失败");
+    } finally {
+      setIsLoadingTransactions(false);
     }
   }, [accessToken, userId]);
 
@@ -199,7 +214,7 @@ const AdminUserDetail: React.FC = () => {
         accessToken
       );
       await fetchUserDetail();
-      await fetchUserTransactions();
+      await fetchUserTransactions(1);
       setShowCreditModal(false);
       setCreditAdjustment({ amount: 0, reason: "", sendNotification: true });
     } catch (err) {
@@ -417,6 +432,26 @@ const AdminUserDetail: React.FC = () => {
 
       {activeTab === "transactions" && (
         <div className="bg-white shadow rounded-lg">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+            <div className="flex items-center gap-2 text-gray-700">
+              <CreditCard className="h-5 w-5 text-blue-500" />
+              <span className="font-medium text-sm">积分交易记录</span>
+              <span className="text-xs text-gray-500">共 {transactionTotal.toLocaleString()} 条</span>
+            </div>
+            <button
+              onClick={() => fetchUserTransactions(transactionPage)}
+              disabled={isLoadingTransactions}
+              className="inline-flex items-center gap-1 rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400"
+            >
+              <List className="h-4 w-4" />
+              {isLoadingTransactions ? "刷新中" : "刷新"}
+            </button>
+          </div>
+          {transactionError && (
+            <div className="border-b border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {transactionError}
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -475,8 +510,44 @@ const AdminUserDetail: React.FC = () => {
                     </td>
                   </tr>
                 ))}
+                {transactions.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
+                      {isLoadingTransactions ? "正在加载交易记录..." : "暂无交易记录"}
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
+          </div>
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 text-sm text-gray-600">
+            <span>
+              第 {transactionPage} / {transactionTotalPages} 页
+            </span>
+            <div className="space-x-2">
+              <button
+                onClick={() => transactionPage > 1 && fetchUserTransactions(transactionPage - 1)}
+                disabled={isLoadingTransactions || transactionPage <= 1}
+                className={`px-3 py-1 rounded border text-xs ${
+                  isLoadingTransactions || transactionPage <= 1
+                    ? "border-gray-200 text-gray-400 cursor-not-allowed"
+                    : "border-gray-300 text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                上一页
+              </button>
+              <button
+                onClick={() => transactionPage < transactionTotalPages && fetchUserTransactions(transactionPage + 1)}
+                disabled={isLoadingTransactions || transactionPage >= transactionTotalPages}
+                className={`px-3 py-1 rounded border text-xs ${
+                  isLoadingTransactions || transactionPage >= transactionTotalPages
+                    ? "border-gray-200 text-gray-400 cursor-not-allowed"
+                    : "border-gray-300 text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                下一页
+              </button>
+            </div>
           </div>
         </div>
       )}
