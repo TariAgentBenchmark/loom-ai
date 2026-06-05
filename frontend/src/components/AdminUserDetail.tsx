@@ -41,6 +41,28 @@ import { formatDateTime } from "../lib/datetime";
 
 const TRANSACTION_PAGE_SIZE = 10;
 
+type AdminTransactionPagination = AdminCreditTransactionsResponse["pagination"] & {
+  total_pages?: number;
+  page_size?: number;
+};
+
+const resolveTransactionTotalPages = (pagination: AdminTransactionPagination) => {
+  const total = Number(pagination.total) || 0;
+  const limit = Number(pagination.limit ?? pagination.page_size) || TRANSACTION_PAGE_SIZE;
+  const explicitTotalPages = Number(pagination.totalPages ?? pagination.total_pages);
+
+  if (Number.isFinite(explicitTotalPages) && explicitTotalPages > 0) {
+    return explicitTotalPages;
+  }
+
+  return Math.max(1, Math.ceil(total / limit));
+};
+
+const formatTransactionAmount = (transaction: AdminCreditTransaction) => {
+  const sign = transaction.type === "earn" ? "+" : "-";
+  return `${sign}${Math.abs(transaction.amount).toLocaleString()}`;
+};
+
 const AdminUserDetail: React.FC = () => {
   const params = useParams();
   const router = useRouter();
@@ -139,10 +161,11 @@ const AdminUserDetail: React.FC = () => {
         page,
         page_size: TRANSACTION_PAGE_SIZE,
       });
+      const pagination = response.data.pagination as AdminTransactionPagination;
       setTransactions(response.data.transactions);
-      setTransactionPage(response.data.pagination.page);
-      setTransactionTotal(response.data.pagination.total);
-      setTransactionTotalPages(Math.max(1, response.data.pagination.totalPages));
+      setTransactionPage(Number(pagination.page) || page);
+      setTransactionTotal(Number(pagination.total) || 0);
+      setTransactionTotalPages(resolveTransactionTotalPages(pagination));
     } catch (err) {
       console.error("获取用户交易记录失败:", err);
       setTransactionError(err instanceof Error ? err.message : "获取用户交易记录失败");
@@ -495,8 +518,7 @@ const AdminUserDetail: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       <span className={transaction.type === "earn" ? "text-green-600" : "text-red-600"}>
-                        {transaction.type === "earn" ? "+" : "-"}
-                        {transaction.amount.toLocaleString()}
+                        {formatTransactionAmount(transaction)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
