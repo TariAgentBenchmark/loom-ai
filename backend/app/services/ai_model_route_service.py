@@ -21,22 +21,64 @@ class AIModelRouteConfigError(ValueError):
 SUPPORTED_AI_MODEL_ROUTES: Dict[str, Dict[str, Any]] = {
     EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY: {
         "label": "AI提取花型 / 综合模型 / Gemini3 Pro",
-        "description": "控制综合模型里 Gemini3 Pro 这一路的服务商；只影响新建任务。",
+        "description": "控制综合模型里 Gemini 图像模型这一路的服务商与分辨率；只影响新建任务。",
         "default_provider": "apyi",
         "providers": {
             "apyi": {
                 "label": "Apyi",
                 "client": "apyi_gemini",
-                "models": ["gemini-3-pro-image-preview-4k"],
+                "models": [
+                    {
+                        "value": "gemini-3-pro-image-preview-4k",
+                        "api_model": "gemini-3-pro-image-preview-4k",
+                        "resolution": "4K",
+                    },
+                    {
+                        "value": "gemini-3-pro-image-preview-2k",
+                        "api_model": "gemini-3-pro-image-preview",
+                        "resolution": "2K",
+                    },
+                    {
+                        "value": "gemini-3.1-flash-image-preview-4k",
+                        "api_model": "gemini-3.1-flash-image-preview",
+                        "resolution": "4K",
+                    },
+                    {
+                        "value": "gemini-3.1-flash-image-preview-2k",
+                        "api_model": "gemini-3.1-flash-image-preview",
+                        "resolution": "2K",
+                    },
+                ],
                 "default_model": "gemini-3-pro-image-preview-4k",
-                "description": "通过 Apyi 平台调用 Gemini3 Pro 4K 图像模型。",
+                "description": "通过 Apyi 平台调用 Gemini3 Pro / Nano Banana 2 图像模型。",
             },
             "tuzi": {
                 "label": "Tuzi",
                 "client": "tuzi_gemini",
-                "models": ["gemini-3-pro-image-preview-4k"],
+                "models": [
+                    {
+                        "value": "gemini-3-pro-image-preview-4k",
+                        "api_model": "gemini-3-pro-image-preview",
+                        "resolution": "4K",
+                    },
+                    {
+                        "value": "gemini-3-pro-image-preview-2k",
+                        "api_model": "gemini-3-pro-image-preview",
+                        "resolution": "2K",
+                    },
+                    {
+                        "value": "gemini-3.1-flash-image-preview-4k",
+                        "api_model": "gemini-3.1-flash-image-preview",
+                        "resolution": "4K",
+                    },
+                    {
+                        "value": "gemini-3.1-flash-image-preview-2k",
+                        "api_model": "gemini-3.1-flash-image-preview",
+                        "resolution": "2K",
+                    },
+                ],
                 "default_model": "gemini-3-pro-image-preview-4k",
-                "description": "通过 Tuzi 平台调用同名 Gemini3 Pro 4K 图像模型。",
+                "description": "通过 Tuzi 平台调用 Gemini3 Pro / Nano Banana 2 图像模型。",
             },
         },
     }
@@ -45,6 +87,36 @@ SUPPORTED_AI_MODEL_ROUTES: Dict[str, Dict[str, Any]] = {
 
 class AIModelRouteService:
     """Read, validate, and snapshot configurable AI model routes."""
+
+    def _provider_model_definition(
+        self, provider_definition: Dict[str, Any], model: str
+    ) -> Dict[str, Any]:
+        for model_definition in provider_definition.get("models", []):
+            if isinstance(model_definition, str):
+                if model_definition == model:
+                    return {
+                        "value": model_definition,
+                        "api_model": model_definition,
+                        "resolution": "4K",
+                    }
+                continue
+
+            if (
+                isinstance(model_definition, dict)
+                and model_definition.get("value") == model
+            ):
+                return model_definition
+
+        raise AIModelRouteConfigError(f"不支持模型: {model}")
+
+    def _provider_model_values(self, provider_definition: Dict[str, Any]) -> List[str]:
+        values: List[str] = []
+        for model_definition in provider_definition.get("models", []):
+            if isinstance(model_definition, str):
+                values.append(model_definition)
+            elif isinstance(model_definition, dict) and model_definition.get("value"):
+                values.append(str(model_definition["value"]))
+        return values
 
     def _default_selection(self, route_key: str) -> Dict[str, str]:
         definition = self._get_definition(route_key)
@@ -99,7 +171,8 @@ class AIModelRouteService:
             if allow_defaults
             else ""
         )
-        if model not in provider_definition["models"]:
+        model_values = self._provider_model_values(provider_definition)
+        if model not in model_values:
             raise AIModelRouteConfigError(
                 f"模型路由 {route_key} 的 provider {provider} 不支持模型: {model or raw_model}"
             )
@@ -149,7 +222,7 @@ class AIModelRouteService:
                         "provider": provider_key,
                         "label": provider_definition["label"],
                         "client": provider_definition["client"],
-                        "models": list(provider_definition["models"]),
+                        "models": self._provider_model_values(provider_definition),
                         "defaultModel": provider_definition["default_model"],
                         "description": provider_definition.get("description"),
                     }
@@ -272,3 +345,25 @@ class AIModelRouteService:
             route_options[route_key],
             allow_defaults=False,
         )
+
+    @classmethod
+    def resolve_runtime_from_options(
+        cls,
+        options: Optional[Dict[str, Any]],
+        route_key: str,
+    ) -> Dict[str, str]:
+        service = cls()
+        selection = cls.resolve_snapshot_from_options(options, route_key)
+        definition = service._get_definition(route_key)
+        provider_definition = definition["providers"][selection["provider"]]
+        model_definition = service._provider_model_definition(
+            provider_definition,
+            selection["model"],
+        )
+        api_model = str(model_definition.get("api_model") or selection["model"])
+        resolution = str(model_definition.get("resolution") or "4K").upper()
+        return {
+            **selection,
+            "api_model": api_model,
+            "resolution": resolution,
+        }

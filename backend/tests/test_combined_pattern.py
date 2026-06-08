@@ -218,6 +218,7 @@ async def test_extract_pattern_combined_routes_general_2_to_apyi_by_default(monk
 async def test_extract_pattern_combined_routes_general_2_to_tuzi_from_snapshot(monkeypatch):
     client = _build_client()
     called = {"apyi": False, "tuzi": False}
+    captured = {}
 
     async def fake_extract_pattern(_image_bytes, options):
         if options["pattern_type"] == "combined_detail":
@@ -228,8 +229,12 @@ async def test_extract_pattern_combined_routes_general_2_to_tuzi_from_snapshot(m
         called["apyi"] = True
         return {"ok": True}
 
-    async def fake_tuzi_generate_image_preview(*_args, **_kwargs):
+    async def fake_tuzi_generate_image_preview(image_bytes, prompt, mime_type, **kwargs):
         called["tuzi"] = True
+        captured["image_bytes"] = image_bytes
+        captured["prompt"] = prompt
+        captured["mime_type"] = mime_type
+        captured["kwargs"] = kwargs
         return {"ok": True}
 
     async def slow_edit_image(**_kwargs):
@@ -277,7 +282,7 @@ async def test_extract_pattern_combined_routes_general_2_to_tuzi_from_snapshot(m
             "ai_model_routes": {
                 "extract_pattern.combined.general_2": {
                     "provider": "tuzi",
-                    "model": "gemini-3-pro-image-preview-4k",
+                    "model": "gemini-3.1-flash-image-preview-2k",
                 }
             },
         },
@@ -288,6 +293,14 @@ async def test_extract_pattern_combined_routes_general_2_to_tuzi_from_snapshot(m
         "https://example.com/detail.png",
     }
     assert called == {"apyi": False, "tuzi": True}
+    assert captured["image_bytes"] == b"fake-image"
+    assert captured["prompt"] == "prompt:general_2"
+    assert captured["mime_type"] == "image/png"
+    assert captured["kwargs"] == {
+        "aspect_ratio": "1:1",
+        "resolution": "2K",
+        "model_name": "gemini-3.1-flash-image-preview",
+    }
 
 
 @pytest.mark.asyncio

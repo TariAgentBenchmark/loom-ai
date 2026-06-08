@@ -387,7 +387,7 @@ class AIClient:
                 merged_options["pattern_type"] = pt
                 if pt == "general_2":
                     prompt = self.image_utils._build_pattern_prompt(pt)
-                    route = AIModelRouteService.resolve_snapshot_from_options(
+                    route = AIModelRouteService.resolve_runtime_from_options(
                         merged_options,
                         EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY,
                     )
@@ -409,8 +409,8 @@ class AIClient:
                         prompt,
                         "image/png",
                         aspect_ratio=merged_options.get("aspect_ratio"),
-                        resolution="4K",
-                        model_name=route["model"],
+                        resolution=route["resolution"],
+                        model_name=route["api_model"],
                     )
                     url = gemini_client._extract_image_url(result)
                     return url.strip() if isinstance(url, str) and url.strip() else None

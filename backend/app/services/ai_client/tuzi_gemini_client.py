@@ -14,6 +14,7 @@ class TuziGeminiClient(BaseAIClient):
     SUPPORTED_ASPECT_RATIOS = [
         "21:9", "16:9", "4:3", "3:2", "1:1",
         "9:16", "3:4", "2:3", "5:4", "4:5",
+        "1:4", "4:1", "1:8", "8:1",
     ]
 
     def __init__(self):
@@ -46,8 +47,6 @@ class TuziGeminiClient(BaseAIClient):
             "PNG" if mime_type == "image/png" else "JPEG",
         )
 
-        # Tuzi 的原生 Gemini preview 接口在携带 Apyi 风格的 generationConfig
-        # 时会返回 200 但 candidates.parts 为空；这里改回原生最小请求体。
         data: Dict[str, Any] = {
             "contents": [
                 {
@@ -61,26 +60,33 @@ class TuziGeminiClient(BaseAIClient):
                         },
                     ]
                 }
-            ]
+            ],
+            "generationConfig": {
+                "responseModalities": ["IMAGE"],
+            },
         }
 
+        image_config: Dict[str, Any] = {}
         if aspect_ratio:
             if aspect_ratio not in self.SUPPORTED_ASPECT_RATIOS:
                 logger.warning("Tuzi 不支持的宽高比: %s，使用默认设置", aspect_ratio)
             else:
-                logger.info("Tuzi preview 当前忽略宽高比参数: %s", aspect_ratio)
+                image_config["aspectRatio"] = aspect_ratio
 
         if resolution:
             normalized_resolution = resolution.upper()
             if normalized_resolution not in {"1K", "2K", "4K"}:
                 logger.warning("Tuzi 不支持的分辨率: %s，跳过自定义分辨率", resolution)
             else:
-                logger.info("Tuzi preview 当前忽略分辨率参数: %s", normalized_resolution)
+                image_config["imageSize"] = normalized_resolution
+
+        if image_config:
+            data["generationConfig"]["imageConfig"] = image_config
 
         logger.info(
             "Processing image with Tuzi preview model %s: aspect_ratio=%s, resolution=%s",
             resolved_model_name,
-            aspect_ratio,
-            resolution.upper() if isinstance(resolution, str) else resolution,
+            image_config.get("aspectRatio"),
+            image_config.get("imageSize"),
         )
         return await self._make_request("POST", endpoint, data)
