@@ -80,6 +80,34 @@ SUPPORTED_AI_MODEL_ROUTES: Dict[str, Dict[str, Any]] = {
                 "default_model": "gemini-3-pro-image-preview-4k",
                 "description": "通过 Tuzi 平台调用 Gemini3 Pro / Nano Banana 2 图像模型。",
             },
+            "haoee": {
+                "label": "Haoee",
+                "client": "haoee_gemini",
+                "models": [
+                    {
+                        "value": "gemini-3-pro-image-preview-4k",
+                        "api_model": "gemini-3-pro-image-preview",
+                        "resolution": "4K",
+                    },
+                    {
+                        "value": "gemini-3-pro-image-preview-2k",
+                        "api_model": "gemini-3-pro-image-preview",
+                        "resolution": "2K",
+                    },
+                    {
+                        "value": "gemini-3.1-flash-image-preview-4k",
+                        "api_model": "gemini-3.1-flash-image-preview",
+                        "resolution": "4K",
+                    },
+                    {
+                        "value": "gemini-3.1-flash-image-preview-2k",
+                        "api_model": "gemini-3.1-flash-image-preview",
+                        "resolution": "2K",
+                    },
+                ],
+                "default_model": "gemini-3-pro-image-preview-4k",
+                "description": "通过 Haoee MaaS 调用 Gemini3 Pro / Nano Banana 2 图像模型。",
+            },
         },
     }
 }

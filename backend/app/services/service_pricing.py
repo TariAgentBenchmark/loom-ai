@@ -32,7 +32,7 @@ def _normalize_pattern_type(raw_value: Optional[str]) -> Optional[str]:
     }:
         return "general_1"
 
-    if normalized in {"combined", "composite"}:
+    if normalized in {"combined", "composite", "combined_t2", "composite_t2", "t2"}:
         return "combined"
 
     if normalized == "denim":

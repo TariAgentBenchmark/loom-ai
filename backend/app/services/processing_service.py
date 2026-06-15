@@ -104,7 +104,7 @@ class ProcessingService:
             normalized_options.get("num_images")
         )
 
-        if pattern_type in {"combined", "composite"}:
+        if pattern_type in {"combined", "composite", "combined_t2", "composite_t2"}:
             return 4
         if requested_count is not None:
             return requested_count
@@ -170,7 +170,10 @@ class ProcessingService:
             .lower()
             .replace("-", "_")
         )
-        return pattern_type in {"combined", "composite"} and total_result_count > 1
+        return (
+            pattern_type in {"combined", "composite", "combined_t2", "composite_t2"}
+            and total_result_count > 1
+        )
 
     def _resolve_service_key(self, task_type: str) -> str:
         service_key = self.service_key_map.get(task_type)
@@ -232,6 +235,8 @@ class ProcessingService:
                     provider = f"runninghub+{route['provider']}_gemini+ai302_grok"
                 except Exception:
                     provider = "runninghub+gemini+ai302_grok"
+            elif pattern_type in {"combined_t2", "composite_t2"}:
+                provider = "haoee_maas"
         elif task_type == TaskType.VECTORIZE.value:
             provider = f"{settings.vectorizer_primary_provider}_vectorizer+a8_vectorizer+webapi"
         elif task_type == TaskType.EMBROIDERY.value and embroidery_mode == "embroidery":

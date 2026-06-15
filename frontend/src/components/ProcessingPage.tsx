@@ -556,6 +556,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     [
       { value: "general", label: "通用模型" },
       { value: "combined", label: "综合模型" },
+      { value: "combined_t2", label: "综合T2" },
       { value: "denim", label: "牛仔风格专用" },
     ];
   const embroideryModeOptions: {

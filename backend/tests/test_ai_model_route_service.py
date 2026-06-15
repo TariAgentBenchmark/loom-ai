@@ -17,7 +17,11 @@ def test_ai_model_route_service_defaults_to_apyi(db_session):
     assert route["routeKey"] == EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY
     assert route["provider"] == "apyi"
     assert route["model"] == "gemini-3-pro-image-preview-4k"
-    assert {option["provider"] for option in route["providers"]} == {"apyi", "tuzi"}
+    assert {option["provider"] for option in route["providers"]} == {
+        "apyi",
+        "tuzi",
+        "haoee",
+    }
     expected_models = [
         "gemini-3-pro-image-preview-4k",
         "gemini-3-pro-image-preview-2k",
@@ -30,8 +34,12 @@ def test_ai_model_route_service_defaults_to_apyi(db_session):
     tuzi_provider = next(
         option for option in route["providers"] if option["provider"] == "tuzi"
     )
+    haoee_provider = next(
+        option for option in route["providers"] if option["provider"] == "haoee"
+    )
     assert apyi_provider["models"] == expected_models
     assert tuzi_provider["models"] == expected_models
+    assert haoee_provider["models"] == expected_models
 
 
 def test_ai_model_route_service_updates_and_snapshots_tuzi(db_session):
@@ -128,6 +136,40 @@ def test_ai_model_route_service_resolves_apyi_pro_2k_runtime(db_session):
         "model": "gemini-3-pro-image-preview-2k",
         "api_model": "gemini-3-pro-image-preview",
         "resolution": "2K",
+    }
+
+
+def test_ai_model_route_service_resolves_haoee_pro_4k_runtime(db_session):
+    service = AIModelRouteService()
+
+    service.update_routes(
+        db_session,
+        [
+            {
+                "routeKey": EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY,
+                "provider": "haoee",
+                "model": "gemini-3-pro-image-preview-4k",
+            }
+        ],
+    )
+
+    options = service.apply_route_snapshot(
+        db_session,
+        "extract_pattern",
+        {"pattern_type": "combined"},
+        overwrite=True,
+    )
+
+    runtime = AIModelRouteService.resolve_runtime_from_options(
+        options,
+        EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY,
+    )
+
+    assert runtime == {
+        "provider": "haoee",
+        "model": "gemini-3-pro-image-preview-4k",
+        "api_model": "gemini-3-pro-image-preview",
+        "resolution": "4K",
     }
 
 

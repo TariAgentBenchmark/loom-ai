@@ -200,7 +200,13 @@ const normalizePatternTypeForPricing = (value?: string) => {
     return "general_1";
   }
 
-  if (normalized === "combined" || normalized === "composite") {
+  if (
+    normalized === "combined" ||
+    normalized === "composite" ||
+    normalized === "combined_t2" ||
+    normalized === "composite_t2" ||
+    normalized === "t2"
+  ) {
     return "combined";
   }
   if (normalized === "denim") {

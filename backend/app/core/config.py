@@ -42,6 +42,7 @@ class Settings(BaseSettings):
             "gpt4o": 50,
             "runninghub": 100,
             "gqch": 6,
+            "haoee_maas": 10,
             "meitu": 5,
             "vectorizer": 2,
             "zfy_vectorizer": 10,
@@ -105,6 +106,11 @@ class Settings(BaseSettings):
     # GQCH API配置
     gqch_api_base_url: str = "https://gqch.haoee.com"
     gqch_api_key: str = ""
+
+    # Haoee MaaS API配置
+    haoee_maas_api_key: str = ""
+    haoee_maas_base_url: str = "https://maas.haoee.com"
+    haoee_maas_default_preview_model: str = "gemini-3-pro-image-preview"
 
     # RunningHub API配置
     runninghub_api_base_url: str = "https://www.runninghub.cn"

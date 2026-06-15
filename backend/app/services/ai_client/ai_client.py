@@ -9,6 +9,7 @@ from app.services.ai_client.base_client import BaseAIClient
 from app.services.ai_client.gemini_client import GeminiClient
 from app.services.ai_client.apyi_gemini_client import ApyiGeminiClient
 from app.services.ai_client.tuzi_gemini_client import TuziGeminiClient
+from app.services.ai_client.haoee_gemini_client import HaoeeGeminiClient
 from app.services.ai_client.apyi_openai_client import ApyiOpenAIClient
 from app.services.ai_client.ai302_grok_client import AI302GrokClient
 from app.services.ai_client.gpt4o_client import GPT4oClient
@@ -41,6 +42,10 @@ _PATTERN_TYPE_ALIASES = {
     "general_2": "general_2",
     "combined": "combined",
     "composite": "combined",
+    "combined_t2": "combined_t2",
+    "compositet2": "combined_t2",
+    "composite_t2": "combined_t2",
+    "t2": "combined_t2",
 }
 
 _COMBINED_VARIANTS = ("general_2", "combined_detail")
@@ -62,6 +67,7 @@ class AIClient:
         self.gemini_client = GeminiClient()
         self.apyi_gemini_client = ApyiGeminiClient()
         self.tuzi_gemini_client = TuziGeminiClient()
+        self.haoee_gemini_client = HaoeeGeminiClient()
         self.apyi_openai_client = ApyiOpenAIClient()
         self.ai302_grok_client = AI302GrokClient()
         self.jimeng_client = JimengClient()
@@ -328,6 +334,15 @@ class AIClient:
             return f"general_{normalized[-1]}"
         return normalized or "general_1"
 
+    def _gemini_preview_client_for_provider(self, provider: str):
+        if provider == "apyi":
+            return self.apyi_gemini_client
+        if provider == "tuzi":
+            return self.tuzi_gemini_client
+        if provider == "haoee":
+            return self.haoee_gemini_client
+        raise ValueError(f"Unsupported Gemini provider: {provider}")
+
     @staticmethod
     def _split_urls(raw_result: str) -> List[str]:
         return [url.strip() for url in raw_result.split(",") if url and url.strip()]
@@ -392,12 +407,7 @@ class AIClient:
                         EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY,
                     )
                     provider = route["provider"]
-                    if provider == "apyi":
-                        gemini_client = self.apyi_gemini_client
-                    elif provider == "tuzi":
-                        gemini_client = self.tuzi_gemini_client
-                    else:
-                        raise ValueError(f"Unsupported Gemini provider: {provider}")
+                    gemini_client = self._gemini_preview_client_for_provider(provider)
 
                     logger.info(
                         "Combined general_2 route provider=%s model=%s",
@@ -594,6 +604,128 @@ class AIClient:
             )
 
         logger.info("Combined pattern produced %s urls", len(variant_urls))
+        return ",".join(variant_urls[:4])
+
+    async def _extract_pattern_combined_t2(
+        self,
+        image_bytes: bytes,
+        options: Dict[str, Any],
+    ) -> str:
+        prompt = self.image_utils._build_pattern_prompt("general_2")
+        aspect_ratio = options.get("aspect_ratio")
+        raw_model_name = options.get("haoee_model")
+        model_name = (
+            str(raw_model_name).strip()
+            if raw_model_name is not None and str(raw_model_name).strip()
+            else settings.haoee_maas_default_preview_model
+        )
+        branch_errors: List[Dict[str, Any]] = []
+
+        async def _run_haoee_branch(label: str, resolution: str) -> Optional[str]:
+            try:
+                result = await self.haoee_gemini_client.generate_image_preview(
+                    image_bytes,
+                    prompt,
+                    "image/png",
+                    aspect_ratio=aspect_ratio,
+                    resolution=resolution,
+                    model_name=model_name,
+                )
+                url = self.haoee_gemini_client._extract_image_url(result)
+                return url.strip() if isinstance(url, str) and url.strip() else None
+            except Exception as exc:
+                branch_errors.append(
+                    self._serialize_downstream_error(
+                        exc,
+                        label=label,
+                        extra={
+                            "provider": "haoee",
+                            "model": model_name,
+                            "resolution": resolution,
+                        },
+                    )
+                )
+                logger.warning(
+                    "Combined T2 Haoee branch %s (%s) failed: %s",
+                    label,
+                    resolution,
+                    str(exc),
+                )
+                return None
+
+        async def _run_branch_with_timeout(label: str, resolution: str) -> Optional[str]:
+            branch_timeout = max(
+                0.01,
+                float(settings.extract_pattern_combined_branch_timeout_seconds),
+            )
+            try:
+                return await asyncio.wait_for(
+                    _run_haoee_branch(label, resolution),
+                    timeout=branch_timeout,
+                )
+            except asyncio.TimeoutError:
+                branch_errors.append(
+                    {
+                        "label": label,
+                        "provider": "haoee",
+                        "model": model_name,
+                        "resolution": resolution,
+                        "exceptionType": "TimeoutError",
+                        "message": f"Branch timed out after {branch_timeout}s",
+                    }
+                )
+                logger.warning(
+                    "Combined T2 Haoee branch %s timed out after %ss",
+                    label,
+                    branch_timeout,
+                )
+                return None
+            except asyncio.CancelledError:
+                raise
+
+        branch_specs = [
+            ("haoee_3pro_2k_1", "2K"),
+            ("haoee_3pro_2k_2", "2K"),
+            ("haoee_3pro_2k_3", "2K"),
+            ("haoee_3pro_4k_1", "4K"),
+        ]
+        branch_results = await asyncio.gather(
+            *(
+                _run_branch_with_timeout(label, resolution)
+                for label, resolution in branch_specs
+            )
+        )
+
+        variant_urls: List[str] = []
+        for url in branch_results:
+            if url and url not in variant_urls:
+                variant_urls.append(url)
+
+        if not variant_urls:
+            raise AIClientException(
+                message="AI提取花型失败：综合T2未获得结果",
+                api_name="extract_pattern_combined_t2",
+                response_body={
+                    "summary": {
+                        "patternType": "combined_t2",
+                        "provider": "haoee",
+                        "model": model_name,
+                        "successfulResults": 0,
+                        "expectedResults": len(branch_specs),
+                    },
+                    "branchErrors": branch_errors,
+                },
+                request_data={
+                    "patternType": "combined_t2",
+                    "options": dict(options or {}),
+                },
+            )
+
+        logger.info(
+            "Combined T2 pattern produced %s/%s urls through Haoee MaaS",
+            len(variant_urls),
+            len(branch_specs),
+        )
         return ",".join(variant_urls[:4])
 
     async def _extract_pattern_general_1(
@@ -963,6 +1095,9 @@ class AIClient:
 
         if pattern_type == "combined":
             return await self._extract_pattern_combined(image_bytes, options)
+
+        if pattern_type == "combined_t2":
+            return await self._extract_pattern_combined_t2(image_bytes, options)
 
         if pattern_type == "positioning":
             return await self.runninghub_client.run_positioning_workflow(

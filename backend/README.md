@@ -65,6 +65,7 @@ uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 SECRET_KEY=your-secret-key-here
 APIYI_API_KEY=your-apiyi-api-key-here
 GQCH_API_KEY=your-gqch-api-key-here
+HAOEE_MAAS_API_KEY=your-haoee-maas-api-key-here
 RUNNINGHUB_API_KEY=your-runninghub-api-key
 RUNNINGHUB_WORKFLOW_ID_POSITIONING=your-runninghub-workflow-id
 
@@ -78,6 +79,7 @@ REDIS_URL=redis://localhost:6379/0
 - **Apyi API**: 在 https://api.apiyi.com 获取API密钥
 - 支持 gpt-image-2-all 图像生成和Gemini-2.5-flash-image处理
 - 支持OpenAI兼容的图像编辑和对话功能
+- **Haoee MaaS**: 在 https://www.haoee.com 获取 API Key，用于综合T2的香蕉 Pro 图像模型
 - **RunningHub**: 在 https://www.runninghub.cn 控制台获取 API Key 与 workflowId，用于线条/矢量工作流与VR2完美放大高清流程
 
 ## 🎯 核心功能

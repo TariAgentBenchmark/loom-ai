@@ -137,6 +137,27 @@ class GQCHClient:
             original_filename=original_filename,
         )
 
+    async def extract_pattern(
+        self,
+        image_bytes: bytes,
+        original_filename: str,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """提交 GQCH 提取印花任务并返回结果URL。"""
+        payload: Dict[str, Any] = {
+            "aspect_ratio": self._trimmed_or_default(options, "aspect_ratio", "1:1"),
+            "model_version": self._trimmed_or_default(options, "model_version", "v1"),
+            "include_text": self._to_optional_str(options, "include_text"),
+            "seamless_tile": self._to_optional_str(options, "seamless_tile"),
+        }
+
+        return await self._submit_task(
+            endpoint="/api/submit_extract_pattern_task",
+            payload=payload,
+            image_bytes=image_bytes,
+            original_filename=original_filename,
+        )
+
     async def _submit_task(
         self,
         endpoint: str,
@@ -266,3 +287,11 @@ class GQCHClient:
         trimmed = raw.strip()
         return trimmed or None
 
+    @classmethod
+    def _trimmed_or_default(
+        cls,
+        options: Optional[Dict[str, Any]],
+        key: str,
+        default: str,
+    ) -> str:
+        return cls._trimmed_or_none(options, key) or default

@@ -87,6 +87,20 @@ def test_combined_extract_pattern_allows_skipping_single_result_materialization_
     assert service._can_skip_result_materialization_failure(task, 3) is True
 
 
+def test_combined_t2_extract_pattern_uses_four_expected_results():
+    service = ProcessingService()
+    task = _build_task(pattern_type="combined_t2", credits_used="1.0")
+
+    adjustment = service._apply_partial_result_credit_adjustment(task, 4)
+
+    assert adjustment == {
+        "expectedResultCount": 4.0,
+        "actualResultCount": 4.0,
+        "creditAdjustmentApplied": 0.0,
+    }
+    assert service._can_skip_result_materialization_failure(task, 3) is True
+
+
 def test_non_combined_extract_pattern_does_not_skip_result_materialization_failure():
     service = ProcessingService()
     task = _build_task(pattern_type="general_1", num_images=4, credits_used="1.0")
@@ -107,4 +121,18 @@ def test_denim_extract_pattern_describes_apyi_openai_downstream():
         "model": "gpt-image-2-all",
         "patternType": "denim",
         "numImages": 2,
+    }
+
+
+def test_combined_t2_extract_pattern_describes_haoee_downstream():
+    service = ProcessingService()
+
+    downstream = service._describe_downstream(
+        TaskType.EXTRACT_PATTERN.value,
+        {"pattern_type": "combined_t2"},
+    )
+
+    assert downstream == {
+        "provider": "haoee_maas",
+        "patternType": "combined_t2",
     }
