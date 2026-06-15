@@ -3,12 +3,60 @@ from io import BytesIO
 from PIL import Image
 
 from app.services.file_service import FileService
+from app.utils.exceptions import UserFacingException
 
 
 def _make_image_bytes(fmt: str) -> bytes:
     buffer = BytesIO()
     Image.new("RGB", (12, 8), color=(12, 34, 56)).save(buffer, format=fmt)
     return buffer.getvalue()
+
+
+def _make_sized_image_bytes(fmt: str, size: tuple[int, int]) -> bytes:
+    buffer = BytesIO()
+    Image.new("RGB", size, color=(12, 34, 56)).save(buffer, format=fmt)
+    return buffer.getvalue()
+
+
+def test_prepare_upload_image_keeps_small_images_unchanged():
+    service = FileService()
+    image_bytes = _make_image_bytes("PNG")
+
+    prepared_bytes, prepared_name, info, metadata = service.prepare_upload_image(
+        image_bytes,
+        "small.png",
+    )
+
+    assert prepared_bytes == image_bytes
+    assert prepared_name == "small.png"
+    assert info["width"] == 12
+    assert info["height"] == 8
+    assert metadata["compressed"] is False
+
+
+def test_prepare_upload_image_resizes_oversized_dimensions():
+    service = FileService()
+    image_bytes = _make_sized_image_bytes("JPEG", (4500, 1200))
+
+    prepared_bytes, prepared_name, info, metadata = service.prepare_upload_image(
+        image_bytes,
+        "wide.jpg",
+    )
+
+    assert prepared_name == "wide.jpg"
+    assert len(prepared_bytes) <= 20 * 1024 * 1024
+    assert info["width"] <= service.max_image_width
+    assert info["height"] <= service.max_image_height
+    assert metadata["compressed"] is True
+    assert metadata["originalDimensions"] == {"width": 4500, "height": 1200}
+
+
+def test_prepare_upload_image_rejects_hard_size_limit():
+    service = FileService()
+    service.max_file_size = 10
+
+    with pytest.raises(UserFacingException, match="文件大小超过限制"):
+        service.prepare_upload_image(b"x" * 11, "too-large.png")
 
 
 @pytest.mark.asyncio

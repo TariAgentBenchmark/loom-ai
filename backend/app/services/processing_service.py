@@ -573,6 +573,10 @@ class ProcessingService:
     ) -> Task:
         """创建处理任务"""
 
+        image_bytes, original_filename, image_info, upload_metadata = (
+            self.file_service.prepare_upload_image(image_bytes, original_filename)
+        )
+
         # 保存原始图片
         original_url = await self.file_service.save_upload_file(
             image_bytes,
@@ -581,9 +585,9 @@ class ProcessingService:
             purpose="general",
         )
 
-        # 获取图片信息
-        image_info = await self.file_service.get_image_info(image_bytes)
         options = dict(options or {})
+        if upload_metadata.get("compressed"):
+            options["upload_compression"] = upload_metadata
         # 将原图格式信息写入任务选项，便于下游选择输出格式
         original_format = (image_info.get("format") or "").lower() if image_info else ""
         if original_format:
@@ -596,19 +600,21 @@ class ProcessingService:
         # 保存第二张图片（可选）
         secondary_url: Optional[str] = None
         if image_bytes_secondary:
+            image_bytes_secondary, secondary_filename, secondary_info, secondary_upload_metadata = (
+                self.file_service.prepare_upload_image(
+                    image_bytes_secondary,
+                    secondary_filename or f"secondary_{original_filename}",
+                )
+            )
             secondary_url = await self.file_service.save_upload_file(
                 image_bytes_secondary,
-                secondary_filename or f"secondary_{original_filename}",
+                secondary_filename,
                 "originals",
                 purpose="general",
             )
-            try:
-                secondary_info = await self.file_service.get_image_info(
-                    image_bytes_secondary
-                )
-                options["secondary_image_info"] = secondary_info
-            except Exception as exc:
-                logger.warning("获取第二张图片信息失败: %s", exc)
+            options["secondary_image_info"] = secondary_info
+            if secondary_upload_metadata.get("compressed"):
+                options["secondary_upload_compression"] = secondary_upload_metadata
             options["secondary_image_url"] = secondary_url
 
         options = self.with_ai_model_route_snapshot(

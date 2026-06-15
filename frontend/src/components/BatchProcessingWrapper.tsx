@@ -76,7 +76,7 @@ export default function BatchProcessingWrapper({
     const [isLoadingServiceCost, setIsLoadingServiceCost] = useState(false);
     const [batchInstruction, setBatchInstruction] = useState(promptInstruction ?? '');
     const [batchGeneralImageCount, setBatchGeneralImageCount] = useState(generalImageCount ?? 4);
-    const maxFileSizeMB = 15;
+    const maxFileSizeMB = 100;
 
     useEffect(() => {
         setBatchInstruction(promptInstruction ?? '');

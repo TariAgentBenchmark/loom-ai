@@ -5,8 +5,8 @@ import tempfile
 import uuid
 import aiofiles
 import httpx
-from typing import Dict, Any, Optional
-from PIL import Image
+from typing import Dict, Any, Optional, Tuple
+from PIL import Image, ImageOps, features
 from io import BytesIO
 import logging
 from datetime import datetime, timedelta
@@ -19,6 +19,9 @@ from app.utils.exceptions import UserFacingException
 logger = logging.getLogger(__name__)
 
 OSS_IMAGE_PROCESS_MAX_SOURCE_SIZE = 20 * 1024 * 1024
+UPLOAD_IMAGE_HARD_MAX_SOURCE_SIZE = 100 * 1024 * 1024
+UPLOAD_IMAGE_MAX_PIXELS = 100_000_000
+UPLOAD_IMAGE_MIN_QUALITY = 55
 REMOTE_DOWNLOAD_MAX_ATTEMPTS = 3
 REMOTE_DOWNLOAD_RETRY_BASE_SECONDS = 1.0
 VECTOR_DOCUMENT_EXTENSIONS = {"eps", "pdf", "dxf"}
@@ -31,7 +34,7 @@ class FileService:
     
     def __init__(self):
         self.upload_path = settings.upload_path
-        self.max_file_size = settings.max_file_size
+        self.max_file_size = min(settings.max_file_size, UPLOAD_IMAGE_HARD_MAX_SOURCE_SIZE)
         self.max_image_width = settings.max_image_width
         self.max_image_height = settings.max_image_height
         self.allowed_extensions = settings.allowed_extensions_list
@@ -437,6 +440,226 @@ class FileService:
             if "图片分辨率" in str(e):
                 raise e
             raise UserFacingException("无效的图片文件")
+
+    @staticmethod
+    def _filename_with_extension(filename: str, extension: str) -> str:
+        root, _ = os.path.splitext(filename or "")
+        return f"{root or uuid.uuid4().hex[:16]}.{extension}"
+
+    @staticmethod
+    def _image_has_alpha(image: Image.Image) -> bool:
+        if image.mode in {"RGBA", "LA"}:
+            return True
+        if image.mode == "P" and "transparency" in image.info:
+            return True
+        return False
+
+    @staticmethod
+    def _flatten_for_jpeg(image: Image.Image) -> Image.Image:
+        if image.mode == "RGB":
+            return image
+        if image.mode in {"RGBA", "LA"}:
+            background = Image.new("RGB", image.size, (255, 255, 255))
+            alpha = image.getchannel("A")
+            background.paste(image.convert("RGBA"), mask=alpha)
+            return background
+        return image.convert("RGB")
+
+    def _resize_for_upload(self, image: Image.Image, scale: float = 1.0) -> Image.Image:
+        max_width = max(1, int(self.max_image_width * scale))
+        max_height = max(1, int(self.max_image_height * scale))
+        width, height = image.size
+        ratio = min(1.0, max_width / width, max_height / height)
+
+        if ratio >= 1:
+            return image.copy()
+
+        target_size = (
+            max(1, int(width * ratio)),
+            max(1, int(height * ratio)),
+        )
+        return image.resize(target_size, Image.Resampling.LANCZOS)
+
+    def _encode_upload_candidate(
+        self,
+        image: Image.Image,
+        output_format: str,
+        quality: int,
+    ) -> bytes:
+        buffer = BytesIO()
+        if output_format == "JPEG":
+            self._flatten_for_jpeg(image).save(
+                buffer,
+                format="JPEG",
+                quality=quality,
+                optimize=True,
+                progressive=True,
+            )
+        elif output_format == "WEBP":
+            image.save(
+                buffer,
+                format="WEBP",
+                quality=quality,
+                method=6,
+            )
+        else:
+            image.save(buffer, format="PNG", optimize=True)
+        return buffer.getvalue()
+
+    def _compress_upload_image(
+        self,
+        image: Image.Image,
+        filename: str,
+        original_size: int,
+    ) -> Tuple[bytes, str, Dict[str, Any]]:
+        has_alpha = self._image_has_alpha(image)
+        if has_alpha and features.check("webp"):
+            output_format = "WEBP"
+            extension = "webp"
+        elif has_alpha:
+            output_format = "PNG"
+            extension = "png"
+        else:
+            output_format = "JPEG"
+            extension = "jpg"
+
+        best_bytes: Optional[bytes] = None
+        best_size = original_size
+        scale = 1.0
+
+        for _ in range(8):
+            candidate_image = self._resize_for_upload(image, scale=scale)
+
+            if output_format == "PNG":
+                candidate_bytes = self._encode_upload_candidate(
+                    candidate_image,
+                    output_format,
+                    quality=100,
+                )
+                if len(candidate_bytes) < best_size:
+                    best_bytes = candidate_bytes
+                    best_size = len(candidate_bytes)
+                if len(candidate_bytes) <= OSS_IMAGE_PROCESS_MAX_SOURCE_SIZE:
+                    compressed_filename = self._filename_with_extension(filename, extension)
+                    return candidate_bytes, compressed_filename, {
+                        "width": candidate_image.size[0],
+                        "height": candidate_image.size[1],
+                    }
+            else:
+                for quality in (92, 88, 84, 80, 76, 72, 68, 64, 60, 56, UPLOAD_IMAGE_MIN_QUALITY):
+                    candidate_bytes = self._encode_upload_candidate(
+                        candidate_image,
+                        output_format,
+                        quality,
+                    )
+                    if len(candidate_bytes) < best_size:
+                        best_bytes = candidate_bytes
+                        best_size = len(candidate_bytes)
+                    if len(candidate_bytes) <= OSS_IMAGE_PROCESS_MAX_SOURCE_SIZE:
+                        compressed_filename = self._filename_with_extension(filename, extension)
+                        return candidate_bytes, compressed_filename, {
+                            "width": candidate_image.size[0],
+                            "height": candidate_image.size[1],
+                        }
+
+            scale *= 0.85
+
+        if best_bytes and len(best_bytes) <= OSS_IMAGE_PROCESS_MAX_SOURCE_SIZE:
+            compressed_filename = self._filename_with_extension(filename, extension)
+            best_info = self.validate_file(best_bytes, compressed_filename)
+            return best_bytes, compressed_filename, {
+                "width": best_info["width"],
+                "height": best_info["height"],
+            }
+
+        raise UserFacingException("图片压缩后仍超过20MB，请换用更小的图片")
+
+    def prepare_upload_image(
+        self,
+        file_bytes: bytes,
+        filename: str,
+    ) -> Tuple[bytes, str, Dict[str, Any], Dict[str, Any]]:
+        """Validate and compress user-uploaded raster images before persistence."""
+        if len(file_bytes) > self.max_file_size:
+            raise UserFacingException(f"文件大小超过限制 ({self.max_file_size / 1024 / 1024:.1f}MB)")
+
+        file_ext = filename.lower().split('.')[-1] if '.' in filename else ''
+        if file_ext not in self.allowed_extensions:
+            raise UserFacingException(f"不支持的文件格式，支持格式: {', '.join(self.allowed_extensions)}")
+
+        if file_ext == "svg":
+            file_info = self.validate_file(file_bytes, filename)
+            return file_bytes, filename, file_info, {
+                "compressed": False,
+                "originalSize": len(file_bytes),
+                "compressedSize": len(file_bytes),
+            }
+
+        try:
+            with Image.open(BytesIO(file_bytes)) as opened:
+                image = ImageOps.exif_transpose(opened)
+                image.load()
+        except Exception:
+            raise UserFacingException("无效的图片文件")
+
+        width, height = image.size
+        if width * height > UPLOAD_IMAGE_MAX_PIXELS:
+            raise UserFacingException("图片像素过大，请换用更小的图片")
+
+        original_info = {
+            "width": width,
+            "height": height,
+            "format": image.format,
+            "mode": image.mode,
+            "size": len(file_bytes),
+        }
+
+        needs_compression = (
+            len(file_bytes) > OSS_IMAGE_PROCESS_MAX_SOURCE_SIZE
+            or width > self.max_image_width
+            or height > self.max_image_height
+        )
+
+        if not needs_compression:
+            file_info = self.validate_file(file_bytes, filename)
+            return file_bytes, filename, file_info, {
+                "compressed": False,
+                "originalSize": len(file_bytes),
+                "compressedSize": len(file_bytes),
+                "originalDimensions": {"width": width, "height": height},
+                "dimensions": {"width": width, "height": height},
+            }
+
+        compressed_bytes, compressed_filename, compressed_dimensions = self._compress_upload_image(
+            image,
+            filename,
+            original_size=len(file_bytes),
+        )
+        file_info = self.validate_file(compressed_bytes, compressed_filename)
+        metadata = {
+            "compressed": True,
+            "originalFilename": filename,
+            "compressedFilename": compressed_filename,
+            "originalSize": len(file_bytes),
+            "compressedSize": len(compressed_bytes),
+            "originalDimensions": {"width": width, "height": height},
+            "dimensions": compressed_dimensions,
+            "originalFormat": original_info.get("format"),
+            "targetMaxSizeMB": OSS_IMAGE_PROCESS_MAX_SOURCE_SIZE // 1024 // 1024,
+            "targetMaxDimension": max(self.max_image_width, self.max_image_height),
+        }
+
+        logger.info(
+            "Compressed upload image: filename=%s original=%.2fMB %sx%s compressed=%.2fMB %sx%s",
+            filename,
+            len(file_bytes) / 1024 / 1024,
+            width,
+            height,
+            len(compressed_bytes) / 1024 / 1024,
+            compressed_dimensions["width"],
+            compressed_dimensions["height"],
+        )
+        return compressed_bytes, compressed_filename, file_info, metadata
 
     async def save_upload_file(self, file_bytes: bytes, filename: str, subfolder: str = "uploads", purpose: str = "general", validate_dimensions: bool = True, validate_file_size: bool = True) -> str:
         """保存上传的文件

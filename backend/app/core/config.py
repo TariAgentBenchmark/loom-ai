@@ -205,9 +205,9 @@ class Settings(BaseSettings):
 
     # 文件存储配置
     upload_path: str = "./uploads"
-    max_file_size: int = 15 * 1024 * 1024  # 15MB
-    max_image_width: int = 3000
-    max_image_height: int = 3000
+    max_file_size: int = 100 * 1024 * 1024  # 100MB hard upload limit
+    max_image_width: int = 4000
+    max_image_height: int = 4000
     allowed_extensions: str = "png,jpg,jpeg,gif,bmp,webp,svg"
 
     # AWS S3配置 (可选)

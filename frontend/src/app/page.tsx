@@ -61,6 +61,11 @@ import {
   unregisterTokenUpdateHandler,
 } from '../lib/tokenManager';
 import { AlertTriangle } from 'lucide-react';
+import {
+  IMAGE_UPLOAD_TARGET_MAX_DIMENSION,
+  IMAGE_UPLOAD_TARGET_MB,
+  prepareImageForUpload,
+} from '../lib/imageCompression';
 
 type PageState = 'home' | ProcessingMethod;
 
@@ -80,9 +85,6 @@ const AUTH_DEMO_CREDENTIALS = {
   password: 'password123',
   rememberMe: true,
 };
-
-const MAX_IMAGE_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15MB 限制
-const MAX_IMAGE_DIMENSION = 3000;
 
 const POLLING_INTERVAL_MS = 3000;
 const ACTIVE_TASK_STORAGE_KEY = 'loomai:active-processing-task';
@@ -190,6 +192,7 @@ function HomeContent() {
   const [historyRefreshToken, setHistoryRefreshToken] = useState(0);
   const [activeTasks, setActiveTasks] = useState<PersistedProcessingTaskMap>({});
   const [isCreatingTask, setIsCreatingTask] = useState(false);
+  const [isPreparingUpload, setIsPreparingUpload] = useState(false);
   const [batchMode, setBatchMode] = useState(false);
   const [showAgentAlertModal, setShowAgentAlertModal] = useState(false);
   const [referralRewardSettings, setReferralRewardSettings] = useState<ReferralRewardSettings | undefined>(undefined);
@@ -744,66 +747,11 @@ function HomeContent() {
     }
   }, []);
 
-  const getImageDimensions = useCallback((file: File) => {
-    if (file.type === 'image/svg+xml') {
-      return Promise.resolve(null);
-    }
-
-    return new Promise<{ width: number; height: number } | null>((resolve) => {
-      const img = new Image();
-      const objectUrl = URL.createObjectURL(file);
-
-      img.onload = () => {
-        URL.revokeObjectURL(objectUrl);
-        resolve({ width: img.naturalWidth, height: img.naturalHeight });
-      };
-
-      img.onerror = () => {
-        URL.revokeObjectURL(objectUrl);
-        resolve(null);
-      };
-
-      img.src = objectUrl;
-    });
-  }, []);
-
-  const validateImageFile = useCallback(
-    async (
-      file: File,
-    ): Promise<
-      | { ok: true; dimensions: { width: number; height: number } | null }
-      | { ok: false; message: string }
-    > => {
-      if (!file.type.startsWith('image/')) {
-        return { ok: false, message: '请上传有效的图片文件' };
-      }
-
-      if (file.size > MAX_IMAGE_FILE_SIZE_BYTES) {
-        return { ok: false, message: '图片大小不能超过15MB，请重新上传。' };
-      }
-
-      const dimensions = await getImageDimensions(file);
-      if (
-        dimensions &&
-        (dimensions.width > MAX_IMAGE_DIMENSION ||
-          dimensions.height > MAX_IMAGE_DIMENSION)
-      ) {
-        return {
-          ok: false,
-          message: `图片分辨率不能超过${MAX_IMAGE_DIMENSION}x${MAX_IMAGE_DIMENSION}，请重新上传。`,
-        };
-      }
-
-      return { ok: true, dimensions };
-    },
-    [getImageDimensions],
-  );
-
   const handleImageUpload = async (
     event: ChangeEvent<HTMLInputElement>,
     slot: 'primary' | 'secondary' = 'primary',
   ) => {
-    if (isCurrentMethodProcessing) {
+    if (isCurrentMethodProcessing || isPreparingUpload) {
       setErrorMessage('当前任务正在处理中，请等待完成后再上传新图片');
       if (event.target) {
         event.target.value = '';
@@ -815,15 +763,23 @@ function HomeContent() {
     if (!file) return;
 
     const input = event.target;
-    const validation = await validateImageFile(file);
-    if (!validation.ok) {
-    setErrorMessage(validation.message);
-      input.value = '';
-      return;
-    }
 
+    setIsPreparingUpload(true);
     setErrorMessage('');
-    applyFileSelection(file, slot, validation.dimensions);
+    try {
+      const prepared = await prepareImageForUpload(file);
+      setSuccessMessage(
+        prepared.compressed
+          ? `图片已自动压缩到${IMAGE_UPLOAD_TARGET_MB}MB、最长边${IMAGE_UPLOAD_TARGET_MAX_DIMENSION}px以内`
+          : '',
+      );
+      applyFileSelection(prepared.file, slot, prepared.dimensions);
+    } catch (error) {
+      setErrorMessage((error as Error)?.message ?? '图片处理失败，请更换图片后重试');
+      input.value = '';
+    } finally {
+      setIsPreparingUpload(false);
+    }
   };
 
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
@@ -836,20 +792,27 @@ function HomeContent() {
   ) => {
     event.preventDefault();
 
-    if (isCurrentMethodProcessing) {
+    if (isCurrentMethodProcessing || isPreparingUpload) {
       setErrorMessage('当前任务正在处理中，请等待完成后再上传新图片');
       return;
     }
     const file = event.dataTransfer.files[0];
     if (file && file.type.startsWith('image/')) {
-      const validation = await validateImageFile(file);
-      if (!validation.ok) {
-        setErrorMessage(validation.message);
-        return;
-      }
-
+      setIsPreparingUpload(true);
       setErrorMessage('');
-      applyFileSelection(file, slot, validation.dimensions);
+      try {
+        const prepared = await prepareImageForUpload(file);
+        setSuccessMessage(
+          prepared.compressed
+            ? `图片已自动压缩到${IMAGE_UPLOAD_TARGET_MB}MB、最长边${IMAGE_UPLOAD_TARGET_MAX_DIMENSION}px以内`
+            : '',
+        );
+        applyFileSelection(prepared.file, slot, prepared.dimensions);
+      } catch (error) {
+        setErrorMessage((error as Error)?.message ?? '图片处理失败，请更换图片后重试');
+      } finally {
+        setIsPreparingUpload(false);
+      }
     }
   };
 
@@ -1368,7 +1331,7 @@ function HomeContent() {
             processedImageThumbnail={processedImageThumbnail}
             comparisonOriginalImage={resultOriginalImage || imagePreview}
             currentTaskId={currentTaskId || undefined}
-            isProcessing={isCurrentMethodProcessing || isCreatingTask}
+            isProcessing={isCurrentMethodProcessing || isCreatingTask || isPreparingUpload}
             hasUploadedImage={Boolean(uploadedImage)}
             onBack={() => {
               setCurrentPage('home');

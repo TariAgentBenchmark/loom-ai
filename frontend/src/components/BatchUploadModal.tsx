@@ -3,6 +3,11 @@
 import { useState, useCallback, DragEvent, ChangeEvent, useRef } from 'react';
 import { ProcessingMethod, PromptEditMode } from '../lib/processing';
 import ExpandEdgeControls from './ExpandEdgeControls';
+import {
+    IMAGE_UPLOAD_TARGET_MAX_DIMENSION,
+    IMAGE_UPLOAD_TARGET_MB,
+    prepareImageForUpload,
+} from '../lib/imageCompression';
 
 interface BatchUploadModalProps {
     isOpen: boolean;
@@ -44,8 +49,6 @@ interface FileWithPreview {
     preview: string;
     id: string;
 }
-
-const MAX_IMAGE_DIMENSION = 3000;
 
 const formatCredits = (value: number) => {
     if (Number.isInteger(value)) {
@@ -93,7 +96,9 @@ export default function BatchUploadModal({
     const [files, setFiles] = useState<FileWithPreview[]>([]);
     const [referenceImage, setReferenceImage] = useState<FileWithPreview | null>(null);
     const [isDragging, setIsDragging] = useState(false);
+    const [isPreparingFiles, setIsPreparingFiles] = useState(false);
     const [error, setError] = useState<string>('');
+    const [notice, setNotice] = useState<string>('');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const referenceInputRef = useRef<HTMLInputElement>(null);
     const patternTypeOptions: { value: string; label: string }[] = [
@@ -144,62 +149,7 @@ export default function BatchUploadModal({
     const effectivePatternType = patternType ?? 'combined';
     const effectiveDenimAspectRatio = denimAspectRatio ?? '1:1';
     const effectiveGeneralImageCount = generalImageCount ?? 4;
-
-    const loadImageDimensions = useCallback((file: File) => {
-        if (file.type === 'image/svg+xml') {
-            return Promise.resolve(null);
-        }
-
-        return new Promise<{ width: number; height: number } | null>((resolve) => {
-            const img = new Image();
-            const objectUrl = URL.createObjectURL(file);
-
-            img.onload = () => {
-                URL.revokeObjectURL(objectUrl);
-                resolve({ width: img.naturalWidth, height: img.naturalHeight });
-            };
-
-            img.onerror = () => {
-                URL.revokeObjectURL(objectUrl);
-                resolve(null);
-            };
-
-            img.src = objectUrl;
-        });
-    }, []);
-
-    const validateImageFile = useCallback(
-        async (
-            file: File,
-            sizeLimitBytes: number | null,
-        ): Promise<{ ok: true } | { ok: false; message: string }> => {
-            if (!file.type.startsWith('image/')) {
-                return { ok: false, message: `${file.name} 不是有效的图片文件` };
-            }
-
-            if (sizeLimitBytes && file.size > sizeLimitBytes) {
-                return {
-                    ok: false,
-                    message: `${file.name} 超过大小限制（最大 ${maxFileSizeMB}MB）`,
-                };
-            }
-
-            const dimensions = await loadImageDimensions(file);
-            if (
-                dimensions &&
-                (dimensions.width > MAX_IMAGE_DIMENSION ||
-                    dimensions.height > MAX_IMAGE_DIMENSION)
-            ) {
-                return {
-                    ok: false,
-                    message: `${file.name} 分辨率超过限制（最大 ${MAX_IMAGE_DIMENSION}x${MAX_IMAGE_DIMENSION}）`,
-                };
-            }
-
-            return { ok: true };
-        },
-        [loadImageDimensions, maxFileSizeMB],
-    );
+    const effectiveMaxFileSizeMB = maxFileSizeMB ?? 100;
 
     const generatePreview = useCallback((file: File): Promise<string> => {
         return new Promise((resolve) => {
@@ -213,6 +163,7 @@ export default function BatchUploadModal({
 
     const addFiles = useCallback(async (newFiles: File[]) => {
         setError('');
+        setNotice('');
 
         // Validate file count
         const totalFiles = files.length + newFiles.length;
@@ -221,30 +172,42 @@ export default function BatchUploadModal({
             return;
         }
 
-        const sizeLimitBytes = maxFileSizeMB ? maxFileSizeMB * 1024 * 1024 : null;
-
-        // Validate file types, size, and resolution
         const validFiles: File[] = [];
+        let compressedCount = 0;
+        setIsPreparingFiles(true);
+
         for (const file of newFiles) {
-            const validation = await validateImageFile(file, sizeLimitBytes);
-            if (!validation.ok) {
-                setError(validation.message);
+            try {
+                const prepared = await prepareImageForUpload(file);
+                if (prepared.compressed) {
+                    compressedCount += 1;
+                }
+                validFiles.push(prepared.file);
+            } catch (err) {
+                setError((err as Error)?.message ?? `${file.name} 处理失败，请更换图片后重试`);
                 continue;
             }
-            validFiles.push(file);
         }
 
-        // Generate previews and add to list
-        const filesWithPreviews = await Promise.all(
-            validFiles.map(async (file) => ({
-                file,
-                preview: await generatePreview(file),
-                id: `${file.name}-${Date.now()}-${Math.random()}`,
-            }))
-        );
+        try {
+            const filesWithPreviews = await Promise.all(
+                validFiles.map(async (file) => ({
+                    file,
+                    preview: await generatePreview(file),
+                    id: `${file.name}-${Date.now()}-${Math.random()}`,
+                }))
+            );
 
-        setFiles(prev => [...prev, ...filesWithPreviews]);
-    }, [files.length, maxFiles, maxFileSizeMB, generatePreview, validateImageFile]);
+            setFiles(prev => [...prev, ...filesWithPreviews]);
+            if (compressedCount > 0) {
+                setNotice(
+                    `${compressedCount} 张图片已自动压缩到${IMAGE_UPLOAD_TARGET_MB}MB、最长边${IMAGE_UPLOAD_TARGET_MAX_DIMENSION}px以内`
+                );
+            }
+        } finally {
+            setIsPreparingFiles(false);
+        }
+    }, [files.length, maxFiles, generatePreview]);
 
     const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
         e.preventDefault();
@@ -284,31 +247,45 @@ export default function BatchUploadModal({
         if (!selectedFile) return;
 
         setError('');
+        setNotice('');
+        setIsPreparingFiles(true);
 
-        const sizeLimitBytes = maxFileSizeMB ? maxFileSizeMB * 1024 * 1024 : null;
-        const validation = await validateImageFile(selectedFile, sizeLimitBytes);
-        if (!validation.ok) {
-            setError(validation.message);
+        let preparedFile: File;
+        let wasCompressed = false;
+        try {
+            const prepared = await prepareImageForUpload(selectedFile);
+            preparedFile = prepared.file;
+            wasCompressed = prepared.compressed;
+        } catch (err) {
+            setError((err as Error)?.message ?? `${selectedFile.name} 处理失败，请更换图片后重试`);
+            setIsPreparingFiles(false);
             return;
         }
 
-        // Generate preview
-        const preview = await generatePreview(selectedFile);
-        setReferenceImage({
-            file: selectedFile,
-            preview,
-            id: `reference-${Date.now()}`,
-        });
+        try {
+            const preview = await generatePreview(preparedFile);
+            setReferenceImage({
+                file: preparedFile,
+                preview,
+                id: `reference-${Date.now()}`,
+            });
+            if (wasCompressed) {
+                setNotice(`参考图已自动压缩到${IMAGE_UPLOAD_TARGET_MB}MB、最长边${IMAGE_UPLOAD_TARGET_MAX_DIMENSION}px以内`);
+            }
+        } finally {
+            setIsPreparingFiles(false);
+        }
 
         // Reset input
         if (e.target) {
             e.target.value = '';
         }
-    }, [generatePreview, maxFileSizeMB, validateImageFile]);
+    }, [generatePreview]);
 
     const removeReferenceImage = useCallback(() => {
         setReferenceImage(null);
         setError('');
+        setNotice('');
     }, []);
 
     const handleStartBatch = useCallback(() => {
@@ -328,6 +305,7 @@ export default function BatchUploadModal({
             setFiles([]);
             setReferenceImage(null);
             setError('');
+            setNotice('');
             onClose();
         }
     }, [isProcessing, onClose]);
@@ -344,7 +322,7 @@ export default function BatchUploadModal({
                     <h2 className="text-2xl font-bold">批量上传图片</h2>
                     <button
                         onClick={handleClose}
-                        disabled={isProcessing}
+                        disabled={isProcessing || isPreparingFiles}
                         className="text-gray-500 hover:text-gray-700 disabled:opacity-50"
                     >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -376,7 +354,7 @@ export default function BatchUploadModal({
                                     <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-50 transition-opacity flex items-center justify-center group">
                                         <button
                                             onClick={removeReferenceImage}
-                                            disabled={isProcessing}
+                                            disabled={isProcessing || isPreparingFiles}
                                             className="opacity-0 group-hover:opacity-100 bg-red-600 text-white rounded-full p-3 hover:bg-red-700 transition-opacity disabled:opacity-50"
                                         >
                                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -401,7 +379,7 @@ export default function BatchUploadModal({
                                         accept="image/*"
                                         onChange={handleReferenceImageInput}
                                         className="hidden"
-                                        disabled={isProcessing}
+                                        disabled={isProcessing || isPreparingFiles}
                                     />
                                     <svg
                                         className="mx-auto h-10 w-10 text-gray-400"
@@ -419,7 +397,7 @@ export default function BatchUploadModal({
                                     <p className="mt-3 text-sm text-gray-600">
                                         <button
                                             onClick={() => referenceInputRef.current?.click()}
-                                            disabled={isProcessing}
+                                            disabled={isProcessing || isPreparingFiles}
                                             className="text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50"
                                         >
                                             点击上传参考图（对应图片2）
@@ -442,7 +420,7 @@ export default function BatchUploadModal({
                                                 key={option.value}
                                                 type="button"
                                                 onClick={() => onPatternTypeChange?.(option.value)}
-                                                disabled={isProcessing}
+                                                disabled={isProcessing || isPreparingFiles}
                                                 className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-all ${isActive
                                                     ? 'border-blue-500 bg-blue-50 shadow-sm'
                                                     : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/60'
@@ -471,7 +449,7 @@ export default function BatchUploadModal({
                                                         onClick={() =>
                                                             onGeneralImageCountChange?.(option.value)
                                                         }
-                                                        disabled={isProcessing}
+                                                        disabled={isProcessing || isPreparingFiles}
                                                         className={`rounded-lg border px-3 py-2 text-xs md:text-sm font-medium transition ${isActive
                                                             ? 'border-blue-500 bg-blue-50 text-blue-600 shadow-sm'
                                                             : 'border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50/60'
@@ -500,7 +478,7 @@ export default function BatchUploadModal({
                                                         onClick={() =>
                                                             onDenimAspectRatioChange?.(option.value)
                                                         }
-                                                        disabled={isProcessing}
+                                                        disabled={isProcessing || isPreparingFiles}
                                                         className={`rounded-lg border px-3 py-2 text-xs md:text-sm font-medium transition ${isActive
                                                             ? 'border-blue-500 bg-blue-50 text-blue-600 shadow-sm'
                                                             : 'border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50/60'
@@ -533,7 +511,7 @@ export default function BatchUploadModal({
                                             key={option.value}
                                             type="button"
                                             onClick={() => onEmbroideryModeChange?.(option.value)}
-                                            disabled={isProcessing}
+                                            disabled={isProcessing || isPreparingFiles}
                                             className={`rounded-xl border p-3 text-left transition-all ${
                                                 isActive
                                                     ? 'border-blue-500 bg-blue-50 shadow-sm'
@@ -562,7 +540,7 @@ export default function BatchUploadModal({
                                             key={option.value}
                                             type="button"
                                             onClick={() => onPromptEditModeChange?.(option.value)}
-                                            disabled={isProcessing}
+                                            disabled={isProcessing || isPreparingFiles}
                                             className={`flex items-center justify-center rounded-xl border px-4 py-3 text-center transition-all ${isActive
                                                 ? 'border-blue-500 bg-blue-50 shadow-sm'
                                                 : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/60'
@@ -602,7 +580,7 @@ export default function BatchUploadModal({
                                 accept="image/*"
                                 onChange={handleFileInput}
                                 className="hidden"
-                                disabled={isProcessing}
+                                disabled={isProcessing || isPreparingFiles}
                             />
 
                             <svg
@@ -623,15 +601,18 @@ export default function BatchUploadModal({
                                 拖拽图片到此处，或
                                 <button
                                     onClick={() => fileInputRef.current?.click()}
-                                    disabled={isProcessing}
+                                    disabled={isProcessing || isPreparingFiles}
                                     className="text-blue-600 hover:text-blue-700 font-medium ml-1 disabled:opacity-50"
                                 >
                                     点击选择
                                 </button>
                             </p>
                             <p className="mt-2 text-sm text-gray-500">
-                                支持 JPG、PNG 等格式，最多 {maxFiles} 张图片
+                                支持 JPG、PNG 等格式，最多 {maxFiles} 张图片；超过{IMAGE_UPLOAD_TARGET_MB}MB或最长边{IMAGE_UPLOAD_TARGET_MAX_DIMENSION}px会自动压缩，原图硬上限{effectiveMaxFileSizeMB}MB
                             </p>
+                            {isPreparingFiles && (
+                                <p className="mt-2 text-sm text-blue-600">正在压缩图片...</p>
+                            )}
                         </div>
                     </div>
 
@@ -639,6 +620,11 @@ export default function BatchUploadModal({
                     {error && (
                         <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
                             <p className="text-red-600 text-sm">{error}</p>
+                        </div>
+                    )}
+                    {notice && (
+                        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                            <p className="text-blue-700 text-sm">{notice}</p>
                         </div>
                     )}
 
@@ -651,7 +637,7 @@ export default function BatchUploadModal({
                                 </h3>
                                 <button
                                     onClick={() => setFiles([])}
-                                    disabled={isProcessing}
+                                    disabled={isProcessing || isPreparingFiles}
                                     className="text-sm text-red-600 hover:text-red-700 disabled:opacity-50"
                                 >
                                     清空全部
@@ -672,7 +658,7 @@ export default function BatchUploadModal({
                                         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity flex items-center justify-center">
                                             <button
                                                 onClick={() => removeFile(fileWithPreview.id)}
-                                                disabled={isProcessing}
+                                                disabled={isProcessing || isPreparingFiles}
                                                 className="opacity-0 group-hover:opacity-100 bg-red-600 text-white rounded-full p-2 hover:bg-red-700 transition-opacity disabled:opacity-50"
                                             >
                                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -723,7 +709,7 @@ export default function BatchUploadModal({
                                 }
                                 placeholder="例如：把图中裙子的颜色改成白色"
                                 className="w-full min-h-[100px] rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 resize-none"
-                                disabled={isProcessing}
+                                disabled={isProcessing || isPreparingFiles}
                             />
                             <p className="text-xs text-gray-500 mt-2">
                                 一句话描述想要修改的细节，AI 会自动处理。批量任务会使用这里的指令。
@@ -751,17 +737,17 @@ export default function BatchUploadModal({
                     <div className="flex gap-3">
                         <button
                             onClick={handleClose}
-                            disabled={isProcessing}
+                            disabled={isProcessing || isPreparingFiles}
                             className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50"
                         >
                             取消
                         </button>
                         <button
                             onClick={handleStartBatch}
-                            disabled={files.length === 0 || isProcessing}
+                            disabled={files.length === 0 || isProcessing || isPreparingFiles}
                             className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {isProcessing ? '处理中...' : '开始批量处理'}
+                            {isPreparingFiles ? '压缩中...' : isProcessing ? '处理中...' : '开始批量处理'}
                         </button>
                     </div>
                 </div>

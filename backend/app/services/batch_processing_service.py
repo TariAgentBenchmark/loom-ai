@@ -62,13 +62,21 @@ class BatchProcessingService:
         
         if len(images_data) > 10:  # 限制最大批量数
             raise Exception("单次最多处理10张图片")
+
+        prepared_images_data = []
+        for image_bytes, filename in images_data:
+            prepared_bytes, prepared_filename, image_info, upload_metadata = (
+                self.file_service.prepare_upload_image(image_bytes, filename)
+            )
+            prepared_images_data.append(
+                (prepared_bytes, prepared_filename, image_info, upload_metadata)
+            )
         
         # 计算总积分需求
         service_key = self.processing_service._resolve_service_key(task_type)
         total_credits = to_decimal(0)
         
-        for image_bytes, _ in images_data:
-            image_info = await self.file_service.get_image_info(image_bytes)
+        for _, _, _image_info, _ in prepared_images_data:
             credits_needed = await self.membership_service.calculate_service_cost(
                 db, service_key, options=options
             )
@@ -102,8 +110,12 @@ class BatchProcessingService:
         
         # prompt_edit 基准图：保存一次，后续任务复用URL
         reference_image_url: Optional[str] = None
+        reference_upload_metadata: Optional[Dict[str, Any]] = None
         if task_type == "prompt_edit" and base_image:
             base_bytes, base_filename = base_image
+            base_bytes, base_filename, _, reference_upload_metadata = (
+                self.file_service.prepare_upload_image(base_bytes, base_filename)
+            )
             reference_image_url = await self.file_service.save_upload_file(
                 base_bytes,
                 base_filename,
@@ -121,7 +133,7 @@ class BatchProcessingService:
             return sanitized
 
         # 创建各个子任务
-        for idx, (image_bytes, filename) in enumerate(images_data):
+        for idx, (image_bytes, filename, image_info, upload_metadata) in enumerate(prepared_images_data):
             try:
                 # 保存原始图片
                 original_url = await self.file_service.save_upload_file(
@@ -130,9 +142,6 @@ class BatchProcessingService:
                     "originals",
                     purpose="general",
                 )
-                
-                # 获取图片信息
-                image_info = await self.file_service.get_image_info(image_bytes)
                 
                 # 计算单个任务积分
                 credits_needed = await self.membership_service.calculate_service_cost(
@@ -145,6 +154,10 @@ class BatchProcessingService:
                 task_options = dict(options or {})
                 if reference_image_url and task_type == "prompt_edit":
                     task_options["secondary_image_url"] = reference_image_url
+                if upload_metadata.get("compressed"):
+                    task_options["upload_compression"] = upload_metadata
+                if reference_upload_metadata and reference_upload_metadata.get("compressed"):
+                    task_options["secondary_upload_compression"] = reference_upload_metadata
                 task_options = _sanitize_options(task_options)
                 
                 # 创建子任务
