@@ -70,9 +70,18 @@ class BaseAIClient:
         }
         self.api_name = api_name
     
-    async def _make_request(self, method: str, endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _make_request(
+        self,
+        method: str,
+        endpoint: str,
+        data: Dict[str, Any],
+        headers: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
         """发送API请求"""
         url = f"{self.base_url}{endpoint}"
+        request_headers = dict(self.headers)
+        if headers:
+            request_headers.update(headers)
 
         max_retries = 3
         backoff_base = 1.5
@@ -84,7 +93,7 @@ class BaseAIClient:
                         response = await client.request(
                             method=method,
                             url=url,
-                            headers=self.headers,
+                            headers=request_headers,
                             json=data
                         )
                         response.raise_for_status()

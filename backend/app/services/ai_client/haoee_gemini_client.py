@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 class HaoeeGeminiClient(BaseAIClient):
     """Haoee MaaS Gemini 图像模型客户端。"""
 
+    GEMINI_3_PRO_ROUTE_MODEL = "gemini-3-pro-image-preview"
+
     SUPPORTED_ASPECT_RATIOS = [
         "21:9",
         "16:9",
@@ -64,7 +66,8 @@ class HaoeeGeminiClient(BaseAIClient):
             else settings.haoee_maas_default_preview_model
             or "gemini-3-pro-image-preview-lite"
         )
-        endpoint = f"/v1beta/models/{resolved_model_name}:generateContent"
+        endpoint_model_name = self._resolve_endpoint_model(resolved_model_name)
+        endpoint = f"/v1beta/models/{endpoint_model_name}:generateContent"
         image_base64 = self._image_to_base64(
             image_bytes,
             "PNG" if mime_type == "image/png" else "JPEG",
@@ -118,4 +121,16 @@ class HaoeeGeminiClient(BaseAIClient):
             image_config.get("aspectRatio"),
             image_config.get("imageSize"),
         )
-        return await self._make_request("POST", endpoint, data)
+        return await self._make_request(
+            "POST",
+            endpoint,
+            data,
+            headers={"ModelName": resolved_model_name},
+        )
+
+    @classmethod
+    def _resolve_endpoint_model(cls, model_name: str) -> str:
+        """Haoee registers Gemini 3 Pro image variants under the base route."""
+        if model_name.startswith(cls.GEMINI_3_PRO_ROUTE_MODEL):
+            return cls.GEMINI_3_PRO_ROUTE_MODEL
+        return model_name
