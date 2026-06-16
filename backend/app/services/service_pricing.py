@@ -9,6 +9,7 @@ PATTERN_VARIANTS = {
     "general_1_2img",
     "general_1_4img",
     "combined",
+    "combined_t2",
     "denim",
 }
 UPSCALE_VARIANTS = {"meitu_v2", "runninghub_vr2", "runninghub_4k_ultra"}
@@ -32,8 +33,11 @@ def _normalize_pattern_type(raw_value: Optional[str]) -> Optional[str]:
     }:
         return "general_1"
 
-    if normalized in {"combined", "composite", "combined_t2", "composite_t2", "t2"}:
+    if normalized in {"combined", "composite"}:
         return "combined"
+
+    if normalized in {"combined_t2", "composite_t2", "t2"}:
+        return "combined_t2"
 
     if normalized == "denim":
         return "denim"

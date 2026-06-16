@@ -217,14 +217,14 @@ SERVICE_PRICE_VARIANTS = [
         "variant_key": "general_1_1img",
         "variant_name": "通用模型-1张图",
         "description": "AI提取花型（通用模型，输出1张图）",
-        "price_credits": 0.4,
+        "price_credits": 0.6,
     },
     {
         "parent_service_key": "extract_pattern",
         "variant_key": "general_1_2img",
         "variant_name": "通用模型-2张图",
         "description": "AI提取花型（通用模型，输出2张图）",
-        "price_credits": 0.75,
+        "price_credits": 1.0,
     },
     {
         "parent_service_key": "extract_pattern",
@@ -237,6 +237,14 @@ SERVICE_PRICE_VARIANTS = [
         "variant_key": "combined",
         "variant_name": "综合模型",
         "description": "AI提取花型（综合模型，并行多模型输出3图）",
+        "price_credits": 1.7,
+    },
+    {
+        "parent_service_key": "extract_pattern",
+        "variant_key": "combined_t2",
+        "variant_name": "综合T2",
+        "description": "AI提取花型（综合T2，输出3张2K图和1张4K图）",
+        "price_credits": 1.7,
     },
     {
         "parent_service_key": "extract_pattern",
