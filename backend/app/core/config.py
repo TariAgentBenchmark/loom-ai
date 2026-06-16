@@ -110,7 +110,7 @@ class Settings(BaseSettings):
     # Haoee MaaS API配置
     haoee_maas_api_key: str = ""
     haoee_maas_base_url: str = "https://maas.haoee.com"
-    haoee_maas_default_preview_model: str = "gemini-3-pro-image-preview"
+    haoee_maas_default_preview_model: str = "gemini-3-pro-image-preview-lite"
 
     # RunningHub API配置
     runninghub_api_base_url: str = "https://www.runninghub.cn"

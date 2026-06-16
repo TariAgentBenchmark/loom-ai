@@ -62,7 +62,7 @@ class HaoeeGeminiClient(BaseAIClient):
             model_name.strip()
             if isinstance(model_name, str) and model_name.strip()
             else settings.haoee_maas_default_preview_model
-            or "gemini-3-pro-image-preview"
+            or "gemini-3-pro-image-preview-lite"
         )
         endpoint = f"/v1beta/models/{resolved_model_name}:generateContent"
         image_base64 = self._image_to_base64(

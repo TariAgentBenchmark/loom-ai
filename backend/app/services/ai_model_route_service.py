@@ -86,12 +86,12 @@ SUPPORTED_AI_MODEL_ROUTES: Dict[str, Dict[str, Any]] = {
                 "models": [
                     {
                         "value": "gemini-3-pro-image-preview-4k",
-                        "api_model": "gemini-3-pro-image-preview",
+                        "api_model": "gemini-3-pro-image-preview-lite",
                         "resolution": "4K",
                     },
                     {
                         "value": "gemini-3-pro-image-preview-2k",
-                        "api_model": "gemini-3-pro-image-preview",
+                        "api_model": "gemini-3-pro-image-preview-lite",
                         "resolution": "2K",
                     },
                     {

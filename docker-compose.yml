@@ -65,7 +65,7 @@ services:
       - GQCH_API_KEY=${GQCH_API_KEY:-your_gqch_api_key}
       - HAOEE_MAAS_API_KEY=${HAOEE_MAAS_API_KEY:-}
       - HAOEE_MAAS_BASE_URL=${HAOEE_MAAS_BASE_URL:-https://maas.haoee.com}
-      - HAOEE_MAAS_DEFAULT_PREVIEW_MODEL=${HAOEE_MAAS_DEFAULT_PREVIEW_MODEL:-gemini-3-pro-image-preview}
+      - HAOEE_MAAS_DEFAULT_PREVIEW_MODEL=${HAOEE_MAAS_DEFAULT_PREVIEW_MODEL:-gemini-3-pro-image-preview-lite}
       - OSS_ACCESS_KEY_ID=${OSS_ACCESS_KEY_ID:-}
       - OSS_ACCESS_KEY_SECRET=${OSS_ACCESS_KEY_SECRET:-}
       - OSS_ENDPOINT=${OSS_ENDPOINT:-https://oss-cn-hangzhou.aliyuncs.com}

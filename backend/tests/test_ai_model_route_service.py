@@ -168,7 +168,7 @@ def test_ai_model_route_service_resolves_haoee_pro_4k_runtime(db_session):
     assert runtime == {
         "provider": "haoee",
         "model": "gemini-3-pro-image-preview-4k",
-        "api_model": "gemini-3-pro-image-preview",
+        "api_model": "gemini-3-pro-image-preview-lite",
         "resolution": "4K",
     }
 

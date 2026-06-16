@@ -392,7 +392,7 @@ async def test_extract_pattern_combined_routes_general_2_to_haoee_from_snapshot(
     assert captured["kwargs"] == {
         "aspect_ratio": "1:1",
         "resolution": "4K",
-        "model_name": "gemini-3-pro-image-preview",
+        "model_name": "gemini-3-pro-image-preview-lite",
     }
 
 
@@ -417,7 +417,7 @@ async def test_extract_pattern_combined_t2_runs_three_2k_and_one_4k(monkeypatch)
     monkeypatch.setattr(
         settings,
         "haoee_maas_default_preview_model",
-        "gemini-3-pro-image-preview",
+        "gemini-3-pro-image-preview-lite",
     )
     monkeypatch.setattr(
         client.haoee_gemini_client,
@@ -452,7 +452,7 @@ async def test_extract_pattern_combined_t2_runs_three_2k_and_one_4k(monkeypatch)
     assert all(item["mime_type"] == "image/png" for item in captured)
     assert all(item["kwargs"]["aspect_ratio"] == "1:1" for item in captured)
     assert all(
-        item["kwargs"]["model_name"] == "gemini-3-pro-image-preview"
+        item["kwargs"]["model_name"] == "gemini-3-pro-image-preview-lite"
         for item in captured
     )
 
