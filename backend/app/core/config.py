@@ -42,7 +42,7 @@ class Settings(BaseSettings):
             "gpt4o": 50,
             "runninghub": 100,
             "gqch": 6,
-            "haoee_maas": 10,
+            "haoee_maas": 4,
             "meitu": 5,
             "vectorizer": 2,
             "zfy_vectorizer": 10,

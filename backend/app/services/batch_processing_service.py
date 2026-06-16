@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy.orm import Session
 
 from app.models.batch_task import BatchTask, BatchTaskStatus
-from app.models.task import Task, TaskStatus
+from app.models.task import Task, TaskStatus, TaskType
 from app.models.user import User
 from app.services.credit_math import to_decimal, to_float
 from app.services.file_service import FileService
@@ -39,6 +39,22 @@ class BatchProcessingService:
             else:
                 summarized[key] = value
         return summarized
+
+    @staticmethod
+    def _is_combined_t2_task(task: Task) -> bool:
+        options = task.options if isinstance(task.options, dict) else {}
+        pattern_type = options.get("pattern_type")
+        return (
+            task.type == TaskType.EXTRACT_PATTERN.value
+            and pattern_type in {"combined_t2", "composite_t2"}
+        )
+
+    def _resolve_batch_concurrency(self, tasks: List[Task]) -> int:
+        # Combined T2 launches multiple Haoee MaaS image branches per child task.
+        # Keep batch-level concurrency at 1 to avoid temporary 403 bans upstream.
+        if any(self._is_combined_t2_task(task) for task in tasks):
+            return 1
+        return 3
 
     async def create_batch_task(
         self,
@@ -239,7 +255,13 @@ class BatchProcessingService:
             db.commit()
             
             # 并发处理所有任务（限制并发数）
-            semaphore = asyncio.Semaphore(3)  # 最多同时处理3个任务
+            max_concurrency = self._resolve_batch_concurrency(tasks)
+            semaphore = asyncio.Semaphore(max_concurrency)
+            logger.info(
+                "Processing batch %s with child task concurrency=%s",
+                batch_id,
+                max_concurrency,
+            )
             
             async def process_single_task(task: Task):
                 async with semaphore:
