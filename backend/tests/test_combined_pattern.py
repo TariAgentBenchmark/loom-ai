@@ -458,6 +458,54 @@ async def test_extract_pattern_combined_t2_runs_three_2k_and_one_4k(monkeypatch)
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("num_images", "expected_resolutions"),
+    [
+        (1, ["2K"]),
+        (2, ["2K", "2K"]),
+        (4, ["2K", "2K", "2K", "4K"]),
+    ],
+)
+async def test_extract_pattern_combined_t2_respects_num_images(
+    monkeypatch,
+    num_images,
+    expected_resolutions,
+):
+    client = _build_client()
+    captured = []
+
+    async def fake_haoee_generate_image_preview(image_bytes, prompt, mime_type, **kwargs):
+        index = len(captured) + 1
+        captured.append(kwargs)
+        return {"url": f"https://example.com/t2-{index}.png"}
+
+    monkeypatch.setattr(settings, "extract_pattern_combined_branch_timeout_seconds", 1)
+    monkeypatch.setattr(
+        settings,
+        "haoee_maas_default_preview_model",
+        "gemini-3-pro-image-preview-lite",
+    )
+    monkeypatch.setattr(
+        client.haoee_gemini_client,
+        "generate_image_preview",
+        fake_haoee_generate_image_preview,
+    )
+    monkeypatch.setattr(
+        client.haoee_gemini_client,
+        "_extract_image_url",
+        lambda result: result["url"],
+    )
+
+    result = await client._extract_pattern_combined_t2(
+        b"fake-image",
+        {"aspect_ratio": "1:1", "num_images": num_images},
+    )
+
+    assert len(result.split(",")) == num_images
+    assert [item["resolution"] for item in captured] == expected_resolutions
+
+
+@pytest.mark.asyncio
 async def test_extract_pattern_general_1_retries_missing_workflow_result(monkeypatch):
     client = _build_client()
     attempts = {"wf-1": 0, "wf-2": 0}

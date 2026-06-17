@@ -104,7 +104,9 @@ class ProcessingService:
             normalized_options.get("num_images")
         )
 
-        if pattern_type in {"combined", "composite", "combined_t2", "composite_t2"}:
+        if pattern_type in {"combined_t2", "composite_t2"}:
+            return requested_count if requested_count in {1, 2, 4} else 4
+        if pattern_type in {"combined", "composite"}:
             return 4
         if requested_count is not None:
             return requested_count

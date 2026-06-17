@@ -101,6 +101,19 @@ def test_combined_t2_extract_pattern_uses_four_expected_results():
     assert service._can_skip_result_materialization_failure(task, 3) is True
 
 
+def test_combined_t2_extract_pattern_uses_requested_expected_results():
+    service = ProcessingService()
+    task = _build_task(pattern_type="combined_t2", num_images=2, credits_used="1.0")
+
+    adjustment = service._apply_partial_result_credit_adjustment(task, 2)
+
+    assert adjustment == {
+        "expectedResultCount": 2.0,
+        "actualResultCount": 2.0,
+        "creditAdjustmentApplied": 0.0,
+    }
+
+
 def test_non_combined_extract_pattern_does_not_skip_result_materialization_failure():
     service = ProcessingService()
     task = _build_task(pattern_type="general_1", num_images=4, credits_used="1.0")

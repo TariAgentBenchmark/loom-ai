@@ -248,6 +248,10 @@ export const resolvePricingServiceKey = (
       const count = normalizeGeneralImageCount(options?.numImages);
       return `extract_pattern_general_1_${count}img`;
     }
+    if (patternType === "combined_t2") {
+      const count = normalizeGeneralImageCount(options?.numImages);
+      return `extract_pattern_combined_t2_${count}img`;
+    }
     return `extract_pattern_${patternType}`;
   }
 

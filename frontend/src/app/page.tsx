@@ -1080,7 +1080,7 @@ function HomeContent() {
         payload.aspectRatio = denimAspectRatio;
         payload.numImages = denimImageCount;
       }
-      if (patternType === 'general') {
+      if (patternType === 'general' || patternType === 'combined_t2') {
         payload.numImages = generalImageCount;
       }
     }

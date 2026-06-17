@@ -683,12 +683,16 @@ class AIClient:
             except asyncio.CancelledError:
                 raise
 
-        branch_specs = [
+        requested_count = self._normalize_combined_t2_image_count(
+            options.get("num_images")
+        )
+        all_branch_specs = [
             ("haoee_3pro_2k_1", "2K"),
             ("haoee_3pro_2k_2", "2K"),
             ("haoee_3pro_2k_3", "2K"),
             ("haoee_3pro_4k_1", "4K"),
         ]
+        branch_specs = all_branch_specs[:requested_count]
         branch_results = await asyncio.gather(
             *(
                 _run_branch_with_timeout(label, resolution)
@@ -727,6 +731,14 @@ class AIClient:
             len(branch_specs),
         )
         return ",".join(variant_urls[:4])
+
+    @staticmethod
+    def _normalize_combined_t2_image_count(value: Any) -> int:
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            return 4
+        return parsed if parsed in {1, 2, 4} else 4
 
     async def _extract_pattern_general_1(
         self,

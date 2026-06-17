@@ -10,6 +10,9 @@ PATTERN_VARIANTS = {
     "general_1_4img",
     "combined",
     "combined_t2",
+    "combined_t2_1img",
+    "combined_t2_2img",
+    "combined_t2_4img",
     "denim",
 }
 UPSCALE_VARIANTS = {"meitu_v2", "runninghub_vr2", "runninghub_4k_ultra"}
@@ -22,6 +25,9 @@ def _normalize_pattern_type(raw_value: Optional[str]) -> Optional[str]:
 
     if re.match(r"general_?1_\d+img", normalized):
         return "general_1"
+
+    if re.match(r"combined_t2_\d+img", normalized):
+        return "combined_t2"
 
     if normalized in {
         "general",
@@ -95,11 +101,14 @@ def _normalize_num_images(raw_value: Optional[Any]) -> Optional[int]:
     return value if value in {1, 2, 4} else None
 
 
-def _extract_general_image_count(raw_value: Optional[str]) -> Optional[int]:
+def _extract_variant_image_count(
+    raw_value: Optional[str],
+    variant_prefix: str,
+) -> Optional[int]:
     if not raw_value:
         return None
     normalized = str(raw_value).strip().lower().replace("-", "_")
-    match = re.match(r"general_?1_(\d)img", normalized)
+    match = re.match(rf"{re.escape(variant_prefix)}_(\d)img", normalized)
     if match:
         try:
             return int(match.group(1))
@@ -130,14 +139,22 @@ def resolve_pricing_target(
         num_images = _normalize_num_images(
             opts.get("num_images") or opts.get("numImages")
         )
-        count_from_pattern = _extract_general_image_count(raw_pattern)
-        if count_from_pattern is not None:
-            num_images = count_from_pattern
-
         pattern_type = _normalize_pattern_type(raw_pattern) or "general_1"
         if pattern_type == "general_1":
+            count_from_pattern = _extract_variant_image_count(raw_pattern, "general_1")
+            if count_from_pattern is not None:
+                num_images = count_from_pattern
             count = num_images or 4
             variant_key = f"general_1_{count}img"
+        elif pattern_type == "combined_t2":
+            count_from_pattern = _extract_variant_image_count(
+                raw_pattern,
+                "combined_t2",
+            )
+            if count_from_pattern is not None:
+                num_images = count_from_pattern
+            count = num_images or 4
+            variant_key = f"combined_t2_{count}img"
         else:
             variant_key = pattern_type
 

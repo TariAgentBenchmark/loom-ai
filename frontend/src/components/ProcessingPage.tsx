@@ -587,6 +587,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   ];
   const effectivePatternType = patternType ?? "combined";
   const effectiveGeneralImageCount = generalImageCount ?? 4;
+  const canChoosePatternImageCount =
+    effectivePatternType === "general" || effectivePatternType === "combined_t2";
   const effectiveDenimAspectRatio = denimAspectRatio ?? "1:1";
   const selectedUpscaleOption =
     upscaleOptions.find(
@@ -679,7 +681,8 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     const fetchPrice = async () => {
       let resolvedCost: number | null = null;
       const numImages =
-        method === "extract_pattern" && patternType === "general"
+        method === "extract_pattern" &&
+          (patternType === "general" || patternType === "combined_t2")
           ? effectiveGeneralImageCount
           : undefined;
       const pricingKey = resolvePricingServiceKey(method, {
@@ -1300,7 +1303,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
                   );
                 })}
               </div>
-              {effectivePatternType === "general" && (
+              {canChoosePatternImageCount && (
                 <div className="mt-4 space-y-4">
                   <div>
                     <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2">

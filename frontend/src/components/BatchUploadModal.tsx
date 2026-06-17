@@ -149,6 +149,8 @@ export default function BatchUploadModal({
     const effectivePatternType = patternType ?? 'combined';
     const effectiveDenimAspectRatio = denimAspectRatio ?? '1:1';
     const effectiveGeneralImageCount = generalImageCount ?? 4;
+    const canChoosePatternImageCount =
+        effectivePatternType === 'general' || effectivePatternType === 'combined_t2';
     const effectiveMaxFileSizeMB = maxFileSizeMB ?? 100;
 
     const generatePreview = useCallback((file: File): Promise<string> => {
@@ -434,7 +436,7 @@ export default function BatchUploadModal({
                                     })}
                                 </div>
                             </div>
-                            {effectivePatternType === 'general' && (
+                            {canChoosePatternImageCount && (
                                 <div className="space-y-4">
                                     <div>
                                         <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2">出图数量</h4>

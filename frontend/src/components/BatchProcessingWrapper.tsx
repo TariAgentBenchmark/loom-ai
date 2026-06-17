@@ -90,7 +90,10 @@ export default function BatchProcessingWrapper({
         const fetchPrice = async () => {
             let resolvedCost: number | null = null;
             const numImages =
-                method === 'extract_pattern' && patternType === 'general' ? batchGeneralImageCount : undefined;
+                method === 'extract_pattern' &&
+                    (patternType === 'general' || patternType === 'combined_t2')
+                    ? batchGeneralImageCount
+                    : undefined;
             const pricingKey = resolvePricingServiceKey(method, {
                 patternType,
                 numImages,
@@ -173,7 +176,7 @@ export default function BatchProcessingWrapper({
                         payload.numImages = denimImageCount;
                     }
                 }
-                if (patternType === 'general') {
+                if (patternType === 'general' || patternType === 'combined_t2') {
                     payload.numImages = batchGeneralImageCount;
                 }
             }

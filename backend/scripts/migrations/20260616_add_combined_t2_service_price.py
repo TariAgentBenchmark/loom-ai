@@ -140,6 +140,66 @@ def upsert_extract_pattern_variant(
     return set_price
 
 
+def migrate_legacy_combined_t2_variant(conn) -> None:
+    legacy = conn.execute(
+        text(
+            """
+            SELECT id, price_credits
+            FROM service_price_variants
+            WHERE parent_service_key = 'extract_pattern'
+              AND variant_key = 'combined_t2'
+            """
+        )
+    ).fetchone()
+    if legacy is None:
+        return
+
+    target = conn.execute(
+        text(
+            """
+            SELECT id, price_credits
+            FROM service_price_variants
+            WHERE parent_service_key = 'extract_pattern'
+              AND variant_key = 'combined_t2_4img'
+            """
+        )
+    ).fetchone()
+
+    if target is None:
+        conn.execute(
+            text(
+                """
+                UPDATE service_price_variants
+                SET variant_key = 'combined_t2_4img',
+                    variant_name = '综合T2-4张图',
+                    description = 'AI提取花型（综合T2，输出3张2K图和1张4K图）',
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = :id
+                """
+            ),
+            {"id": legacy[0]},
+        )
+        return
+
+    if target[1] is None and legacy[1] is not None:
+        conn.execute(
+            text(
+                """
+                UPDATE service_price_variants
+                SET price_credits = :price_credits,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = :id
+                """
+            ),
+            {"id": target[0], "price_credits": legacy[1]},
+        )
+
+    conn.execute(
+        text("DELETE FROM service_price_variants WHERE id = :id"),
+        {"id": legacy[0]},
+    )
+
+
 def main() -> None:
     engine = get_engine()
     inspector = inspect(engine)
@@ -171,8 +231,22 @@ def main() -> None:
             "old_defaults": ["1.5"],
         },
         {
-            "variant_key": "combined_t2",
-            "variant_name": "综合T2",
+            "variant_key": "combined_t2_1img",
+            "variant_name": "综合T2-1张图",
+            "description": "AI提取花型（综合T2，输出1张2K图）",
+            "price_credits": "0.6",
+            "old_defaults": [],
+        },
+        {
+            "variant_key": "combined_t2_2img",
+            "variant_name": "综合T2-2张图",
+            "description": "AI提取花型（综合T2，输出2张2K图）",
+            "price_credits": "1.0",
+            "old_defaults": [],
+        },
+        {
+            "variant_key": "combined_t2_4img",
+            "variant_name": "综合T2-4张图",
             "description": "AI提取花型（综合T2，输出3张2K图和1张4K图）",
             "price_credits": "1.7",
             "old_defaults": ["1.5"],
@@ -181,6 +255,7 @@ def main() -> None:
 
     changed = 0
     with engine.begin() as conn:
+        migrate_legacy_combined_t2_variant(conn)
         for variant in variants:
             if upsert_extract_pattern_variant(conn, **variant):
                 changed += 1

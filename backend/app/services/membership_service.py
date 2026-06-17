@@ -151,6 +151,37 @@ class MembershipService:
                 db.delete(general_variant)
                 db.commit()
 
+            combined_t2_variant = (
+                db.query(ServicePriceVariant)
+                .filter(
+                    ServicePriceVariant.parent_service_key == "extract_pattern",
+                    ServicePriceVariant.variant_key == "combined_t2",
+                )
+                .first()
+            )
+            combined_t2_4_variant = (
+                db.query(ServicePriceVariant)
+                .filter(
+                    ServicePriceVariant.parent_service_key == "extract_pattern",
+                    ServicePriceVariant.variant_key == "combined_t2_4img",
+                )
+                .first()
+            )
+            if combined_t2_variant and not combined_t2_4_variant:
+                combined_t2_variant.variant_key = "combined_t2_4img"
+                combined_t2_variant.variant_name = "综合T2-4张图"
+                combined_t2_variant.description = (
+                    "AI提取花型（综合T2，输出3张2K图和1张4K图）"
+                )
+                db.commit()
+            elif combined_t2_variant and combined_t2_4_variant:
+                if combined_t2_4_variant.price_credits is None:
+                    combined_t2_4_variant.price_credits = (
+                        combined_t2_variant.price_credits
+                    )
+                db.delete(combined_t2_variant)
+                db.commit()
+
             keys_to_check = [
                 (cfg["parent_service_key"], cfg["variant_key"])
                 for cfg in variant_configs
