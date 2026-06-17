@@ -209,7 +209,7 @@ async def vectorize_image(
 @router.post("/extract-pattern")
 async def extract_pattern(
     image: UploadFile = File(...),
-    pattern_type: str = Form("general_2"),
+    pattern_type: str = Form("combined_t2"),
     quality: Optional[str] = Form("standard"),
     aspect_ratio: Optional[str] = Form(None),
     width: Optional[int] = Form(None),

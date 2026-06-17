@@ -173,7 +173,7 @@ function HomeContent() {
   const [promptInstruction, setPromptInstruction] = useState<string>('');
   const [promptEditMode, setPromptEditMode] = useState<PromptEditMode>('standard');
   const [embroideryMode, setEmbroideryMode] = useState<'yarn' | 'embroidery'>('embroidery');
-  const [patternType, setPatternType] = useState<string>('combined');
+  const [patternType, setPatternType] = useState<string>('combined_t2');
   const [denimAspectRatio, setDenimAspectRatio] = useState<string>('1:1');
   const [denimImageCount, setDenimImageCount] = useState<number>(2);
   const [generalImageCount, setGeneralImageCount] = useState<number>(4);
@@ -1339,7 +1339,7 @@ function HomeContent() {
               setPromptInstruction('');
               setPromptEditMode('standard');
               setEmbroideryMode('embroidery');
-              setPatternType('combined');
+              setPatternType('combined_t2');
               setDenimAspectRatio('1:1');
               setDenimImageCount(2);
               setGeneralImageCount(4);
@@ -1476,7 +1476,7 @@ function HomeContent() {
               setPromptEditMode('standard');
             }
             if (method === 'extract_pattern') {
-              setPatternType('combined');
+              setPatternType('combined_t2');
               setDenimAspectRatio('1:1');
               setDenimImageCount(2);
               setGeneralImageCount(4);
