@@ -1187,7 +1187,7 @@ class AIClient:
         image_bytes: bytes,
         options: Optional[Dict[str, Any]] = None,
     ) -> str:
-        """AI矢量化 - 使用Vectorizer.ai API"""
+        """AI矢量化 - 使用新版 zifeiyu /add_task 协议"""
         return await self.vectorizer_client.vectorize_image(image_bytes, options)
 
     async def vectorize_image_webapi(
@@ -1268,7 +1268,7 @@ class AIClient:
         vector_format: str,
         original_filename: Optional[str] = None,
     ) -> str:
-        """旧矢量化链路：A8 优先，失败后降级到 mm.kknc WebAPI。"""
+        """兼容矢量化链路：A8 优先，失败后降级到 mm.kknc WebAPI。"""
         try:
             # A8 API需要的格式参数是 'eps' 或 'svg'，去掉点号
             a8_fmt = vector_format.lstrip('.').lower()

@@ -2,11 +2,12 @@ import asyncio
 import logging
 import time
 import uuid
-from typing import Optional, Dict, Any
+from typing import Optional
 
 import httpx
 import urllib3
 
+from app.core.config import settings
 from app.services.file_service import FileService
 from app.services.api_limiter import api_limiter
 from app.services.ai_client.exceptions import AIClientException
@@ -18,19 +19,63 @@ logger = logging.getLogger(__name__)
 
 
 class A8VectorizerClient:
-    """A8矢量转换API客户端"""
+    """A8矢量转换API客户端，使用新版 zfyai-api-key 鉴权。"""
 
-    def __init__(self, base_url: Optional[str] = None):
-        self.base_url = base_url or "https://a8.zifeiyuai.top:2345"
-        self.base_url = self.base_url.rstrip('/')
+    def __init__(
+        self,
+        base_url: Optional[str] = None,
+        api_key: Optional[str] = None,
+        poll_timeout: Optional[int] = None,
+        poll_interval: Optional[int] = None,
+    ):
+        self.base_url = (base_url or settings.vector_zfy_base_url).rstrip("/")
+        self.api_key = api_key if api_key is not None else settings.vector_zfy_api_key
+        self.poll_timeout = poll_timeout or settings.vector_zfy_poll_timeout
+        self.poll_interval = poll_interval or settings.vector_zfy_poll_interval
+        self.file_service = FileService()
+
+    @staticmethod
+    def _normalize_format(fmt: Optional[str]) -> str:
+        normalized = (fmt or "eps").strip().lower().lstrip(".")
+        return normalized if normalized in {"eps", "svg"} else "eps"
+
+    @staticmethod
+    def _detect_result_format(
+        content: bytes,
+        requested_fmt: str,
+        headers: httpx.Headers,
+    ) -> str:
+        content_type = headers.get("content-type", "").lower()
+        disposition = headers.get("content-disposition", "").lower()
+        head = content[:256].lstrip().lower()
+
+        if "postscript" in content_type or ".eps" in disposition:
+            return "eps"
+        if "svg" in content_type or ".svg" in disposition:
+            return "svg"
+        if head.startswith(b"%!ps"):
+            return "eps"
+        if head.startswith(b"<?xml") or head.startswith(b"<svg"):
+            return "svg"
+
+        return requested_fmt
+
+    @property
+    def headers(self) -> dict[str, str]:
+        if not self.api_key:
+            raise AIClientException(
+                message="未配置A8矢量化API密钥",
+                api_name="A8Vectorizer",
+            )
+        return {"zfyai-api-key": self.api_key}
 
     async def image_to_vector(
         self,
         image_bytes: bytes,
         fmt: str = 'eps',
         save_path: Optional[str] = None,
-        timeout: int = 120,
-        poll_interval: int = 2
+        timeout: Optional[int] = None,
+        poll_interval: Optional[int] = None,
     ) -> str:
         """
         上传图片 → 轮询 → 下载指定格式（eps/svg）
@@ -45,9 +90,10 @@ class A8VectorizerClient:
         Returns:
             保存的文件URL路径
         """
-        fmt = (fmt or 'eps').lower()
-        if fmt not in ('eps', 'svg'):
-            fmt = 'eps'
+        fmt = self._normalize_format(fmt)
+        wait_timeout = timeout or self.poll_timeout
+        wait_interval = poll_interval or self.poll_interval
+        request_headers = self.headers
 
         try:
             # 1) 上传图片并指定格式
@@ -60,8 +106,9 @@ class A8VectorizerClient:
                 async with httpx.AsyncClient(timeout=300.0, verify=False) as client:
                     response = await client.post(
                         f"{self.base_url}/add_task",
+                        headers=request_headers,
                         files=files,
-                        data=data
+                        data=data,
                     )
 
             if response.status_code != 200:
@@ -102,7 +149,8 @@ class A8VectorizerClient:
                     async with httpx.AsyncClient(timeout=300.0, verify=False) as client:
                         response = await client.get(
                             f"{self.base_url}/try_get",
-                            params={'taskid': taskid}
+                            headers=request_headers,
+                            params={'taskid': taskid},
                         )
 
                 if response.status_code != 200:
@@ -127,22 +175,25 @@ class A8VectorizerClient:
                         request_data={"taskid": taskid},
                     )
 
-                if time.time() - t0 > timeout:
+                if time.time() - t0 > wait_timeout:
                     raise AIClientException(
                         message="A8矢量化任务超时，请稍后重试",
                         api_name="A8Vectorizer",
-                        request_data={"taskid": taskid, "timeout": timeout},
+                        request_data={"taskid": taskid, "timeout": wait_timeout},
                     )
 
-                logger.info(f"Task {taskid} still processing, waiting {poll_interval}s...")
-                await asyncio.sleep(poll_interval)
+                logger.info(
+                    f"Task {taskid} still processing, waiting {wait_interval}s..."
+                )
+                await asyncio.sleep(wait_interval)
 
             # 3) 下载文件
             async with api_limiter.slot("a8_vectorizer"):
                 async with httpx.AsyncClient(timeout=300.0, verify=False) as client:
                     response = await client.get(
                         f"{self.base_url}/get_image",
-                        params={'taskid': taskid}
+                        headers=request_headers,
+                        params={'taskid': taskid},
                     )
 
             if response.status_code != 200:
@@ -154,12 +205,18 @@ class A8VectorizerClient:
                     request_data={"taskid": taskid},
                 )
 
-            filename = f"vectorized_{uuid.uuid4().hex[:8]}.{fmt}"
-            file_service = FileService()
-            saved_url = await file_service.save_upload_file(
+            result_fmt = self._detect_result_format(
+                response.content,
+                fmt,
+                response.headers,
+            )
+            filename = f"vectorized_{uuid.uuid4().hex[:8]}.{result_fmt}"
+            saved_url = await self.file_service.save_upload_file(
                 response.content,
                 filename,
                 subfolder="results",
+                validate_dimensions=False,
+                validate_file_size=False,
             )
             logger.info("Vector file saved to storage: %s", saved_url)
             return saved_url
@@ -178,8 +235,8 @@ class A8VectorizerClient:
         self,
         image_bytes: bytes,
         save_eps_path: Optional[str] = None,
-        timeout: int = 120,
-        poll_interval: int = 2
+        timeout: Optional[int] = None,
+        poll_interval: Optional[int] = None,
     ) -> str:
         """
         上传图片并转换为EPS格式
@@ -205,8 +262,8 @@ class A8VectorizerClient:
         self,
         image_bytes: bytes,
         save_svg_path: Optional[str] = None,
-        timeout: int = 120,
-        poll_interval: int = 2
+        timeout: Optional[int] = None,
+        poll_interval: Optional[int] = None,
     ) -> str:
         """
         上传图片并转换为SVG格式

@@ -1,17 +1,26 @@
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-import sys
+from contextlib import asynccontextmanager
 import os
+import sys
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
+import pytest
 
 # Add the parent directory to the path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.services.ai_client.ai_client import AIClient
 from app.core.config import settings
+from app.services.ai_client.a8_vectorizer_client import A8VectorizerClient
+from app.services.ai_client.vectorizer_client import VectorizerClient
 from app.services.ai_client.zfy_vectorizer_client import ZfyVectorizerClient
 from app.services.file_service import FileService
+
+
+@asynccontextmanager
+async def noop_api_slot(*_args, **_kwargs):
+    yield
+
 
 @pytest.mark.asyncio
 async def test_vectorize_image_webapi_fallback(monkeypatch):
@@ -135,6 +144,27 @@ async def test_vectorize_image_webapi_zfy_uses_default_eps(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_vectorizer_client_delegates_to_new_protocol():
+    zfy_client = MagicMock()
+    zfy_client.base_url = "https://a8.zifeiyuai.top:2345"
+    zfy_client.image_to_vector = AsyncMock(return_value="/files/results/vectorized.svg")
+
+    client = VectorizerClient(zfy_client=zfy_client)
+    result = await client.vectorize_image(
+        b"fake_image_bytes",
+        options={"vectorFormat": ".svg", "original_filename": "sample.png"},
+    )
+
+    assert result == "/files/results/vectorized.svg"
+    assert client.vectorizer_url == "https://a8.zifeiyuai.top:2345/add_task"
+    zfy_client.image_to_vector.assert_awaited_once_with(
+        b"fake_image_bytes",
+        fmt="svg",
+        filename="sample.png",
+    )
+
+
+@pytest.mark.asyncio
 async def test_vectorize_image_webapi_zfy_falls_back_to_legacy(monkeypatch):
     monkeypatch.setattr(settings, "vectorizer_primary_provider", "zfy")
     monkeypatch.setattr(settings, "vectorizer_fallback_to_legacy", True)
@@ -221,6 +251,66 @@ def test_zfy_detects_eps_response():
 
 
 @pytest.mark.asyncio
+async def test_a8_sends_zfy_api_key_header(monkeypatch):
+    requests = []
+
+    class FakeAsyncClient:
+        def __init__(self, **_kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def post(self, url, **kwargs):
+            requests.append(("post", url, kwargs))
+            return httpx.Response(200, json={"code": 0, "id": "task-123"})
+
+        async def get(self, url, **kwargs):
+            requests.append(("get", url, kwargs))
+            if url.endswith("/try_get"):
+                return httpx.Response(200, json={"code": 0})
+            return httpx.Response(
+                200,
+                content=b"%!PS-Adobe-3.0 EPSF-3.0\n",
+                headers={"content-type": "application/postscript"},
+            )
+
+    monkeypatch.setattr(
+        "app.services.ai_client.a8_vectorizer_client.httpx.AsyncClient",
+        FakeAsyncClient,
+    )
+    monkeypatch.setattr(
+        "app.services.ai_client.a8_vectorizer_client.api_limiter.slot",
+        noop_api_slot,
+    )
+
+    client = A8VectorizerClient(
+        base_url="https://a8.zifeiyuai.top:2345",
+        api_key="test-key",
+    )
+    client.file_service.save_upload_file = AsyncMock(
+        return_value="/files/results/vectorized.eps"
+    )
+
+    result = await client.image_to_vector(b"fake_image_bytes", fmt="eps")
+
+    assert result == "/files/results/vectorized.eps"
+    assert [call[0] for call in requests] == ["post", "get", "get"]
+    assert all(
+        call_kwargs["headers"] == {"zfyai-api-key": "test-key"}
+        for _, _, call_kwargs in requests
+    )
+    client.file_service.save_upload_file.assert_awaited_once()
+    _, save_args, save_kwargs = client.file_service.save_upload_file.mock_calls[0]
+    assert save_args[1].endswith(".eps")
+    assert save_kwargs["validate_dimensions"] is False
+    assert save_kwargs["validate_file_size"] is False
+
+
+@pytest.mark.asyncio
 async def test_zfy_retries_transient_request_errors(monkeypatch):
     calls = 0
     response = httpx.Response(200, json={"code": 0})
@@ -246,6 +336,10 @@ async def test_zfy_retries_transient_request_errors(monkeypatch):
     monkeypatch.setattr(
         "app.services.ai_client.zfy_vectorizer_client.httpx.AsyncClient",
         FakeAsyncClient,
+    )
+    monkeypatch.setattr(
+        "app.services.ai_client.zfy_vectorizer_client.api_limiter.slot",
+        noop_api_slot,
     )
     sleep = AsyncMock()
     monkeypatch.setattr("app.services.ai_client.zfy_vectorizer_client.asyncio.sleep", sleep)
