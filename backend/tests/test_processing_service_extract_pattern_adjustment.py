@@ -149,3 +149,15 @@ def test_combined_t2_extract_pattern_describes_haoee_downstream():
         "provider": "haoee_maas",
         "patternType": "combined_t2",
     }
+
+
+def test_denoise_describes_haoee_pro_4k_lite_downstream():
+    service = ProcessingService()
+
+    downstream = service._describe_downstream(TaskType.DENOISE.value, {})
+
+    assert downstream == {
+        "provider": "haoee_maas",
+        "model": "gemini-3-pro-image-preview-lite",
+        "resolution": "4K",
+    }

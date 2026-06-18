@@ -241,6 +241,8 @@ class ProcessingService:
                 provider = "haoee_maas"
         elif task_type == TaskType.VECTORIZE.value:
             provider = f"{settings.vectorizer_primary_provider}_vectorizer+a8_vectorizer+webapi"
+        elif task_type == TaskType.DENOISE.value:
+            provider = "haoee_maas"
         elif task_type == TaskType.EMBROIDERY.value and embroidery_mode == "embroidery":
             provider = "runninghub"
         elif task_type == TaskType.UPSCALE.value:
@@ -254,6 +256,9 @@ class ProcessingService:
             downstream["engine"] = engine
         if task_type == TaskType.EXTRACT_PATTERN.value and pattern_type in {"fine", "denim"}:
             downstream["model"] = "gpt-image-2-all"
+        if task_type == TaskType.DENOISE.value:
+            downstream["model"] = "gemini-3-pro-image-preview-lite"
+            downstream["resolution"] = "4K"
         if pattern_type:
             downstream["patternType"] = pattern_type
         if embroidery_mode:

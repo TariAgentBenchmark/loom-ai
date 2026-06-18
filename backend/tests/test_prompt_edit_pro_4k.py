@@ -1,6 +1,8 @@
 import pytest
 
 from app.services.ai_client.image_utils import (
+    DENOISE_PRO_4K_MODEL,
+    DENOISE_PRO_4K_RESOLUTION,
     PROMPT_EDIT_PRO_4K_MODEL,
     ImageProcessingUtils,
 )
@@ -42,3 +44,45 @@ async def test_prompt_edit_pro_4k_uses_pro_model_and_resolution(monkeypatch):
     assert result == "https://example.com/result.png"
     assert captured["kwargs"]["resolution"] == "4K"
     assert captured["kwargs"]["model_name"] == PROMPT_EDIT_PRO_4K_MODEL
+
+
+@pytest.mark.asyncio
+async def test_denoise_uses_haoee_pro_4k_lite_model(monkeypatch):
+    utils = ImageProcessingUtils()
+    captured = {}
+
+    async def fake_generate_image_preview(*args, **kwargs):
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return {"ok": True}
+
+    async def fail_if_apyi_called(*_args, **_kwargs):
+        raise AssertionError("denoise should use Haoee MaaS, not Apyi Gemini")
+
+    monkeypatch.setattr(
+        utils.haoee_gemini_client,
+        "generate_image_preview",
+        fake_generate_image_preview,
+    )
+    monkeypatch.setattr(
+        utils.haoee_gemini_client,
+        "_extract_image_url",
+        lambda _result: "https://example.com/denoise.png",
+    )
+    monkeypatch.setattr(
+        utils.apyi_gemini_client,
+        "process_image",
+        fail_if_apyi_called,
+    )
+
+    result = await utils.denoise_image(
+        b"fake-image",
+        {"aspect_ratio": "1:1"},
+    )
+
+    assert result == "https://example.com/denoise.png"
+    assert captured["args"][0] == b"fake-image"
+    assert "香蕉Pro 4K" in captured["args"][1]
+    assert captured["kwargs"]["aspect_ratio"] == "1:1"
+    assert captured["kwargs"]["resolution"] == DENOISE_PRO_4K_RESOLUTION
+    assert captured["kwargs"]["model_name"] == DENOISE_PRO_4K_MODEL

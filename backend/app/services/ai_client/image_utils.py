@@ -8,10 +8,13 @@ from app.core.config import settings
 from app.services.ai_client.gemini_client import GeminiClient
 from app.services.ai_client.apyi_gemini_client import ApyiGeminiClient
 from app.services.ai_client.apyi_openai_client import ApyiOpenAIClient, GPT_IMAGE_2_ALL_MODEL
+from app.services.ai_client.haoee_gemini_client import HaoeeGeminiClient
 
 logger = logging.getLogger(__name__)
 
 PROMPT_EDIT_PRO_4K_MODEL = "gemini-3-pro-image-preview-4k"
+DENOISE_PRO_4K_MODEL = "gemini-3-pro-image-preview-lite"
+DENOISE_PRO_4K_RESOLUTION = "4K"
 
 
 class ImageProcessingUtils:
@@ -21,6 +24,7 @@ class ImageProcessingUtils:
         self.gemini_client = GeminiClient()
         self.apyi_gemini_client = ApyiGeminiClient()
         self.apyi_openai_client = ApyiOpenAIClient()
+        self.haoee_gemini_client = HaoeeGeminiClient()
 
     def _normalize_pattern_type(self, raw_value: Optional[str]) -> str:
         normalized = (raw_value or "general_2").strip().lower().replace("-", "_")
@@ -404,19 +408,51 @@ class ImageProcessingUtils:
         options = options or {}
         prompt = (
             "生成图片："
-            "Generate a new image by removing the fabric texture from this image, make the surface smooth while preserving the original color tone and overall appearance as much as possible."
+            "使用香蕉Pro 4K模型对上传图片进行布纹去噪和高清重绘。"
+            "去除布纹、噪点、纸纹、扫描纹、水波纹和压缩噪声，让画面表面更平整干净；"
+            "尽量保持原始图案、颜色、结构、边缘和构图不变，不新增图案元素，不改变主体形状。"
+            "输出4K高清、清晰锐利、适合设计交付的结果。"
         )
 
         # 提取分辨率参数
         aspect_ratio = options.get("aspect_ratio")
-        width = options.get("width")
-        height = options.get("height")
-
-        return await self._process_image_with_retry(
-            image_bytes,
-            prompt,
-            "image/png",
-            aspect_ratio=aspect_ratio,
-            width=width,
-            height=height
+        raw_model_name = options.get("haoee_model")
+        model_name = (
+            raw_model_name.strip()
+            if isinstance(raw_model_name, str) and raw_model_name.strip()
+            else DENOISE_PRO_4K_MODEL
         )
+
+        last_error: Optional[Exception] = None
+        max_retries = 3
+        for attempt in range(1, max_retries + 1):
+            try:
+                result = await self.haoee_gemini_client.generate_image_preview(
+                    image_bytes,
+                    prompt,
+                    "image/png",
+                    aspect_ratio=aspect_ratio,
+                    resolution=DENOISE_PRO_4K_RESOLUTION,
+                    model_name=model_name,
+                )
+                url = self.haoee_gemini_client._extract_image_url(result)
+                if url:
+                    return url
+                last_error = Exception("Haoee MaaS返回缺少图片URL")
+                logger.warning(
+                    "Haoee MaaS denoise response missing image url (attempt %s/%s): %s",
+                    attempt,
+                    max_retries,
+                    result,
+                )
+            except Exception as exc:
+                last_error = exc
+                logger.warning(
+                    "Haoee MaaS denoise call failed (attempt %s/%s): %s",
+                    attempt,
+                    max_retries,
+                    str(exc),
+                )
+            await asyncio.sleep(0.3)
+
+        raise Exception(f"Haoee MaaS去布纹失败: {last_error}")
