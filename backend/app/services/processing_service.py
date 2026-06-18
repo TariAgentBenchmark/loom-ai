@@ -62,7 +62,7 @@ class ProcessingService:
             TaskType.VECTORIZE.value: 180,
             TaskType.EXTRACT_PATTERN.value: 200,
             TaskType.REMOVE_WATERMARK.value: 90,
-            TaskType.DENOISE.value: 120,
+            TaskType.DENOISE.value: 420,
             TaskType.EMBROIDERY.value: 200,  # 处理时间更长
             TaskType.FLAT_TO_3D.value: 210,
             TaskType.UPSCALE.value: 180,  # 高清放大

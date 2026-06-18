@@ -36,6 +36,9 @@ class HaoeeGeminiClient(BaseAIClient):
             settings.haoee_maas_base_url or "https://maas.haoee.com"
         ).rstrip("/")
         self.api_key = settings.haoee_maas_api_key
+        # 4K image generation can exceed the generic 300s client timeout.
+        self.request_timeout = 650.0
+        self.max_retries = 1
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",

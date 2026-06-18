@@ -13,6 +13,13 @@ def _build_png_bytes() -> bytes:
     return buffer.getvalue()
 
 
+def test_haoee_client_uses_long_single_request_timeout():
+    client = HaoeeGeminiClient()
+
+    assert client.request_timeout == 650.0
+    assert client.max_retries == 1
+
+
 @pytest.mark.asyncio
 async def test_generate_image_preview_sends_haoee_image_size(monkeypatch):
     client = HaoeeGeminiClient()

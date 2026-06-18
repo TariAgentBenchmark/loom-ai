@@ -161,3 +161,9 @@ def test_denoise_describes_haoee_pro_4k_lite_downstream():
         "model": "gemini-3-pro-image-preview-lite",
         "resolution": "4K",
     }
+
+
+def test_denoise_estimated_time_matches_haoee_4k_runtime():
+    service = ProcessingService()
+
+    assert service.estimated_times[TaskType.DENOISE.value] == 420

@@ -83,13 +83,14 @@ class BaseAIClient:
         if headers:
             request_headers.update(headers)
 
-        max_retries = 3
+        max_retries = getattr(self, "max_retries", 3)
+        request_timeout = getattr(self, "request_timeout", 300.0)
         backoff_base = 1.5
 
         async def _do_request():
             for attempt in range(1, max_retries + 1):
                 try:
-                    async with httpx.AsyncClient(timeout=300.0) as client:
+                    async with httpx.AsyncClient(timeout=request_timeout) as client:
                         response = await client.request(
                             method=method,
                             url=url,
