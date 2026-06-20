@@ -88,7 +88,7 @@ const AUTH_DEMO_CREDENTIALS = {
 
 const POLLING_INTERVAL_MS = 3000;
 const ACTIVE_TASK_STORAGE_KEY = 'loomai:active-processing-task';
-const DEFAULT_PATTERN_TYPE = 'general';
+const DEFAULT_PATTERN_TYPE = 'combined';
 const DESKTOP_QUERY_PARAM = 'desktop';
 const DESKTOP_LOGIN_QUERY_PARAM = 'desktopLogin';
 

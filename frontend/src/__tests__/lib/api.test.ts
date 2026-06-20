@@ -120,7 +120,7 @@ describe("processing task creation", () => {
     }),
   });
 
-  it("defaults extract pattern tasks to the general model", async () => {
+  it("defaults extract pattern tasks to the combined model", async () => {
     const fetchMock = jest.fn().mockResolvedValue(mockSuccessResponse());
     global.fetch = fetchMock;
 
@@ -131,10 +131,10 @@ describe("processing task creation", () => {
     });
 
     const body = fetchMock.mock.calls[0][1]?.body as FormData;
-    expect(body.get("pattern_type")).toBe("general");
+    expect(body.get("pattern_type")).toBe("combined");
   });
 
-  it("defaults batch extract pattern tasks to the general model", async () => {
+  it("defaults batch extract pattern tasks to the combined model", async () => {
     const fetchMock = jest.fn().mockResolvedValue(mockSuccessResponse());
     global.fetch = fetchMock;
 
@@ -145,7 +145,7 @@ describe("processing task creation", () => {
     });
 
     const body = fetchMock.mock.calls[0][1]?.body as FormData;
-    expect(body.get("pattern_type")).toBe("general");
+    expect(body.get("pattern_type")).toBe("combined");
   });
 });
 

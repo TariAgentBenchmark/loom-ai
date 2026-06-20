@@ -94,7 +94,7 @@ async def create_batch_task(
             raise HTTPException(status_code=400, detail="请填写修改指令")
         
         if task_type == "extract_pattern":
-            options["pattern_type"] = pattern_type or "general_1"
+            options["pattern_type"] = pattern_type or "combined"
             options["quality"] = quality or "standard"
             if num_images is not None:
                 options["num_images"] = num_images
