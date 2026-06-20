@@ -167,7 +167,7 @@ def test_combined_t2_extract_pattern_describes_haoee_downstream():
     )
 
     assert downstream == {
-        "provider": "haoee_maas",
+        "provider": "haoee_maas+tuzi_gpt_image_2_vip",
         "patternType": "combined_t2",
     }
 

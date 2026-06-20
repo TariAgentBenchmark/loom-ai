@@ -38,6 +38,7 @@ class Settings(BaseSettings):
         default_factory=lambda: {
             "apyi_gemini": 50,
             "apyi_openai": 50,
+            "tuzi_openai": 20,
             "ai302_grok": 20,
             "gpt4o": 50,
             "runninghub": 100,

@@ -9,9 +9,12 @@ from app.services.ai_client.base_client import BaseAIClient
 from app.services.ai_client.gemini_client import GeminiClient
 from app.services.ai_client.apyi_gemini_client import ApyiGeminiClient
 from app.services.ai_client.tuzi_gemini_client import TuziGeminiClient
+from app.services.ai_client.tuzi_openai_client import (
+    TUZI_GPT_IMAGE_2_VIP_MODEL,
+    TuziOpenAIClient,
+)
 from app.services.ai_client.haoee_gemini_client import HaoeeGeminiClient
 from app.services.ai_client.apyi_openai_client import ApyiOpenAIClient
-from app.services.ai_client.ai302_grok_client import AI302GrokClient
 from app.services.ai_client.gpt4o_client import GPT4oClient
 from app.services.ai_client.image_utils import ImageProcessingUtils
 from app.services.ai_client.gqch_client import GQCHClient
@@ -49,6 +52,10 @@ _PATTERN_TYPE_ALIASES = {
 }
 
 _COMBINED_VARIANTS = ("general_2", "combined_detail")
+_GPT_IMAGE_2_VIP_PATTERN_PROMPT = (
+    "提取图中衣服上的图案，去掉褶皱、阴影，图案细节必须跟原图一模一样。"
+    "输出4K高清平面印刷图案，只保留图案本身和干净底色，不要生成衣服形状。"
+)
 _EMBROIDERY_MODE_ALIASES = {
     "yarn": "yarn",
     "wool": "yarn",
@@ -67,9 +74,9 @@ class AIClient:
         self.gemini_client = GeminiClient()
         self.apyi_gemini_client = ApyiGeminiClient()
         self.tuzi_gemini_client = TuziGeminiClient()
+        self.tuzi_openai_client = TuziOpenAIClient()
         self.haoee_gemini_client = HaoeeGeminiClient()
         self.apyi_openai_client = ApyiOpenAIClient()
-        self.ai302_grok_client = AI302GrokClient()
         self.jimeng_client = JimengClient()
         self.vectorizer_client = VectorizerClient()
         self.vector_webapi_client = VectorWebAPIClient()
@@ -375,25 +382,6 @@ class AIClient:
         image_bytes: bytes,
         options: Dict[str, Any],
     ) -> str:
-        grok_prompt = (
-            "核心任务： 全幅宽定位印花画稿生成 (密度控制 + 智能扩展)\n"
-            "角色设定： 您是顶级印花设计专家。您的目标是生成一张“准备上机打印”的、构图完美的数码印花源文件。\n\n"
-            "核心指令 (必须严格执行)：\n\n"
-            "定位花布局与密度控制 (Engineered Layout & Density - 核心加强)\n\n"
-            "定位逻辑： 严格遵循“定位印花”的设计原则。花型的位置是经过精心设计的，而非随机平铺。保持原图特有的花位布局（如：花朵在特定位置的聚散）。\n\n"
-            "呼吸感与留白 (Negative Space)： 精准复刻原图的图案间距。必须保留花卉之间的干净的背景 (Breathing Room)。严禁为了填满画布而过度堆砌图案，导致画面拥挤或混乱。保持清爽、透气的视觉节奏。\n\n"
-            "疏密节奏： 准确还原原设计的疏密变化（例如：若原设计是下摆密、腰头疏，则必须严格遵守；若原设计是均匀分布，则保持均匀）。\n\n"
-            "四周扩展与花型完整性 (Outpainting & Integrity - 核心加强)\n\n"
-            "拒绝残缺： 确保画面边缘和扩展区域的所有花朵/几何图形都是结构完整的。严禁出现只有一半、被切断或破碎的花型。\n\n"
-            "腰头区域：去褶皱还原 (保持不变)\n\n"
-            "数字解压： 识别腰部的高密度是物理挤压造成的。必须将挤在一起的图案“拉开”、“摊平”，恢复其原本的自然间距和大小，与主体图案保持一致。\n\n"
-            "裤装/裙装隐形合并逻辑 (保持不变)\n\n"
-            "裤装缝合： 彻底忽略裤腿缝隙，将双腿图案合并为连续宽幅平面。\n\n"
-            "顺势排列： 图案走势顺应版型（裤装垂直），但不画出任何物理轮廓线。\n\n"
-            "画质：超高清印花级\n\n"
-            "刀锋锐利： 8K+分辨率，边缘锐利，无模糊，保留手绘/数码原稿的细腻笔触。\n\n"
-            "排除列表 (加强版)： 排除：图案拥挤，花型被切断，边缘残缺，腰部假性密集，裤子/裙子轮廓，缝隙，阴影，模糊"
-        )
         branch_errors: List[Dict[str, Any]] = []
 
         async def _run_variant(pt: str) -> Optional[str]:
@@ -462,23 +450,30 @@ class AIClient:
                 )
                 return None
 
-        async def _run_grok302_extract() -> Optional[str]:
-            """Use 302.AI Grok image edit only; no fallback on failure."""
-            image_url = options.get("original_image_url")
-            aspect_ratio = options.get("aspect_ratio")
-
+        async def _run_tuzi_gpt_image_2_vip_extract() -> Optional[str]:
             try:
-                result = await self.ai302_grok_client.edit_image(
-                    image_url=image_url,
-                    prompt=grok_prompt,
-                    aspect_ratio=aspect_ratio,
+                result = await self.tuzi_openai_client.edit_image(
+                    image_bytes=image_bytes,
+                    prompt=_GPT_IMAGE_2_VIP_PATTERN_PROMPT,
+                    mime_type="image/png",
+                    model=TUZI_GPT_IMAGE_2_VIP_MODEL,
                 )
-                return self.ai302_grok_client.extract_image_url(result)
+                return self.tuzi_openai_client.extract_image_url(result)
             except Exception as exc:
                 branch_errors.append(
-                    self._serialize_downstream_error(exc, label="grok302")
+                    self._serialize_downstream_error(
+                        exc,
+                        label="tuzi_gpt_image_2_vip",
+                        extra={
+                            "provider": "tuzi",
+                            "model": TUZI_GPT_IMAGE_2_VIP_MODEL,
+                        },
+                    )
                 )
-                logger.warning("Combined pattern 302.AI Grok failed: %s", str(exc))
+                logger.warning(
+                    "Combined pattern Tuzi gpt-image-2-vip failed: %s",
+                    str(exc),
+                )
                 return None
 
         async def _run_branch_with_timeout(
@@ -522,8 +517,8 @@ class AIClient:
                 _run_variant("combined_detail"),
             ),
             (
-                "grok302",
-                _run_grok302_extract(),
+                "tuzi_gpt_image_2_vip",
+                _run_tuzi_gpt_image_2_vip_extract(),
             ),
             (
                 "runninghub_combined_4",
@@ -653,6 +648,33 @@ class AIClient:
                 )
                 return None
 
+        async def _run_tuzi_gpt_image_2_vip_branch(label: str) -> Optional[str]:
+            try:
+                result = await self.tuzi_openai_client.edit_image(
+                    image_bytes=image_bytes,
+                    prompt=_GPT_IMAGE_2_VIP_PATTERN_PROMPT,
+                    mime_type="image/png",
+                    model=TUZI_GPT_IMAGE_2_VIP_MODEL,
+                )
+                return self.tuzi_openai_client.extract_image_url(result)
+            except Exception as exc:
+                branch_errors.append(
+                    self._serialize_downstream_error(
+                        exc,
+                        label=label,
+                        extra={
+                            "provider": "tuzi",
+                            "model": TUZI_GPT_IMAGE_2_VIP_MODEL,
+                        },
+                    )
+                )
+                logger.warning(
+                    "Combined T2 Tuzi gpt-image-2-vip branch %s failed: %s",
+                    label,
+                    str(exc),
+                )
+                return None
+
         async def _run_branch_with_timeout(label: str, resolution: str) -> Optional[str]:
             branch_timeout = max(
                 0.01,
@@ -683,22 +705,61 @@ class AIClient:
             except asyncio.CancelledError:
                 raise
 
+        async def _run_tuzi_branch_with_timeout(label: str) -> Optional[str]:
+            branch_timeout = max(
+                0.01,
+                float(settings.extract_pattern_combined_branch_timeout_seconds),
+            )
+            try:
+                return await asyncio.wait_for(
+                    _run_tuzi_gpt_image_2_vip_branch(label),
+                    timeout=branch_timeout,
+                )
+            except asyncio.TimeoutError:
+                branch_errors.append(
+                    {
+                        "label": label,
+                        "provider": "tuzi",
+                        "model": TUZI_GPT_IMAGE_2_VIP_MODEL,
+                        "exceptionType": "TimeoutError",
+                        "message": f"Branch timed out after {branch_timeout}s",
+                    }
+                )
+                logger.warning(
+                    "Combined T2 Tuzi gpt-image-2-vip branch %s timed out after %ss",
+                    label,
+                    branch_timeout,
+                )
+                return None
+            except asyncio.CancelledError:
+                raise
+
         requested_count = self._normalize_combined_t2_image_count(
             options.get("num_images")
         )
-        all_branch_specs = [
-            ("haoee_3pro_2k_1", "2K"),
-            ("haoee_3pro_2k_2", "2K"),
-            ("haoee_3pro_2k_3", "2K"),
-            ("haoee_3pro_4k_1", "4K"),
+        if requested_count == 1:
+            branch_specs: List[Tuple[str, str, str]] = [
+                ("haoee_3pro_2k_1", "haoee", "2K"),
+            ]
+        elif requested_count == 2:
+            branch_specs = [
+                ("haoee_3pro_2k_1", "haoee", "2K"),
+                ("tuzi_gpt_image_2_vip_1", "tuzi", "4K"),
+            ]
+        else:
+            branch_specs = [
+                ("haoee_3pro_2k_1", "haoee", "2K"),
+                ("haoee_3pro_2k_2", "haoee", "2K"),
+                ("haoee_3pro_2k_3", "haoee", "2K"),
+                ("tuzi_gpt_image_2_vip_1", "tuzi", "4K"),
+            ]
+        branch_coroutines = [
+            _run_branch_with_timeout(label, resolution)
+            if provider == "haoee"
+            else _run_tuzi_branch_with_timeout(label)
+            for label, provider, resolution in branch_specs
         ]
-        branch_specs = all_branch_specs[:requested_count]
-        branch_results = await asyncio.gather(
-            *(
-                _run_branch_with_timeout(label, resolution)
-                for label, resolution in branch_specs
-            )
-        )
+        branch_results = await asyncio.gather(*branch_coroutines)
 
         variant_urls: List[str] = []
         for url in branch_results:
@@ -712,7 +773,7 @@ class AIClient:
                 response_body={
                     "summary": {
                         "patternType": "combined_t2",
-                        "provider": "haoee",
+                        "provider": "haoee_maas+tuzi_gpt_image_2_vip",
                         "model": model_name,
                         "successfulResults": 0,
                         "expectedResults": len(branch_specs),
@@ -726,7 +787,7 @@ class AIClient:
             )
 
         logger.info(
-            "Combined T2 pattern produced %s/%s urls through Haoee MaaS",
+            "Combined T2 pattern produced %s/%s urls through Haoee MaaS/Tuzi",
             len(variant_urls),
             len(branch_specs),
         )
