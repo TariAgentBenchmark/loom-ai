@@ -585,7 +585,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     { value: 2, label: "2张图" },
     { value: 4, label: "4张图" },
   ];
-  const effectivePatternType = patternType ?? "combined_t2";
+  const effectivePatternType = patternType ?? "general";
   const effectiveGeneralImageCount = generalImageCount ?? 4;
   const canChoosePatternImageCount =
     effectivePatternType === "general" || effectivePatternType === "combined_t2";
@@ -627,7 +627,12 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   const isExpandImage = method === "expand_image";
   const serviceCostHint =
     method === "extract_pattern"
-      ? "失败不扣积分，少于3张少扣0.5积分"
+      ? effectivePatternType === "combined_t2" && effectiveGeneralImageCount === 4
+        ? "失败不扣积分，少于3张少扣0.3积分"
+        : (effectivePatternType === "general" && effectiveGeneralImageCount === 4) ||
+            effectivePatternType === "combined"
+          ? "失败不扣积分，少于3张少扣0.5积分"
+          : "失败不扣积分"
       : "失败不扣积分";
   const handleClearPrimaryImage = useCallback(
     (event: React.MouseEvent<HTMLButtonElement>) => {

@@ -88,6 +88,7 @@ const AUTH_DEMO_CREDENTIALS = {
 
 const POLLING_INTERVAL_MS = 3000;
 const ACTIVE_TASK_STORAGE_KEY = 'loomai:active-processing-task';
+const DEFAULT_PATTERN_TYPE = 'general';
 const DESKTOP_QUERY_PARAM = 'desktop';
 const DESKTOP_LOGIN_QUERY_PARAM = 'desktopLogin';
 
@@ -173,7 +174,7 @@ function HomeContent() {
   const [promptInstruction, setPromptInstruction] = useState<string>('');
   const [promptEditMode, setPromptEditMode] = useState<PromptEditMode>('standard');
   const [embroideryMode, setEmbroideryMode] = useState<'yarn' | 'embroidery'>('embroidery');
-  const [patternType, setPatternType] = useState<string>('combined_t2');
+  const [patternType, setPatternType] = useState<string>(DEFAULT_PATTERN_TYPE);
   const [denimAspectRatio, setDenimAspectRatio] = useState<string>('1:1');
   const [denimImageCount, setDenimImageCount] = useState<number>(2);
   const [generalImageCount, setGeneralImageCount] = useState<number>(4);
@@ -1017,8 +1018,8 @@ function HomeContent() {
     }
 
     if (currentPage === 'upscale' && primaryImageDimensions) {
-      // 通用1/2 均遵循美图尺寸限制
-      const maxSize = 2560;
+      // 高清沿用上传压缩后的全局尺寸上限，避免额外挡掉可处理图片。
+      const maxSize = IMAGE_UPLOAD_TARGET_MAX_DIMENSION;
       const { width, height } = primaryImageDimensions;
       if (width > maxSize || height > maxSize) {
         setErrorMessage(
@@ -1339,7 +1340,7 @@ function HomeContent() {
               setPromptInstruction('');
               setPromptEditMode('standard');
               setEmbroideryMode('embroidery');
-              setPatternType('combined_t2');
+              setPatternType(DEFAULT_PATTERN_TYPE);
               setDenimAspectRatio('1:1');
               setDenimImageCount(2);
               setGeneralImageCount(4);
@@ -1476,7 +1477,7 @@ function HomeContent() {
               setPromptEditMode('standard');
             }
             if (method === 'extract_pattern') {
-              setPatternType('combined_t2');
+              setPatternType(DEFAULT_PATTERN_TYPE);
               setDenimAspectRatio('1:1');
               setDenimImageCount(2);
               setGeneralImageCount(4);

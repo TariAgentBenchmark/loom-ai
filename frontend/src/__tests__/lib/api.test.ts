@@ -1,6 +1,8 @@
 import {
   createAdminTaskDownloadUrl,
   createBatchDownloadUrl,
+  createBatchTask,
+  createProcessingTask,
   createHistoryTaskDownloadUrl,
   createProcessingDownloadUrl,
   splitCombinedImageRefs,
@@ -81,6 +83,69 @@ describe("createProcessingDownloadUrl", () => {
     expect(url).toContain(
       "/processing/result/task_1/stream-download?token=download-token",
     );
+  });
+});
+
+describe("processing task creation", () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    if (originalFetch) {
+      global.fetch = originalFetch;
+    } else {
+      delete (global as Partial<typeof global>).fetch;
+    }
+    jest.restoreAllMocks();
+  });
+
+  const mockSuccessResponse = () => ({
+    ok: true,
+    headers: {
+      get: (name: string) =>
+        name.toLowerCase() === "content-type" ? "application/json" : null,
+    },
+    json: async () => ({
+      success: true,
+      data: {
+        taskId: "task_1",
+        batchId: "batch_1",
+        status: "queued",
+        estimatedTime: 120,
+        creditsUsed: 1,
+        totalImages: 1,
+        createdAt: "2026-06-20T00:00:00Z",
+      },
+      message: "ok",
+      timestamp: "2026-06-20T00:00:00Z",
+    }),
+  });
+
+  it("defaults extract pattern tasks to the general model", async () => {
+    const fetchMock = jest.fn().mockResolvedValue(mockSuccessResponse());
+    global.fetch = fetchMock;
+
+    await createProcessingTask({
+      method: "extract_pattern",
+      image: new File(["image"], "pattern.png", { type: "image/png" }),
+      accessToken: "access-token",
+    });
+
+    const body = fetchMock.mock.calls[0][1]?.body as FormData;
+    expect(body.get("pattern_type")).toBe("general");
+  });
+
+  it("defaults batch extract pattern tasks to the general model", async () => {
+    const fetchMock = jest.fn().mockResolvedValue(mockSuccessResponse());
+    global.fetch = fetchMock;
+
+    await createBatchTask({
+      method: "extract_pattern",
+      images: [new File(["image"], "pattern.png", { type: "image/png" })],
+      accessToken: "access-token",
+    });
+
+    const body = fetchMock.mock.calls[0][1]?.body as FormData;
+    expect(body.get("pattern_type")).toBe("general");
   });
 });
 

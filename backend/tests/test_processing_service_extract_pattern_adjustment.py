@@ -61,6 +61,27 @@ def test_two_extract_pattern_results_apply_half_credit_adjustment():
     }
 
 
+def test_two_combined_t2_results_apply_point_three_credit_adjustment():
+    service = ProcessingService()
+    task = _build_task(pattern_type="combined_t2", credits_used="1.0")
+
+    adjustment = service._apply_partial_result_credit_adjustment(task, 2)
+
+    assert adjustment == {
+        "expectedResultCount": 4.0,
+        "actualResultCount": 2.0,
+        "creditAdjustmentApplied": 0.3,
+    }
+    assert task.credits_used == to_decimal("0.7")
+    assert task.extra_metadata == {
+        "expectedResultCount": 4,
+        "actualResultCount": 2,
+        "originalCreditsUsed": 1.0,
+        "creditAdjustmentReason": "partial_extract_pattern_result",
+        "creditAdjustmentApplied": 0.3,
+    }
+
+
 def test_full_extract_pattern_result_keeps_original_credit_charge():
     service = ProcessingService()
     task = _build_task(pattern_type="general_1", num_images=2, credits_used="1.5")

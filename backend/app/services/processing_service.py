@@ -140,8 +140,18 @@ class ProcessingService:
             and normalized_actual_count > 0
             and normalized_actual_count < 3
         ):
+            pattern_type = (
+                str((task.options or {}).get("pattern_type") or "general_1")
+                .strip()
+                .lower()
+                .replace("-", "_")
+            )
             original_credits_used = to_decimal(task.credits_used or 0)
-            applied_discount = to_decimal("0.5")
+            applied_discount = (
+                to_decimal("0.3")
+                if pattern_type in {"combined_t2", "composite_t2"}
+                else to_decimal("0.5")
+            )
             task.credits_used = max(
                 to_decimal(0),
                 original_credits_used - applied_discount,
