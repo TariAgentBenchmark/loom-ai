@@ -55,5 +55,6 @@ docker-compose -f docker-compose.yml -f docker-compose.prod.yml --profile produc
 - Keep test deployments tied to `dev`; keep production deployments tied to `main`.
 - Use the exact compose syntax for each environment.
 - In production, only rebuild `backend` and `frontend`; do not recreate or restart `redis`, `nginx`, Safeline containers, PostgreSQL, or any other infrastructure containers unless explicitly requested.
+- Before production deployment, verify there are no actively processing tasks; deploy only when the queue is idle unless a forced deploy is explicitly requested.
 - After deployment, verify `backend`, `frontend`, and `nginx` are `Up`, and `redis` is healthy.
 - For risky or paid features, run a focused smoke test only when requested.
