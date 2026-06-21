@@ -8,12 +8,11 @@ from app.core.config import settings
 from app.services.ai_client.gemini_client import GeminiClient
 from app.services.ai_client.apyi_gemini_client import ApyiGeminiClient
 from app.services.ai_client.apyi_openai_client import ApyiOpenAIClient, GPT_IMAGE_2_ALL_MODEL
-from app.services.ai_client.haoee_gemini_client import HaoeeGeminiClient
 
 logger = logging.getLogger(__name__)
 
 PROMPT_EDIT_PRO_4K_MODEL = "gemini-3-pro-image-preview-4k"
-DENOISE_PRO_4K_MODEL = "gemini-3-pro-image-preview-lite"
+DENOISE_PRO_4K_MODEL = "gemini-3-pro-image-preview-4k"
 DENOISE_PRO_4K_RESOLUTION = "4K"
 
 
@@ -24,7 +23,6 @@ class ImageProcessingUtils:
         self.gemini_client = GeminiClient()
         self.apyi_gemini_client = ApyiGeminiClient()
         self.apyi_openai_client = ApyiOpenAIClient()
-        self.haoee_gemini_client = HaoeeGeminiClient()
 
     def _normalize_pattern_type(self, raw_value: Optional[str]) -> str:
         normalized = (raw_value or "general_2").strip().lower().replace("-", "_")
@@ -416,7 +414,7 @@ class ImageProcessingUtils:
 
         # 提取分辨率参数
         aspect_ratio = options.get("aspect_ratio")
-        raw_model_name = options.get("haoee_model")
+        raw_model_name = options.get("apyi_model") or options.get("model_name")
         model_name = (
             raw_model_name.strip()
             if isinstance(raw_model_name, str) and raw_model_name.strip()
@@ -427,7 +425,7 @@ class ImageProcessingUtils:
         max_retries = 3
         for attempt in range(1, max_retries + 1):
             try:
-                result = await self.haoee_gemini_client.generate_image_preview(
+                result = await self.apyi_gemini_client.generate_image_preview(
                     image_bytes,
                     prompt,
                     "image/png",
@@ -435,12 +433,12 @@ class ImageProcessingUtils:
                     resolution=DENOISE_PRO_4K_RESOLUTION,
                     model_name=model_name,
                 )
-                url = self.haoee_gemini_client._extract_image_url(result)
+                url = self.apyi_gemini_client._extract_image_url(result)
                 if url:
                     return url
-                last_error = Exception("Haoee MaaS返回缺少图片URL")
+                last_error = Exception("Apyi Gemini返回缺少图片URL")
                 logger.warning(
-                    "Haoee MaaS denoise response missing image url (attempt %s/%s): %s",
+                    "Apyi Gemini denoise response missing image url (attempt %s/%s): %s",
                     attempt,
                     max_retries,
                     result,
@@ -448,11 +446,11 @@ class ImageProcessingUtils:
             except Exception as exc:
                 last_error = exc
                 logger.warning(
-                    "Haoee MaaS denoise call failed (attempt %s/%s): %s",
+                    "Apyi Gemini denoise call failed (attempt %s/%s): %s",
                     attempt,
                     max_retries,
                     str(exc),
                 )
             await asyncio.sleep(0.3)
 
-        raise Exception(f"Haoee MaaS去布纹失败: {last_error}")
+        raise Exception(f"Apyi Gemini去布纹失败: {last_error}")

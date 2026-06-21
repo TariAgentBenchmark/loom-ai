@@ -172,19 +172,19 @@ def test_combined_t2_extract_pattern_describes_haoee_downstream():
     }
 
 
-def test_denoise_describes_haoee_pro_4k_lite_downstream():
+def test_denoise_describes_apyi_pro_4k_downstream():
     service = ProcessingService()
 
     downstream = service._describe_downstream(TaskType.DENOISE.value, {})
 
     assert downstream == {
-        "provider": "haoee_maas",
-        "model": "gemini-3-pro-image-preview-lite",
+        "provider": "apyi_gemini",
+        "model": "gemini-3-pro-image-preview-4k",
         "resolution": "4K",
     }
 
 
-def test_denoise_estimated_time_matches_haoee_4k_runtime():
+def test_denoise_estimated_time_matches_apyi_4k_runtime():
     service = ProcessingService()
 
     assert service.estimated_times[TaskType.DENOISE.value] == 420

@@ -47,7 +47,7 @@ async def test_prompt_edit_pro_4k_uses_pro_model_and_resolution(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_denoise_uses_haoee_pro_4k_lite_model(monkeypatch):
+async def test_denoise_uses_apyi_pro_4k_model(monkeypatch):
     utils = ImageProcessingUtils()
     captured = {}
 
@@ -56,23 +56,23 @@ async def test_denoise_uses_haoee_pro_4k_lite_model(monkeypatch):
         captured["kwargs"] = kwargs
         return {"ok": True}
 
-    async def fail_if_apyi_called(*_args, **_kwargs):
-        raise AssertionError("denoise should use Haoee MaaS, not Apyi Gemini")
+    async def fail_if_legacy_process_image_called(*_args, **_kwargs):
+        raise AssertionError("denoise should use Apyi preview 4K, not legacy process_image")
 
     monkeypatch.setattr(
-        utils.haoee_gemini_client,
+        utils.apyi_gemini_client,
         "generate_image_preview",
         fake_generate_image_preview,
     )
     monkeypatch.setattr(
-        utils.haoee_gemini_client,
+        utils.apyi_gemini_client,
         "_extract_image_url",
         lambda _result: "https://example.com/denoise.png",
     )
     monkeypatch.setattr(
         utils.apyi_gemini_client,
         "process_image",
-        fail_if_apyi_called,
+        fail_if_legacy_process_image_called,
     )
 
     result = await utils.denoise_image(
