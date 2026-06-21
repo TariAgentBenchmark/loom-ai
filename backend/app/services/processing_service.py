@@ -244,9 +244,12 @@ class ProcessingService:
                         options,
                         EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY,
                     )
-                    provider = f"runninghub+{route['provider']}_gemini+tuzi_gpt_image_2_vip"
+                    provider = (
+                        f"runninghub+{route['provider']}_gemini+"
+                        "tuzi_gpt_image_2_vip+ai302_grok_fallback"
+                    )
                 except Exception:
-                    provider = "runninghub+gemini+tuzi_gpt_image_2_vip"
+                    provider = "runninghub+gemini+tuzi_gpt_image_2_vip+ai302_grok_fallback"
             elif pattern_type in {"combined_t2", "composite_t2"}:
                 provider = "haoee_maas+tuzi_gpt_image_2_vip"
         elif task_type == TaskType.VECTORIZE.value:

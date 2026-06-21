@@ -27,6 +27,7 @@ def _build_client() -> AIClient:
         _extract_image_url=lambda _result: None,
     )
     client.tuzi_openai_client = SimpleNamespace(edit_image=None, extract_image_url=None)
+    client.ai302_grok_client = SimpleNamespace(edit_image=None, extract_image_url=None)
     client.haoee_gemini_client = SimpleNamespace(
         generate_image_preview=None,
         _extract_image_url=lambda _result: None,
@@ -38,36 +39,77 @@ def _build_client() -> AIClient:
 @pytest.mark.asyncio
 async def test_extract_pattern_combined_returns_early_when_enough_results(monkeypatch):
     client = _build_client()
-    cancelled = {"tuzi": False, "runninghub": False}
-
-    async def fake_extract_pattern(_image_bytes, options):
-        pattern_type = options["pattern_type"]
-        if pattern_type == "combined_detail":
-            await asyncio.sleep(0.02)
-            return "https://example.com/detail.png"
-        raise AssertionError(f"unexpected pattern type: {pattern_type}")
 
     async def fake_apyi_generate_image_preview(*_args, **_kwargs):
         await asyncio.sleep(0.01)
         return {"candidates": [{"content": {"parts": [{"text": "https://example.com/general.png"}]}}]}
 
-    async def slow_edit_image(**_kwargs):
-        try:
-            await asyncio.sleep(10)
-        except asyncio.CancelledError:
-            cancelled["tuzi"] = True
-            raise
+    async def fast_edit_image(**_kwargs):
+        return {"data": [{"url": "https://example.com/gpt2.png"}]}
 
-    async def slow_runninghub(**_kwargs):
-        try:
-            await asyncio.sleep(10)
-        except asyncio.CancelledError:
-            cancelled["runninghub"] = True
-            raise
+    async def fast_runninghub(**_kwargs):
+        return ["https://example.com/runninghub.png"]
 
     monkeypatch.setattr(settings, "extract_pattern_combined_branch_timeout_seconds", 180)
-    monkeypatch.setattr(settings, "extract_pattern_combined_early_return_success_count", 2)
-    monkeypatch.setattr(client.image_utils, "extract_pattern", fake_extract_pattern)
+    monkeypatch.setattr(settings, "extract_pattern_combined_early_return_success_count", 3)
+    monkeypatch.setattr(
+        client.apyi_gemini_client,
+        "generate_image_preview",
+        fake_apyi_generate_image_preview,
+    )
+    monkeypatch.setattr(
+        client.apyi_gemini_client,
+        "_extract_image_url",
+        lambda _result: "https://example.com/general.png",
+    )
+    monkeypatch.setattr(
+        client.runninghub_client,
+        "run_workflow_with_custom_nodes",
+        fast_runninghub,
+    )
+    monkeypatch.setattr(client.tuzi_openai_client, "edit_image", fast_edit_image)
+    monkeypatch.setattr(
+        client.tuzi_openai_client,
+        "extract_image_url",
+        lambda result: result["data"][0]["url"],
+    )
+    monkeypatch.setattr(
+        client.ai302_grok_client,
+        "edit_image",
+        lambda **_kwargs: pytest.fail("302 fallback should not run after enough results"),
+    )
+
+    result = await client._extract_pattern_combined(
+        b"fake-image",
+        {"original_image_url": "https://example.com/source.png", "aspect_ratio": "1:1"},
+    )
+
+    assert set(result.split(",")) == {
+        "https://example.com/general.png",
+        "https://example.com/gpt2.png",
+        "https://example.com/runninghub.png",
+    }
+
+
+@pytest.mark.asyncio
+async def test_extract_pattern_combined_allows_timeouts_when_other_branches_succeed(monkeypatch):
+    client = _build_client()
+
+    async def fake_apyi_generate_image_preview(*_args, **_kwargs):
+        return {"candidates": [{"content": {"parts": [{"text": "https://example.com/general.png"}]}}]}
+
+    async def fast_edit_image(**_kwargs):
+        return {"data": [{"url": "https://example.com/gpt2.png"}]}
+
+    async def fast_grok302(**_kwargs):
+        return {"images": [{"url": "https://example.com/grok302.png"}]}
+
+    async def slow_runninghub(**_kwargs):
+        await asyncio.sleep(1)
+        return ["https://example.com/runninghub.png"]
+
+    monkeypatch.setattr(settings, "extract_pattern_combined_branch_timeout_seconds", 0.05)
+    monkeypatch.setattr(settings, "extract_pattern_combined_early_return_success_count", 4)
     monkeypatch.setattr(
         client.apyi_gemini_client,
         "generate_image_preview",
@@ -83,42 +125,54 @@ async def test_extract_pattern_combined_returns_early_when_enough_results(monkey
         "run_workflow_with_custom_nodes",
         slow_runninghub,
     )
-    monkeypatch.setattr(client.tuzi_openai_client, "edit_image", slow_edit_image)
-    monkeypatch.setattr(client.tuzi_openai_client, "extract_image_url", lambda _result: None)
+    monkeypatch.setattr(client.tuzi_openai_client, "edit_image", fast_edit_image)
+    monkeypatch.setattr(
+        client.tuzi_openai_client,
+        "extract_image_url",
+        lambda result: result["data"][0]["url"],
+    )
+    monkeypatch.setattr(client.ai302_grok_client, "edit_image", fast_grok302)
+    monkeypatch.setattr(
+        client.ai302_grok_client,
+        "extract_image_url",
+        lambda result: result["images"][0]["url"],
+    )
 
+    started = time.monotonic()
     result = await client._extract_pattern_combined(
         b"fake-image",
         {"original_image_url": "https://example.com/source.png", "aspect_ratio": "1:1"},
     )
+    elapsed = time.monotonic() - started
 
-    assert result == "https://example.com/general.png,https://example.com/detail.png"
-    assert cancelled == {"tuzi": True, "runninghub": True}
+    assert set(result.split(",")) == {
+        "https://example.com/general.png",
+        "https://example.com/gpt2.png",
+        "https://example.com/grok302.png",
+    }
+    assert elapsed < 0.3
 
 
 @pytest.mark.asyncio
-async def test_extract_pattern_combined_allows_timeouts_when_other_branches_succeed(monkeypatch):
+async def test_extract_pattern_combined_routes_general_2_to_apyi_by_default(monkeypatch):
     client = _build_client()
+    captured = {}
 
-    async def fake_extract_pattern(_image_bytes, options):
-        pattern_type = options["pattern_type"]
-        if pattern_type == "combined_detail":
-            await asyncio.sleep(1)
-            return "https://example.com/detail.png"
-        raise AssertionError(f"unexpected pattern type: {pattern_type}")
-
-    async def fake_apyi_generate_image_preview(*_args, **_kwargs):
-        return {"candidates": [{"content": {"parts": [{"text": "https://example.com/general.png"}]}}]}
+    async def fake_apyi_generate_image_preview(image_bytes, prompt, mime_type, **kwargs):
+        captured["image_bytes"] = image_bytes
+        captured["prompt"] = prompt
+        captured["mime_type"] = mime_type
+        captured["kwargs"] = kwargs
+        return {"ok": True}
 
     async def fast_edit_image(**_kwargs):
         return {"data": [{"url": "https://example.com/gpt2.png"}]}
 
     async def slow_runninghub(**_kwargs):
-        await asyncio.sleep(1)
-        return ["https://example.com/runninghub.png"]
+        await asyncio.sleep(10)
 
-    monkeypatch.setattr(settings, "extract_pattern_combined_branch_timeout_seconds", 0.05)
-    monkeypatch.setattr(settings, "extract_pattern_combined_early_return_success_count", 4)
-    monkeypatch.setattr(client.image_utils, "extract_pattern", fake_extract_pattern)
+    monkeypatch.setattr(settings, "extract_pattern_combined_branch_timeout_seconds", 0.02)
+    monkeypatch.setattr(settings, "extract_pattern_combined_early_return_success_count", 2)
     monkeypatch.setattr(
         client.apyi_gemini_client,
         "generate_image_preview",
@@ -141,72 +195,14 @@ async def test_extract_pattern_combined_allows_timeouts_when_other_branches_succ
         lambda result: result["data"][0]["url"],
     )
 
-    started = time.monotonic()
     result = await client._extract_pattern_combined(
         b"fake-image",
         {"original_image_url": "https://example.com/source.png", "aspect_ratio": "1:1"},
     )
-    elapsed = time.monotonic() - started
 
     assert set(result.split(",")) == {
         "https://example.com/general.png",
         "https://example.com/gpt2.png",
-    }
-    assert elapsed < 0.3
-
-
-@pytest.mark.asyncio
-async def test_extract_pattern_combined_routes_general_2_to_apyi_by_default(monkeypatch):
-    client = _build_client()
-    captured = {}
-
-    async def fake_extract_pattern(_image_bytes, options):
-        if options["pattern_type"] == "combined_detail":
-            return "https://example.com/detail.png"
-        raise AssertionError(f"unexpected pattern type: {options['pattern_type']}")
-
-    async def fake_apyi_generate_image_preview(image_bytes, prompt, mime_type, **kwargs):
-        captured["image_bytes"] = image_bytes
-        captured["prompt"] = prompt
-        captured["mime_type"] = mime_type
-        captured["kwargs"] = kwargs
-        return {"ok": True}
-
-    async def slow_edit_image(**_kwargs):
-        await asyncio.sleep(10)
-
-    async def slow_runninghub(**_kwargs):
-        await asyncio.sleep(10)
-
-    monkeypatch.setattr(settings, "extract_pattern_combined_branch_timeout_seconds", 0.02)
-    monkeypatch.setattr(settings, "extract_pattern_combined_early_return_success_count", 2)
-    monkeypatch.setattr(client.image_utils, "extract_pattern", fake_extract_pattern)
-    monkeypatch.setattr(
-        client.apyi_gemini_client,
-        "generate_image_preview",
-        fake_apyi_generate_image_preview,
-    )
-    monkeypatch.setattr(
-        client.apyi_gemini_client,
-        "_extract_image_url",
-        lambda _result: "https://example.com/general.png",
-    )
-    monkeypatch.setattr(
-        client.runninghub_client,
-        "run_workflow_with_custom_nodes",
-        slow_runninghub,
-    )
-    monkeypatch.setattr(client.tuzi_openai_client, "edit_image", slow_edit_image)
-    monkeypatch.setattr(client.tuzi_openai_client, "extract_image_url", lambda _result: None)
-
-    result = await client._extract_pattern_combined(
-        b"fake-image",
-        {"original_image_url": "https://example.com/source.png", "aspect_ratio": "1:1"},
-    )
-
-    assert set(result.split(",")) == {
-        "https://example.com/general.png",
-        "https://example.com/detail.png",
     }
     assert captured["image_bytes"] == b"fake-image"
     assert captured["prompt"] == "prompt:general_2"
@@ -224,11 +220,6 @@ async def test_extract_pattern_combined_routes_general_2_to_tuzi_from_snapshot(m
     called = {"apyi": False, "tuzi": False}
     captured = {}
 
-    async def fake_extract_pattern(_image_bytes, options):
-        if options["pattern_type"] == "combined_detail":
-            return "https://example.com/detail.png"
-        raise AssertionError(f"unexpected pattern type: {options['pattern_type']}")
-
     async def fake_apyi_generate_image_preview(*_args, **_kwargs):
         called["apyi"] = True
         return {"ok": True}
@@ -241,15 +232,14 @@ async def test_extract_pattern_combined_routes_general_2_to_tuzi_from_snapshot(m
         captured["kwargs"] = kwargs
         return {"ok": True}
 
-    async def slow_edit_image(**_kwargs):
-        await asyncio.sleep(10)
+    async def fast_edit_image(**_kwargs):
+        return {"data": [{"url": "https://example.com/gpt2.png"}]}
 
     async def slow_runninghub(**_kwargs):
         await asyncio.sleep(10)
 
     monkeypatch.setattr(settings, "extract_pattern_combined_branch_timeout_seconds", 0.02)
     monkeypatch.setattr(settings, "extract_pattern_combined_early_return_success_count", 2)
-    monkeypatch.setattr(client.image_utils, "extract_pattern", fake_extract_pattern)
     monkeypatch.setattr(
         client.apyi_gemini_client,
         "generate_image_preview",
@@ -275,8 +265,12 @@ async def test_extract_pattern_combined_routes_general_2_to_tuzi_from_snapshot(m
         "run_workflow_with_custom_nodes",
         slow_runninghub,
     )
-    monkeypatch.setattr(client.tuzi_openai_client, "edit_image", slow_edit_image)
-    monkeypatch.setattr(client.tuzi_openai_client, "extract_image_url", lambda _result: None)
+    monkeypatch.setattr(client.tuzi_openai_client, "edit_image", fast_edit_image)
+    monkeypatch.setattr(
+        client.tuzi_openai_client,
+        "extract_image_url",
+        lambda result: result["data"][0]["url"],
+    )
 
     result = await client._extract_pattern_combined(
         b"fake-image",
@@ -294,7 +288,7 @@ async def test_extract_pattern_combined_routes_general_2_to_tuzi_from_snapshot(m
 
     assert set(result.split(",")) == {
         "https://example.com/tuzi.png",
-        "https://example.com/detail.png",
+        "https://example.com/gpt2.png",
     }
     assert called == {"apyi": False, "tuzi": True}
     assert captured["image_bytes"] == b"fake-image"
@@ -313,11 +307,6 @@ async def test_extract_pattern_combined_routes_general_2_to_haoee_from_snapshot(
     called = {"apyi": False, "haoee": False}
     captured = {}
 
-    async def fake_extract_pattern(_image_bytes, options):
-        if options["pattern_type"] == "combined_detail":
-            return "https://example.com/detail.png"
-        raise AssertionError(f"unexpected pattern type: {options['pattern_type']}")
-
     async def fake_apyi_generate_image_preview(*_args, **_kwargs):
         called["apyi"] = True
         return {"ok": True}
@@ -330,15 +319,14 @@ async def test_extract_pattern_combined_routes_general_2_to_haoee_from_snapshot(
         captured["kwargs"] = kwargs
         return {"ok": True}
 
-    async def slow_edit_image(**_kwargs):
-        await asyncio.sleep(10)
+    async def fast_edit_image(**_kwargs):
+        return {"data": [{"url": "https://example.com/gpt2.png"}]}
 
     async def slow_runninghub(**_kwargs):
         await asyncio.sleep(10)
 
     monkeypatch.setattr(settings, "extract_pattern_combined_branch_timeout_seconds", 0.02)
     monkeypatch.setattr(settings, "extract_pattern_combined_early_return_success_count", 2)
-    monkeypatch.setattr(client.image_utils, "extract_pattern", fake_extract_pattern)
     monkeypatch.setattr(
         client.apyi_gemini_client,
         "generate_image_preview",
@@ -364,8 +352,12 @@ async def test_extract_pattern_combined_routes_general_2_to_haoee_from_snapshot(
         "run_workflow_with_custom_nodes",
         slow_runninghub,
     )
-    monkeypatch.setattr(client.tuzi_openai_client, "edit_image", slow_edit_image)
-    monkeypatch.setattr(client.tuzi_openai_client, "extract_image_url", lambda _result: None)
+    monkeypatch.setattr(client.tuzi_openai_client, "edit_image", fast_edit_image)
+    monkeypatch.setattr(
+        client.tuzi_openai_client,
+        "extract_image_url",
+        lambda result: result["data"][0]["url"],
+    )
 
     result = await client._extract_pattern_combined(
         b"fake-image",
@@ -383,7 +375,7 @@ async def test_extract_pattern_combined_routes_general_2_to_haoee_from_snapshot(
 
     assert set(result.split(",")) == {
         "https://example.com/haoee.png",
-        "https://example.com/detail.png",
+        "https://example.com/gpt2.png",
     }
     assert called == {"apyi": False, "haoee": True}
     assert captured["image_bytes"] == b"fake-image"
