@@ -514,11 +514,11 @@ class AIClient:
                 branch_errors.append(
                     self._serialize_downstream_error(
                         exc,
-                        label="grok302_fallback",
+                        label="grok302",
                         extra={"provider": "ai302_grok"},
                     )
                 )
-                logger.warning("Combined pattern 302.AI Grok fallback failed: %s", str(exc))
+                logger.warning("Combined pattern 302.AI Grok branch failed: %s", str(exc))
                 return None
 
         async def _run_branch_with_timeout(
@@ -565,15 +565,13 @@ class AIClient:
                 "runninghub_combined_4",
                 _run_runninghub(settings.runninghub_workflow_id_extract_combined_4),
             ),
+            (
+                "grok302",
+                _run_grok302_extract(),
+            ),
         ]
 
-        target_success_count = max(
-            1,
-            min(
-                settings.extract_pattern_combined_early_return_success_count,
-                len(branch_specs),
-            ),
-        )
+        target_success_count = len(branch_specs)
         pending_tasks = {
             asyncio.create_task(
                 _run_branch_with_timeout(label, coroutine, branch_timeout)
@@ -620,20 +618,6 @@ class AIClient:
                 task.cancel()
             if pending_tasks:
                 await asyncio.gather(*pending_tasks.keys(), return_exceptions=True)
-
-        fallback_success_target = 3
-        if len(variant_urls) < fallback_success_target:
-            logger.info(
-                "Combined pattern produced %s primary urls; running 302 fallback",
-                len(variant_urls),
-            )
-            fallback_url = await _run_branch_with_timeout(
-                "grok302_fallback",
-                _run_grok302_extract(),
-                branch_timeout,
-            )
-            if fallback_url and fallback_url not in variant_urls:
-                variant_urls.append(fallback_url)
 
         if not variant_urls:
             raise AIClientException(

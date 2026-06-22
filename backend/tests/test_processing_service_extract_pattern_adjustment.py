@@ -172,7 +172,7 @@ def test_combined_t2_extract_pattern_describes_haoee_downstream():
     }
 
 
-def test_combined_extract_pattern_describes_gpt2_and_302_fallback_downstream():
+def test_combined_extract_pattern_describes_gpt2_and_302_downstream():
     service = ProcessingService()
 
     downstream = service._describe_downstream(
@@ -181,7 +181,7 @@ def test_combined_extract_pattern_describes_gpt2_and_302_fallback_downstream():
     )
 
     assert downstream == {
-        "provider": "runninghub+apyi_gemini+tuzi_gpt_image_2_vip+ai302_grok_fallback",
+        "provider": "runninghub+apyi_gemini+tuzi_gpt_image_2_vip+ai302_grok",
         "patternType": "combined",
     }
 

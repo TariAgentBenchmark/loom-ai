@@ -37,7 +37,7 @@ def _build_client() -> AIClient:
 
 
 @pytest.mark.asyncio
-async def test_extract_pattern_combined_returns_early_when_enough_results(monkeypatch):
+async def test_extract_pattern_combined_runs_four_fixed_branches(monkeypatch):
     client = _build_client()
 
     async def fake_apyi_generate_image_preview(*_args, **_kwargs):
@@ -49,6 +49,9 @@ async def test_extract_pattern_combined_returns_early_when_enough_results(monkey
 
     async def fast_runninghub(**_kwargs):
         return ["https://example.com/runninghub.png"]
+
+    async def fast_grok302(**_kwargs):
+        return {"images": [{"url": "https://example.com/grok302.png"}]}
 
     monkeypatch.setattr(settings, "extract_pattern_combined_branch_timeout_seconds", 180)
     monkeypatch.setattr(settings, "extract_pattern_combined_early_return_success_count", 3)
@@ -73,10 +76,11 @@ async def test_extract_pattern_combined_returns_early_when_enough_results(monkey
         "extract_image_url",
         lambda result: result["data"][0]["url"],
     )
+    monkeypatch.setattr(client.ai302_grok_client, "edit_image", fast_grok302)
     monkeypatch.setattr(
         client.ai302_grok_client,
-        "edit_image",
-        lambda **_kwargs: pytest.fail("302 fallback should not run after enough results"),
+        "extract_image_url",
+        lambda result: result["images"][0]["url"],
     )
 
     result = await client._extract_pattern_combined(
@@ -88,6 +92,7 @@ async def test_extract_pattern_combined_returns_early_when_enough_results(monkey
         "https://example.com/general.png",
         "https://example.com/gpt2.png",
         "https://example.com/runninghub.png",
+        "https://example.com/grok302.png",
     }
 
 

@@ -246,10 +246,10 @@ class ProcessingService:
                     )
                     provider = (
                         f"runninghub+{route['provider']}_gemini+"
-                        "tuzi_gpt_image_2_vip+ai302_grok_fallback"
+                        "tuzi_gpt_image_2_vip+ai302_grok"
                     )
                 except Exception:
-                    provider = "runninghub+gemini+tuzi_gpt_image_2_vip+ai302_grok_fallback"
+                    provider = "runninghub+gemini+tuzi_gpt_image_2_vip+ai302_grok"
             elif pattern_type in {"combined_t2", "composite_t2"}:
                 provider = "haoee_maas+tuzi_gpt_image_2_vip"
         elif task_type == TaskType.VECTORIZE.value:
