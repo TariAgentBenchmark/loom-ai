@@ -14,6 +14,7 @@ from app.services.ai_client.tuzi_openai_client import (
     TuziOpenAIClient,
 )
 from app.services.ai_client.haoee_gemini_client import HaoeeGeminiClient
+from app.services.ai_client.krapi_gemini_client import KrapiGeminiClient
 from app.services.ai_client.apyi_openai_client import ApyiOpenAIClient
 from app.services.ai_client.ai302_grok_client import AI302GrokClient
 from app.services.ai_client.gpt4o_client import GPT4oClient
@@ -98,6 +99,7 @@ class AIClient:
         self.tuzi_gemini_client = TuziGeminiClient()
         self.tuzi_openai_client = TuziOpenAIClient()
         self.haoee_gemini_client = HaoeeGeminiClient()
+        self.krapi_gemini_client = KrapiGeminiClient()
         self.apyi_openai_client = ApyiOpenAIClient()
         self.ai302_grok_client = AI302GrokClient()
         self.jimeng_client = JimengClient()
@@ -170,6 +172,42 @@ class AIClient:
         """
         return await self.apyi_gemini_client.process_image(
             image_bytes, prompt, mime_type, aspect_ratio, width, height
+        )
+
+    async def generate_image_krapi_gemini(
+        self,
+        prompt: str,
+        image_bytes: Optional[bytes] = None,
+        image_bytes_list: Optional[List[bytes]] = None,
+        mime_type: str = "image/png",
+        aspect_ratio: Optional[str] = None,
+        resolution: Optional[str] = None,
+        model_name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """使用 Kr API / New API 的 Gemini 兼容接口生成图片。"""
+        if image_bytes_list:
+            return await self.krapi_gemini_client.generate_image_preview_multi(
+                image_bytes_list,
+                prompt,
+                mime_type=mime_type,
+                aspect_ratio=aspect_ratio,
+                resolution=resolution,
+                model_name=model_name,
+            )
+        if image_bytes is not None:
+            return await self.krapi_gemini_client.generate_image_preview(
+                image_bytes,
+                prompt,
+                mime_type=mime_type,
+                aspect_ratio=aspect_ratio,
+                resolution=resolution,
+                model_name=model_name,
+            )
+        return await self.krapi_gemini_client.generate_image_from_text(
+            prompt,
+            aspect_ratio=aspect_ratio,
+            resolution=resolution,
+            model_name=model_name,
         )
 
     # Apyi OpenAI相关方法
@@ -371,6 +409,8 @@ class AIClient:
             return self.tuzi_gemini_client
         if provider == "haoee":
             return self.haoee_gemini_client
+        if provider == "krapi":
+            return self.krapi_gemini_client
         raise ValueError(f"Unsupported Gemini provider: {provider}")
 
     @staticmethod

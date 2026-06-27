@@ -21,6 +21,7 @@ def test_ai_model_route_service_defaults_to_apyi(db_session):
         "apyi",
         "tuzi",
         "haoee",
+        "krapi",
     }
     expected_models = [
         "gemini-3-pro-image-preview-4k",
@@ -37,9 +38,13 @@ def test_ai_model_route_service_defaults_to_apyi(db_session):
     haoee_provider = next(
         option for option in route["providers"] if option["provider"] == "haoee"
     )
+    krapi_provider = next(
+        option for option in route["providers"] if option["provider"] == "krapi"
+    )
     assert apyi_provider["models"] == expected_models
     assert tuzi_provider["models"] == expected_models
     assert haoee_provider["models"] == expected_models
+    assert krapi_provider["models"] == ["T香蕉pro", "T香蕉2"]
 
 
 def test_ai_model_route_service_updates_and_snapshots_tuzi(db_session):
@@ -169,6 +174,40 @@ def test_ai_model_route_service_resolves_haoee_pro_4k_runtime(db_session):
         "provider": "haoee",
         "model": "gemini-3-pro-image-preview-4k",
         "api_model": "gemini-3-pro-image-preview-lite",
+        "resolution": "4K",
+    }
+
+
+def test_ai_model_route_service_resolves_krapi_banana_pro_runtime(db_session):
+    service = AIModelRouteService()
+
+    service.update_routes(
+        db_session,
+        [
+            {
+                "routeKey": EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY,
+                "provider": "krapi",
+                "model": "T香蕉pro",
+            }
+        ],
+    )
+
+    options = service.apply_route_snapshot(
+        db_session,
+        "extract_pattern",
+        {"pattern_type": "combined"},
+        overwrite=True,
+    )
+
+    runtime = AIModelRouteService.resolve_runtime_from_options(
+        options,
+        EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY,
+    )
+
+    assert runtime == {
+        "provider": "krapi",
+        "model": "T香蕉pro",
+        "api_model": "T香蕉pro",
         "resolution": "4K",
     }
 

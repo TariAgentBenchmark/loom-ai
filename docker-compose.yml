@@ -66,6 +66,9 @@ services:
       - HAOEE_MAAS_API_KEY=${HAOEE_MAAS_API_KEY:-}
       - HAOEE_MAAS_BASE_URL=${HAOEE_MAAS_BASE_URL:-https://maas.haoee.com}
       - HAOEE_MAAS_DEFAULT_PREVIEW_MODEL=${HAOEE_MAAS_DEFAULT_PREVIEW_MODEL:-gemini-3-pro-image-preview-lite}
+      - KRAPI_API_KEY=${KRAPI_API_KEY:-}
+      - KRAPI_BASE_URL=${KRAPI_BASE_URL:-https://ai.krapi.cn}
+      - KRAPI_DEFAULT_IMAGE_MODEL=${KRAPI_DEFAULT_IMAGE_MODEL:-T香蕉pro}
       - OSS_ACCESS_KEY_ID=${OSS_ACCESS_KEY_ID:-}
       - OSS_ACCESS_KEY_SECRET=${OSS_ACCESS_KEY_SECRET:-}
       - OSS_ENDPOINT=${OSS_ENDPOINT:-https://oss-cn-hangzhou.aliyuncs.com}

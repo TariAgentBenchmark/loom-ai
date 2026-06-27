@@ -244,8 +244,14 @@ class ProcessingService:
                         options,
                         EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY,
                     )
+                    route_provider = route["provider"]
+                    route_client = (
+                        "krapi_gemini"
+                        if route_provider == "krapi"
+                        else f"{route_provider}_gemini"
+                    )
                     provider = (
-                        f"runninghub+{route['provider']}_gemini+"
+                        f"runninghub+{route_client}+"
                         "tuzi_gpt_image_2_vip+ai302_grok"
                     )
                 except Exception:

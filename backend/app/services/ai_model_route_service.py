@@ -108,6 +108,24 @@ SUPPORTED_AI_MODEL_ROUTES: Dict[str, Dict[str, Any]] = {
                 "default_model": "gemini-3-pro-image-preview-4k",
                 "description": "通过 Haoee MaaS 调用 Gemini3 Pro / Nano Banana 2 图像模型。",
             },
+            "krapi": {
+                "label": "Kr API",
+                "client": "krapi_gemini",
+                "models": [
+                    {
+                        "value": "T香蕉pro",
+                        "api_model": "T香蕉pro",
+                        "resolution": "4K",
+                    },
+                    {
+                        "value": "T香蕉2",
+                        "api_model": "T香蕉2",
+                        "resolution": "2K",
+                    },
+                ],
+                "default_model": "T香蕉pro",
+                "description": "通过 Kr API / New API 调用 Google T香蕉pro / T香蕉2 图像模型。",
+            },
         },
     }
 }
