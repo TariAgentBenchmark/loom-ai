@@ -10,10 +10,27 @@ description: Deploy or refresh LoomAI environments on the designated servers by 
 Deploy LoomAI with a single project-specific workflow that branches by environment.
 Treat routine deployments as image-based rollouts: do not `git pull` on the server unless the user explicitly asks. If compose files or deployment scripts changed, make sure the server checkout is synced to the target branch before running compose commands.
 
+## GitHub Build
+
+- Workflow: `Build and Push Docker Images` in `.github/workflows/docker-build.yml`.
+- It runs on pushes and PRs for `main` and `dev`.
+- Push to `dev` builds and pushes Docker images tagged `dev`.
+- Push to `main` builds and pushes Docker images tagged `latest`.
+- Before deploying a fresh push, verify the matching GitHub Actions run completed successfully.
+
+Useful checks:
+
+```bash
+gh run list --repo TariAgentBenchmark/loom-ai --branch dev --limit 5
+gh run list --repo TariAgentBenchmark/loom-ai --branch main --limit 5
+gh run watch <run-id> --repo TariAgentBenchmark/loom-ai --exit-status
+```
+
 ## Environment Map
 
 - `dev`
   - branch expectation: `dev`
+  - image tag: `dev`
   - SSH alias: `image-gen-202509`
   - remote directory: `~/loom-ai`
   - compose base:
@@ -24,6 +41,7 @@ docker compose --profile production -f docker-compose.yml -f docker-compose.dev.
 
 - `prod`
   - branch expectation: `main`
+  - image tag: `latest`
   - SSH alias: `image-gen-202509-3`
   - remote directory: `~/loom-ai`
   - compose base:
