@@ -520,13 +520,22 @@ class BaseAIClient:
                 if "text" in part:
                     text = part["text"]
                     if isinstance(text, str):
-                        # 查找markdown格式的图片链接 ![image](url)
                         import re
+
+                        # 查找markdown格式的图片链接 ![image](url)
                         image_pattern = r'!\[.*?\]\((https?://[^\)]+)\)'
                         matches = re.findall(image_pattern, text)
                         if matches:
                             image_url = matches[0]
                             logger.info("Found image URL in Gemini text response: %s", image_url)
+                            return image_url
+
+                        # Some Gemini-compatible gateways return a plain image URL in a text part.
+                        url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+(?:\.jpg|\.jpeg|\.png|\.webp)'
+                        text_matches = re.findall(url_pattern, text, re.IGNORECASE)
+                        if text_matches:
+                            image_url = text_matches[0]
+                            logger.info("Found plain image URL in Gemini text response: %s", image_url)
                             return image_url
 
                 # 处理内联数据 - 支持两种格式: inline_data 和 inlineData

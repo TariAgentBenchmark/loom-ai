@@ -1,6 +1,10 @@
+import asyncio
 import logging
+import time
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote
+
+import httpx
 
 from app.core.config import settings
 from app.services.ai_client.base_client import BaseAIClient
@@ -52,6 +56,8 @@ class KrapiGeminiClient(BaseAIClient):
         # Image generation can be slow; keep this aligned with other Gemini image clients.
         self.request_timeout = 650.0
         self.max_retries = 1
+        self.task_poll_interval_seconds = 2.0
+        self.task_poll_timeout_seconds = self.request_timeout
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -115,6 +121,101 @@ class KrapiGeminiClient(BaseAIClient):
             }
         }
 
+    def _is_image_task_response(self, response: Dict[str, Any]) -> bool:
+        return (
+            isinstance(response, dict)
+            and response.get("object") == "image.task"
+            and bool(response.get("task_id") or response.get("id"))
+        )
+
+    async def _get_image_task(self, task_id: str) -> Dict[str, Any]:
+        """Fetch a Kr API async image task by public task id."""
+        endpoint = f"/v1/images/tasks/{quote(task_id, safe='')}"
+        url = f"{self.base_url}{endpoint}"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Accept": "application/json",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(url, headers=headers)
+                response.raise_for_status()
+                return response.json()
+        except httpx.HTTPStatusError as exc:
+            raise AIClientException(
+                message=f"Kr API任务查询失败: {exc.response.status_code}",
+                api_name="krapi_gemini",
+                status_code=exc.response.status_code,
+                response_body=exc.response.text,
+                request_data={"task_id": task_id},
+            ) from exc
+        except httpx.RequestError as exc:
+            raise AIClientException(
+                message=f"Kr API任务查询连接失败: {str(exc)}",
+                api_name="krapi_gemini",
+                request_data={"task_id": task_id},
+            ) from exc
+
+    async def _poll_image_task(
+        self,
+        task_id: str,
+        initial_response: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Poll Kr API async image task and return the final Gemini-like result."""
+        deadline = time.monotonic() + self.task_poll_timeout_seconds
+        response = initial_response or {}
+
+        while True:
+            status = str(response.get("status") or "").strip().lower()
+            if status in {"succeeded", "success", "completed"}:
+                result = response.get("result")
+                if isinstance(result, dict):
+                    return result
+                raise AIClientException(
+                    message="Kr API任务已完成但缺少图片结果",
+                    api_name="krapi_gemini",
+                    response_body=response,
+                    request_data={"task_id": task_id},
+                )
+
+            if status in {"failed", "failure", "cancelled", "canceled", "error"}:
+                error_detail = (
+                    response.get("error")
+                    or response.get("fail_reason")
+                    or response.get("message")
+                    or "未知错误"
+                )
+                raise AIClientException(
+                    message=f"Kr API任务失败: {error_detail}",
+                    api_name="krapi_gemini",
+                    response_body=response,
+                    request_data={"task_id": task_id},
+                )
+
+            if time.monotonic() >= deadline:
+                raise AIClientException(
+                    message="Kr API任务查询超时",
+                    api_name="krapi_gemini",
+                    response_body=response,
+                    request_data={"task_id": task_id},
+                )
+
+            await asyncio.sleep(self.task_poll_interval_seconds)
+            response = await self._get_image_task(task_id)
+
+    async def _resolve_image_task_response(self, response: Dict[str, Any]) -> Dict[str, Any]:
+        """Kr API may return an async image.task; resolve it before callers parse images."""
+        if not self._is_image_task_response(response):
+            return response
+
+        task_id = str(response.get("task_id") or response.get("id") or "").strip()
+        logger.info(
+            "Polling Kr API image task %s (status=%s)",
+            task_id,
+            response.get("status"),
+        )
+        return await self._poll_image_task(task_id, initial_response=response)
+
     async def generate_image_from_text(
         self,
         prompt: str,
@@ -146,11 +247,12 @@ class KrapiGeminiClient(BaseAIClient):
             aspect_ratio,
             resolution,
         )
-        return await self._make_request(
+        response = await self._make_request(
             "POST",
             self._build_endpoint(resolved_model_name),
             data,
         )
+        return await self._resolve_image_task_response(response)
 
     async def generate_image_preview(
         self,
@@ -207,8 +309,9 @@ class KrapiGeminiClient(BaseAIClient):
             aspect_ratio,
             resolution,
         )
-        return await self._make_request(
+        response = await self._make_request(
             "POST",
             self._build_endpoint(resolved_model_name),
             data,
         )
+        return await self._resolve_image_task_response(response)

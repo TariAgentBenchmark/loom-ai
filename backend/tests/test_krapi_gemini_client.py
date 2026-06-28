@@ -94,6 +94,58 @@ async def test_generate_image_from_text_accepts_model_override(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_generate_image_preview_polls_async_image_task(monkeypatch):
+    client = KrapiGeminiClient()
+    client.api_key = "test-key"
+    client.task_poll_interval_seconds = 0
+    image_url = "https://example.com/result.jpg"
+    final_result = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [{"text": image_url}],
+                    "role": "model",
+                },
+                "finishReason": "STOP",
+            }
+        ]
+    }
+    task_ids = []
+
+    async def fake_make_request(method, endpoint, data):
+        return {
+            "id": "task_test",
+            "task_id": "task_test",
+            "object": "image.task",
+            "status": "queued",
+            "model": "T香蕉pro",
+        }
+
+    async def fake_get_image_task(task_id):
+        task_ids.append(task_id)
+        return {
+            "id": task_id,
+            "task_id": task_id,
+            "object": "image.task",
+            "status": "succeeded",
+            "result": final_result,
+        }
+
+    monkeypatch.setattr(client, "_make_request", fake_make_request)
+    monkeypatch.setattr(client, "_get_image_task", fake_get_image_task)
+
+    result = await client.generate_image_preview(
+        image_bytes=_build_png_bytes(),
+        prompt="test prompt",
+        mime_type="image/png",
+    )
+
+    assert result == final_result
+    assert task_ids == ["task_test"]
+    assert client._extract_image_url(result) == image_url
+
+
+@pytest.mark.asyncio
 async def test_generate_image_requires_api_key():
     client = KrapiGeminiClient()
     client.api_key = ""
