@@ -58,6 +58,8 @@ class KrapiGeminiClient(BaseAIClient):
         self.max_retries = 1
         self.task_poll_interval_seconds = 2.0
         self.task_poll_timeout_seconds = self.request_timeout
+        self.task_poll_request_retries = 3
+        self.task_poll_request_retry_backoff_seconds = 1.0
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -88,7 +90,7 @@ class KrapiGeminiClient(BaseAIClient):
         aspect_ratio: Optional[str] = None,
         resolution: Optional[str] = None,
     ) -> Dict[str, Any]:
-        generation_config: Dict[str, Any] = {"responseModalities": ["IMAGE"]}
+        generation_config: Dict[str, Any] = {"responseModalities": ["TEXT", "IMAGE"]}
         image_config: Dict[str, Any] = {}
 
         if aspect_ratio:
@@ -128,6 +130,64 @@ class KrapiGeminiClient(BaseAIClient):
             and bool(response.get("task_id") or response.get("id"))
         )
 
+    @staticmethod
+    def _task_result_urls(payload: Dict[str, Any]) -> List[str]:
+        """Extract plain image URLs from Kr API image.task envelopes."""
+        urls: List[str] = []
+
+        def _append_url(value: Any) -> None:
+            if isinstance(value, str) and value.startswith("http"):
+                urls.append(value.strip())
+
+        for key in ("url", "image_url", "output_url"):
+            _append_url(payload.get(key))
+
+        for key in ("urls", "image_urls", "output_urls"):
+            values = payload.get(key)
+            if isinstance(values, list):
+                for value in values:
+                    _append_url(value)
+
+        data = payload.get("data")
+        if isinstance(data, list):
+            for item in data:
+                if not isinstance(item, dict):
+                    continue
+                for key in ("url", "image_url", "output_url"):
+                    _append_url(item.get(key))
+
+        deduped: List[str] = []
+        seen = set()
+        for url in urls:
+            if url and url not in seen:
+                seen.add(url)
+                deduped.append(url)
+        return deduped
+
+    @classmethod
+    def _task_urls_as_image_result(cls, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        urls = cls._task_result_urls(payload)
+        if not urls:
+            return None
+        return {"data": [{"url": url} for url in urls]}
+
+    @classmethod
+    def _has_extractable_image_payload(cls, payload: Dict[str, Any]) -> bool:
+        if any(key in payload for key in ("candidates", "choices", "image")):
+            return True
+
+        data = payload.get("data")
+        if isinstance(data, list):
+            for item in data:
+                if not isinstance(item, dict):
+                    continue
+                if any(
+                    isinstance(item.get(key), str) and item.get(key)
+                    for key in ("url", "b64_json", "b64_bytes", "base64", "image_base64")
+                ):
+                    return True
+        return False
+
     async def _get_image_task(self, task_id: str) -> Dict[str, Any]:
         """Fetch a Kr API async image task by public task id."""
         endpoint = f"/v1/images/tasks/{quote(task_id, safe='')}"
@@ -136,25 +196,69 @@ class KrapiGeminiClient(BaseAIClient):
             "Authorization": f"Bearer {self.api_key}",
             "Accept": "application/json",
         }
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.get(url, headers=headers)
-                response.raise_for_status()
-                return response.json()
-        except httpx.HTTPStatusError as exc:
-            raise AIClientException(
-                message=f"Kr API任务查询失败: {exc.response.status_code}",
-                api_name="krapi_gemini",
-                status_code=exc.response.status_code,
-                response_body=exc.response.text,
-                request_data={"task_id": task_id},
-            ) from exc
-        except httpx.RequestError as exc:
-            raise AIClientException(
-                message=f"Kr API任务查询连接失败: {str(exc)}",
-                api_name="krapi_gemini",
-                request_data={"task_id": task_id},
-            ) from exc
+        attempts = max(1, int(getattr(self, "task_poll_request_retries", 3)))
+        backoff = max(
+            0.0,
+            float(getattr(self, "task_poll_request_retry_backoff_seconds", 1.0)),
+        )
+
+        for attempt in range(1, attempts + 1):
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.get(url, headers=headers)
+                    response.raise_for_status()
+                    return response.json()
+            except httpx.HTTPStatusError as exc:
+                status_code = exc.response.status_code
+                retryable = status_code in {408, 409, 425, 429} or status_code >= 500
+                if retryable and attempt < attempts:
+                    wait_seconds = backoff * attempt
+                    logger.warning(
+                        "Kr API task query failed with %s for %s (attempt %s/%s); retrying in %.2fs",
+                        status_code,
+                        task_id,
+                        attempt,
+                        attempts,
+                        wait_seconds,
+                    )
+                    if wait_seconds:
+                        await asyncio.sleep(wait_seconds)
+                    continue
+
+                raise AIClientException(
+                    message=f"Kr API任务查询失败: {status_code}",
+                    api_name="krapi_gemini",
+                    status_code=status_code,
+                    response_body=exc.response.text,
+                    request_data={"task_id": task_id},
+                ) from exc
+            except httpx.RequestError as exc:
+                error_text = str(exc) or exc.__class__.__name__
+                if attempt < attempts:
+                    wait_seconds = backoff * attempt
+                    logger.warning(
+                        "Kr API task query connection error for %s: %s (attempt %s/%s); retrying in %.2fs",
+                        task_id,
+                        error_text,
+                        attempt,
+                        attempts,
+                        wait_seconds,
+                    )
+                    if wait_seconds:
+                        await asyncio.sleep(wait_seconds)
+                    continue
+
+                raise AIClientException(
+                    message=f"Kr API任务查询连接失败: {error_text}",
+                    api_name="krapi_gemini",
+                    request_data={"task_id": task_id},
+                ) from exc
+
+        raise AIClientException(
+            message="Kr API任务查询连接失败: 未知错误",
+            api_name="krapi_gemini",
+            request_data={"task_id": task_id},
+        )
 
     async def _poll_image_task(
         self,
@@ -169,8 +273,20 @@ class KrapiGeminiClient(BaseAIClient):
             status = str(response.get("status") or "").strip().lower()
             if status in {"succeeded", "success", "completed"}:
                 result = response.get("result")
+                top_level_url_result = self._task_urls_as_image_result(response)
                 if isinstance(result, dict):
+                    if self._has_extractable_image_payload(result):
+                        return result
+                    nested_url_result = self._task_urls_as_image_result(result)
+                    if nested_url_result:
+                        return nested_url_result
+                    if top_level_url_result:
+                        return top_level_url_result
                     return result
+
+                if top_level_url_result:
+                    return top_level_url_result
+
                 raise AIClientException(
                     message="Kr API任务已完成但缺少图片结果",
                     api_name="krapi_gemini",
@@ -230,9 +346,10 @@ class KrapiGeminiClient(BaseAIClient):
         data: Dict[str, Any] = {
             "contents": [
                 {
+                    "role": "user",
                     "parts": [
                         {"text": prompt},
-                    ]
+                    ],
                 }
             ],
             "generationConfig": self._build_generation_config(
@@ -295,7 +412,7 @@ class KrapiGeminiClient(BaseAIClient):
         )
 
         data: Dict[str, Any] = {
-            "contents": [{"parts": parts}],
+            "contents": [{"role": "user", "parts": parts}],
             "generationConfig": self._build_generation_config(
                 aspect_ratio=aspect_ratio,
                 resolution=resolution,
