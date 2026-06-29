@@ -1,5 +1,6 @@
 from io import BytesIO
 
+import httpx
 import pytest
 from PIL import Image
 
@@ -143,6 +144,90 @@ async def test_generate_image_preview_polls_async_image_task(monkeypatch):
     assert result == final_result
     assert task_ids == ["task_test"]
     assert client._extract_image_url(result) == image_url
+
+
+@pytest.mark.asyncio
+async def test_generate_image_preview_uses_top_level_task_url_when_result_is_redacted(monkeypatch):
+    client = KrapiGeminiClient()
+    client.api_key = "test-key"
+    client.task_poll_interval_seconds = 0
+    image_url = "https://example.com/redacted-result.jpg"
+
+    async def fake_make_request(method, endpoint, data):
+        return {
+            "id": "task_test",
+            "task_id": "task_test",
+            "object": "image.task",
+            "status": "queued",
+            "model": "T香蕉2",
+        }
+
+    async def fake_get_image_task(task_id):
+        return {
+            "id": task_id,
+            "task_id": task_id,
+            "object": "image.task",
+            "status": "succeeded",
+            "model": "T香蕉2",
+            "result": {
+                "contains_result_urls": True,
+                "large_result_redacted": True,
+                "result_omitted": True,
+                "omitted_reason": "result exceeded image task storage limit",
+            },
+            "url": image_url,
+            "urls": [image_url],
+        }
+
+    monkeypatch.setattr(client, "_make_request", fake_make_request)
+    monkeypatch.setattr(client, "_get_image_task", fake_get_image_task)
+
+    result = await client.generate_image_preview(
+        image_bytes=_build_png_bytes(),
+        prompt="test prompt",
+        mime_type="image/png",
+        model_name="T香蕉2",
+    )
+
+    assert result == {"data": [{"url": image_url}]}
+    assert client._extract_image_url(result) == image_url
+
+
+@pytest.mark.asyncio
+async def test_get_image_task_retries_connection_errors(monkeypatch):
+    client = KrapiGeminiClient()
+    client.api_key = "test-key"
+    client.task_poll_request_retries = 2
+    client.task_poll_request_retry_backoff_seconds = 0
+    calls = {"count": 0}
+
+    class FakeAsyncClient:
+        def __init__(self, timeout):
+            self.timeout = timeout
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def get(self, url, headers):
+            calls["count"] += 1
+            request = httpx.Request("GET", url)
+            if calls["count"] == 1:
+                raise httpx.ReadTimeout("read timed out", request=request)
+            return httpx.Response(
+                200,
+                json={"task_id": "task_test", "status": "succeeded"},
+                request=request,
+            )
+
+    monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
+
+    result = await client._get_image_task("task_test")
+
+    assert result == {"task_id": "task_test", "status": "succeeded"}
+    assert calls["count"] == 2
 
 
 @pytest.mark.asyncio
