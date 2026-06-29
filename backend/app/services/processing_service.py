@@ -13,6 +13,7 @@ from app.services.ai_client import ai_client
 from app.services.ai_model_route_service import (
     AI_MODEL_ROUTES_OPTION_KEY,
     EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY,
+    EXTRACT_PATTERN_COMBINED_T2_ROUTE_KEY,
     AIModelRouteService,
 )
 from app.services.credit_math import to_decimal, to_float
@@ -257,7 +258,20 @@ class ProcessingService:
                 except Exception:
                     provider = "runninghub+gemini+tuzi_gpt_image_2_vip+ai302_grok"
             elif pattern_type in {"combined_t2", "composite_t2"}:
-                provider = "haoee_maas+tuzi_gpt_image_2_vip"
+                try:
+                    route = AIModelRouteService.resolve_snapshot_from_options(
+                        options,
+                        EXTRACT_PATTERN_COMBINED_T2_ROUTE_KEY,
+                    )
+                    route_provider = route["provider"]
+                    route_client = (
+                        "krapi_gemini"
+                        if route_provider == "krapi"
+                        else f"{route_provider}_gemini"
+                    )
+                    provider = f"{route_client}+tuzi_gpt_image_2_vip"
+                except Exception:
+                    provider = "haoee_maas+tuzi_gpt_image_2_vip"
         elif task_type == TaskType.VECTORIZE.value:
             provider = f"{settings.vectorizer_primary_provider}_vectorizer+a8_vectorizer+webapi"
         elif task_type == TaskType.DENOISE.value:

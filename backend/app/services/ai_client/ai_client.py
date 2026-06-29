@@ -31,6 +31,7 @@ from app.services.ai_client.runninghub_client import RunningHubClient
 from app.services.ai_client.exceptions import AIClientException
 from app.services.ai_model_route_service import (
     EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY,
+    EXTRACT_PATTERN_COMBINED_T2_ROUTE_KEY,
     AIModelRouteService,
 )
 from app.services.file_service import FileService
@@ -687,25 +688,33 @@ class AIClient:
     ) -> str:
         prompt = self.image_utils._build_pattern_prompt("general_2")
         aspect_ratio = options.get("aspect_ratio")
-        raw_model_name = options.get("haoee_model")
-        model_name = (
-            str(raw_model_name).strip()
-            if raw_model_name is not None and str(raw_model_name).strip()
-            else settings.haoee_maas_default_preview_model
+        route = AIModelRouteService.resolve_runtime_from_options(
+            options,
+            EXTRACT_PATTERN_COMBINED_T2_ROUTE_KEY,
         )
+        route_provider = route["provider"]
+        route_model_name = route["api_model"]
+        route_client = self._gemini_preview_client_for_provider(route_provider)
         branch_errors: List[Dict[str, Any]] = []
 
-        async def _run_haoee_branch(label: str, resolution: str) -> Optional[str]:
+        async def _run_route_gemini_branch(label: str, resolution: str) -> Optional[str]:
             try:
-                result = await self.haoee_gemini_client.generate_image_preview(
+                logger.info(
+                    "Combined T2 route branch %s provider=%s model=%s resolution=%s",
+                    label,
+                    route_provider,
+                    route_model_name,
+                    resolution,
+                )
+                result = await route_client.generate_image_preview(
                     image_bytes,
                     prompt,
                     "image/png",
                     aspect_ratio=aspect_ratio,
                     resolution=resolution,
-                    model_name=model_name,
+                    model_name=route_model_name,
                 )
-                url = self.haoee_gemini_client._extract_image_url(result)
+                url = route_client._extract_image_url(result)
                 return url.strip() if isinstance(url, str) and url.strip() else None
             except Exception as exc:
                 branch_errors.append(
@@ -713,15 +722,17 @@ class AIClient:
                         exc,
                         label=label,
                         extra={
-                            "provider": "haoee",
-                            "model": model_name,
+                            "provider": route_provider,
+                            "model": route_model_name,
                             "resolution": resolution,
                         },
                     )
                 )
                 logger.warning(
-                    "Combined T2 Haoee branch %s (%s) failed: %s",
+                    "Combined T2 route branch %s (%s/%s/%s) failed: %s",
                     label,
+                    route_provider,
+                    route_model_name,
                     resolution,
                     str(exc),
                 )
@@ -761,22 +772,22 @@ class AIClient:
             )
             try:
                 return await asyncio.wait_for(
-                    _run_haoee_branch(label, resolution),
+                    _run_route_gemini_branch(label, resolution),
                     timeout=branch_timeout,
                 )
             except asyncio.TimeoutError:
                 branch_errors.append(
                     {
                         "label": label,
-                        "provider": "haoee",
-                        "model": model_name,
+                        "provider": route_provider,
+                        "model": route_model_name,
                         "resolution": resolution,
                         "exceptionType": "TimeoutError",
                         "message": f"Branch timed out after {branch_timeout}s",
                     }
                 )
                 logger.warning(
-                    "Combined T2 Haoee branch %s timed out after %ss",
+                    "Combined T2 route branch %s timed out after %ss",
                     label,
                     branch_timeout,
                 )
@@ -818,23 +829,23 @@ class AIClient:
         )
         if requested_count == 1:
             branch_specs: List[Tuple[str, str, str]] = [
-                ("haoee_3pro_2k_1", "haoee", "2K"),
+                ("combined_t2_gemini_2k_1", "gemini_route", "2K"),
             ]
         elif requested_count == 2:
             branch_specs = [
-                ("haoee_3pro_2k_1", "haoee", "2K"),
+                ("combined_t2_gemini_2k_1", "gemini_route", "2K"),
                 ("tuzi_gpt_image_2_vip_1", "tuzi", "4K"),
             ]
         else:
             branch_specs = [
-                ("haoee_3pro_2k_1", "haoee", "2K"),
-                ("haoee_3pro_2k_2", "haoee", "2K"),
-                ("haoee_3pro_2k_3", "haoee", "2K"),
+                ("combined_t2_gemini_2k_1", "gemini_route", "2K"),
+                ("combined_t2_gemini_2k_2", "gemini_route", "2K"),
+                ("combined_t2_gemini_2k_3", "gemini_route", "2K"),
                 ("tuzi_gpt_image_2_vip_1", "tuzi", "4K"),
             ]
         branch_coroutines = [
             _run_branch_with_timeout(label, resolution)
-            if provider == "haoee"
+            if provider == "gemini_route"
             else _run_tuzi_branch_with_timeout(label)
             for label, provider, resolution in branch_specs
         ]
@@ -852,8 +863,8 @@ class AIClient:
                 response_body={
                     "summary": {
                         "patternType": "combined_t2",
-                        "provider": "haoee_maas+tuzi_gpt_image_2_vip",
-                        "model": model_name,
+                        "provider": f"{route_provider}_gemini+tuzi_gpt_image_2_vip",
+                        "model": route_model_name,
                         "successfulResults": 0,
                         "expectedResults": len(branch_specs),
                     },
@@ -866,9 +877,10 @@ class AIClient:
             )
 
         logger.info(
-            "Combined T2 pattern produced %s/%s urls through Haoee MaaS/Tuzi",
+            "Combined T2 pattern produced %s/%s urls through %s/Tuzi",
             len(variant_urls),
             len(branch_specs),
+            route_provider,
         )
         return ",".join(variant_urls[:4])
 
