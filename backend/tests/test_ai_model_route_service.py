@@ -50,7 +50,7 @@ def test_ai_model_route_service_defaults_to_apyi(db_session):
     assert apyi_provider["models"] == expected_models
     assert tuzi_provider["models"] == expected_models
     assert haoee_provider["models"] == expected_models
-    assert krapi_provider["models"] == ["T香蕉pro", "T香蕉2"]
+    assert krapi_provider["models"] == ["T香蕉pro", "T香蕉2", "T香蕉2-4K"]
 
     combined_t2_route = next(
         item
@@ -70,7 +70,7 @@ def test_ai_model_route_service_defaults_to_apyi(db_session):
         for option in combined_t2_route["providers"]
         if option["provider"] == "krapi"
     )
-    assert combined_t2_krapi["models"] == ["T香蕉2", "T香蕉pro"]
+    assert combined_t2_krapi["models"] == ["T香蕉2", "T香蕉2-4K", "T香蕉pro"]
 
 
 def test_ai_model_route_service_updates_and_snapshots_tuzi(db_session):
@@ -276,6 +276,74 @@ def test_ai_model_route_service_resolves_combined_t2_krapi_runtime(db_session):
         "model": "T香蕉2",
         "api_model": "T香蕉2",
         "resolution": "2K",
+    }
+
+
+def test_ai_model_route_service_resolves_combined_t2_krapi_banana2_4k_runtime(db_session):
+    service = AIModelRouteService()
+
+    service.update_routes(
+        db_session,
+        [
+            {
+                "routeKey": EXTRACT_PATTERN_COMBINED_T2_ROUTE_KEY,
+                "provider": "krapi",
+                "model": "T香蕉2-4K",
+            }
+        ],
+    )
+
+    options = service.apply_route_snapshot(
+        db_session,
+        "extract_pattern",
+        {"pattern_type": "combined_t2", "num_images": 1},
+        overwrite=True,
+    )
+
+    runtime = AIModelRouteService.resolve_runtime_from_options(
+        options,
+        EXTRACT_PATTERN_COMBINED_T2_ROUTE_KEY,
+    )
+
+    assert runtime == {
+        "provider": "krapi",
+        "model": "T香蕉2-4K",
+        "api_model": "T香蕉2",
+        "resolution": "4K",
+    }
+
+
+def test_ai_model_route_service_resolves_general_krapi_banana2_4k_runtime(db_session):
+    service = AIModelRouteService()
+
+    service.update_routes(
+        db_session,
+        [
+            {
+                "routeKey": EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY,
+                "provider": "krapi",
+                "model": "T香蕉2-4K",
+            }
+        ],
+    )
+
+    options = service.apply_route_snapshot(
+        db_session,
+        "extract_pattern",
+        {"pattern_type": "combined"},
+        overwrite=True,
+    )
+
+    runtime = AIModelRouteService.resolve_runtime_from_options(
+        options,
+        EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY,
+    )
+
+    assert runtime == {
+        "provider": "krapi",
+        "model": "T香蕉2-4K",
+        "api_model": "T香蕉2",
+        "resolution": "4K",
     }
 
 

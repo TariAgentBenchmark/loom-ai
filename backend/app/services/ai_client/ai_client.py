@@ -694,6 +694,7 @@ class AIClient:
         )
         route_provider = route["provider"]
         route_model_name = route["api_model"]
+        route_resolution = route["resolution"]
         route_client = self._gemini_preview_client_for_provider(route_provider)
         branch_errors: List[Dict[str, Any]] = []
 
@@ -829,18 +830,18 @@ class AIClient:
         )
         if requested_count == 1:
             branch_specs: List[Tuple[str, str, str]] = [
-                ("combined_t2_gemini_2k_1", "gemini_route", "2K"),
+                ("combined_t2_gemini_route_1", "gemini_route", route_resolution),
             ]
         elif requested_count == 2:
             branch_specs = [
-                ("combined_t2_gemini_2k_1", "gemini_route", "2K"),
+                ("combined_t2_gemini_route_1", "gemini_route", route_resolution),
                 ("tuzi_gpt_image_2_vip_1", "tuzi", "4K"),
             ]
         else:
             branch_specs = [
-                ("combined_t2_gemini_2k_1", "gemini_route", "2K"),
-                ("combined_t2_gemini_2k_2", "gemini_route", "2K"),
-                ("combined_t2_gemini_2k_3", "gemini_route", "2K"),
+                ("combined_t2_gemini_route_1", "gemini_route", route_resolution),
+                ("combined_t2_gemini_route_2", "gemini_route", route_resolution),
+                ("combined_t2_gemini_route_3", "gemini_route", route_resolution),
                 ("tuzi_gpt_image_2_vip_1", "tuzi", "4K"),
             ]
         branch_coroutines = [
