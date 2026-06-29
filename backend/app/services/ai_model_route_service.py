@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 AI_MODEL_ROUTES_SETTING_KEY = "ai_model_routes"
 AI_MODEL_ROUTES_OPTION_KEY = "ai_model_routes"
 EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY = "extract_pattern.combined.general_2"
+EXTRACT_PATTERN_COMBINED_T2_ROUTE_KEY = "extract_pattern.combined_t2.gemini"
 
 
 class AIModelRouteConfigError(ValueError):
@@ -108,8 +109,115 @@ SUPPORTED_AI_MODEL_ROUTES: Dict[str, Dict[str, Any]] = {
                 "default_model": "gemini-3-pro-image-preview-4k",
                 "description": "通过 Haoee MaaS 调用 Gemini3 Pro / Nano Banana 2 图像模型。",
             },
+            "krapi": {
+                "label": "Kr API",
+                "client": "krapi_gemini",
+                "models": [
+                    {
+                        "value": "T香蕉pro",
+                        "api_model": "T香蕉pro",
+                        "resolution": "4K",
+                    },
+                    {
+                        "value": "T香蕉2",
+                        "api_model": "T香蕉2",
+                        "resolution": "2K",
+                    },
+                    {
+                        "value": "T香蕉2-4K",
+                        "api_model": "T香蕉2",
+                        "resolution": "4K",
+                    },
+                ],
+                "default_model": "T香蕉pro",
+                "description": "通过 Kr API / New API 调用 Google T香蕉pro / T香蕉2 图像模型，T香蕉2 支持 2K/4K。",
+            },
         },
-    }
+    },
+    EXTRACT_PATTERN_COMBINED_T2_ROUTE_KEY: {
+        "label": "AI提取花型 / 综合T2 / Gemini分支",
+        "description": "控制综合T2中原 Haoee 2K 分支的服务商与模型；固定的 Tuzi 4K 分支不受影响，只影响新建任务。",
+        "default_provider": "haoee",
+        "providers": {
+            "apyi": {
+                "label": "Apyi",
+                "client": "apyi_gemini",
+                "models": [
+                    {
+                        "value": "gemini-3-pro-image-preview-2k",
+                        "api_model": "gemini-3-pro-image-preview",
+                        "resolution": "2K",
+                    },
+                    {
+                        "value": "gemini-3.1-flash-image-preview-2k",
+                        "api_model": "gemini-3.1-flash-image-preview",
+                        "resolution": "2K",
+                    },
+                ],
+                "default_model": "gemini-3-pro-image-preview-2k",
+                "description": "通过 Apyi 平台调用 2K Gemini 图像模型作为综合T2分支。",
+            },
+            "tuzi": {
+                "label": "Tuzi",
+                "client": "tuzi_gemini",
+                "models": [
+                    {
+                        "value": "gemini-3-pro-image-preview-2k",
+                        "api_model": "gemini-3-pro-image-preview",
+                        "resolution": "2K",
+                    },
+                    {
+                        "value": "gemini-3.1-flash-image-preview-2k",
+                        "api_model": "gemini-3.1-flash-image-preview",
+                        "resolution": "2K",
+                    },
+                ],
+                "default_model": "gemini-3-pro-image-preview-2k",
+                "description": "通过 Tuzi 平台调用 2K Gemini 图像模型作为综合T2分支。",
+            },
+            "haoee": {
+                "label": "Haoee",
+                "client": "haoee_gemini",
+                "models": [
+                    {
+                        "value": "gemini-3-pro-image-preview-2k",
+                        "api_model": "gemini-3-pro-image-preview-lite",
+                        "resolution": "2K",
+                    },
+                    {
+                        "value": "gemini-3.1-flash-image-preview-2k",
+                        "api_model": "gemini-3.1-flash-image-preview",
+                        "resolution": "2K",
+                    },
+                ],
+                "default_model": "gemini-3-pro-image-preview-2k",
+                "description": "通过 Haoee MaaS 调用 2K Gemini 图像模型作为综合T2分支（默认保持原有行为）。",
+            },
+            "krapi": {
+                "label": "Kr API",
+                "client": "krapi_gemini",
+                "models": [
+                    {
+                        "value": "T香蕉2",
+                        "api_model": "T香蕉2",
+                        "resolution": "2K",
+                    },
+                    {
+                        "value": "T香蕉2-4K",
+                        "api_model": "T香蕉2",
+                        "resolution": "4K",
+                    },
+                    {
+                        "value": "T香蕉pro",
+                        "api_model": "T香蕉pro",
+                        "resolution": "2K",
+                    },
+                ],
+                "default_model": "T香蕉2",
+                "description": "通过 Kr API / New API 调用 Google T香蕉2 2K/4K 或 T香蕉pro 作为综合T2分支。",
+            },
+        },
+    },
 }
 
 
@@ -324,6 +432,8 @@ class AIModelRouteService:
         )
         if pattern_type in {"combined", "composite"}:
             return [EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY]
+        if pattern_type in {"combined_t2", "composite_t2", "t2"}:
+            return [EXTRACT_PATTERN_COMBINED_T2_ROUTE_KEY]
         return []
 
     def apply_route_snapshot(

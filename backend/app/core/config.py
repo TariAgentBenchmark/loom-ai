@@ -44,6 +44,7 @@ class Settings(BaseSettings):
             "runninghub": 100,
             "gqch": 6,
             "haoee_maas": 4,
+            "krapi_gemini": 4,
             "meitu": 5,
             "vectorizer": 2,
             "zfy_vectorizer": 10,
@@ -112,6 +113,11 @@ class Settings(BaseSettings):
     haoee_maas_api_key: str = ""
     haoee_maas_base_url: str = "https://maas.haoee.com"
     haoee_maas_default_preview_model: str = "gemini-3-pro-image-preview-lite"
+
+    # Kr API / New API配置
+    krapi_api_key: str = ""
+    krapi_base_url: str = "https://ai.krapi.cn"
+    krapi_default_image_model: str = "T香蕉pro"
 
     # RunningHub API配置
     runninghub_api_base_url: str = "https://www.runninghub.cn"

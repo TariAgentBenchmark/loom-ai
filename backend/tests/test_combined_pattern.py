@@ -6,6 +6,10 @@ import pytest
 
 from app.core.config import settings
 from app.services.ai_client.ai_client import AIClient
+from app.services.ai_model_route_service import (
+    AI_MODEL_ROUTES_OPTION_KEY,
+    EXTRACT_PATTERN_COMBINED_T2_ROUTE_KEY,
+)
 
 
 def _build_client() -> AIClient:
@@ -29,6 +33,10 @@ def _build_client() -> AIClient:
     client.tuzi_openai_client = SimpleNamespace(edit_image=None, extract_image_url=None)
     client.ai302_grok_client = SimpleNamespace(edit_image=None, extract_image_url=None)
     client.haoee_gemini_client = SimpleNamespace(
+        generate_image_preview=None,
+        _extract_image_url=lambda _result: None,
+    )
+    client.krapi_gemini_client = SimpleNamespace(
         generate_image_preview=None,
         _extract_image_url=lambda _result: None,
     )
@@ -550,6 +558,63 @@ async def test_extract_pattern_combined_t2_respects_num_images(
     assert result.split(",") == expected_urls
     assert [item["resolution"] for item in haoee_captured] == expected_haoee_resolutions
     assert len(tuzi_captured) == expected_tuzi_calls
+
+
+@pytest.mark.asyncio
+async def test_extract_pattern_combined_t2_uses_route_resolution(monkeypatch):
+    client = _build_client()
+    krapi_captured = []
+
+    async def fake_krapi_generate_image_preview(image_bytes, prompt, mime_type, **kwargs):
+        krapi_captured.append(
+            {
+                "image_bytes": image_bytes,
+                "prompt": prompt,
+                "mime_type": mime_type,
+                "kwargs": kwargs,
+            }
+        )
+        return {"url": "https://example.com/banana2-4k.png"}
+
+    monkeypatch.setattr(settings, "extract_pattern_combined_branch_timeout_seconds", 1)
+    monkeypatch.setattr(
+        client.krapi_gemini_client,
+        "generate_image_preview",
+        fake_krapi_generate_image_preview,
+    )
+    monkeypatch.setattr(
+        client.krapi_gemini_client,
+        "_extract_image_url",
+        lambda result: result["url"],
+    )
+
+    result = await client._extract_pattern_combined_t2(
+        b"fake-image",
+        {
+            "aspect_ratio": "1:1",
+            "num_images": 1,
+            AI_MODEL_ROUTES_OPTION_KEY: {
+                EXTRACT_PATTERN_COMBINED_T2_ROUTE_KEY: {
+                    "provider": "krapi",
+                    "model": "T香蕉2-4K",
+                }
+            },
+        },
+    )
+
+    assert result == "https://example.com/banana2-4k.png"
+    assert krapi_captured == [
+        {
+            "image_bytes": b"fake-image",
+            "prompt": "prompt:general_2",
+            "mime_type": "image/png",
+            "kwargs": {
+                "aspect_ratio": "1:1",
+                "resolution": "4K",
+                "model_name": "T香蕉2",
+            },
+        }
+    ]
 
 
 @pytest.mark.asyncio
