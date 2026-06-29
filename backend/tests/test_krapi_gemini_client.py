@@ -53,12 +53,13 @@ async def test_generate_image_preview_uses_newapi_gemini_payload(monkeypatch):
     assert captured["method"] == "POST"
     assert captured["endpoint"] == "/v1beta/models/T%E9%A6%99%E8%95%89pro:generateContent"
     assert captured["data"]["generationConfig"] == {
-        "responseModalities": ["IMAGE"],
+        "responseModalities": ["TEXT", "IMAGE"],
         "imageConfig": {
             "aspectRatio": "1:1",
             "imageSize": "4K",
         },
     }
+    assert captured["data"]["contents"][0]["role"] == "user"
     parts = captured["data"]["contents"][0]["parts"]
     assert parts[0] == {"text": "test prompt"}
     assert parts[1]["inlineData"]["mimeType"] == "image/png"
@@ -87,9 +88,11 @@ async def test_generate_image_from_text_accepts_model_override(monkeypatch):
 
     assert result == {"ok": True}
     assert captured["endpoint"] == "/v1beta/models/T%E9%A6%99%E8%95%892:generateContent"
-    assert captured["data"]["contents"] == [{"parts": [{"text": "draw a cat"}]}]
+    assert captured["data"]["contents"] == [
+        {"role": "user", "parts": [{"text": "draw a cat"}]}
+    ]
     assert captured["data"]["generationConfig"] == {
-        "responseModalities": ["IMAGE"],
+        "responseModalities": ["TEXT", "IMAGE"],
         "imageConfig": {"imageSize": "2K"},
     }
 

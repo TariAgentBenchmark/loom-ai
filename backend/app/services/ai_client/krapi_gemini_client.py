@@ -90,7 +90,7 @@ class KrapiGeminiClient(BaseAIClient):
         aspect_ratio: Optional[str] = None,
         resolution: Optional[str] = None,
     ) -> Dict[str, Any]:
-        generation_config: Dict[str, Any] = {"responseModalities": ["IMAGE"]}
+        generation_config: Dict[str, Any] = {"responseModalities": ["TEXT", "IMAGE"]}
         image_config: Dict[str, Any] = {}
 
         if aspect_ratio:
@@ -346,9 +346,10 @@ class KrapiGeminiClient(BaseAIClient):
         data: Dict[str, Any] = {
             "contents": [
                 {
+                    "role": "user",
                     "parts": [
                         {"text": prompt},
-                    ]
+                    ],
                 }
             ],
             "generationConfig": self._build_generation_config(
@@ -411,7 +412,7 @@ class KrapiGeminiClient(BaseAIClient):
         )
 
         data: Dict[str, Any] = {
-            "contents": [{"parts": parts}],
+            "contents": [{"role": "user", "parts": parts}],
             "generationConfig": self._build_generation_config(
                 aspect_ratio=aspect_ratio,
                 resolution=resolution,
