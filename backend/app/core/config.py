@@ -69,6 +69,8 @@ class Settings(BaseSettings):
     ai302_api_key: str = ""
     ai302_base_url: str = "https://api.302ai.com"
     ai302_file_base_url: str = "https://file.302ai.cn"
+    ai302_grok_poll_interval_seconds: int = 3
+    ai302_grok_poll_timeout_seconds: int = 180
     
     # 美图API配置
     meitu_api_key: str = ""
