@@ -74,8 +74,9 @@ class BaseAIClient:
         self,
         method: str,
         endpoint: str,
-        data: Dict[str, Any],
+        data: Optional[Dict[str, Any]],
         headers: Optional[Dict[str, str]] = None,
+        params: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """发送API请求"""
         url = f"{self.base_url}{endpoint}"
@@ -86,6 +87,7 @@ class BaseAIClient:
         max_retries = getattr(self, "max_retries", 3)
         request_timeout = getattr(self, "request_timeout", 300.0)
         backoff_base = 1.5
+        payload_for_log = data if data is not None else params
 
         async def _do_request():
             for attempt in range(1, max_retries + 1):
@@ -95,7 +97,8 @@ class BaseAIClient:
                             method=method,
                             url=url,
                             headers=request_headers,
-                            json=data
+                            params=params,
+                            json=data,
                         )
                         response.raise_for_status()
                         return response.json()
@@ -122,14 +125,14 @@ class BaseAIClient:
                         url,
                         status,
                         _summarize_payload(body),
-                        _summarize_payload(data),
+                        _summarize_payload(payload_for_log),
                     )
                     raise AIClientException(
                         message=f"AI服务请求失败: {status}",
                         api_name=self.api_name,
                         status_code=status,
                         response_body=body,
-                        request_data=data,
+                        request_data=payload_for_log,
                     )
 
                 except httpx.RequestError as exc:
@@ -150,19 +153,19 @@ class BaseAIClient:
                         method,
                         url,
                         str(exc),
-                        _summarize_payload(data),
+                        _summarize_payload(payload_for_log),
                     )
                     raise AIClientException(
                         message=f"AI服务连接失败: {str(exc)}",
                         api_name=self.api_name,
-                        request_data=data,
+                        request_data=payload_for_log,
                     )
 
             # 理论上不会到达这里，保留兜底处理
             raise AIClientException(
                 message="AI服务连接失败: 未知错误",
                 api_name=self.api_name,
-                request_data=data,
+                request_data=payload_for_log,
             )
 
         if self.api_name:
