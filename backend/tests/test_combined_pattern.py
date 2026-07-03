@@ -1,4 +1,5 @@
 import asyncio
+import importlib
 import time
 from types import SimpleNamespace
 
@@ -649,6 +650,86 @@ async def test_extract_pattern_general_1_retries_missing_workflow_result(monkeyp
 
     assert result == "https://example.com/one.png,https://example.com/two.png"
     assert attempts == {"wf-1": 2, "wf-2": 1}
+
+
+@pytest.mark.asyncio
+async def test_extract_pattern_general_1_returns_partial_four_image_result(monkeypatch):
+    client = _build_client()
+
+    async def fake_runninghub(**kwargs):
+        workflow_id = kwargs["workflow_id"]
+        if workflow_id == "wf-4":
+            return []
+        return [f"https://example.com/{workflow_id}.png"]
+
+    monkeypatch.setattr(settings, "extract_pattern_general_workflow_attempts", 1)
+    monkeypatch.setattr(settings, "runninghub_workflow_id_extract_general1_1", "wf-1")
+    monkeypatch.setattr(settings, "runninghub_workflow_id_extract_general1_2", "wf-2")
+    monkeypatch.setattr(settings, "runninghub_workflow_id_extract_general1_3", "wf-3")
+    monkeypatch.setattr(settings, "runninghub_workflow_id_extract_general1_4", "wf-4")
+    monkeypatch.setattr(
+        client.runninghub_client,
+        "run_workflow_with_custom_nodes",
+        fake_runninghub,
+    )
+
+    result = await client._extract_pattern_general_1(
+        b"fake-image",
+        {"num_images": 4},
+    )
+
+    assert result.split(",") == [
+        "https://example.com/wf-1.png",
+        "https://example.com/wf-2.png",
+        "https://example.com/wf-3.png",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_extract_pattern_general_1_times_out_stuck_four_image_branch(monkeypatch):
+    client = _build_client()
+    cancelled = set()
+
+    async def fake_runninghub(**kwargs):
+        workflow_id = kwargs["workflow_id"]
+        if workflow_id == "wf-4":
+            try:
+                await asyncio.sleep(1)
+            except asyncio.CancelledError:
+                cancelled.add(workflow_id)
+                raise
+        return [f"https://example.com/{workflow_id}.png"]
+
+    monkeypatch.setattr(settings, "extract_pattern_general_workflow_attempts", 1)
+    ai_client_module = importlib.import_module("app.services.ai_client.ai_client")
+    monkeypatch.setattr(
+        ai_client_module,
+        "_GENERAL_1_FOUR_IMAGE_BRANCH_TIMEOUT_SECONDS",
+        0.05,
+    )
+    monkeypatch.setattr(settings, "runninghub_workflow_id_extract_general1_1", "wf-1")
+    monkeypatch.setattr(settings, "runninghub_workflow_id_extract_general1_2", "wf-2")
+    monkeypatch.setattr(settings, "runninghub_workflow_id_extract_general1_3", "wf-3")
+    monkeypatch.setattr(settings, "runninghub_workflow_id_extract_general1_4", "wf-4")
+    monkeypatch.setattr(
+        client.runninghub_client,
+        "run_workflow_with_custom_nodes",
+        fake_runninghub,
+    )
+
+    start = time.monotonic()
+    result = await client._extract_pattern_general_1(
+        b"fake-image",
+        {"num_images": 4},
+    )
+
+    assert time.monotonic() - start < 0.5
+    assert result.split(",") == [
+        "https://example.com/wf-1.png",
+        "https://example.com/wf-2.png",
+        "https://example.com/wf-3.png",
+    ]
+    assert cancelled == {"wf-4"}
 
 
 @pytest.mark.asyncio
