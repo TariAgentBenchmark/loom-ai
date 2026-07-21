@@ -56,7 +56,7 @@ _PATTERN_TYPE_ALIASES = {
 
 _COMBINED_VARIANTS = ("general_2", "combined_detail")
 # 通用4张不再无限等单个 RunningHub 分支；写死默认值，避免配置项继续膨胀。
-_GENERAL_1_FOUR_IMAGE_MIN_SUCCESS_COUNT = 3
+_GENERAL_1_FOUR_IMAGE_MIN_SUCCESS_COUNT = 1
 _GENERAL_1_FOUR_IMAGE_BRANCH_TIMEOUT_SECONDS = 180.0
 _GPT_IMAGE_2_VIP_PATTERN_PROMPT = (
     "提取图中衣服上的图案，去掉褶皱、阴影，图案细节必须跟原图一模一样。"

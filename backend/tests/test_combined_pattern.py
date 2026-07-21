@@ -733,7 +733,7 @@ async def test_extract_pattern_general_1_times_out_stuck_four_image_branch(monke
 
 
 @pytest.mark.asyncio
-async def test_extract_pattern_general_1_fails_when_requested_count_not_met(monkeypatch):
+async def test_extract_pattern_general_1_returns_single_of_four_image_result(monkeypatch):
     client = _build_client()
 
     async def fake_runninghub(**kwargs):
@@ -753,7 +753,33 @@ async def test_extract_pattern_general_1_fails_when_requested_count_not_met(monk
         fake_runninghub,
     )
 
-    with pytest.raises(Exception, match="仅获得1/4张结果"):
+    result = await client._extract_pattern_general_1(
+        b"fake-image",
+        {"num_images": 4},
+    )
+
+    assert result == "https://example.com/one.png"
+
+
+@pytest.mark.asyncio
+async def test_extract_pattern_general_1_fails_when_no_image_result(monkeypatch):
+    client = _build_client()
+
+    async def fake_runninghub(**kwargs):
+        return []
+
+    monkeypatch.setattr(settings, "extract_pattern_general_workflow_attempts", 1)
+    monkeypatch.setattr(settings, "runninghub_workflow_id_extract_general1_1", "wf-1")
+    monkeypatch.setattr(settings, "runninghub_workflow_id_extract_general1_2", "wf-2")
+    monkeypatch.setattr(settings, "runninghub_workflow_id_extract_general1_3", "wf-3")
+    monkeypatch.setattr(settings, "runninghub_workflow_id_extract_general1_4", "wf-4")
+    monkeypatch.setattr(
+        client.runninghub_client,
+        "run_workflow_with_custom_nodes",
+        fake_runninghub,
+    )
+
+    with pytest.raises(Exception, match="通用1未获得结果"):
         await client._extract_pattern_general_1(
             b"fake-image",
             {"num_images": 4},
