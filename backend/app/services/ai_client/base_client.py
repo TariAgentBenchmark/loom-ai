@@ -232,12 +232,23 @@ class BaseAIClient:
                     content = self._extract_chat_text_content(message)
                     self._raise_for_chat_model_refusal(content, api_response)
 
+                    # 优先从多模态 content parts 提取（http URL 直接返回，base64 data URL 转存后返回）
+                    part_image_url = self._extract_chat_content_image_url(message)
+                    if part_image_url:
+                        return part_image_url
+
                     # 首先尝试从markdown格式中提取图像URL
                     import re
                     markdown_pattern = r'!\[.*?\]\((https?://[^\)]+)\)'
                     matches = re.findall(markdown_pattern, content)
                     if matches:
                         return matches[0]
+
+                    # markdown 中的 base64 data URL
+                    data_markdown_pattern = r'!\[.*?\]\((data:image/[^\)]+)\)'
+                    data_matches = re.findall(data_markdown_pattern, content)
+                    if data_matches:
+                        return self._save_base64_image(data_matches[0])
 
                     # 按行分割内容，查找第一个有效的URL
                     lines = content.strip().split('\n')
@@ -249,12 +260,21 @@ class BaseAIClient:
                         # 检查是否是独立的URL（没有markdown格式）
                         elif line.startswith("http") and ("image" in line.lower() or "img" in line.lower() or "图片" in line):
                             return line
+                        # 裸 base64 data URL 行
+                        elif line.startswith("data:image/"):
+                            return self._save_base64_image(line)
 
                     # 如果还是没有，在整个文本中搜索第一个URL模式
                     url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+(?:\.jpg|\.jpeg|\.png|\.webp)'
                     text_matches = re.findall(url_pattern, content, re.IGNORECASE)
                     if text_matches:
                         return text_matches[0]
+
+                    # 最后兜底：全文搜索 base64 data URL
+                    data_url_pattern = r'data:image/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+'
+                    data_url_matches = re.findall(data_url_pattern, content)
+                    if data_url_matches:
+                        return self._save_base64_image(data_url_matches[0])
 
             # OpenAI兼容图像响应格式
             if "data" in api_response and isinstance(api_response["data"], list):
@@ -457,6 +477,34 @@ class BaseAIClient:
         if content is None:
             return ""
         return str(content)
+
+    def _extract_chat_content_image_url(self, message: Dict[str, Any]) -> Optional[str]:
+        """从多模态 chat content parts 中提取图片。
+
+        兼容 OpenAI 多模态响应里的 image_url part：http(s) URL 直接返回，
+        base64 data URL 转存为文件/OSS 后返回 URL。
+        """
+        content = message.get("content")
+        if not isinstance(content, list):
+            return None
+        for item in content:
+            if not isinstance(item, dict):
+                continue
+            image_url = item.get("image_url")
+            if isinstance(image_url, dict):
+                url = image_url.get("url")
+            elif isinstance(image_url, str):
+                url = image_url
+            else:
+                url = None
+            if not isinstance(url, str) or not url.strip():
+                continue
+            url = url.strip()
+            if url.startswith("data:"):
+                return self._save_base64_image(url)
+            if url.startswith("http"):
+                return url
+        return None
 
     def _raise_for_chat_model_refusal(
         self, content: str, api_response: Dict[str, Any]

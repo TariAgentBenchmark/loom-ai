@@ -31,6 +31,7 @@ class TuziOpenAIClient(BaseAIClient):
         prompt: str,
         mime_type: str = "image/png",
         model: Optional[str] = None,
+        quality: Optional[str] = None,
     ) -> Dict[str, Any]:
         if not self.is_configured():
             raise ValueError("Tuzi gpt-image-2-vip API未配置")
@@ -45,6 +46,8 @@ class TuziOpenAIClient(BaseAIClient):
 
         data: Dict[str, Any] = {
             "model": resolved_model,
+            # 接口文档要求必传 stream；固定 False 避免上游按 SSE 流式返回导致同步解析失败
+            "stream": False,
             "messages": [
                 {
                     "role": "user",
@@ -60,6 +63,9 @@ class TuziOpenAIClient(BaseAIClient):
                 }
             ],
         }
+
+        if isinstance(quality, str) and quality.strip():
+            data["quality"] = quality.strip()
 
         logger.info("Editing image with Tuzi OpenAI model %s", resolved_model)
         return await self._make_request("POST", "/chat/completions", data)
