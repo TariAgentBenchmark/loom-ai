@@ -6,7 +6,11 @@ from types import SimpleNamespace
 import pytest
 
 from app.core.config import settings
-from app.services.ai_client.ai_client import AIClient
+from app.services.ai_client.ai_client import (
+    AIClient,
+    _COMBINED_T2_GEMINI_PROMPT_VARIANT_2,
+    _COMBINED_T2_GEMINI_PROMPT_VARIANT_3,
+)
 from app.services.ai_model_route_service import (
     AI_MODEL_ROUTES_OPTION_KEY,
     EXTRACT_PATTERN_COMBINED_T2_ROUTE_KEY,
@@ -464,7 +468,11 @@ async def test_extract_pattern_combined_t2_runs_three_2k_and_one_gpt2(monkeypatc
         "2K",
     ]
     assert all(item["image_bytes"] == b"fake-image" for item in haoee_captured)
-    assert all(item["prompt"] == "prompt:general_2" for item in haoee_captured)
+    assert [item["prompt"] for item in haoee_captured] == [
+        "prompt:general_2",
+        _COMBINED_T2_GEMINI_PROMPT_VARIANT_2,
+        _COMBINED_T2_GEMINI_PROMPT_VARIANT_3,
+    ]
     assert all(item["mime_type"] == "image/png" for item in haoee_captured)
     assert all(item["kwargs"]["aspect_ratio"] == "1:1" for item in haoee_captured)
     assert all(
