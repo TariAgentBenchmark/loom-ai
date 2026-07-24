@@ -10,7 +10,7 @@
 
 ## Deployment
 
-Use `agents/loom-deploy/SKILL.md` as the source of truth for LoomAI deployment steps, environment mapping, GitHub Actions checks, compose commands, and post-deploy verification.
+Use `.agents/skills/loom-deploy/SKILL.md` as the source of truth for LoomAI deployment steps, environment mapping, GitHub Actions checks, compose commands, and post-deploy verification.
 
 ## Non-Negotiable Rules
 
