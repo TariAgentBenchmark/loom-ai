@@ -344,6 +344,7 @@ class ImageProcessingUtils:
                     prompt_with_size,
                     n=1,
                     size=None,
+                    response_format="b64_json",
                     model=GPT_IMAGE_2_ALL_MODEL,
                     image_bytes=image_bytes,
                 )

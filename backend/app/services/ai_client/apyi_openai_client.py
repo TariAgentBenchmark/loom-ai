@@ -1,10 +1,13 @@
 import asyncio
+import base64
 import logging
 from io import BytesIO
+from random import uniform
 from typing import Any, Dict, Optional
 
 import httpx
 
+from app.services.api_limiter import api_limiter
 from app.services.ai_client.base_client import BaseAIClient
 from app.core.config import settings
 from app.services.ai_client.exceptions import AIClientException
@@ -104,10 +107,17 @@ class ApyiOpenAIClient(BaseAIClient):
             )
             model = GPT_IMAGE_2_ALL_MODEL
 
-        # Apyi image chat models use chat/completions and may reject images/generations params.
+        # gpt-image-2-all uses the standard Images API. Request base64 explicitly so
+        # results can be decoded and persisted to our OSS without depending on R2 URLs.
         if model == GPT_IMAGE_2_ALL_MODEL:
-            return await self._generate_image_with_chat_model(
-                prompt, image_bytes, image_url, n, size, model
+            return await self._generate_image_with_gpt_image_2_all(
+                prompt,
+                image_bytes=image_bytes,
+                image_url=image_url,
+                n=n,
+                size=size,
+                model=model,
+                response_format=response_format,
             )
 
         endpoint = "/images/generations"
@@ -134,73 +144,71 @@ class ApyiOpenAIClient(BaseAIClient):
 
         return await self._make_request("POST", endpoint, data)
 
-    async def _generate_image_with_chat_model(
+    async def _generate_image_with_gpt_image_2_all(
         self,
         prompt: str,
         image_bytes: Optional[bytes] = None,
         image_url: Optional[str] = None,
         n: int = 1,
         size: Optional[str] = None,
-        model: str = GPT_IMAGE_2_ALL_MODEL
+        model: str = GPT_IMAGE_2_ALL_MODEL,
+        response_format: Optional[str] = None,
     ) -> Dict[str, Any]:
+        """Generate or edit with gpt-image-2-all through the standard Images API.
+
+        The provider's URL mode points at a short-lived R2 CDN that is not reachable
+        from every deployment network. Base64 is therefore the default and is later
+        decoded by ``BaseAIClient`` and uploaded directly to our managed OSS.
         """
-        使用chat/completions端点生成图像（适用于 Apyi 图像多模态模型）
+        resolved_response_format = response_format or "b64_json"
+        if resolved_response_format not in {"b64_json", "url"}:
+            raise ValueError(
+                "gpt-image-2-all response_format must be 'b64_json' or 'url'"
+            )
 
-        Args:
-            prompt: 生成指令文本
-            image_bytes: 输入图像的字节数据（可选）
-            image_url: 输入图像的URL（可选）
-            n: 生成的图像数量，默认为1
-            size: 图像尺寸（对于图像 chat 模型可能不适用）
-            model: 使用的模型，默认为 gpt-image-2-all
-
-        Returns:
-            API响应数据
-        """
-        endpoint = "/chat/completions"
-
-        content = [
-            {
-                "type": "text",
-                "text": prompt
-            }
-        ]
-
-        # 如果有图片输入，添加到content中
-        if image_bytes:
-            base64_image = self._image_to_base64(image_bytes, "PNG")
-            content.append({
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:image/png;base64,{base64_image}"
-                }
-            })
-        elif image_url:
-            content.append({
-                "type": "image_url",
-                "image_url": {
-                    "url": image_url
-                }
-            })
+        if image_bytes is None and image_url:
+            image_bytes = await self._download_image_from_url(image_url)
 
         data = {
             "model": model,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": content
-                }
-            ]
+            "prompt": prompt,
+            "response_format": resolved_response_format,
         }
 
-        # gpt-image-2-all 每次只返回 1 张图，不支持 n/size 等图片端点参数。
-        if n > 1 and model != GPT_IMAGE_2_ALL_MODEL:
-            data["n"] = n
+        logger.info(
+            "Generating image with Apyi %s Images API: n=%s size=%s "
+            "has_image=%s response_format=%s prompt=%s...",
+            model,
+            n,
+            size,
+            image_bytes is not None,
+            resolved_response_format,
+            prompt[:100],
+        )
 
-        logger.info(f"Generating image with chat model {model}: {prompt[:100]}...")
-        logger.info("Parameters: n=%s, size=%s, model=%s, has_image=%s", n, size, model, bool(image_bytes or image_url))
+        # gpt-image-2-all returns one image and ignores n/size. Callers that need
+        # multiple results issue independent requests and carry size intent in prompt.
+        if image_bytes is None:
+            return await self._make_request(
+                "POST",
+                "/images/generations",
+                data,
+            )
 
-        return await self._make_request("POST", endpoint, data)
+        # Normalize user uploads to a standard single-frame PNG before multipart
+        # upload (phone JPG files can actually be MPO or use unsupported color modes).
+        normalized_png = base64.b64decode(
+            self._image_to_base64(image_bytes, "PNG")
+        )
+        files = {
+            "image": ("image.png", normalized_png, "image/png"),
+        }
+        return await self._make_multipart_request(
+            "POST",
+            "/images/edits",
+            files,
+            data,
+        )
 
     async def chat_completion(
         self,
@@ -248,73 +256,82 @@ class ApyiOpenAIClient(BaseAIClient):
     ) -> Dict[str, Any]:
         """发送multipart/form-data请求"""
         url = f"{self.base_url}{endpoint}"
-
         max_retries = 3
         backoff_base = 1.5
+        request_timeout = getattr(self, "request_timeout", 300.0)
 
-        for attempt in range(1, max_retries + 1):
-            try:
-                async with httpx.AsyncClient(timeout=300.0) as client:
-                    response = await client.request(
-                        method=method,
-                        url=url,
-                        headers={"Authorization": f"Bearer {self.api_key}"},
-                        files=files,
-                        data=data
+        async def _do_request() -> Dict[str, Any]:
+            for attempt in range(1, max_retries + 1):
+                try:
+                    # Rewind file-like bodies before retrying the same multipart request.
+                    for file_value in files.values():
+                        body = file_value[1] if isinstance(file_value, tuple) else file_value
+                        if hasattr(body, "seek"):
+                            body.seek(0)
+
+                    async with httpx.AsyncClient(timeout=request_timeout) as client:
+                        response = await client.request(
+                            method=method,
+                            url=url,
+                            headers={"Authorization": f"Bearer {self.api_key}"},
+                            files=files,
+                            data=data
+                        )
+                        response.raise_for_status()
+                        return response.json()
+
+                except httpx.HTTPStatusError as exc:
+                    status = exc.response.status_code
+                    body = exc.response.text
+                    if 500 <= status < 600 and attempt < max_retries:
+                        wait_seconds = backoff_base * (2 ** (attempt - 1)) + uniform(0, 0.5)
+                        logger.warning(
+                            "Apyi OpenAI API request failed with %s (attempt %s/%s). Body: %s. Retrying in %.2fs",
+                            status,
+                            attempt,
+                            max_retries,
+                            body,
+                            wait_seconds,
+                        )
+                        await asyncio.sleep(wait_seconds)
+                        continue
+
+                    logger.error(f"Apyi OpenAI API request failed: {status} - {body}")
+                    raise AIClientException(
+                        message=f"Apyi OpenAI服务请求失败: {status}",
+                        api_name="ApyiOpenAI",
+                        status_code=status,
+                        response_body=body,
+                        request_data=data,
                     )
-                    response.raise_for_status()
-                    return response.json()
 
-            except httpx.HTTPStatusError as exc:
-                status = exc.response.status_code
-                body = exc.response.text
-                if 500 <= status < 600 and attempt < max_retries:
-                    wait_seconds = backoff_base * (2 ** (attempt - 1)) + asyncio.uniform(0, 0.5)
-                    logger.warning(
-                        "Apyi OpenAI API request failed with %s (attempt %s/%s). Body: %s. Retrying in %.2fs",
-                        status,
-                        attempt,
-                        max_retries,
-                        body,
-                        wait_seconds,
+                except httpx.RequestError as exc:
+                    if attempt < max_retries:
+                        wait_seconds = backoff_base * (2 ** (attempt - 1)) + uniform(0, 0.5)
+                        logger.warning(
+                            "Apyi OpenAI API request error '%s' (attempt %s/%s). Retrying in %.2fs",
+                            exc,
+                            attempt,
+                            max_retries,
+                            wait_seconds,
+                        )
+                        await asyncio.sleep(wait_seconds)
+                        continue
+
+                    logger.error(f"Apyi OpenAI API request error: {str(exc)}")
+                    raise AIClientException(
+                        message=f"Apyi OpenAI服务连接失败: {str(exc)}",
+                        api_name="ApyiOpenAI",
+                        request_data=data,
                     )
-                    await asyncio.sleep(wait_seconds)
-                    continue
 
-                logger.error(f"Apyi OpenAI API request failed: {status} - {body}")
-                raise AIClientException(
-                    message=f"Apyi OpenAI服务请求失败: {status}",
-                    api_name="ApyiOpenAI",
-                    status_code=status,
-                    response_body=body,
-                    request_data=data,
-                )
+            raise AIClientException(
+                message="Apyi OpenAI服务连接失败: 未知错误",
+                api_name="ApyiOpenAI",
+                request_data=data,
+            )
 
-            except httpx.RequestError as exc:
-                if attempt < max_retries:
-                    wait_seconds = backoff_base * (2 ** (attempt - 1)) + asyncio.uniform(0, 0.5)
-                    logger.warning(
-                        "Apyi OpenAI API request error '%s' (attempt %s/%s). Retrying in %.2fs",
-                        exc,
-                        attempt,
-                        max_retries,
-                        wait_seconds,
-                    )
-                    await asyncio.sleep(wait_seconds)
-                    continue
-
-                logger.error(f"Apyi OpenAI API request error: {str(exc)}")
-                raise AIClientException(
-                    message=f"Apyi OpenAI服务连接失败: {str(exc)}",
-                    api_name="ApyiOpenAI",
-                    request_data=data,
-                )
-
-        raise AIClientException(
-            message="Apyi OpenAI服务连接失败: 未知错误",
-            api_name="ApyiOpenAI",
-            request_data=data,
-        )
+        return await api_limiter.run(self.api_name, _do_request)
 
     @staticmethod
     def create_mask_for_rectangle(
