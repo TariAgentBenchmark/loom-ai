@@ -16,7 +16,6 @@ from app.services.ai_client.tuzi_openai_client import (
 from app.services.ai_client.haoee_gemini_client import HaoeeGeminiClient
 from app.services.ai_client.krapi_gemini_client import KrapiGeminiClient
 from app.services.ai_client.apyi_openai_client import ApyiOpenAIClient
-from app.services.ai_client.ai302_grok_client import AI302GrokClient
 from app.services.ai_client.gpt4o_client import GPT4oClient
 from app.services.ai_client.image_utils import ImageProcessingUtils
 from app.services.ai_client.gqch_client import GQCHClient
@@ -54,7 +53,6 @@ _PATTERN_TYPE_ALIASES = {
     "t2": "combined_t2",
 }
 
-_COMBINED_VARIANTS = ("general_2", "combined_detail")
 # 通用4张不再无限等单个 RunningHub 分支；写死默认值，避免配置项继续膨胀。
 _GENERAL_1_FOUR_IMAGE_MIN_SUCCESS_COUNT = 1
 _GENERAL_1_FOUR_IMAGE_BRANCH_TIMEOUT_SECONDS = 180.0
@@ -91,27 +89,6 @@ _COMBINED_T2_GEMINI_PROMPT_VARIANT_3 = (
     "生成图案的所有样式和颜色（包括所有色阶和纹理感）必须与原始图片中的图案完全相同，"
     "无任何偏差。 去布纹。保留底色，给图案我，不要文字"
 )
-_GROK302_PATTERN_PROMPT = (
-    "核心任务： 全幅宽定位印花画稿生成 (密度控制 + 智能扩展)\n"
-    "角色设定： 您是顶级印花设计专家。您的目标是生成一张“准备上机打印”的、构图完美的数码印花源文件。\n\n"
-    "核心指令 (必须严格执行)：\n\n"
-    "定位花布局与密度控制 (Engineered Layout & Density - 核心加强)\n\n"
-    "定位逻辑： 严格遵循“定位印花”的设计原则。花型的位置是经过精心设计的，而非随机平铺。"
-    "保持原图特有的花位布局（如：花朵在特定位置的聚散）。\n\n"
-    "呼吸感与留白 (Negative Space)： 精准复刻原图的图案间距。必须保留花卉之间的干净的背景 "
-    "(Breathing Room)。严禁为了填满画布而过度堆砌图案，导致画面拥挤或混乱。保持清爽、透气的视觉节奏。\n\n"
-    "疏密节奏： 准确还原原设计的疏密变化（例如：若原设计是下摆密、腰头疏，则必须严格遵守；若原设计是均匀分布，则保持均匀）。\n\n"
-    "四周扩展与花型完整性 (Outpainting & Integrity - 核心加强)\n\n"
-    "拒绝残缺： 确保画面边缘和扩展区域的所有花朵/几何图形都是结构完整的。严禁出现只有一半、被切断或破碎的花型。\n\n"
-    "腰头区域：去褶皱还原 (保持不变)\n\n"
-    "数字解压： 识别腰部的高密度是物理挤压造成的。必须将挤在一起的图案“拉开”、“摊平”，恢复其原本的自然间距和大小，与主体图案保持一致。\n\n"
-    "裤装/裙装隐形合并逻辑 (保持不变)\n\n"
-    "裤装缝合： 彻底忽略裤腿缝隙，将双腿图案合并为连续宽幅平面。\n\n"
-    "顺势排列： 图案走势顺应版型（裤装垂直），但不画出任何物理轮廓线。\n\n"
-    "画质：超高清印花级\n\n"
-    "刀锋锐利： 8K+分辨率，边缘锐利，无模糊，保留手绘/数码原稿的细腻笔触。\n\n"
-    "排除列表 (加强版)： 排除：图案拥挤，花型被切断，边缘残缺，腰部假性密集，裤子/裙子轮廓，缝隙，阴影，模糊"
-)
 _EMBROIDERY_MODE_ALIASES = {
     "yarn": "yarn",
     "wool": "yarn",
@@ -134,7 +111,6 @@ class AIClient:
         self.haoee_gemini_client = HaoeeGeminiClient()
         self.krapi_gemini_client = KrapiGeminiClient()
         self.apyi_openai_client = ApyiOpenAIClient()
-        self.ai302_grok_client = AI302GrokClient()
         self.jimeng_client = JimengClient()
         self.vectorizer_client = VectorizerClient()
         self.vector_webapi_client = VectorWebAPIClient()
@@ -572,28 +548,6 @@ class AIClient:
                 )
                 return None
 
-        async def _run_grok302_extract() -> Optional[str]:
-            image_url = options.get("original_image_url")
-            aspect_ratio = options.get("aspect_ratio")
-
-            try:
-                result = await self.ai302_grok_client.edit_image(
-                    image_url=image_url,
-                    prompt=_GROK302_PATTERN_PROMPT,
-                    aspect_ratio=aspect_ratio,
-                )
-                return self.ai302_grok_client.extract_image_url(result)
-            except Exception as exc:
-                branch_errors.append(
-                    self._serialize_downstream_error(
-                        exc,
-                        label="grok302",
-                        extra={"provider": "ai302_grok"},
-                    )
-                )
-                logger.warning("Combined pattern 302.AI Grok branch failed: %s", str(exc))
-                return None
-
         async def _run_branch_with_timeout(
             label: str,
             coroutine: Any,
@@ -639,8 +593,8 @@ class AIClient:
                 _run_runninghub(settings.runninghub_workflow_id_extract_combined_4),
             ),
             (
-                "grok302",
-                _run_grok302_extract(),
+                "combined_detail",
+                _run_variant("combined_detail"),
             ),
         ]
 

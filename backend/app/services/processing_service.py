@@ -253,10 +253,13 @@ class ProcessingService:
                     )
                     provider = (
                         f"runninghub+{route_client}+"
-                        "tuzi_gpt_image_2_vip+ai302_grok"
+                        "tuzi_gpt_image_2_vip+apyi_gemini_banana1"
                     )
                 except Exception:
-                    provider = "runninghub+gemini+tuzi_gpt_image_2_vip+ai302_grok"
+                    provider = (
+                        "runninghub+gemini+tuzi_gpt_image_2_vip+"
+                        "apyi_gemini_banana1"
+                    )
             elif pattern_type in {"combined_t2", "composite_t2"}:
                 try:
                     route = AIModelRouteService.resolve_snapshot_from_options(

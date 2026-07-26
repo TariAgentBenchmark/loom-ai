@@ -36,7 +36,6 @@ def _build_client() -> AIClient:
         _extract_image_url=lambda _result: None,
     )
     client.tuzi_openai_client = SimpleNamespace(edit_image=None, extract_image_url=None)
-    client.ai302_grok_client = SimpleNamespace(edit_image=None, extract_image_url=None)
     client.haoee_gemini_client = SimpleNamespace(
         generate_image_preview=None,
         _extract_image_url=lambda _result: None,
@@ -52,10 +51,15 @@ def _build_client() -> AIClient:
 @pytest.mark.asyncio
 async def test_extract_pattern_combined_runs_four_fixed_branches(monkeypatch):
     client = _build_client()
+    banana1_calls = []
 
     async def fake_apyi_generate_image_preview(*_args, **_kwargs):
         await asyncio.sleep(0.01)
         return {"candidates": [{"content": {"parts": [{"text": "https://example.com/general.png"}]}}]}
+
+    async def fast_banana1(image_bytes, options):
+        banana1_calls.append({"image_bytes": image_bytes, "options": options})
+        return "https://example.com/banana1.png"
 
     async def fast_edit_image(**_kwargs):
         return {"data": [{"url": "https://example.com/gpt2.png"}]}
@@ -63,11 +67,9 @@ async def test_extract_pattern_combined_runs_four_fixed_branches(monkeypatch):
     async def fast_runninghub(**_kwargs):
         return ["https://example.com/runninghub.png"]
 
-    async def fast_grok302(**_kwargs):
-        return {"images": [{"url": "https://example.com/grok302.png"}]}
-
     monkeypatch.setattr(settings, "extract_pattern_combined_branch_timeout_seconds", 180)
     monkeypatch.setattr(settings, "extract_pattern_combined_early_return_success_count", 3)
+    monkeypatch.setattr(client.image_utils, "extract_pattern", fast_banana1)
     monkeypatch.setattr(
         client.apyi_gemini_client,
         "generate_image_preview",
@@ -89,12 +91,6 @@ async def test_extract_pattern_combined_runs_four_fixed_branches(monkeypatch):
         "extract_image_url",
         lambda result: result["data"][0]["url"],
     )
-    monkeypatch.setattr(client.ai302_grok_client, "edit_image", fast_grok302)
-    monkeypatch.setattr(
-        client.ai302_grok_client,
-        "extract_image_url",
-        lambda result: result["images"][0]["url"],
-    )
 
     result = await client._extract_pattern_combined(
         b"fake-image",
@@ -105,8 +101,18 @@ async def test_extract_pattern_combined_runs_four_fixed_branches(monkeypatch):
         "https://example.com/general.png",
         "https://example.com/gpt2.png",
         "https://example.com/runninghub.png",
-        "https://example.com/grok302.png",
+        "https://example.com/banana1.png",
     }
+    assert banana1_calls == [
+        {
+            "image_bytes": b"fake-image",
+            "options": {
+                "original_image_url": "https://example.com/source.png",
+                "aspect_ratio": "1:1",
+                "pattern_type": "combined_detail",
+            },
+        }
+    ]
 
 
 @pytest.mark.asyncio
@@ -116,11 +122,12 @@ async def test_extract_pattern_combined_allows_timeouts_when_other_branches_succ
     async def fake_apyi_generate_image_preview(*_args, **_kwargs):
         return {"candidates": [{"content": {"parts": [{"text": "https://example.com/general.png"}]}}]}
 
+    async def fast_banana1(_image_bytes, options):
+        assert options["pattern_type"] == "combined_detail"
+        return "https://example.com/banana1.png"
+
     async def fast_edit_image(**_kwargs):
         return {"data": [{"url": "https://example.com/gpt2.png"}]}
-
-    async def fast_grok302(**_kwargs):
-        return {"images": [{"url": "https://example.com/grok302.png"}]}
 
     async def slow_runninghub(**_kwargs):
         await asyncio.sleep(1)
@@ -128,6 +135,7 @@ async def test_extract_pattern_combined_allows_timeouts_when_other_branches_succ
 
     monkeypatch.setattr(settings, "extract_pattern_combined_branch_timeout_seconds", 0.05)
     monkeypatch.setattr(settings, "extract_pattern_combined_early_return_success_count", 4)
+    monkeypatch.setattr(client.image_utils, "extract_pattern", fast_banana1)
     monkeypatch.setattr(
         client.apyi_gemini_client,
         "generate_image_preview",
@@ -149,12 +157,6 @@ async def test_extract_pattern_combined_allows_timeouts_when_other_branches_succ
         "extract_image_url",
         lambda result: result["data"][0]["url"],
     )
-    monkeypatch.setattr(client.ai302_grok_client, "edit_image", fast_grok302)
-    monkeypatch.setattr(
-        client.ai302_grok_client,
-        "extract_image_url",
-        lambda result: result["images"][0]["url"],
-    )
 
     started = time.monotonic()
     result = await client._extract_pattern_combined(
@@ -166,7 +168,7 @@ async def test_extract_pattern_combined_allows_timeouts_when_other_branches_succ
     assert set(result.split(",")) == {
         "https://example.com/general.png",
         "https://example.com/gpt2.png",
-        "https://example.com/grok302.png",
+        "https://example.com/banana1.png",
     }
     assert elapsed < 0.3
 
