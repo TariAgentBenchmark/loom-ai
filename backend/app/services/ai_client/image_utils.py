@@ -7,13 +7,21 @@ from typing import Any, Dict, List, Optional
 from app.core.config import settings
 from app.services.ai_client.gemini_client import GeminiClient
 from app.services.ai_client.apyi_gemini_client import ApyiGeminiClient
-from app.services.ai_client.apyi_openai_client import ApyiOpenAIClient, GPT_IMAGE_2_ALL_MODEL
+from app.services.ai_client.apyi_openai_client import (
+    ApyiOpenAIClient,
+    GPT_IMAGE_2_ALL_MODEL,
+    GPT_IMAGE_2_5_ALL_MODEL,
+)
 
 logger = logging.getLogger(__name__)
 
 PROMPT_EDIT_PRO_4K_MODEL = "gemini-3-pro-image-preview-4k"
 DENOISE_PRO_4K_MODEL = "gemini-3-pro-image-preview-4k"
 DENOISE_PRO_4K_RESOLUTION = "4K"
+
+# Denim pattern extraction uses Apyi gpt-image-2.5-all and always returns two images.
+DENIM_GPT_IMAGE_MODEL = GPT_IMAGE_2_5_ALL_MODEL
+DENIM_DEFAULT_IMAGE_COUNT = 2
 
 
 class ImageProcessingUtils:
@@ -65,7 +73,7 @@ class ImageProcessingUtils:
             )
         if pattern_type == "denim":
             return (
-                "从图中提取完整的牛仔面料质感，包括所有服装元素和褶皱细节，还有花型。"
+                "从整条牛仔裤中提取完整的牛仔面料质感，包括裤腿、腰带、口袋、接缝和褶皱细节，还有花型。"
                 "保持纹理结构和比例准确，没有遗漏区域或失真。在画布上无缝地展平和平铺整个牛仔纹理。"
                 "输出具有逼真织物纹理、照明和编织细节的高分辨率数字纺织品印花，适用于纺织品或图案设计。"
             )
@@ -308,7 +316,8 @@ class ImageProcessingUtils:
 
             return "1024x1024"
 
-        def _build_denim_size() -> str:
+        def _build_denim_size() -> Optional[str]:
+            """Return the size hint for denim, or None for the model default."""
             width_value = self._coerce_positive_int(width)
             height_value = self._coerce_positive_int(height)
 
@@ -316,11 +325,17 @@ class ImageProcessingUtils:
                 return f"{width_value}x{height_value}"
 
             size_option = options.get("size")
-            if isinstance(size_option, str) and "x" in size_option:
-                return size_option
+            if isinstance(size_option, str):
+                normalized_size = size_option.strip()
+                if "x" in normalized_size:
+                    return normalized_size
+                if normalized_size.lower() in {"", "default", "auto", "none"}:
+                    return None
 
             if isinstance(aspect_ratio, str):
                 ratio = aspect_ratio.strip()
+                if ratio.lower() in {"", "default", "auto", "none"}:
+                    return None
                 ratio_map = {
                     "1:1": "1024x1024",
                     "2:3": "1024x1536",
@@ -330,13 +345,21 @@ class ImageProcessingUtils:
                 if mapped:
                     return mapped
 
-            return "1024x1024"
+            return None
 
-        def _with_gpt_image_2_size_hint(base_prompt: str, size: str) -> str:
-            # gpt-image-2-all does not accept the old size field; carry it as prompt intent.
+        def _with_gpt_image_2_size_hint(
+            base_prompt: str, size: Optional[str]
+        ) -> str:
+            # The "-all" models do not accept the old size field; carry it as prompt intent.
+            if not size:
+                return base_prompt
             return f"生成图片尺寸/构图参考：{size}。{base_prompt}"
 
-        async def _generate_gpt_image_2_urls(count: int, size: str) -> List[str]:
+        async def _generate_gpt_image_2_urls(
+            count: int,
+            size: Optional[str],
+            model: str = GPT_IMAGE_2_ALL_MODEL,
+        ) -> List[str]:
             prompt_with_size = _with_gpt_image_2_size_hint(prompt, size)
 
             async def _call_once() -> List[str]:
@@ -345,7 +368,7 @@ class ImageProcessingUtils:
                     n=1,
                     size=None,
                     response_format="b64_json",
-                    model=GPT_IMAGE_2_ALL_MODEL,
+                    model=model,
                     image_bytes=image_bytes,
                 )
                 image_urls = self.apyi_openai_client._extract_image_urls(result)
@@ -368,10 +391,14 @@ class ImageProcessingUtils:
             if num_images is None:
                 num_images = self._coerce_positive_int(options.get("n"))
             if num_images is None:
-                num_images = 1
+                num_images = DENIM_DEFAULT_IMAGE_COUNT
 
             size = _build_denim_size()
-            image_urls = await _generate_gpt_image_2_urls(num_images, size)
+            image_urls = await _generate_gpt_image_2_urls(
+                num_images,
+                size,
+                model=DENIM_GPT_IMAGE_MODEL,
+            )
             return ",".join(image_urls)
         else:
             # general_2/positioning 模式使用可配置的 Gemini preview 模型

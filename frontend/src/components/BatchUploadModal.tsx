@@ -137,6 +137,7 @@ export default function BatchUploadModal({
         },
     ];
     const denimSizeOptions: { value: string; label: string }[] = [
+        { value: 'default', label: '默认' },
         { value: '1:1', label: '方形 1:1' },
         { value: '2:3', label: '竖版 2:3' },
         { value: '3:2', label: '横版 3:2' },
@@ -147,7 +148,7 @@ export default function BatchUploadModal({
         { value: 4, label: '4张图' },
     ];
     const effectivePatternType = patternType ?? 'combined';
-    const effectiveDenimAspectRatio = denimAspectRatio ?? '1:1';
+    const effectiveDenimAspectRatio = denimAspectRatio ?? 'default';
     const effectiveGeneralImageCount = generalImageCount ?? 4;
     const canChoosePatternImageCount =
         effectivePatternType === 'general' || effectivePatternType === 'combined_t2';
@@ -469,7 +470,7 @@ export default function BatchUploadModal({
                                 <div className="space-y-4">
                                     <div>
                                         <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2">图片尺寸</h4>
-                                        <div className="grid grid-cols-3 gap-2">
+                                        <div className="grid grid-cols-4 gap-2">
                                             {denimSizeOptions.map((option) => {
                                                 const isActive =
                                                     effectiveDenimAspectRatio === option.value;

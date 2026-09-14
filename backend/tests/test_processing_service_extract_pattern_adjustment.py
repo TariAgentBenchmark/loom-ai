@@ -152,10 +152,22 @@ def test_denim_extract_pattern_describes_apyi_openai_downstream():
 
     assert downstream == {
         "provider": "apyi_openai",
-        "model": "gpt-image-2-all",
+        "model": "gpt-image-2.5-all",
         "patternType": "denim",
         "numImages": 2,
     }
+
+
+def test_denim_extract_pattern_defaults_to_two_expected_results():
+    service = ProcessingService()
+
+    assert (
+        service._resolve_expected_result_count(
+            TaskType.EXTRACT_PATTERN.value,
+            {"pattern_type": "denim"},
+        )
+        == 2
+    )
 
 
 def test_combined_t2_extract_pattern_describes_haoee_downstream():

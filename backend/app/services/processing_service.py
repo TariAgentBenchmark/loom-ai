@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.models.task import Task, TaskStatus, TaskType
 from app.models.user import User
 from app.services.ai_client import ai_client
+from app.services.ai_client.image_utils import DENIM_GPT_IMAGE_MODEL
 from app.services.ai_model_route_service import (
     AI_MODEL_ROUTES_OPTION_KEY,
     EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY,
@@ -114,7 +115,7 @@ class ProcessingService:
         if pattern_type in {"general", "general1", "general_1"}:
             return 4
         if pattern_type == "denim":
-            return 1
+            return 2
         return 1
 
     def _apply_partial_result_credit_adjustment(
@@ -290,7 +291,9 @@ class ProcessingService:
         downstream: Dict[str, Any] = {"provider": provider}
         if engine:
             downstream["engine"] = engine
-        if task_type == TaskType.EXTRACT_PATTERN.value and pattern_type in {"fine", "denim"}:
+        if task_type == TaskType.EXTRACT_PATTERN.value and pattern_type == "denim":
+            downstream["model"] = DENIM_GPT_IMAGE_MODEL
+        elif task_type == TaskType.EXTRACT_PATTERN.value and pattern_type == "fine":
             downstream["model"] = "gpt-image-2-all"
         if task_type == TaskType.DENOISE.value:
             downstream["model"] = "gemini-3-pro-image-preview-4k"

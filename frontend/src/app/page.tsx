@@ -175,7 +175,7 @@ function HomeContent() {
   const [promptEditMode, setPromptEditMode] = useState<PromptEditMode>('standard');
   const [embroideryMode, setEmbroideryMode] = useState<'yarn' | 'embroidery'>('embroidery');
   const [patternType, setPatternType] = useState<string>(DEFAULT_PATTERN_TYPE);
-  const [denimAspectRatio, setDenimAspectRatio] = useState<string>('1:1');
+  const [denimAspectRatio, setDenimAspectRatio] = useState<string>('default');
   const [denimImageCount, setDenimImageCount] = useState<number>(2);
   const [generalImageCount, setGeneralImageCount] = useState<number>(4);
   const [upscaleEngine, setUpscaleEngine] = useState<'meitu_v2' | 'runninghub_vr2' | 'runninghub_4k_ultra'>('meitu_v2');
@@ -1341,7 +1341,7 @@ function HomeContent() {
               setPromptEditMode('standard');
               setEmbroideryMode('embroidery');
               setPatternType(DEFAULT_PATTERN_TYPE);
-              setDenimAspectRatio('1:1');
+              setDenimAspectRatio('default');
               setDenimImageCount(2);
               setGeneralImageCount(4);
               setUpscaleEngine('meitu_v2');
@@ -1478,7 +1478,7 @@ function HomeContent() {
             }
             if (method === 'extract_pattern') {
               setPatternType(DEFAULT_PATTERN_TYPE);
-              setDenimAspectRatio('1:1');
+              setDenimAspectRatio('default');
               setDenimImageCount(2);
               setGeneralImageCount(4);
             }

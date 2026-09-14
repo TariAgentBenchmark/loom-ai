@@ -8,6 +8,7 @@ from app.services.ai_client import base_client as base_client_module
 from app.services.ai_client.apyi_openai_client import (
     ApyiOpenAIClient,
     GPT_IMAGE_2_ALL_MODEL,
+    GPT_IMAGE_2_5_ALL_MODEL,
 )
 from app.services.ai_client.image_utils import ImageProcessingUtils
 
@@ -57,6 +58,31 @@ async def test_gpt_image_2_all_image_edit_uses_images_api_and_b64_json(monkeypat
     with Image.open(BytesIO(image_bytes)) as image:
         assert image.format == "PNG"
         assert image.size == (2, 1)
+
+
+@pytest.mark.asyncio
+async def test_gpt_image_2_5_all_routes_to_images_api(monkeypatch):
+    client = ApyiOpenAIClient()
+    captured = {}
+
+    async def fake_multipart(method, endpoint, files, data):
+        captured.update(method=method, endpoint=endpoint, data=data)
+        return {"data": [{"b64_json": "encoded-result"}]}
+
+    monkeypatch.setattr(client, "_make_multipart_request", fake_multipart)
+
+    await client.generate_image(
+        "提取牛仔纹理",
+        model=GPT_IMAGE_2_5_ALL_MODEL,
+        response_format="b64_json",
+        image_bytes=_build_png_bytes(),
+    )
+
+    assert captured["method"] == "POST"
+    assert captured["endpoint"] == "/images/edits"
+    assert captured["data"]["model"] == GPT_IMAGE_2_5_ALL_MODEL
+    assert captured["data"]["response_format"] == "b64_json"
+    assert "size" not in captured["data"]
 
 
 @pytest.mark.asyncio
@@ -179,7 +205,59 @@ async def test_denim_pattern_requests_b64_json_and_returns_persisted_url(monkeyp
     )
 
     assert result == "https://loomai.oss-cn-beijing.aliyuncs.com/results/result.png"
-    assert captured["kwargs"]["model"] == GPT_IMAGE_2_ALL_MODEL
+    assert captured["kwargs"]["model"] == GPT_IMAGE_2_5_ALL_MODEL
     assert captured["kwargs"]["response_format"] == "b64_json"
     assert captured["kwargs"]["image_bytes"] == _build_png_bytes()
     assert captured["kwargs"]["size"] is None
+
+
+@pytest.mark.asyncio
+async def test_denim_pattern_defaults_to_two_images_and_no_size_hint(monkeypatch):
+    utils = ImageProcessingUtils()
+    calls = []
+
+    async def fake_generate(prompt, **kwargs):
+        calls.append({"prompt": prompt, "kwargs": kwargs})
+        return {"data": [{"b64_json": "encoded-result"}]}
+
+    monkeypatch.setattr(utils.apyi_openai_client, "generate_image", fake_generate)
+    monkeypatch.setattr(
+        utils.apyi_openai_client,
+        "_extract_image_urls",
+        lambda result: [
+            "https://loomai.oss-cn-beijing.aliyuncs.com/results/result.png"
+        ],
+    )
+
+    result = await utils.extract_pattern(_build_png_bytes(), {"pattern_type": "denim"})
+
+    assert len(calls) == 2
+    assert all(call["kwargs"]["model"] == GPT_IMAGE_2_5_ALL_MODEL for call in calls)
+    assert all("尺寸" not in call["prompt"] for call in calls)
+    assert result.count(",") == 1
+
+
+@pytest.mark.asyncio
+async def test_denim_pattern_default_size_skips_size_hint(monkeypatch):
+    utils = ImageProcessingUtils()
+    captured = {}
+
+    async def fake_generate(prompt, **kwargs):
+        captured["prompt"] = prompt
+        return {"data": [{"b64_json": "encoded-result"}]}
+
+    monkeypatch.setattr(utils.apyi_openai_client, "generate_image", fake_generate)
+    monkeypatch.setattr(
+        utils.apyi_openai_client,
+        "_extract_image_urls",
+        lambda result: [
+            "https://loomai.oss-cn-beijing.aliyuncs.com/results/result.png"
+        ],
+    )
+
+    await utils.extract_pattern(
+        _build_png_bytes(),
+        {"pattern_type": "denim", "num_images": 1, "aspect_ratio": "default"},
+    )
+
+    assert "生成图片尺寸" not in captured["prompt"]

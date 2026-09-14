@@ -15,6 +15,10 @@ from app.services.ai_client.exceptions import AIClientException
 logger = logging.getLogger(__name__)
 
 GPT_IMAGE_2_ALL_MODEL = "gpt-image-2-all"
+GPT_IMAGE_2_5_ALL_MODEL = "gpt-image-2.5-all"
+# Both "-all" models share the same Images API behavior on Apyi: one image per
+# request, size carried as prompt intent, base64 responses persisted to our OSS.
+GPT_IMAGE_ALL_MODELS = {GPT_IMAGE_2_ALL_MODEL, GPT_IMAGE_2_5_ALL_MODEL}
 DEPRECATED_IMAGE_CHAT_MODELS = {"gpt-4o-image", "sora_image"}
 
 
@@ -107,9 +111,10 @@ class ApyiOpenAIClient(BaseAIClient):
             )
             model = GPT_IMAGE_2_ALL_MODEL
 
-        # gpt-image-2-all uses the standard Images API. Request base64 explicitly so
-        # results can be decoded and persisted to our OSS without depending on R2 URLs.
-        if model == GPT_IMAGE_2_ALL_MODEL:
+        # The gpt-image-2/2.5 "-all" models use the standard Images API. Request
+        # base64 explicitly so results can be decoded and persisted to our OSS
+        # without depending on R2 URLs.
+        if model in GPT_IMAGE_ALL_MODELS:
             return await self._generate_image_with_gpt_image_2_all(
                 prompt,
                 image_bytes=image_bytes,
@@ -154,7 +159,7 @@ class ApyiOpenAIClient(BaseAIClient):
         model: str = GPT_IMAGE_2_ALL_MODEL,
         response_format: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Generate or edit with gpt-image-2-all through the standard Images API.
+        """Generate or edit with gpt-image-2/2.5 "-all" models through the Images API.
 
         The provider's URL mode points at a short-lived R2 CDN that is not reachable
         from every deployment network. Base64 is therefore the default and is later
@@ -186,8 +191,9 @@ class ApyiOpenAIClient(BaseAIClient):
             prompt[:100],
         )
 
-        # gpt-image-2-all returns one image and ignores n/size. Callers that need
-        # multiple results issue independent requests and carry size intent in prompt.
+        # These "-all" models return one image per request and ignore n/size.
+        # Callers that need multiple results issue independent requests and carry
+        # size intent in the prompt.
         if image_bytes is None:
             return await self._make_request(
                 "POST",
