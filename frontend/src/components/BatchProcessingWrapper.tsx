@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { ProcessingMethod, PromptEditMode, resolvePricingServiceKey } from '../lib/processing';
+import { DEFAULT_UPSCALE_ENGINE, ProcessingMethod, PromptEditMode, resolvePricingServiceKey } from '../lib/processing';
 import {
     createBatchTask,
     BatchProcessingRequestPayload,
@@ -56,7 +56,7 @@ export default function BatchProcessingWrapper({
     onDenimAspectRatioChange,
     denimImageCount,
     generalImageCount,
-    upscaleEngine,
+    upscaleEngine = DEFAULT_UPSCALE_ENGINE,
     expandRatio,
     expandEdges,
     expandPrompt,

@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { History, Eye, ChevronLeft, ChevronRight, X, CheckCircle, FileText } from "lucide-react";
 import {
+  DEFAULT_UPSCALE_ENGINE,
   ProcessingMethod,
   PromptEditMode,
   getProcessingMethodInfo,
@@ -455,7 +456,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   onDenimAspectRatioChange,
   generalImageCount = 4,
   onGeneralImageCountChange,
-  upscaleEngine,
+  upscaleEngine = DEFAULT_UPSCALE_ENGINE,
   onUpscaleEngineChange,
   expandRatio,
   onExpandRatioChange,
@@ -523,22 +524,16 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
     description: string;
   }[] = [
     {
-        value: "meitu_v2",
-        label: "通用1",
-        description:
-          "基础高清模式，追求稳定还原与高保真，适合模糊或噪点较多的图片。",
-      },
-      {
-        value: "runninghub_vr2",
-        label: "通用2",
-        description: "锐化高清模式，突出细节与纹理锐度，适合较高清的原图。",
-      },
-      {
-        value: "runninghub_4k_ultra",
-        label: "4K超清",
-        description: "超高清4K放大模式，极致细节还原，适合需要大幅面输出的场景。",
-      },
-    ];
+      value: "runninghub_vr2",
+      label: "高清",
+      description: "锐化高清模式，突出细节与纹理锐度，适合较高清的原图。",
+    },
+    {
+      value: "runninghub_4k_ultra",
+      label: "4K超清",
+      description: "超高清4K放大模式，极致细节还原，适合需要大幅面输出的场景。",
+    },
+  ];
   const promptEditModeOptions: {
     value: PromptEditMode;
     label: string;
@@ -593,7 +588,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
   const effectiveDenimAspectRatio = denimAspectRatio ?? "default";
   const selectedUpscaleOption =
     upscaleOptions.find(
-      (option) => option.value === (upscaleEngine || "meitu_v2"),
+      (option) => option.value === upscaleEngine,
     ) ?? upscaleOptions[0];
   const effectiveExpandRatio = expandRatio ?? "original";
   useEffect(() => {
@@ -1380,7 +1375,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 {upscaleOptions.map((option) => {
                   const isActive =
-                    (upscaleEngine || "meitu_v2") === option.value;
+                    upscaleEngine === option.value;
                   return (
                     <button
                       type="button"

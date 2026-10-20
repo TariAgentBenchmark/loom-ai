@@ -22,7 +22,7 @@ import RegisterModal, { type PrefilledInviteContext } from '../components/Regist
 import ForgotPasswordModal from '../components/ForgotPasswordModal';
 import DisclaimerBar from '../components/DisclaimerBar';
 import UserReferralModal from '../components/UserReferralModal';
-import { ProcessingMethod, PromptEditMode } from '../lib/processing';
+import { DEFAULT_UPSCALE_ENGINE, ProcessingMethod, PromptEditMode } from '../lib/processing';
 import {
   authenticate,
   clearPersistedSession,
@@ -178,7 +178,7 @@ function HomeContent() {
   const [denimAspectRatio, setDenimAspectRatio] = useState<string>('default');
   const [denimImageCount, setDenimImageCount] = useState<number>(2);
   const [generalImageCount, setGeneralImageCount] = useState<number>(4);
-  const [upscaleEngine, setUpscaleEngine] = useState<'meitu_v2' | 'runninghub_vr2' | 'runninghub_4k_ultra'>('meitu_v2');
+  const [upscaleEngine, setUpscaleEngine] = useState<'meitu_v2' | 'runninghub_vr2' | 'runninghub_4k_ultra'>(DEFAULT_UPSCALE_ENGINE);
   const [expandRatio, setExpandRatio] = useState<string>('original');
   const [expandEdges, setExpandEdges] = useState<ExpandEdgesState>({
     top: '0.00',
@@ -1344,7 +1344,7 @@ function HomeContent() {
               setDenimAspectRatio('default');
               setDenimImageCount(2);
               setGeneralImageCount(4);
-              setUpscaleEngine('meitu_v2');
+              setUpscaleEngine(DEFAULT_UPSCALE_ENGINE);
               setExpandRatio('original');
               setExpandEdges({ top: '0.00', bottom: '0.00', left: '0.00', right: '0.00' });
               setExpandPrompt('');

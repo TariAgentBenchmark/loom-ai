@@ -1,4 +1,4 @@
-import { ProcessingMethod, PromptEditMode } from "./processing";
+import { DEFAULT_UPSCALE_ENGINE, ProcessingMethod, PromptEditMode } from "./processing";
 import { getStoredRefreshToken, updateAuthTokens } from "./tokenManager";
 
 const DEFAULT_API_BASE_URL =
@@ -883,8 +883,8 @@ export const createProcessingTask = (payload: ProcessingRequestPayload) => {
     }
   }
 
-  if (method === "upscale" && upscaleEngine) {
-    formData.append("engine", upscaleEngine);
+  if (method === "upscale") {
+    formData.append("engine", upscaleEngine ?? DEFAULT_UPSCALE_ENGINE);
   }
 
   if (method === "expand_image") {
@@ -2421,8 +2421,8 @@ export const createBatchTask = (payload: BatchProcessingRequestPayload) => {
     }
   }
 
-  if (method === "upscale" && upscaleEngine) {
-    formData.append("upscale_engine", upscaleEngine);
+  if (method === "upscale") {
+    formData.append("upscale_engine", upscaleEngine ?? DEFAULT_UPSCALE_ENGINE);
   }
 
   if (method === "expand_image") {

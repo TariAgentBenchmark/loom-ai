@@ -13,6 +13,8 @@ export type ProcessingMethod =
 
 export type PromptEditMode = "standard" | "pro_4k";
 
+export const DEFAULT_UPSCALE_ENGINE = "runninghub_vr2";
+
 interface ProcessingMethodInfo {
   title: string;
   description: string;
@@ -256,7 +258,7 @@ export const resolvePricingServiceKey = (
   }
 
   if (method === "upscale") {
-    const engine = (options?.upscaleEngine ?? "meitu_v2").toLowerCase();
+    const engine = (options?.upscaleEngine ?? DEFAULT_UPSCALE_ENGINE).toLowerCase();
     return `upscale_${engine}`;
   }
 

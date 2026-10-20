@@ -120,6 +120,36 @@ describe("processing task creation", () => {
     }),
   });
 
+  it.each([undefined, "runninghub_vr2", "runninghub_4k_ultra"] as const)(
+    "uses the supported upscale engine %s for single and batch tasks",
+    async (upscaleEngine) => {
+      const fetchMock = jest.fn().mockResolvedValue(mockSuccessResponse());
+      global.fetch = fetchMock;
+      const image = new File(["image"], "pattern.png", { type: "image/png" });
+      const expectedEngine = upscaleEngine ?? "runninghub_vr2";
+
+      await createProcessingTask({
+        method: "upscale",
+        image,
+        upscaleEngine,
+        accessToken: "access-token",
+      });
+      await createBatchTask({
+        method: "upscale",
+        images: [image],
+        upscaleEngine,
+        accessToken: "access-token",
+      });
+
+      expect((fetchMock.mock.calls[0][1]?.body as FormData).get("engine")).toBe(
+        expectedEngine,
+      );
+      expect((fetchMock.mock.calls[1][1]?.body as FormData).get("upscale_engine")).toBe(
+        expectedEngine,
+      );
+    },
+  );
+
   it("defaults extract pattern tasks to the combined model", async () => {
     const fetchMock = jest.fn().mockResolvedValue(mockSuccessResponse());
     global.fetch = fetchMock;
