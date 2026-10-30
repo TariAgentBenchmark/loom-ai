@@ -18,7 +18,8 @@ def _build_png_bytes() -> bytes:
 
 
 @pytest.mark.asyncio
-async def test_tuzi_openai_edit_image_uses_gpt_image_2_vip_chat_payload(monkeypatch):
+@pytest.mark.parametrize("model", [None, "gpt-image-2"])
+async def test_tuzi_openai_edit_image_uses_gpt_image_2_chat_payload(monkeypatch, model):
     monkeypatch.setattr(settings, "tuzi_api_key", "test-key")
     monkeypatch.setattr(settings, "tuzi_base_url", "https://api.tu-zi.com")
     client = TuziOpenAIClient()
@@ -35,13 +36,14 @@ async def test_tuzi_openai_edit_image_uses_gpt_image_2_vip_chat_payload(monkeypa
     result = await client.edit_image(
         image_bytes=_build_png_bytes(),
         prompt="提取图案，输出4K",
+        model=model,
     )
 
     assert result == {"data": [{"url": "https://example.com/result.png"}]}
     assert client.base_url == "https://api.tu-zi.com/v1"
     assert captured["method"] == "POST"
     assert captured["endpoint"] == "/chat/completions"
-    assert captured["data"]["model"] == TUZI_GPT_IMAGE_2_VIP_MODEL
+    assert captured["data"]["model"] == (model or TUZI_GPT_IMAGE_2_VIP_MODEL)
     assert captured["data"]["stream"] is False
     assert "quality" not in captured["data"]
     content = captured["data"]["messages"][0]["content"]

@@ -7,10 +7,11 @@ from app.services.ai_client.base_client import BaseAIClient
 logger = logging.getLogger(__name__)
 
 TUZI_GPT_IMAGE_2_VIP_MODEL = "gpt-image-2-vip"
+TUZI_GPT_IMAGE_2_MODEL = "gpt-image-2"
 
 
 class TuziOpenAIClient(BaseAIClient):
-    """Tuzi OpenAI-compatible image client for gpt-image-2-vip."""
+    """Tuzi OpenAI-compatible image client for GPT Image 2 channels."""
 
     def __init__(self):
         super().__init__(api_name="tuzi_openai")

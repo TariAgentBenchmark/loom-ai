@@ -10,6 +10,7 @@ from app.services.ai_client.gemini_client import GeminiClient
 from app.services.ai_client.apyi_gemini_client import ApyiGeminiClient
 from app.services.ai_client.tuzi_gemini_client import TuziGeminiClient
 from app.services.ai_client.tuzi_openai_client import (
+    TUZI_GPT_IMAGE_2_MODEL,
     TUZI_GPT_IMAGE_2_VIP_MODEL,
     TuziOpenAIClient,
 )
@@ -449,6 +450,76 @@ class AIClient:
             payload.update(extra)
         return payload
 
+    async def _extract_pattern_gpt_with_fallback(
+        self,
+        image_bytes: bytes,
+        *,
+        label: str,
+        branch_errors: List[Dict[str, Any]],
+    ) -> Optional[str]:
+        """Try VIP then standard GPT within the existing branch time budget."""
+        timeout = max(
+            0.01,
+            float(settings.extract_pattern_combined_branch_timeout_seconds),
+        )
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+        models = (TUZI_GPT_IMAGE_2_VIP_MODEL, TUZI_GPT_IMAGE_2_MODEL)
+
+        async def _attempt(model: str) -> str:
+            result = await self.tuzi_openai_client.edit_image(
+                image_bytes=image_bytes,
+                prompt=_GPT_IMAGE_2_VIP_PATTERN_PROMPT,
+                mime_type="image/png",
+                model=model,
+            )
+            try:
+                url = self.tuzi_openai_client.extract_image_url(result)
+                if not isinstance(url, str) or not url.strip():
+                    raise ValueError("GPT channel returned no usable image")
+                return url.strip()
+            except AIClientException:
+                raise
+            except Exception as exc:
+                raise AIClientException(
+                    message=f"GPT图片响应解析失败: {exc}",
+                    api_name="tuzi_openai",
+                    response_body=result,
+                    request_data={"model": model},
+                ) from exc
+
+        for index, model in enumerate(models):
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                break
+            # Reserve half the total budget so a hung VIP cannot starve the backup.
+            attempt_timeout = min(timeout / 2, remaining) if index == 0 else remaining
+            try:
+                url = await asyncio.wait_for(_attempt(model), timeout=attempt_timeout)
+                logger.info("Pattern GPT branch %s succeeded with model=%s", label, model)
+                return url
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                branch_errors.append(
+                    self._serialize_downstream_error(
+                        exc,
+                        label=label,
+                        attempt=index + 1,
+                        extra={
+                            "provider": "tuzi",
+                            "model": model,
+                            "fallback": index > 0,
+                            "timeoutSeconds": attempt_timeout,
+                        },
+                    )
+                )
+                logger.warning(
+                    "Pattern GPT branch %s model=%s failed (%s): %s",
+                    label, model, exc.__class__.__name__, str(exc),
+                )
+        return None
+
     async def _extract_pattern_combined(
         self,
         image_bytes: bytes,
@@ -522,32 +593,6 @@ class AIClient:
                 )
                 return None
 
-        async def _run_tuzi_gpt_image_2_vip_extract() -> Optional[str]:
-            try:
-                result = await self.tuzi_openai_client.edit_image(
-                    image_bytes=image_bytes,
-                    prompt=_GPT_IMAGE_2_VIP_PATTERN_PROMPT,
-                    mime_type="image/png",
-                    model=TUZI_GPT_IMAGE_2_VIP_MODEL,
-                )
-                return self.tuzi_openai_client.extract_image_url(result)
-            except Exception as exc:
-                branch_errors.append(
-                    self._serialize_downstream_error(
-                        exc,
-                        label="tuzi_gpt_image_2_vip",
-                        extra={
-                            "provider": "tuzi",
-                            "model": TUZI_GPT_IMAGE_2_VIP_MODEL,
-                        },
-                    )
-                )
-                logger.warning(
-                    "Combined pattern Tuzi gpt-image-2-vip failed: %s",
-                    str(exc),
-                )
-                return None
-
         async def _run_branch_with_timeout(
             label: str,
             coroutine: Any,
@@ -586,7 +631,11 @@ class AIClient:
             ),
             (
                 "tuzi_gpt_image_2_vip",
-                _run_tuzi_gpt_image_2_vip_extract(),
+                self._extract_pattern_gpt_with_fallback(
+                    image_bytes,
+                    label="tuzi_gpt_image_2_vip",
+                    branch_errors=branch_errors,
+                ),
             ),
             (
                 "runninghub_combined_4",
@@ -601,7 +650,9 @@ class AIClient:
         target_success_count = len(branch_specs)
         pending_tasks = {
             asyncio.create_task(
-                _run_branch_with_timeout(label, coroutine, branch_timeout)
+                coroutine
+                if label == "tuzi_gpt_image_2_vip"  # GPT manages its shared fallback budget.
+                else _run_branch_with_timeout(label, coroutine, branch_timeout)
             ): label
             for label, coroutine in branch_specs
         }
@@ -730,33 +781,6 @@ class AIClient:
                 )
                 return None
 
-        async def _run_tuzi_gpt_image_2_vip_branch(label: str) -> Optional[str]:
-            try:
-                result = await self.tuzi_openai_client.edit_image(
-                    image_bytes=image_bytes,
-                    prompt=_GPT_IMAGE_2_VIP_PATTERN_PROMPT,
-                    mime_type="image/png",
-                    model=TUZI_GPT_IMAGE_2_VIP_MODEL,
-                )
-                return self.tuzi_openai_client.extract_image_url(result)
-            except Exception as exc:
-                branch_errors.append(
-                    self._serialize_downstream_error(
-                        exc,
-                        label=label,
-                        extra={
-                            "provider": "tuzi",
-                            "model": TUZI_GPT_IMAGE_2_VIP_MODEL,
-                        },
-                    )
-                )
-                logger.warning(
-                    "Combined T2 Tuzi gpt-image-2-vip branch %s failed: %s",
-                    label,
-                    str(exc),
-                )
-                return None
-
         async def _run_branch_with_timeout(label: str, resolution: str) -> Optional[str]:
             branch_timeout = max(
                 0.01,
@@ -787,35 +811,6 @@ class AIClient:
             except asyncio.CancelledError:
                 raise
 
-        async def _run_tuzi_branch_with_timeout(label: str) -> Optional[str]:
-            branch_timeout = max(
-                0.01,
-                float(settings.extract_pattern_combined_branch_timeout_seconds),
-            )
-            try:
-                return await asyncio.wait_for(
-                    _run_tuzi_gpt_image_2_vip_branch(label),
-                    timeout=branch_timeout,
-                )
-            except asyncio.TimeoutError:
-                branch_errors.append(
-                    {
-                        "label": label,
-                        "provider": "tuzi",
-                        "model": TUZI_GPT_IMAGE_2_VIP_MODEL,
-                        "exceptionType": "TimeoutError",
-                        "message": f"Branch timed out after {branch_timeout}s",
-                    }
-                )
-                logger.warning(
-                    "Combined T2 Tuzi gpt-image-2-vip branch %s timed out after %ss",
-                    label,
-                    branch_timeout,
-                )
-                return None
-            except asyncio.CancelledError:
-                raise
-
         requested_count = self._normalize_combined_t2_image_count(
             options.get("num_images")
         )
@@ -838,7 +833,9 @@ class AIClient:
         branch_coroutines = [
             _run_branch_with_timeout(label, resolution)
             if provider == "gemini_route"
-            else _run_tuzi_branch_with_timeout(label)
+            else self._extract_pattern_gpt_with_fallback(
+                image_bytes, label=label, branch_errors=branch_errors,
+            )
             for label, provider, resolution in branch_specs
         ]
         branch_results = await asyncio.gather(*branch_coroutines)
