@@ -1,16 +1,25 @@
 import asyncio
 import logging
 import uuid
+from copy import deepcopy
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.task import Task, TaskStatus, TaskType
+from app.models.batch_task import BatchTask
 from app.models.user import User
 from app.services.ai_client import ai_client
 from app.services.ai_client.image_utils import DENIM_GPT_IMAGE_MODEL
+from app.services.ai_client.runninghub_recovery import (
+    RUNNINGHUB_CHECKPOINT_KEY,
+    RunningHubPendingError,
+    RunningHubRecovery,
+    runninghub_recovery,
+)
 from app.services.ai_model_route_service import (
     AI_MODEL_ROUTES_OPTION_KEY,
     EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY,
@@ -736,8 +745,53 @@ class ProcessingService:
         logger.info(f"Created task {task.task_id} for user {user.id}")
         return task
 
+    def _sync_batch_progress(self, db: Session, task: Task) -> None:
+        if task.batch_id is None:
+            return
+        db.flush()
+        batch = (
+            db.query(BatchTask).filter(BatchTask.id == task.batch_id)
+            .with_for_update().first()
+        )
+        if not batch:
+            return
+        counts = dict(
+            db.query(Task.status, func.count(Task.id))
+            .filter(Task.batch_id == task.batch_id)
+            .group_by(Task.status).all()
+        )
+        batch.update_progress(
+            counts.get(TaskStatus.COMPLETED.value, 0),
+            counts.get(TaskStatus.FAILED.value, 0)
+            + counts.get(TaskStatus.INSUFFICIENT_CREDITS.value, 0),
+        )
+
+    def _runninghub_recovery_for_task(
+        self, db: Session, task: Task, processing_token: str,
+    ) -> RunningHubRecovery:
+        records = deepcopy(
+            (task.extra_metadata or {}).get(RUNNINGHUB_CHECKPOINT_KEY) or {}
+        )
+
+        def save(tasks: Dict[str, Dict[str, Any]]) -> None:
+            db.refresh(task)
+            metadata = dict(task.extra_metadata or {})
+            if (
+                metadata.get("processing_token") != processing_token
+                or task.status != TaskStatus.PROCESSING.value
+            ):
+                raise asyncio.CancelledError(
+                    "Newer task worker owns the RunningHub checkpoint"
+                )
+            metadata[RUNNINGHUB_CHECKPOINT_KEY] = deepcopy(tasks)
+            task.extra_metadata = metadata
+            db.commit()
+
+        return RunningHubRecovery(tasks=records, save=save)
+
     async def _process_task_async(self, task_id: str):
         """异步处理任务"""
+        recovery_token = None
         try:
             from app.core.database import SessionLocal
 
@@ -876,6 +930,17 @@ class ProcessingService:
                 },
             )
             db.commit()
+
+            pattern_type = (
+                str(task_options.get("pattern_type") or "general_1")
+                .strip().lower().replace("-", "_")
+            )
+            if task.type == TaskType.EXTRACT_PATTERN.value and pattern_type in {
+                "general", "general1", "general_1", "general_model",
+            }:
+                recovery_token = runninghub_recovery.set(
+                    self._runninghub_recovery_for_task(db, task, processing_token)
+                )
 
             try:
                 if task.type == TaskType.SEAMLESS.value:
@@ -1243,9 +1308,24 @@ class ProcessingService:
                         related_task_id=task.task_id,
                     )
 
+                self._sync_batch_progress(db, task)
+                db.commit()
                 logger.info(f"Task {task_id} completed successfully")
 
             except Exception as e:
+                if isinstance(e, RunningHubPendingError) and settings.task_watchdog_enabled:
+                    db.refresh(task)
+                    if (task.extra_metadata or {}).get("processing_token") != processing_token:
+                        return
+                    self._log_task_event(
+                        db, task,
+                        event="runninghub_waiting",
+                        message="Submitted RunningHub jobs await watchdog polling recovery",
+                        details=e.to_debug_payload(truncate_large_fields=True),
+                    )
+                    db.commit()
+                    # Keep processing and reserved credits; no new paid job on recovery.
+                    return
                 # 处理失败 - 保存详细错误信息供管理员查看
                 import traceback
                 from app.services.ai_client.exceptions import AIClientException
@@ -1298,6 +1378,7 @@ class ProcessingService:
 
                 task.mark_as_failed(admin_error_msg, error_code)
                 task.credits_used = to_decimal(0)
+                self._sync_batch_progress(db, task)
 
                 error_log_details = {
                     "errorCode": error_code,
@@ -1362,6 +1443,8 @@ class ProcessingService:
                     task_id,
                 )
         finally:
+            if recovery_token is not None:
+                runninghub_recovery.reset(recovery_token)
             db.close()
 
     async def get_task_status(

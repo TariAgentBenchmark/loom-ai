@@ -61,6 +61,7 @@ import {
   unregisterTokenUpdateHandler,
 } from '../lib/tokenManager';
 import { AlertTriangle } from 'lucide-react';
+import { startTaskPolling } from '../lib/taskPolling';
 import {
   IMAGE_UPLOAD_TARGET_MAX_DIMENSION,
   IMAGE_UPLOAD_TARGET_MB,
@@ -200,7 +201,7 @@ function HomeContent() {
   const [hasCheckedStoredSession, setHasCheckedStoredSession] = useState(false);
 
   const methodUiStateRef = useRef<MethodUiStateMap>({});
-  const pollingRefs = useRef<Record<string, ReturnType<typeof setInterval>>>({});
+  const pollingRefs = useRef<Record<string, () => void>>({});
   const hasLoadedPersistedTasksRef = useRef(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -212,6 +213,8 @@ function HomeContent() {
   const hasAgentManagement = Boolean(accountProfile?.managedAgentId);
   const authenticatedUserId = authState.status === 'authenticated' ? authState.user.userId : null;
   const currentMethod = currentPage === 'home' ? null : currentPage;
+  const currentMethodRef = useRef(currentMethod);
+  currentMethodRef.current = currentMethod;
   const currentMethodTask = currentMethod ? activeTasks[currentMethod] : undefined;
   const isCurrentMethodProcessing = Boolean(currentMethodTask);
   const currentTaskId = currentMethodTask?.taskId ?? resultTaskId;
@@ -375,14 +378,14 @@ function HomeContent() {
   const clearTaskPolling = useCallback((taskId: string) => {
     const poller = pollingRefs.current[taskId];
     if (poller) {
-      clearInterval(poller);
+      poller();
       delete pollingRefs.current[taskId];
     }
   }, []);
 
   const clearAllPolling = useCallback(() => {
     Object.values(pollingRefs.current).forEach((poller) => {
-      clearInterval(poller);
+      poller();
     });
     pollingRefs.current = {};
   }, []);
@@ -433,7 +436,7 @@ function HomeContent() {
       };
       methodUiStateRef.current[method] = next;
 
-      if (currentMethod === method) {
+      if (currentMethodRef.current === method) {
         if (partial.taskId !== undefined) {
           setResultTaskId(partial.taskId);
         }
@@ -457,7 +460,7 @@ function HomeContent() {
         }
       }
     },
-    [currentMethod],
+    [],
   );
 
   useEffect(() => {
@@ -922,41 +925,37 @@ function HomeContent() {
 
       clearTaskPolling(taskId);
 
-      const poller = setInterval(() => {
-        getProcessingStatus(taskId, accessToken)
-          .then((statusResponse) => handleStatusResponse(statusResponse, taskId, method))
-          .catch((error) => {
-            const message = error?.message ?? '无法获取任务状态，请稍后重试';
-            updateMethodUiState(method, {
-              errorMessage: message,
-              successMessage: '',
-            });
-            clearTaskPolling(taskId);
-            updateActiveTasks((prev) => {
-              const next = { ...prev };
-              delete next[method];
-              return next;
-            });
-          });
-      }, POLLING_INTERVAL_MS);
-
-      pollingRefs.current[taskId] = poller;
-
-      getProcessingStatus(taskId, accessToken)
-        .then((statusResponse) => handleStatusResponse(statusResponse, taskId, method))
-        .catch((error) => {
-          const message = error?.message ?? '无法获取任务状态，请稍后重试';
+      pollingRefs.current[taskId] = startTaskPolling({
+        request: (signal) => getProcessingStatus(taskId, accessToken, signal),
+        intervalMs: POLLING_INTERVAL_MS,
+        onStatus: (statusResponse) => {
+          updateMethodUiState(method, { errorMessage: '' });
+          handleStatusResponse(statusResponse, taskId, method);
+          const data = statusResponse.data;
+          return data.status === 'failed' || data.status === 'insufficient_credits' ||
+            (data.status === 'completed' && Boolean(data.result?.processedImage));
+        },
+        onError: (error, retryable) => {
+          const message = (error as Error)?.message ?? '无法获取任务状态';
           updateMethodUiState(method, {
-            errorMessage: message,
+            errorMessage: retryable
+              ? '网络暂时异常，正在自动重试，任务仍在后台处理，请勿重复提交。'
+              : message,
             successMessage: '',
           });
-          clearTaskPolling(taskId);
-          updateActiveTasks((prev) => {
-            const next = { ...prev };
-            delete next[method];
-            return next;
-          });
-        });
+          if (!retryable) {
+            clearTaskPolling(taskId);
+            // Authentication failures must not erase the persisted task.
+            if ((error as { status?: number })?.status === 404) {
+              updateActiveTasks((prev) => {
+                const next = { ...prev };
+                delete next[method];
+                return next;
+              });
+            }
+          }
+        },
+      });
     },
     [accessToken, clearTaskPolling, handleStatusResponse, updateActiveTasks, updateMethodUiState],
   );

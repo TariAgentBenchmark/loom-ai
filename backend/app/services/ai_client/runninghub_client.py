@@ -9,6 +9,11 @@ import httpx
 from app.core.config import settings
 from app.services.api_limiter import api_limiter
 from app.services.ai_client.exceptions import AIClientException
+from app.services.ai_client.runninghub_recovery import (
+    RunningHubPendingError,
+    RunningHubRecovery,
+    runninghub_recovery,
+)
 
 
 class RunningHubClient:
@@ -241,6 +246,19 @@ class RunningHubClient:
         if options is None:
             options = {}
         filename = options.get("original_filename") or "runninghub.png"
+        recovery = runninghub_recovery.get()
+        checkpoint_key = "|".join(
+            [resolved_workflow_id, ",".join(resolved_node_ids), resolved_field_name]
+        )
+        record = dict(recovery.tasks.get(checkpoint_key) or {}) if recovery else {}
+        if record.get("taskId"):
+            options["runninghub_task_id"] = record["taskId"]
+            if record.get("urls"):
+                options["runninghub_output_urls"] = list(record["urls"])
+                return list(record["urls"])
+            return await self._poll_checkpointed_task(
+                str(record["taskId"]), options, recovery, checkpoint_key, record,
+            )
 
         uploaded_name = await self._upload_file(image_bytes, filename)
         node_info_list = [
@@ -265,8 +283,35 @@ class RunningHubClient:
 
         task_id = await self._submit_task(node_info_list, resolved_workflow_id)
         options["runninghub_task_id"] = task_id
-        result_urls = await self._poll_task(task_id)
+        record = {"taskId": task_id, "workflowId": resolved_workflow_id}
+        if recovery:
+            # Persist before polling so a worker restart cannot lose a paid job.
+            recovery.checkpoint(checkpoint_key, record)
+        return await self._poll_checkpointed_task(
+            task_id, options, recovery, checkpoint_key, record,
+        )
+
+    async def _poll_checkpointed_task(
+        self,
+        task_id: str,
+        options: Dict[str, Any],
+        recovery: Optional[RunningHubRecovery],
+        checkpoint_key: str,
+        record: Dict[str, Any],
+    ) -> List[str]:
+        try:
+            result_urls = await self._poll_task(task_id)
+        except TimeoutError as exc:
+            if not recovery:
+                raise
+            raise RunningHubPendingError(
+                message="RunningHub任务仍在处理，等待恢复查询",
+                api_name="RunningHub",
+                request_data={"task_id": task_id},
+            ) from exc
         options["runninghub_output_urls"] = result_urls
+        if recovery and result_urls:
+            recovery.checkpoint(checkpoint_key, {**record, "urls": result_urls})
         return result_urls
 
     async def run_seamless_loop_workflow(
@@ -598,11 +643,27 @@ class RunningHubClient:
 
         start_time = time.monotonic()
         while True:
-            data = await self._post_json(
-                url,
-                json=payload,
-                action=f"poll task {task_id}",
-            )
+            if time.monotonic() - start_time >= self.poll_timeout:
+                raise TimeoutError("等待RunningHub任务结果超时")
+            try:
+                data = await self._post_json(
+                    url,
+                    json=payload,
+                    action=f"poll task {task_id}",
+                )
+            except AIClientException as exc:
+                # Retry reads of the same job on network/5xx/429 failures.
+                if (
+                    exc.status_code is not None
+                    and exc.status_code not in {408, 429}
+                    and exc.status_code < 500
+                ):
+                    raise
+                self.logger.warning(
+                    "RunningHub poll transient error: task_id=%s error=%s", task_id, exc,
+                )
+                await asyncio.sleep(self.poll_interval)
+                continue
 
             code = data.get("code")
             result_data = data.get("data")

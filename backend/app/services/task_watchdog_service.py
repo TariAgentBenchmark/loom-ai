@@ -169,6 +169,7 @@ class TaskWatchdogService:
                     )
                     task.mark_as_failed("任务超时，请重试", "WATCHDOG_TIMEOUT")
                     task.credits_used = 0
+                    self.processing_service._sync_batch_progress(db, task)
                     self._append_give_up_metadata(task, reason)
                     self._log_watchdog_event(
                         db,

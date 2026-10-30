@@ -401,17 +401,27 @@ const postFormData = async <TData>(
   }
 };
 
-const getJson = async <TData>(path: string, accessToken: string) => {
+export class ApiRequestError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = "ApiRequestError";
+  }
+}
+
+const getJson = async <TData>(path: string, accessToken: string, init?: RequestInit) => {
+  let status: number | undefined;
   try {
     const response = await performAuthenticatedRequest(
       (token) =>
         fetch(`${API_BASE_URL}${path}`, {
+          ...init,
           method: "GET",
           headers: withAuthHeader(undefined, token),
         }),
       accessToken,
     );
 
+    status = response.status;
     const ensured = await ensureSuccess(response);
     return jsonResponse<ApiSuccessResponse<TData>>(ensured);
   } catch (err) {
@@ -419,6 +429,7 @@ const getJson = async <TData>(path: string, accessToken: string) => {
       err instanceof Error && err.message === "Failed to fetch"
         ? "网络连接异常或被浏览器拦截，请稍后重试"
         : ((err as Error)?.message ?? "请求失败");
+    if (status !== undefined && status >= 400) throw new ApiRequestError(message, status);
     throw new Error(message);
   }
 };
@@ -921,8 +932,11 @@ export const createProcessingTask = (payload: ProcessingRequestPayload) => {
   return postFormData<ProcessingTaskData>(path, formData, accessToken, true);
 };
 
-export const getProcessingStatus = (taskId: string, accessToken: string) =>
-  getJson<ProcessingStatusData>(`/processing/status/${taskId}`, accessToken);
+export const getProcessingStatus = (taskId: string, accessToken: string, signal?: AbortSignal) =>
+  getJson<ProcessingStatusData>(`/processing/status/${taskId}`, accessToken, {
+    signal,
+    cache: "no-store",
+  });
 
 export const createProcessingDownloadUrl = async (
   taskId: string,

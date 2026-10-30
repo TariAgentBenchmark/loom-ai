@@ -6,7 +6,53 @@ import {
   createHistoryTaskDownloadUrl,
   createProcessingDownloadUrl,
   splitCombinedImageRefs,
+  getProcessingStatus,
+  ApiRequestError,
 } from "../../lib/api";
+
+describe("processing status requests", () => {
+  const originalFetch = global.fetch;
+  afterEach(() => { global.fetch = originalFetch; });
+
+  it.each([401, 403, 404, 503])("preserves HTTP %s for polling retry decisions", async (status) => {
+    const response = {
+      ok: false, status,
+      headers: { get: () => "application/json" },
+      json: async () => ({ detail: "status temporarily unavailable" }),
+      clone() { return this; },
+    };
+    global.fetch = jest.fn().mockResolvedValue(response);
+    await expect(getProcessingStatus("task-1", "token")).rejects.toMatchObject({
+      name: "ApiRequestError", status,
+    });
+  });
+
+  it("passes cancellation and disables status caching", async () => {
+    const response = { success: true, data: { status: "processing" } };
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true, status: 200, headers: { get: () => "application/json" },
+      json: async () => response,
+    });
+    global.fetch = fetchMock;
+    const controller = new AbortController();
+    expect(await getProcessingStatus("task-1", "token", controller.signal)).toEqual(response);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/processing/status/task-1"),
+      expect.objectContaining({ signal: controller.signal, cache: "no-store" }),
+    );
+  });
+
+  it("leaves network failures retryable without a permanent HTTP status", async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error("Failed to fetch"));
+    try {
+      await getProcessingStatus("task-1", "token");
+      throw new Error("Expected request failure");
+    } catch (error) {
+      expect(error).not.toBeInstanceOf(ApiRequestError);
+      expect((error as Error).message).toContain("网络连接异常");
+    }
+  });
+});
 
 describe("splitCombinedImageRefs", () => {
   it("keeps x-oss-process commas inside a single preview URL", () => {

@@ -28,6 +28,7 @@ from app.services.ai_client.vector_webapi_client import VectorWebAPIClient
 from app.services.ai_client.a8_vectorizer_client import A8VectorizerClient
 from app.services.ai_client.zfy_vectorizer_client import ZfyVectorizerClient
 from app.services.ai_client.runninghub_client import RunningHubClient
+from app.services.ai_client.runninghub_recovery import RunningHubPendingError
 from app.services.ai_client.exceptions import AIClientException
 from app.services.ai_model_route_service import (
     EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY,
@@ -54,9 +55,8 @@ _PATTERN_TYPE_ALIASES = {
     "t2": "combined_t2",
 }
 
-# 通用4张不再无限等单个 RunningHub 分支；写死默认值，避免配置项继续膨胀。
+# 通用四图允许部分结果；等待时长由 RunningHub 轮询预算管理，不再外层 180 秒截断。
 _GENERAL_1_FOUR_IMAGE_MIN_SUCCESS_COUNT = 1
-_GENERAL_1_FOUR_IMAGE_BRANCH_TIMEOUT_SECONDS = 180.0
 _GPT_IMAGE_2_VIP_PATTERN_PROMPT = (
     "提取图中衣服上的图案，去掉褶皱、阴影，图案细节必须跟原图一模一样。"
     "输出4K高清平面印刷图案，只保留图案本身和干净底色，不要生成衣服形状。"
@@ -888,6 +888,7 @@ class AIClient:
     ) -> str:
         ordered_results: List[str] = []
         workflow_errors: List[Dict[str, Any]] = []
+        pending_workflows: List[str] = []
 
         # 获取图片数量参数，默认为4张
         num_images = options.get("num_images", 4)
@@ -1011,6 +1012,16 @@ class AIClient:
                         attempt,
                         workflow_attempts,
                     )
+                except RunningHubPendingError as exc:
+                    pending_workflows.append(str(workflow_id))
+                    workflow_errors.append(
+                        self._serialize_downstream_error(
+                            exc, label=label, attempt=attempt,
+                            extra={"workflowId": workflow_id},
+                        )
+                    )
+                    # Keep the submitted ID. The watchdog resumes polling, not generation.
+                    return []
                 except Exception as exc:
                     logger.warning(
                         "RunningHub workflow %s attempt %s/%s failed: %s",
@@ -1044,41 +1055,6 @@ class AIClient:
             if allow_partial_general1_results
             else max_general1_results
         )
-        branch_timeout_seconds = (
-            _GENERAL_1_FOUR_IMAGE_BRANCH_TIMEOUT_SECONDS
-            if allow_partial_general1_results
-            else None
-        )
-
-        async def _run_general_workflow(
-            workflow: Dict[str, Any],
-        ) -> List[str]:
-            label = workflow["label"]
-            if not branch_timeout_seconds:
-                return await _run_general_workflow_with_retries(workflow)
-
-            try:
-                return await asyncio.wait_for(
-                    _run_general_workflow_with_retries(workflow),
-                    timeout=branch_timeout_seconds,
-                )
-            except asyncio.TimeoutError as exc:
-                logger.warning(
-                    "RunningHub workflow %s timed out after %.1fs; stop waiting for this branch",
-                    label,
-                    branch_timeout_seconds,
-                )
-                workflow_errors.append(
-                    {
-                        "label": label,
-                        "workflowId": workflow.get("workflow_id"),
-                        "nodeIds": workflow.get("node_ids"),
-                        "message": f"RunningHub workflow timed out after {branch_timeout_seconds:.1f}s",
-                        "exceptionType": exc.__class__.__name__,
-                    }
-                )
-                return []
-
         runninghub_tasks: List[Tuple[Dict[str, Any], asyncio.Task]] = []
         for workflow in runninghub_workflows:
             workflow_id = (workflow.get("workflow_id") or "").strip()
@@ -1096,7 +1072,7 @@ class AIClient:
                 workflow.get("node_ids"),
             )
 
-            task = asyncio.create_task(_run_general_workflow(workflow))
+            task = asyncio.create_task(_run_general_workflow_with_retries(workflow))
             runninghub_tasks.append((workflow, task))
 
         try:
@@ -1123,6 +1099,13 @@ class AIClient:
                 task.cancel()
             if pending_tasks:
                 await asyncio.gather(*pending_tasks, return_exceptions=True)
+
+        if not ordered_results and pending_workflows:
+            raise RunningHubPendingError(
+                message="通用模型上游任务仍在处理，等待继续查询",
+                api_name="RunningHub",
+                response_body={"pendingWorkflows": pending_workflows, "workflowErrors": workflow_errors},
+            )
 
         if not ordered_results:
             raise AIClientException(
