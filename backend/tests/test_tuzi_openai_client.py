@@ -18,8 +18,8 @@ def _build_png_bytes() -> bytes:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("model", [None, "gpt-image-2"])
-async def test_tuzi_openai_edit_image_uses_gpt_image_2_chat_payload(monkeypatch, model):
+@pytest.mark.parametrize("model", [None, TUZI_GPT_IMAGE_2_VIP_MODEL])
+async def test_tuzi_openai_edit_image_preserves_vip_chat_payload(monkeypatch, model):
     monkeypatch.setattr(settings, "tuzi_api_key", "test-key")
     monkeypatch.setattr(settings, "tuzi_base_url", "https://api.tu-zi.com")
     client = TuziOpenAIClient()
