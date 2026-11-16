@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { DEFAULT_UPSCALE_ENGINE, ProcessingMethod, PromptEditMode, resolvePricingServiceKey } from '../lib/processing';
+import { DEFAULT_UPSCALE_ENGINE, ProcessingMethod, PromptEditMode, toPromptEditModel, resolvePricingServiceKey } from '../lib/processing';
 import {
     createBatchTask,
     BatchProcessingRequestPayload,
@@ -159,7 +159,7 @@ export default function BatchProcessingWrapper({
 
             if (method === 'prompt_edit') {
                 payload.instruction = batchInstruction;
-                payload.model = promptEditMode === 'pro_4k' ? 'pro_4k' : 'new';
+                payload.model = toPromptEditModel(promptEditMode);
             }
 
             if (method === 'embroidery') {

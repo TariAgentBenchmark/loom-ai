@@ -11,7 +11,12 @@ export type ProcessingMethod =
   | "seamless_loop"
   | "similar_image";
 
-export type PromptEditMode = "standard" | "pro_4k";
+export type PromptEditMode = "standard" | "pro_4k" | "seedream_pro";
+
+export type PromptEditApiModel = "new" | "original" | "pro_4k" | "seedream_pro";
+
+export const toPromptEditModel = (mode?: PromptEditMode): PromptEditApiModel =>
+  mode === "seedream_pro" ? "seedream_pro" : mode === "pro_4k" ? "pro_4k" : "new";
 
 export const DEFAULT_UPSCALE_ENGINE = "runninghub_vr2";
 

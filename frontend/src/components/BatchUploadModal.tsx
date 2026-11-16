@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, DragEvent, ChangeEvent, useRef } from 'react';
+import PromptEditModelSelector from "./PromptEditModelSelector";
 import { ProcessingMethod, PromptEditMode } from '../lib/processing';
 import ExpandEdgeControls from './ExpandEdgeControls';
 import {
@@ -106,19 +107,6 @@ export default function BatchUploadModal({
         { value: 'combined', label: '综合模型' },
         { value: 'combined_t2', label: '综合T2' },
         { value: 'denim', label: '牛仔风格专用' },
-    ];
-    const promptEditModeOptions: {
-        value: PromptEditMode;
-        label: string;
-    }[] = [
-        {
-            value: 'standard',
-            label: '2K',
-        },
-        {
-            value: 'pro_4k',
-            label: '4K',
-        },
     ];
     const embroideryModeOptions: {
         value: 'yarn' | 'embroidery';
@@ -532,30 +520,7 @@ export default function BatchUploadModal({
 
                     {method === 'prompt_edit' && (
                         <div className="mb-6 space-y-3">
-                            <h3 className="text-sm md:text-base font-semibold text-gray-900">
-                                输出模式
-                            </h3>
-                            <div className="grid grid-cols-2 gap-3">
-                                {promptEditModeOptions.map((option) => {
-                                    const isActive = promptEditMode === option.value;
-                                    return (
-                                        <button
-                                            key={option.value}
-                                            type="button"
-                                            onClick={() => onPromptEditModeChange?.(option.value)}
-                                            disabled={isProcessing || isPreparingFiles}
-                                            className={`flex items-center justify-center rounded-xl border px-4 py-3 text-center transition-all ${isActive
-                                                ? 'border-blue-500 bg-blue-50 shadow-sm'
-                                                : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/60'
-                                                }`}
-                                        >
-                                            <span className="text-sm md:text-base font-semibold text-gray-900">
-                                                {option.label}
-                                            </span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                            <PromptEditModelSelector value={promptEditMode} onChange={onPromptEditModeChange} disabled={isProcessing || isPreparingFiles} />
                         </div>
                     )}
 

@@ -29,6 +29,8 @@ from app.services.ai_client.a8_vectorizer_client import A8VectorizerClient
 from app.services.ai_client.zfy_vectorizer_client import ZfyVectorizerClient
 from app.services.ai_client.runninghub_client import RunningHubClient
 from app.services.ai_client.runninghub_recovery import RunningHubPendingError
+from app.services.ai_client.seedream_client import SeedreamClient, SEEDREAM_PATTERN_PROMPT
+from app.services.ai_client.seedream_recovery import SeedreamPendingError, seedream_recovery
 from app.services.ai_client.exceptions import AIClientException
 from app.services.ai_model_route_service import (
     EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY,
@@ -122,6 +124,7 @@ class AIClient:
         self.base_client_utils = BaseAIClient()
         self.gqch_client = GQCHClient()
         self.runninghub_client = RunningHubClient()
+        self.seedream_client = SeedreamClient()
         self.file_service = FileService()
         
         # Liblib API配置
@@ -401,6 +404,20 @@ class AIClient:
         options: Optional[Dict[str, Any]] = None,
     ) -> str:
         """根据自然语言指令编辑图片"""
+        options = options or {}
+        if str(options.get("model") or "").strip().lower() == "seedream_pro":
+            instruction = str(options.get("instruction") or "").strip()
+            if not instruction:
+                raise ValueError("请提供修改指令")
+            images = [image_bytes]
+            secondary = options.get("secondary_image_bytes")
+            if isinstance(secondary, (bytes, bytearray)):
+                images.append(bytes(secondary))
+            refs = await self.seedream_client.generate(
+                images=images, prompt=instruction,
+                ratio=options.get("aspect_ratio") or "auto", slot="prompt_edit",
+            )
+            return ",".join(refs)
         return await self.image_utils.prompt_edit_image(image_bytes, options)
 
     def _normalize_pattern_type(self, raw_value: Optional[str]) -> str:
@@ -531,6 +548,13 @@ class AIClient:
             try:
                 merged_options = dict(options or {})
                 merged_options["pattern_type"] = pt
+                if pt == "combined_detail":
+                    refs = await self.seedream_client.generate(
+                        images=[image_bytes], prompt=SEEDREAM_PATTERN_PROMPT,
+                        ratio=merged_options.get("aspect_ratio") or "auto",
+                        slot="combined_detail",
+                    )
+                    return refs[0] if refs else None
                 if pt == "general_2":
                     prompt = self.image_utils._build_pattern_prompt(pt)
                     route = AIModelRouteService.resolve_runtime_from_options(
@@ -559,6 +583,8 @@ class AIClient:
                 if not result:
                     return None
                 return result.split(",")[0].strip()
+            except SeedreamPendingError:
+                raise
             except Exception as exc:
                 branch_errors.append(
                     self._serialize_downstream_error(exc, label=pt)
@@ -627,11 +653,11 @@ class AIClient:
         branch_specs = [
             (
                 "general_2",
-                _run_variant("general_2"),
+                lambda: _run_variant("general_2"),
             ),
             (
                 "tuzi_gpt_image_2_vip",
-                self._extract_pattern_gpt_with_fallback(
+                lambda: self._extract_pattern_gpt_with_fallback(
                     image_bytes,
                     label="tuzi_gpt_image_2_vip",
                     branch_errors=branch_errors,
@@ -639,24 +665,56 @@ class AIClient:
             ),
             (
                 "runninghub_combined_4",
-                _run_runninghub(settings.runninghub_workflow_id_extract_combined_4),
+                lambda: _run_runninghub(settings.runninghub_workflow_id_extract_combined_4),
             ),
             (
                 "combined_detail",
-                _run_variant("combined_detail"),
+                lambda: _run_variant("combined_detail"),
             ),
         ]
 
+        async def _run_cached_branch(label, factory):
+            recovery = seedream_recovery.get()
+            key = f"combined:{label}"
+            cached = dict(recovery.records.get(key) or {}) if recovery else {}
+            url = cached.get("result")
+            if cached.get("finished") and not url:
+                return None
+            unqueryable = label in {"general_2", "tuzi_gpt_image_2_vip"}
+            if cached.get("started") and not url and unqueryable:
+                # A worker may have exited after a paid call but before saving
+                # its response. These providers have no recoverable job ID.
+                return None
+            if not url:
+                if recovery and unqueryable:
+                    recovery.checkpoint(key, {"started": True})
+                url = (
+                    await factory()
+                    if label in {"tuzi_gpt_image_2_vip", "combined_detail"}
+                    else await _run_branch_with_timeout(label, factory(), branch_timeout)
+                )
+                if recovery:
+                    # A failed companion can also have consumed upstream quota.
+                    # Do not invoke it again when only Seedream needs recovery.
+                    recovery.checkpoint(key, {"result": url, "finished": True, "persisted": label == "combined_detail"})
+            if recovery and url and not (recovery.records.get(key) or {}).get("persisted"):
+                # Persist already-paid companion results before a slow Seedream
+                # branch yields to the watchdog. Recovery must not regenerate them.
+                if not (url.startswith("/files/") or self.file_service.is_managed_oss_ref(url)):
+                    content = await self.file_service.download_from_url(url)
+                    url = await self.file_service.save_upload_file(
+                        content, f"combined_{uuid.uuid4().hex}.png", "results",
+                        validate_dimensions=False, validate_file_size=False,
+                    )
+                recovery.checkpoint(key, {"result": url, "persisted": True})
+            return url
+
         target_success_count = len(branch_specs)
         pending_tasks = {
-            asyncio.create_task(
-                coroutine
-                if label == "tuzi_gpt_image_2_vip"  # GPT manages its shared fallback budget.
-                else _run_branch_with_timeout(label, coroutine, branch_timeout)
-            ): label
-            for label, coroutine in branch_specs
+            asyncio.create_task(_run_cached_branch(label, factory)): label
+            for label, factory in branch_specs
         }
-
+        seedream_pending = False
         variant_urls: List[str] = []
         try:
             while pending_tasks:
@@ -672,6 +730,9 @@ class AIClient:
                         url = task.result()
                     except asyncio.CancelledError:
                         raise
+                    except SeedreamPendingError:
+                        seedream_pending = True
+                        url = None
                     except Exception as exc:
                         logger.warning(
                             "Combined pattern branch %s failed unexpectedly: %s",
@@ -696,6 +757,12 @@ class AIClient:
                 task.cancel()
             if pending_tasks:
                 await asyncio.gather(*pending_tasks.keys(), return_exceptions=True)
+
+        if seedream_pending:
+            raise SeedreamPendingError(
+                "综合模型的新模型仍在生成，保留其他分支结果继续查询",
+                api_name="seedream",
+            )
 
         if not variant_urls:
             raise AIClientException(

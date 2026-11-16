@@ -22,7 +22,7 @@ import RegisterModal, { type PrefilledInviteContext } from '../components/Regist
 import ForgotPasswordModal from '../components/ForgotPasswordModal';
 import DisclaimerBar from '../components/DisclaimerBar';
 import UserReferralModal from '../components/UserReferralModal';
-import { DEFAULT_UPSCALE_ENGINE, ProcessingMethod, PromptEditMode } from '../lib/processing';
+import { DEFAULT_UPSCALE_ENGINE, ProcessingMethod, PromptEditMode, toPromptEditModel } from '../lib/processing';
 import {
   authenticate,
   clearPersistedSession,
@@ -1064,7 +1064,7 @@ function HomeContent() {
 
     if (currentPage === 'prompt_edit') {
       payload.instruction = trimmedInstruction;
-      payload.model = promptEditMode === 'pro_4k' ? 'pro_4k' : 'new';
+      payload.model = toPromptEditModel(promptEditMode);
       if (secondaryImage) {
         payload.image2 = secondaryImage;
       }

@@ -7,6 +7,7 @@ import {
   createProcessingDownloadUrl,
   splitCombinedImageRefs,
   getProcessingStatus,
+  getServiceCost,
   ApiRequestError,
 } from "../../lib/api";
 
@@ -195,6 +196,28 @@ describe("processing task creation", () => {
       );
     },
   );
+
+  it.each(["seedream_pro", "new", "pro_4k"] as const)(
+    "passes prompt-edit model %s consistently to single and batch tasks",
+    async (model) => {
+      const fetchMock = jest.fn().mockResolvedValue(mockSuccessResponse());
+      global.fetch = fetchMock;
+      const image = new File(["image"], "input.png", { type: "image/png" });
+      await createProcessingTask({ method: "prompt_edit", image, instruction: "edit", model, accessToken: "token" });
+      await createBatchTask({ method: "prompt_edit", images: [image], instruction: "edit", model, accessToken: "token" });
+      expect((fetchMock.mock.calls[0][1]?.body as FormData).get("model")).toBe(model);
+      expect((fetchMock.mock.calls[1][1]?.body as FormData).get("model")).toBe(model);
+    },
+  );
+
+  it("quotes Seedream with the ordinary service key and its actual model parameter", async () => {
+    const fetchMock = jest.fn().mockResolvedValue(mockSuccessResponse());
+    global.fetch = fetchMock;
+    await getServiceCost("prompt_edit", "token", 1, { promptEditMode: "seedream_pro" });
+    const url = new URL(fetchMock.mock.calls[0][0]);
+    expect(url.searchParams.get("service_key")).toBe("prompt_edit");
+    expect(url.searchParams.get("prompt_edit_model")).toBe("seedream_pro");
+  });
 
   it("defaults extract pattern tasks to the combined model", async () => {
     const fetchMock = jest.fn().mockResolvedValue(mockSuccessResponse());

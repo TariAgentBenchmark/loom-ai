@@ -1,6 +1,6 @@
 from typing import Optional, Dict
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -39,6 +39,7 @@ class Settings(BaseSettings):
             "apyi_gemini": 50,
             "apyi_openai": 50,
             "tuzi_openai": 20,
+            "seedream": 2,
             "ai302_grok": 20,
             "gpt4o": 50,
             "runninghub": 100,
@@ -55,6 +56,18 @@ class Settings(BaseSettings):
             "jimeng": 2,
         }
     )
+
+    @field_validator("api_concurrency_limits")
+    @classmethod
+    def include_seedream_limit(cls, value: Dict[str, int]) -> Dict[str, int]:
+        # Preserve existing environment overrides while adding the new provider.
+        return {"seedream": 2, **value}
+
+    seedream_base_url: str = "https://a6.zifeiyuai.top:2345"
+    seedream_api_key: str = ""
+    seedream_api_key_file: str = "./data/.env.seedream"
+    seedream_poll_interval_seconds: float = Field(default=3, gt=0)
+    seedream_poll_timeout_seconds: float = Field(default=600, gt=0)
 
     # 第三方API配置
     # tuzi配置已弃用，请使用apiyi配置

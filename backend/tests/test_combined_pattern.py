@@ -1,6 +1,7 @@
 import asyncio
 import time
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -9,6 +10,7 @@ from app.services.ai_client.ai_client import (
     AIClient,
     _COMBINED_T2_GEMINI_PROMPT_VARIANT_2,
     _COMBINED_T2_GEMINI_PROMPT_VARIANT_3,
+    SEEDREAM_PATTERN_PROMPT,
 )
 from app.services.ai_model_route_service import (
     AI_MODEL_ROUTES_OPTION_KEY,
@@ -44,21 +46,22 @@ def _build_client() -> AIClient:
         _extract_image_url=lambda _result: None,
     )
     client.runninghub_client = SimpleNamespace(run_workflow_with_custom_nodes=None)
+    client.seedream_client = SimpleNamespace(generate=AsyncMock(side_effect=RuntimeError("Seedream unavailable")))
     return client
 
 
 @pytest.mark.asyncio
 async def test_extract_pattern_combined_runs_four_fixed_branches(monkeypatch):
     client = _build_client()
-    banana1_calls = []
+    seedream_calls = []
 
     async def fake_apyi_generate_image_preview(*_args, **_kwargs):
         await asyncio.sleep(0.01)
         return {"candidates": [{"content": {"parts": [{"text": "https://example.com/general.png"}]}}]}
 
-    async def fast_banana1(image_bytes, options):
-        banana1_calls.append({"image_bytes": image_bytes, "options": options})
-        return "https://example.com/banana1.png"
+    async def fast_seedream(**kwargs):
+        seedream_calls.append(kwargs)
+        return ["https://example.com/seedream.png"]
 
     async def fast_edit_image(**_kwargs):
         return {"data": [{"url": "https://example.com/gpt2.png"}]}
@@ -68,7 +71,7 @@ async def test_extract_pattern_combined_runs_four_fixed_branches(monkeypatch):
 
     monkeypatch.setattr(settings, "extract_pattern_combined_branch_timeout_seconds", 180)
     monkeypatch.setattr(settings, "extract_pattern_combined_early_return_success_count", 3)
-    monkeypatch.setattr(client.image_utils, "extract_pattern", fast_banana1)
+    monkeypatch.setattr(client.seedream_client, "generate", fast_seedream)
     monkeypatch.setattr(
         client.apyi_gemini_client,
         "generate_image_preview",
@@ -100,17 +103,10 @@ async def test_extract_pattern_combined_runs_four_fixed_branches(monkeypatch):
         "https://example.com/general.png",
         "https://example.com/gpt2.png",
         "https://example.com/runninghub.png",
-        "https://example.com/banana1.png",
+        "https://example.com/seedream.png",
     }
-    assert banana1_calls == [
-        {
-            "image_bytes": b"fake-image",
-            "options": {
-                "original_image_url": "https://example.com/source.png",
-                "aspect_ratio": "1:1",
-                "pattern_type": "combined_detail",
-            },
-        }
+    assert seedream_calls == [
+        {"images": [b"fake-image"], "prompt": SEEDREAM_PATTERN_PROMPT, "ratio": "1:1", "slot": "combined_detail"}
     ]
 
 
@@ -121,9 +117,9 @@ async def test_extract_pattern_combined_allows_timeouts_when_other_branches_succ
     async def fake_apyi_generate_image_preview(*_args, **_kwargs):
         return {"candidates": [{"content": {"parts": [{"text": "https://example.com/general.png"}]}}]}
 
-    async def fast_banana1(_image_bytes, options):
-        assert options["pattern_type"] == "combined_detail"
-        return "https://example.com/banana1.png"
+    async def fast_seedream(**kwargs):
+        assert kwargs["slot"] == "combined_detail"
+        return ["https://example.com/seedream.png"]
 
     async def fast_edit_image(**_kwargs):
         return {"data": [{"url": "https://example.com/gpt2.png"}]}
@@ -134,7 +130,7 @@ async def test_extract_pattern_combined_allows_timeouts_when_other_branches_succ
 
     monkeypatch.setattr(settings, "extract_pattern_combined_branch_timeout_seconds", 0.05)
     monkeypatch.setattr(settings, "extract_pattern_combined_early_return_success_count", 4)
-    monkeypatch.setattr(client.image_utils, "extract_pattern", fast_banana1)
+    monkeypatch.setattr(client.seedream_client, "generate", fast_seedream)
     monkeypatch.setattr(
         client.apyi_gemini_client,
         "generate_image_preview",
@@ -167,7 +163,7 @@ async def test_extract_pattern_combined_allows_timeouts_when_other_branches_succ
     assert set(result.split(",")) == {
         "https://example.com/general.png",
         "https://example.com/gpt2.png",
-        "https://example.com/banana1.png",
+        "https://example.com/seedream.png",
     }
     assert elapsed < 0.3
 

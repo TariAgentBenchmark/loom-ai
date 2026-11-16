@@ -1,4 +1,4 @@
-import { DEFAULT_UPSCALE_ENGINE, ProcessingMethod, PromptEditMode } from "./processing";
+import { DEFAULT_UPSCALE_ENGINE, ProcessingMethod, PromptEditMode, PromptEditApiModel, toPromptEditModel } from "./processing";
 import { getStoredRefreshToken, updateAuthTokens } from "./tokenManager";
 
 const DEFAULT_API_BASE_URL =
@@ -819,7 +819,7 @@ export interface ProcessingRequestPayload {
   accessToken: string;
   embroideryMode?: "yarn" | "embroidery";
   instruction?: string;
-  model?: "new" | "original" | "pro_4k";
+  model?: PromptEditApiModel;
   patternType?: string;
   aspectRatio?: string;
   width?: number;
@@ -1045,7 +1045,7 @@ export const getServiceCost = async (
   if (options?.promptEditMode) {
     params.append(
       "prompt_edit_model",
-      options.promptEditMode === "pro_4k" ? "pro_4k" : "new",
+      toPromptEditModel(options.promptEditMode),
     );
   }
 
@@ -2347,7 +2347,7 @@ export interface BatchProcessingRequestPayload {
   accessToken: string;
   embroideryMode?: "yarn" | "embroidery";
   instruction?: string;
-  model?: "new" | "original" | "pro_4k";
+  model?: PromptEditApiModel;
   patternType?: string;
   aspectRatio?: string;
   width?: number;

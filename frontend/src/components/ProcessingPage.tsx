@@ -18,6 +18,7 @@ import {
   splitCombinedImageRefs,
 } from "../lib/api";
 import HistoryList from "./HistoryList";
+import PromptEditModelSelector from "./PromptEditModelSelector";
 import ImagePreview from "./ImagePreview";
 import ProcessedImagePreview from "./ProcessedImagePreview";
 import ExpandPreviewFrame from "./ExpandPreviewFrame";
@@ -532,19 +533,6 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
       value: "runninghub_4k_ultra",
       label: "4K超清",
       description: "超高清4K放大模式，极致细节还原，适合需要大幅面输出的场景。",
-    },
-  ];
-  const promptEditModeOptions: {
-    value: PromptEditMode;
-    label: string;
-  }[] = [
-    {
-      value: "standard",
-      label: "2K",
-    },
-    {
-      value: "pro_4k",
-      label: "4K",
     },
   ];
   const patternTypeOptions: { value: string; label: string; hint?: string }[] =
@@ -1403,31 +1391,7 @@ const ProcessingPage: React.FC<ProcessingPageProps> = ({
 
           {method === "prompt_edit" && (
             <div className="mb-4 md:mb-6 space-y-3 md:space-y-4">
-              <div>
-                <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-2">
-                  输出模式
-                </h4>
-                <div className="grid grid-cols-2 gap-3">
-                  {promptEditModeOptions.map((option) => {
-                    const isActive = promptEditMode === option.value;
-                    return (
-                      <button
-                        type="button"
-                        key={option.value}
-                        onClick={() => onPromptEditModeChange?.(option.value)}
-                        className={`flex items-center justify-center rounded-xl border px-4 py-3 text-center transition-all ${isActive
-                          ? "border-blue-500 bg-blue-50 shadow-sm"
-                          : "border-gray-200 hover:border-blue-300 hover:bg-blue-50/60"
-                          }`}
-                      >
-                        <span className="text-sm md:text-base font-semibold text-gray-900">
-                          {option.label}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <PromptEditModelSelector value={promptEditMode} onChange={onPromptEditModeChange} disabled={isProcessing} />
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm md:text-base font-semibold text-gray-900">

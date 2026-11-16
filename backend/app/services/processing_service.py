@@ -14,6 +14,9 @@ from app.models.batch_task import BatchTask
 from app.models.user import User
 from app.services.ai_client import ai_client
 from app.services.ai_client.image_utils import DENIM_GPT_IMAGE_MODEL
+from app.services.ai_client.seedream_recovery import (
+    SEEDREAM_STATE_KEY, SeedreamPendingError, SeedreamRecovery, seedream_recovery,
+)
 from app.services.ai_client.runninghub_recovery import (
     RUNNINGHUB_CHECKPOINT_KEY,
     RunningHubPendingError,
@@ -263,12 +266,12 @@ class ProcessingService:
                     )
                     provider = (
                         f"runninghub+{route_client}+"
-                        "tuzi_gpt_image_2_vip+apyi_gemini_banana1"
+                        "tuzi_gpt_image_2_vip+seedream"
                     )
                 except Exception:
                     provider = (
                         "runninghub+gemini+tuzi_gpt_image_2_vip+"
-                        "apyi_gemini_banana1"
+                        "seedream"
                     )
             elif pattern_type in {"combined_t2", "composite_t2"}:
                 try:
@@ -285,6 +288,8 @@ class ProcessingService:
                     provider = f"{route_client}+tuzi_gpt_image_2_vip"
                 except Exception:
                     provider = "haoee_maas+tuzi_gpt_image_2_vip"
+        elif task_type == TaskType.PROMPT_EDIT.value and options.get("model") == "seedream_pro":
+            provider = "seedream"
         elif task_type == TaskType.VECTORIZE.value:
             provider = f"{settings.vectorizer_primary_provider}_vectorizer+a8_vectorizer+webapi"
         elif task_type == TaskType.DENOISE.value:
@@ -789,9 +794,26 @@ class ProcessingService:
 
         return RunningHubRecovery(tasks=records, save=save)
 
+    def _seedream_recovery_for_task(
+        self, db: Session, task: Task, processing_token: str,
+    ) -> SeedreamRecovery:
+        records = deepcopy((task.extra_metadata or {}).get(SEEDREAM_STATE_KEY) or {})
+
+        def save(value):
+            db.refresh(task)
+            metadata = dict(task.extra_metadata or {})
+            if metadata.get("processing_token") != processing_token or task.status != TaskStatus.PROCESSING.value:
+                raise asyncio.CancelledError("Newer worker owns the Seedream task")
+            metadata[SEEDREAM_STATE_KEY] = deepcopy(value)
+            task.extra_metadata = metadata
+            db.commit()
+
+        return SeedreamRecovery(records=records, save=save)
+
     async def _process_task_async(self, task_id: str):
         """异步处理任务"""
         recovery_token = None
+        seedream_token = None
         try:
             from app.core.database import SessionLocal
 
@@ -940,6 +962,15 @@ class ProcessingService:
             }:
                 recovery_token = runninghub_recovery.set(
                     self._runninghub_recovery_for_task(db, task, processing_token)
+                )
+
+            if (
+                task.type == TaskType.EXTRACT_PATTERN.value and pattern_type in {"combined", "composite"}
+            ) or (
+                task.type == TaskType.PROMPT_EDIT.value and task_options.get("model") == "seedream_pro"
+            ):
+                seedream_token = seedream_recovery.set(
+                    self._seedream_recovery_for_task(db, task, processing_token)
                 )
 
             try:
@@ -1313,14 +1344,14 @@ class ProcessingService:
                 logger.info(f"Task {task_id} completed successfully")
 
             except Exception as e:
-                if isinstance(e, RunningHubPendingError) and settings.task_watchdog_enabled:
+                if isinstance(e, (RunningHubPendingError, SeedreamPendingError)) and settings.task_watchdog_enabled:
                     db.refresh(task)
                     if (task.extra_metadata or {}).get("processing_token") != processing_token:
                         return
                     self._log_task_event(
                         db, task,
-                        event="runninghub_waiting",
-                        message="Submitted RunningHub jobs await watchdog polling recovery",
+                        event="seedream_waiting" if isinstance(e, SeedreamPendingError) else "runninghub_waiting",
+                        message="Submitted upstream jobs await watchdog polling recovery",
                         details=e.to_debug_payload(truncate_large_fields=True),
                     )
                     db.commit()
@@ -1445,6 +1476,8 @@ class ProcessingService:
         finally:
             if recovery_token is not None:
                 runninghub_recovery.reset(recovery_token)
+            if seedream_token is not None:
+                seedream_recovery.reset(seedream_token)
             db.close()
 
     async def get_task_status(
