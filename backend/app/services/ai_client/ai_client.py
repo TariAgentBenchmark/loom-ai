@@ -714,7 +714,7 @@ class AIClient:
             asyncio.create_task(_run_cached_branch(label, factory)): label
             for label, factory in branch_specs
         }
-        seedream_pending = False
+        seedream_pending: Optional[SeedreamPendingError] = None
         variant_urls: List[str] = []
         try:
             while pending_tasks:
@@ -730,8 +730,9 @@ class AIClient:
                         url = task.result()
                     except asyncio.CancelledError:
                         raise
-                    except SeedreamPendingError:
-                        seedream_pending = True
+                    except SeedreamPendingError as exc:
+                        seedream_pending = exc
+                        branch_errors.append(self._serialize_downstream_error(exc, label=label))
                         url = None
                     except Exception as exc:
                         logger.warning(
@@ -759,9 +760,13 @@ class AIClient:
                 await asyncio.gather(*pending_tasks.keys(), return_exceptions=True)
 
         if seedream_pending:
-            raise SeedreamPendingError(
-                "综合模型的新模型仍在生成，保留其他分支结果继续查询",
-                api_name="seedream",
+            if not variant_urls:
+                # Only wait for a queryable job when there are no usable images.
+                # Preserve the original task ID/diagnostics for recovery.
+                raise seedream_pending
+            logger.warning(
+                "Combined Seedream still pending; deliver %s completed branches without "
+                "holding the whole task for watchdog retries", len(variant_urls),
             )
 
         if not variant_urls:

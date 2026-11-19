@@ -11,7 +11,11 @@ SEEDREAM_STATE_KEY = "seedreamState"
 
 
 class SeedreamPendingError(AIClientException):
-    """Resume an accepted/uncertain job instead of submitting another paid job."""
+    """An accepted, queryable job is pending; only poll its existing task ID."""
+
+
+class SeedreamSubmissionUnknownError(AIClientException):
+    """A POST may have been accepted without a job ID. Never auto-resubmit."""
 
 
 @dataclass

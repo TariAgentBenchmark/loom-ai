@@ -16,6 +16,7 @@ from app.services.ai_client.base_client import BaseAIClient
 from app.services.ai_client.exceptions import AIClientException
 from app.services.ai_client.seedream_recovery import (
     SeedreamPendingError,
+    SeedreamSubmissionUnknownError,
     seedream_recovery,
 )
 from app.services.api_limiter import api_limiter
@@ -108,8 +109,12 @@ class SeedreamClient(BaseAIClient):
             ratio = min(ASPECT_RATIOS, key=mismatch)
         return normalized, ratio
 
-    async def _json(self, client, method, path, **kwargs):
+    async def _json(self, client, method, path, *, before_request=None, **kwargs):
         async def request():
+            # The callback runs only after the limiter grants a slot. A queued
+            # request must never be recorded as a possibly-paid submission.
+            if before_request:
+                before_request()
             response = await client.request(method, self.base_url + path, **kwargs)
             if response.is_redirect or response.is_error:
                 message = "接口请求失败"
@@ -157,10 +162,15 @@ class SeedreamClient(BaseAIClient):
             )
         if record.get("savedResults"):
             return list(record["savedResults"])
-        if record and not record.get("taskid"):
-            raise SeedreamPendingError(
+        if (
+            record
+            and not record.get("taskid")
+            and record.get("state") != "waiting_for_slot"
+        ):
+            raise SeedreamSubmissionUnknownError(
                 "Seedream提交状态未确认，需人工核对，未重复提交",
                 api_name=self.api_name,
+                request_data={"operation": "recovery", "state": record.get("state")},
             )
 
         def checkpoint():
@@ -179,40 +189,68 @@ class SeedreamClient(BaseAIClient):
                 record = {
                     "baseUrl": self.base_url,
                     "input": fingerprint,
-                    "state": "submitting",
+                    "state": "waiting_for_slot",
                 }
                 checkpoint()
+
+                def mark_submitting():
+                    record["state"] = "submitting"
+                    checkpoint()
+
                 try:
                     data = await self._json(
                         client,
                         "POST",
                         "/add_task",
+                        before_request=mark_submitting,
                         data={"prompt": prompt, "ratio": resolved_ratio},
                         files=[
                             ("file", (f"reference_{i}.png", raw, "image/png"))
                             for i, raw in enumerate(files)
                         ],
                     )
-                except (httpx.RequestError, TimeoutError, AIClientException) as exc:
+                except Exception as exc:
+                    diagnostics = {"exceptionType": type(exc).__name__}
+                    if isinstance(exc, AIClientException):
+                        diagnostics["httpStatus"] = exc.status_code
+                    record["lastError"] = diagnostics
+                    if record["state"] == "waiting_for_slot":
+                        checkpoint()
+                        logger.warning(
+                            "Seedream slot wait failed before POST: %s", diagnostics
+                        )
+                        raise self._error(
+                            "接口繁忙，尚未提交任务，请稍后重试",
+                            "acquire",
+                            429,
+                        ) from exc
                     if (
                         isinstance(exc, AIClientException)
                         and exc.status_code is not None
                         and 300 <= exc.status_code < 500
                     ):
+                        record["state"] = "rejected"
+                        checkpoint()
                         raise
                     record["state"] = "submission_unknown"
                     checkpoint()
-                    raise SeedreamPendingError(
+                    logger.warning("Seedream POST unconfirmed: %s", diagnostics)
+                    raise SeedreamSubmissionUnknownError(
                         "Seedream提交未确认，未自动重发，请核对上游任务",
                         api_name=self.api_name,
+                        request_data={"operation": "submit", **diagnostics},
                     ) from exc
                 if data.get("code") != 0:
+                    record["state"] = "rejected"
+                    checkpoint()
                     raise self._error(data.get("message") or "提交失败", "submit")
                 taskid = data.get("taskid")
                 if not isinstance(taskid, str) or not re.fullmatch(
                     r"[A-Za-z0-9_-]{1,160}", taskid
                 ):
-                    raise SeedreamPendingError(
+                    record["state"] = "submission_unknown"
+                    checkpoint()
+                    raise SeedreamSubmissionUnknownError(
                         "Seedream返回无效任务号，未自动重发，请人工核对",
                         api_name=self.api_name,
                     )

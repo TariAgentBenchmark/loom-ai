@@ -13,6 +13,7 @@ from app.services.ai_client.seedream_recovery import (
     SEEDREAM_STATE_KEY,
     SeedreamPendingError,
     SeedreamRecovery,
+    SeedreamSubmissionUnknownError,
     seedream_recovery,
 )
 from app.services.membership_service import MembershipService
@@ -110,8 +111,8 @@ async def test_slow_seedream_does_not_regenerate_paid_companion_branches(
     tracker = SeedreamRecovery(save=lambda value: stored.append(deepcopy(value)))
     token = seedream_recovery.set(tracker)
     try:
-        with pytest.raises(SeedreamPendingError):
-            await ai._extract_pattern_combined(b"image", {})
+        first = await ai._extract_pattern_combined(b"image", {})
+        assert len(first.split(",")) == (3 if gpt_result else 2)
     finally:
         seedream_recovery.reset(token)
     assert len(tracker.records) == 3
@@ -224,7 +225,8 @@ async def test_new_model_shares_ordinary_credit_price(db_session):
 
 
 @pytest.mark.asyncio
-async def test_pending_seedream_task_preserves_credits_and_context(monkeypatch):
+@pytest.mark.parametrize("unqueryable", [False, True])
+async def test_seedream_pending_vs_unqueryable_settlement(monkeypatch, unqueryable):
     engine = create_engine("sqlite://")
     Base.metadata.create_all(engine)
     sessions = sessionmaker(bind=engine)
@@ -255,13 +257,20 @@ async def test_pending_seedream_task_preserves_credits_and_context(monkeypatch):
         "ensure_accessible_url",
         AsyncMock(return_value="/files/input.png"),
     )
-    refund = AsyncMock()
+    refund = AsyncMock(return_value=1)
     monkeypatch.setattr(service, "_refund_reserved_credits", refund)
 
     async def pending(*args, **kwargs):
         recovery = seedream_recovery.get()
         assert recovery is not None
-        recovery.checkpoint("prompt_edit", {"taskid": "existing-job"})
+        recovery.checkpoint(
+            "prompt_edit",
+            {"taskid": "existing-job"}
+            if not unqueryable
+            else {"state": "submission_unknown"},
+        )
+        if unqueryable:
+            raise SeedreamSubmissionUnknownError("unconfirmed POST")
         raise SeedreamPendingError("still generating")
 
     monkeypatch.setattr(
@@ -270,12 +279,16 @@ async def test_pending_seedream_task_preserves_credits_and_context(monkeypatch):
     await service._process_task_async("seedream-pending")
     with sessions() as db:
         task = db.query(Task).filter(Task.task_id == "seedream-pending").one()
-        assert task.status == "processing"
-        assert float(task.credits_used) == 1
-        assert (
-            task.extra_metadata[SEEDREAM_STATE_KEY]["prompt_edit"]["taskid"]
-            == "existing-job"
-        )
-    refund.assert_not_awaited()
+        assert task.status == ("failed" if unqueryable else "processing")
+        assert float(task.credits_used) == (0 if unqueryable else 1)
+        record = task.extra_metadata[SEEDREAM_STATE_KEY]["prompt_edit"]
+        if unqueryable:
+            assert record["state"] == "submission_unknown"
+        else:
+            assert record["taskid"] == "existing-job"
+    if unqueryable:
+        refund.assert_awaited_once()
+    else:
+        refund.assert_not_awaited()
     assert seedream_recovery.get() is None
     engine.dispose()

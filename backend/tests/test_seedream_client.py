@@ -15,6 +15,7 @@ from app.services.ai_client.seedream_client import (
 from app.services.ai_client.seedream_recovery import (
     SeedreamPendingError,
     SeedreamRecovery,
+    SeedreamSubmissionUnknownError,
     seedream_recovery,
 )
 from PIL import Image
@@ -180,7 +181,7 @@ async def test_uncertain_submission_is_not_retried(client, monkeypatch):
     token = seedream_recovery.set(tracker)
     try:
         for _ in range(2):
-            with pytest.raises(SeedreamPendingError):
+            with pytest.raises(SeedreamSubmissionUnknownError):
                 await client.generate([png()], "edit")
     finally:
         seedream_recovery.reset(token)
@@ -286,7 +287,7 @@ async def test_cancelled_submission_retains_uncertain_record(client, monkeypatch
         task.cancel()
         with pytest.raises(asyncio.CancelledError):
             await task
-        with pytest.raises(SeedreamPendingError):
+        with pytest.raises(SeedreamSubmissionUnknownError):
             await client.generate([png()], "edit")
     finally:
         seedream_recovery.reset(token)
@@ -310,7 +311,7 @@ async def test_uncertain_server_response_never_resubmits(
     token = seedream_recovery.set(SeedreamRecovery())
     try:
         for _ in range(2):
-            with pytest.raises(SeedreamPendingError):
+            with pytest.raises(SeedreamSubmissionUnknownError):
                 await client.generate([png()], "edit")
     finally:
         seedream_recovery.reset(token)
@@ -345,3 +346,108 @@ def test_private_file_key_and_mail_prompt(client, monkeypatch, tmp_path):
     assert SEEDREAM_PATTERN_PROMPT.startswith("帮我把图案完全展开")
     assert "禁止生成褶皱" in SEEDREAM_PATTERN_PROMPT
     assert len(SEEDREAM_PATTERN_PROMPT) == 511
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("slot_error", [TimeoutError, ConnectionError])
+async def test_no_slot_never_marks_post_started_and_can_retry_safely(
+    client, monkeypatch, slot_error
+):
+    from app.services.ai_client.seedream_client import api_limiter
+
+    allowed = api_limiter.run
+    calls = []
+    snapshots = []
+    tracker = SeedreamRecovery(save=lambda records: snapshots.append(deepcopy(records)))
+
+    async def denied(name, factory):
+        raise slot_error("Acquire failed: no HTTP request executed")
+
+    async def handler(request):
+        calls.append(request.method)
+        if request.method == "POST":
+            assert tracker.records["prompt_edit"]["state"] == "submitting"
+            return httpx.Response(
+                200, json={"code": 0, "taskid": "eventually-accepted"}
+            )
+        if request.url.path == "/try_get":
+            return httpx.Response(
+                200, json={"code": 0, "results": [{"url": "/out.png"}]}
+            )
+        return httpx.Response(200, content=png())
+
+    install(monkeypatch, handler)
+    monkeypatch.setattr(api_limiter, "run", denied)
+    token = seedream_recovery.set(tracker)
+    try:
+        with pytest.raises(AIClientException) as error:
+            await client.generate([png()], "edit")
+        assert not isinstance(
+            error.value, (SeedreamPendingError, SeedreamSubmissionUnknownError)
+        )
+        assert error.value.status_code == 429
+        assert error.value.request_data["operation"] == "acquire"
+        assert tracker.records["prompt_edit"]["state"] == "waiting_for_slot"
+        assert (
+            tracker.records["prompt_edit"]["lastError"]["exceptionType"]
+            == slot_error.__name__
+        )
+        assert calls == []
+        assert all(s["prompt_edit"]["state"] == "waiting_for_slot" for s in snapshots)
+        monkeypatch.setattr(api_limiter, "run", allowed)
+        assert await client.generate([png()], "edit") == ["/files/results/saved.png"]
+    finally:
+        seedream_recovery.reset(token)
+    assert calls == ["POST", "GET", "GET"]
+
+
+@pytest.mark.asyncio
+async def test_cancellation_while_waiting_does_not_create_uncertain_paid_submission(
+    client, monkeypatch
+):
+    from app.services.ai_client.seedream_client import api_limiter
+
+    waiting = asyncio.Event()
+    calls = []
+
+    async def no_slot_yet(name, factory):
+        waiting.set()
+        await asyncio.Event().wait()
+
+    install(monkeypatch, lambda request: calls.append(request))
+    monkeypatch.setattr(api_limiter, "run", no_slot_yet)
+    tracker = SeedreamRecovery()
+    token = seedream_recovery.set(tracker)
+    try:
+        task = asyncio.create_task(client.generate([png()], "edit"))
+        await waiting.wait()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    finally:
+        seedream_recovery.reset(token)
+    assert calls == []
+    assert tracker.records["prompt_edit"]["state"] == "waiting_for_slot"
+
+
+@pytest.mark.asyncio
+async def test_invalid_job_id_is_terminal_unknown_and_never_resubmitted(
+    client, monkeypatch
+):
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200, json={"code": 0, "taskid": ""})
+
+    install(monkeypatch, handler)
+    tracker = SeedreamRecovery()
+    token = seedream_recovery.set(tracker)
+    try:
+        for _ in range(2):
+            with pytest.raises(SeedreamSubmissionUnknownError):
+                await client.generate([png()], "edit")
+    finally:
+        seedream_recovery.reset(token)
+    assert len(calls) == 1
+    assert tracker.records["prompt_edit"]["state"] == "submission_unknown"
