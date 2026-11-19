@@ -1,11 +1,14 @@
 import json
 import logging
 from copy import deepcopy
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
 from app.models.system_setting import SystemSetting
+from app.core.config import settings
+from app.services.ai_route_catalog import extend_route_catalog, task_route_keys
 
 logger = logging.getLogger(__name__)
 
@@ -221,6 +224,9 @@ SUPPORTED_AI_MODEL_ROUTES: Dict[str, Dict[str, Any]] = {
 }
 
 
+extend_route_catalog(SUPPORTED_AI_MODEL_ROUTES)
+
+
 class AIModelRouteService:
     """Read, validate, and snapshot configurable AI model routes."""
 
@@ -347,6 +353,31 @@ class AIModelRouteService:
             logger.warning("Invalid persisted AI model route %s: %s", route_key, exc)
             return self._default_selection(route_key)
 
+    @staticmethod
+    def provider_configured(provider: str, route_key: str = "") -> bool:
+        fields = {
+            "apyi": ("apiyi_api_key",), "tuzi": ("tuzi_api_key",),
+            "haoee": ("haoee_maas_api_key",), "krapi": ("krapi_api_key",),
+            "runninghub": ("runninghub_api_key",), "runninghub_vr2": ("runninghub_api_key",),
+            "meitu_v2": ("meitu_api_key", "meitu_api_secret"),
+            "zfy": ("vector_zfy_api_key",), "a8": ("vector_zfy_api_key",),
+            "webapi": ("vector_webapi_key",),
+        }
+        if provider == "current":
+            if route_key == "vectorize.provider":
+                original = str(settings.vectorizer_primary_provider or "zfy").strip().lower()
+                original = "zfy" if original in {"zfy", "a6", "new"} else "webapi" if original in {"webapi", "mm"} else "a8"
+                return AIModelRouteService.provider_configured(original)
+            return bool(settings.runninghub_api_key.strip() or (settings.meitu_api_key.strip() and settings.meitu_api_secret.strip()) or (settings.liblib_access_key.strip() and settings.liblib_secret_key.strip()))
+        if provider == "seedream":
+            if settings.seedream_api_key.strip():
+                return True
+            try:
+                return bool(Path(settings.seedream_api_key_file).read_text().strip())
+            except (OSError, UnicodeError):
+                return False
+        return bool(provider in fields and all(str(getattr(settings, field, "")).strip() for field in fields[provider]))
+
     def get_admin_routes(self, db: Session) -> Dict[str, List[Dict[str, Any]]]:
         routes: List[Dict[str, Any]] = []
         for route_key, definition in SUPPORTED_AI_MODEL_ROUTES.items():
@@ -361,6 +392,7 @@ class AIModelRouteService:
                         "models": self._provider_model_values(provider_definition),
                         "defaultModel": provider_definition["default_model"],
                         "description": provider_definition.get("description"),
+                        "configured": self.provider_configured(provider_key, route_key),
                     }
                 )
             routes.append(
@@ -371,6 +403,7 @@ class AIModelRouteService:
                     "provider": selection["provider"],
                     "model": selection["model"],
                     "providers": providers,
+                    "readOnly": bool(definition.get("read_only")),
                 }
             )
         return {"routes": routes}
@@ -381,8 +414,9 @@ class AIModelRouteService:
         route_updates: List[Dict[str, Any]],
     ) -> Dict[str, List[Dict[str, Any]]]:
         next_config: Dict[str, Dict[str, str]] = {}
-        for route_key in SUPPORTED_AI_MODEL_ROUTES:
-            next_config[route_key] = self.get_effective_route(db, route_key)
+        for route_key, definition in SUPPORTED_AI_MODEL_ROUTES.items():
+            if not definition.get("read_only"):
+                next_config[route_key] = self.get_effective_route(db, route_key)
 
         for item in route_updates:
             route_key = str(item.get("routeKey") or item.get("route_key") or "").strip()
@@ -391,7 +425,9 @@ class AIModelRouteService:
             if route_key not in SUPPORTED_AI_MODEL_ROUTES:
                 raise AIModelRouteConfigError(f"不支持的模型路由: {route_key}")
 
-            next_config[route_key] = self._normalize_selection(
+            if self._get_definition(route_key).get("read_only"):
+                raise AIModelRouteConfigError("该功能只有单线路，不能修改")
+            selection = self._normalize_selection(
                 route_key,
                 {
                     "provider": item.get("provider"),
@@ -399,6 +435,9 @@ class AIModelRouteService:
                 },
                 allow_defaults=True,
             )
+            if selection != next_config[route_key] and not self.provider_configured(selection["provider"], route_key):
+                raise AIModelRouteConfigError("所选线路未配置凭据，请先在服务器配置")
+            next_config[route_key] = selection
 
         row = (
             db.query(SystemSetting)
@@ -421,20 +460,7 @@ class AIModelRouteService:
         return self.get_admin_routes(db)
 
     def _routes_for_task(self, task_type: str, options: Dict[str, Any]) -> List[str]:
-        if task_type != "extract_pattern":
-            return []
-
-        pattern_type = (
-            str(options.get("pattern_type") or "general_1")
-            .strip()
-            .lower()
-            .replace("-", "_")
-        )
-        if pattern_type in {"combined", "composite"}:
-            return [EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY]
-        if pattern_type in {"combined_t2", "composite_t2", "t2"}:
-            return [EXTRACT_PATTERN_COMBINED_T2_ROUTE_KEY]
-        return []
+        return task_route_keys(task_type, options)
 
     def apply_route_snapshot(
         self,
@@ -455,8 +481,12 @@ class AIModelRouteService:
         )
 
         for route_key in route_keys:
-            if overwrite or route_key not in route_snapshots:
+            if overwrite:
                 route_snapshots[route_key] = self.get_effective_route(db, route_key)
+            elif route_key not in route_snapshots:
+                # A task created before this route existed must retain its old
+                # default provider, not adopt a later admin change on recovery.
+                route_snapshots[route_key] = self._default_selection(route_key)
             else:
                 route_snapshots[route_key] = self._normalize_selection(
                     route_key,

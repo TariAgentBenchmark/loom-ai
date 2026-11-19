@@ -5,6 +5,8 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 from app.core.config import settings
+from app.services.ai_route_catalog import PROMPT_EDIT_2K_ROUTE, PROMPT_EDIT_4K_ROUTE, DENOISE_ROUTE, SEAMLESS_ROUTE, GENERAL2_ROUTE
+from app.services.ai_client.gemini_routes import has_route, generate_routed_image
 from app.services.ai_client.gemini_client import GeminiClient
 from app.services.ai_client.apyi_gemini_client import ApyiGeminiClient
 from app.services.ai_client.apyi_openai_client import (
@@ -166,6 +168,8 @@ class ImageProcessingUtils:
         """AI四方连续转换"""
         prompt = """生成图片：基于这张图片，生成一个新的四方连续循环图案，适合大面积印花使用，图案可无缝拼接。请生成高质量的图片。"""
 
+        if has_route(options, SEAMLESS_ROUTE):
+            return await generate_routed_image(self, [image_bytes], prompt, options, SEAMLESS_ROUTE)
         return await self._process_image_with_retry(
             image_bytes,
             prompt,
@@ -248,6 +252,10 @@ class ImageProcessingUtils:
         if isinstance(secondary_image_bytes, (bytes, bytearray)):
             image_list.append(bytes(secondary_image_bytes))
 
+        route_key = PROMPT_EDIT_4K_ROUTE if model_choice == "pro_4k" else PROMPT_EDIT_2K_ROUTE
+        if has_route(options, route_key):
+            return await generate_routed_image(self, image_list, prompt, options, route_key)
+
         last_error: Optional[Exception] = None
         max_retries = 3
         for attempt in range(1, max_retries + 1):
@@ -296,6 +304,9 @@ class ImageProcessingUtils:
         options = options or {}
         pattern_type = self._normalize_pattern_type(options.get("pattern_type"))
         prompt = self._build_pattern_prompt(pattern_type)
+        if pattern_type == "general_2" and has_route(options, GENERAL2_ROUTE):
+            return await generate_routed_image(self, [image_bytes], prompt, options, GENERAL2_ROUTE)
+        preview_model_name = options.get("preview_model")
 
         # 提取分辨率参数
         aspect_ratio = options.get("aspect_ratio")
@@ -448,6 +459,9 @@ class ImageProcessingUtils:
             if isinstance(raw_model_name, str) and raw_model_name.strip()
             else DENOISE_PRO_4K_MODEL
         )
+
+        if has_route(options, DENOISE_ROUTE):
+            return await generate_routed_image(self, [image_bytes], prompt, options, DENOISE_ROUTE)
 
         last_error: Optional[Exception] = None
         max_retries = 3

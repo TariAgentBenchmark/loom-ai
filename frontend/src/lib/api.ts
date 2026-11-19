@@ -614,6 +614,7 @@ export interface AdminReferralRewardSettingsUpdatePayload {
 }
 
 export interface AIModelProviderOption {
+  configured?: boolean;
   provider: string;
   label: string;
   client: string;
@@ -623,6 +624,7 @@ export interface AIModelProviderOption {
 }
 
 export interface AIModelRoute {
+  readOnly?: boolean;
   routeKey: string;
   label: string;
   description?: string | null;

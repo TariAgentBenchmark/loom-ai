@@ -5,6 +5,8 @@ import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.config import settings
+from app.services.ai_route_catalog import PROMPT_EDIT_PRO_ROUTE, COMBINED_DETAIL_ROUTE, FLAT_TO_3D_ROUTE, YARN_ROUTE, VECTOR_ROUTE, UPSCALE_ROUTE
+from app.services.ai_client.gemini_routes import has_route, generate_routed_image
 from app.services.ai_client.base_client import BaseAIClient
 from app.services.ai_client.gemini_client import GeminiClient
 from app.services.ai_client.apyi_gemini_client import ApyiGeminiClient
@@ -413,6 +415,8 @@ class AIClient:
             secondary = options.get("secondary_image_bytes")
             if isinstance(secondary, (bytes, bytearray)):
                 images.append(bytes(secondary))
+            if has_route(options, PROMPT_EDIT_PRO_ROUTE) and AIModelRouteService.resolve_runtime_from_options(options, PROMPT_EDIT_PRO_ROUTE)["provider"] != "seedream":
+                return await generate_routed_image(self, images, instruction, options, PROMPT_EDIT_PRO_ROUTE)
             refs = await self.seedream_client.generate(
                 images=images, prompt=instruction,
                 ratio=options.get("aspect_ratio") or "auto", slot="prompt_edit",
@@ -549,6 +553,8 @@ class AIClient:
                 merged_options = dict(options or {})
                 merged_options["pattern_type"] = pt
                 if pt == "combined_detail":
+                    if has_route(merged_options, COMBINED_DETAIL_ROUTE) and AIModelRouteService.resolve_runtime_from_options(merged_options, COMBINED_DETAIL_ROUTE)["provider"] != "seedream":
+                        return await generate_routed_image(self, [image_bytes], SEEDREAM_PATTERN_PROMPT, merged_options, COMBINED_DETAIL_ROUTE)
                     refs = await self.seedream_client.generate(
                         images=[image_bytes], prompt=SEEDREAM_PATTERN_PROMPT,
                         ratio=merged_options.get("aspect_ratio") or "auto",
@@ -680,7 +686,10 @@ class AIClient:
             url = cached.get("result")
             if cached.get("finished") and not url:
                 return None
-            unqueryable = label in {"general_2", "tuzi_gpt_image_2_vip"}
+            unqueryable = label in {"general_2", "tuzi_gpt_image_2_vip"} or (
+                label == "combined_detail" and has_route(options, COMBINED_DETAIL_ROUTE)
+                and AIModelRouteService.resolve_runtime_from_options(options, COMBINED_DETAIL_ROUTE)["provider"] != "seedream"
+            )
             if cached.get("started") and not url and unqueryable:
                 # A worker may have exited after a paid call but before saving
                 # its response. These providers have no recoverable job ID.
@@ -696,7 +705,7 @@ class AIClient:
                 if recovery:
                     # A failed companion can also have consumed upstream quota.
                     # Do not invoke it again when only Seedream needs recovery.
-                    recovery.checkpoint(key, {"result": url, "finished": True, "persisted": label == "combined_detail"})
+                    recovery.checkpoint(key, {"result": url, "finished": True, "persisted": bool(url and (url.startswith("/files/") or self.file_service.is_managed_oss_ref(url)))})
             if recovery and url and not (recovery.records.get(key) or {}).get("persisted"):
                 # Persist already-paid companion results before a slow Seedream
                 # branch yields to the watchdog. Recovery must not regenerate them.
@@ -1450,6 +1459,7 @@ class AIClient:
             保存的矢量文件URL路径
         """
         opts = options or {}
+        manual_provider = AIModelRouteService.resolve_runtime_from_options(opts, VECTOR_ROUTE)["provider"] if has_route(opts, VECTOR_ROUTE) else "current"
         vector_format = (
             opts.get("vectorFormat")
             or opts.get("vectorformat")
@@ -1458,6 +1468,17 @@ class AIClient:
             or ".eps"
         )
         original_filename = opts.get("original_filename")
+        if manual_provider != "current":
+            fmt = str(vector_format).lstrip(".").lower()
+            if fmt not in {"eps", "svg"}:
+                raise ValueError("手动矢量线路仅支持EPS/SVG，不能静默更改格式")
+            if manual_provider == "zfy":
+                return await self.zfy_vectorizer_client.image_to_vector(image_bytes, fmt=fmt, filename=original_filename)
+            if manual_provider == "a8":
+                return await self.a8_vectorizer_client.image_to_vector(image_bytes, fmt=fmt, save_path=None, timeout=120)
+            if manual_provider == "webapi":
+                return await self.vector_webapi_client.convert_image(image_bytes, vector_format=vector_format, filename=original_filename)
+            raise ValueError("不支持的手动矢量线路")
         provider = str(
             opts.get("provider")
             or opts.get("vectorizer_provider")
@@ -1691,6 +1712,11 @@ class AIClient:
         """AI高清放大图片，支持多种引擎"""
         options = options or {}
         engine = (options.get("engine") or "meitu_v2").strip().lower()
+        if engine != "runninghub_4k_ultra" and has_route(options, UPSCALE_ROUTE):
+            selected = AIModelRouteService.resolve_runtime_from_options(options, UPSCALE_ROUTE)["provider"]
+            if selected != "current":
+                engine = selected
+                options = {**options, "engine": selected}
 
         # 准备可供第三方访问的图片URL
         public_url, prepared_bytes = await self._prepare_image_for_external_api(
@@ -2084,6 +2110,8 @@ class AIClient:
         """AI平面转3D（使用 Apyi Gemini 3 Pro Image Preview）"""
         try:
             prompt = "将图片里的图案转换成3D立体效果，鲜艳颜色，精致细节，具有深度感和光影表现。"
+            if has_route(options, FLAT_TO_3D_ROUTE):
+                return await generate_routed_image(self, [image_bytes], prompt, options, FLAT_TO_3D_ROUTE)
             resolution = (options or {}).get("resolution", "2K")
             aspect_ratio = (options or {}).get("aspect_ratio")
 
@@ -2140,6 +2168,8 @@ class AIClient:
             
             请生成逼真的毛线刺绣效果图。
             """.strip()
+            if has_route(options, YARN_ROUTE):
+                return await generate_routed_image(self, [image_bytes], prompt, options, YARN_ROUTE)
             
             resolution = (options or {}).get("resolution", "2K")
             aspect_ratio = (options or {}).get("aspect_ratio")

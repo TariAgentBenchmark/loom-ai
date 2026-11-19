@@ -294,6 +294,7 @@ class AdminReferralRewardSettingsUpdateRequest(BaseModel):
 
 
 class AdminAIModelProviderOption(BaseModel):
+    configured: bool = False
     provider: str
     label: str
     client: str
@@ -303,6 +304,7 @@ class AdminAIModelProviderOption(BaseModel):
 
 
 class AdminAIModelRouteResponse(BaseModel):
+    readOnly: bool = False
     routeKey: str
     label: str
     description: Optional[str] = None

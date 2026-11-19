@@ -1,12 +1,25 @@
 import pytest
-
+from app.core.config import settings
 from app.services.ai_model_route_service import (
     AI_MODEL_ROUTES_OPTION_KEY,
     EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY,
     EXTRACT_PATTERN_COMBINED_T2_ROUTE_KEY,
+    SUPPORTED_AI_MODEL_ROUTES,
     AIModelRouteConfigError,
     AIModelRouteService,
 )
+from app.services.ai_route_catalog import COMBINED_DETAIL_ROUTE
+
+
+@pytest.fixture(autouse=True)
+def configured_route_providers(monkeypatch):
+    for field in (
+        "apiyi_api_key",
+        "tuzi_api_key",
+        "haoee_maas_api_key",
+        "krapi_api_key",
+    ):
+        monkeypatch.setattr(settings, field, "offline-configured")
 
 
 def test_ai_model_route_service_defaults_to_apyi(db_session):
@@ -19,7 +32,7 @@ def test_ai_model_route_service_defaults_to_apyi(db_session):
         if item["routeKey"] == EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY
     )
 
-    assert len(data["routes"]) == 2
+    assert len(data["routes"]) == len(SUPPORTED_AI_MODEL_ROUTES)
     assert route["routeKey"] == EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY
     assert route["provider"] == "apyi"
     assert route["model"] == "gemini-3-pro-image-preview-4k"
@@ -95,10 +108,11 @@ def test_ai_model_route_service_updates_and_snapshots_tuzi(db_session):
     )
 
     assert options[AI_MODEL_ROUTES_OPTION_KEY] == {
+        COMBINED_DETAIL_ROUTE: {"provider": "seedream", "model": "seedream"},
         EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY: {
             "provider": "tuzi",
             "model": "gemini-3-pro-image-preview-4k",
-        }
+        },
     }
 
 
@@ -279,7 +293,9 @@ def test_ai_model_route_service_resolves_combined_t2_krapi_runtime(db_session):
     }
 
 
-def test_ai_model_route_service_resolves_combined_t2_krapi_banana2_4k_runtime(db_session):
+def test_ai_model_route_service_resolves_combined_t2_krapi_banana2_4k_runtime(
+    db_session,
+):
     service = AIModelRouteService()
 
     service.update_routes(
@@ -380,10 +396,11 @@ def test_ai_model_route_service_keeps_combined_routes_independent(db_session):
     )
 
     assert combined_options[AI_MODEL_ROUTES_OPTION_KEY] == {
+        COMBINED_DETAIL_ROUTE: {"provider": "seedream", "model": "seedream"},
         EXTRACT_PATTERN_COMBINED_GENERAL2_ROUTE_KEY: {
             "provider": "krapi",
             "model": "T香蕉pro",
-        }
+        },
     }
     assert combined_t2_options[AI_MODEL_ROUTES_OPTION_KEY] == {
         EXTRACT_PATTERN_COMBINED_T2_ROUTE_KEY: {

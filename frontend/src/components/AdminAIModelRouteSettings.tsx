@@ -85,7 +85,7 @@ const AdminAIModelRouteSettings: React.FC = () => {
       setSuccessMessage(null);
       const response = await adminUpdateAIModelRoutes(
         {
-          routes: routes.map((route) => ({
+          routes: routes.filter((route) => !route.readOnly).map((route) => ({
             routeKey: route.routeKey,
             provider: route.provider,
             model: route.model,
@@ -108,10 +108,10 @@ const AdminAIModelRouteSettings: React.FC = () => {
         <div>
           <div className="flex items-center gap-2">
             <Settings2 className="h-5 w-5 text-blue-600" />
-            <h2 className="text-xl font-semibold text-gray-900">AI模型路由配置</h2>
+            <h2 className="text-xl font-semibold text-gray-900">功能线路配置</h2>
           </div>
           <p className="mt-1 text-sm text-gray-600">
-            配置后端模型调用的服务商和模型名。配置会在任务创建时写入快照，只影响新建任务。
+            仅管理员手动切换，不向普通用户开放，不新增自动切备用。保存只影响新任务；在途任务保持原线路，积分规则不变。未配置凭据的线路不可选；已配置不代表已完成连通性实测。
           </p>
         </div>
         <button
@@ -160,6 +160,7 @@ const AdminAIModelRouteSettings: React.FC = () => {
                 <div>
                   <h3 className="text-base font-semibold text-gray-900">
                     {route.label}
+                    {route.readOnly && <span className="ml-2 rounded bg-gray-200 px-2 py-1 text-xs text-gray-600">单线路</span>}
                   </h3>
                   <p className="mt-1 text-xs text-gray-500">{route.routeKey}</p>
                   {route.description && (
@@ -169,18 +170,20 @@ const AdminAIModelRouteSettings: React.FC = () => {
                 <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[420px]">
                   <label className="block">
                     <span className="mb-2 block text-sm font-medium text-gray-700">
-                      Provider
+                      线路供应商
                     </span>
                     <select
                       value={route.provider}
+                      aria-label={`${route.label} 供应商`}
+                      disabled={route.readOnly || isSubmitting || isLoading}
                       onChange={(event) =>
                         updateRouteProvider(route.routeKey, event.target.value)
                       }
                       className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                     >
                       {route.providers.map((option) => (
-                        <option key={option.provider} value={option.provider}>
-                          {option.label}
+                        <option key={option.provider} value={option.provider} disabled={option.configured === false}>
+                          {option.label}{option.configured === false ? "（未配置凭据）" : ""}
                         </option>
                       ))}
                     </select>
@@ -188,10 +191,12 @@ const AdminAIModelRouteSettings: React.FC = () => {
 
                   <label className="block">
                     <span className="mb-2 block text-sm font-medium text-gray-700">
-                      Model
+                      模型 / 协议
                     </span>
                     <select
                       value={route.model}
+                      aria-label={`${route.label} 模型`}
+                      disabled={route.readOnly || isSubmitting || isLoading || currentProvider?.configured === false}
                       onChange={(event) =>
                         updateRouteModel(route.routeKey, event.target.value)
                       }
@@ -218,7 +223,7 @@ const AdminAIModelRouteSettings: React.FC = () => {
         <div className="flex items-center justify-end">
           <button
             type="submit"
-            disabled={isSubmitting || isLoading || routes.length === 0}
+            disabled={isSubmitting || isLoading || !routes.some((route) => !route.readOnly)}
             className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
           >
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}

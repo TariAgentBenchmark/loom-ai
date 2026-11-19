@@ -29,6 +29,7 @@ from app.services.ai_model_route_service import (
     EXTRACT_PATTERN_COMBINED_T2_ROUTE_KEY,
     AIModelRouteService,
 )
+from app.services.ai_route_catalog import COMBINED_DETAIL_ROUTE
 from app.services.credit_math import to_decimal, to_float
 from app.services.credit_service import CreditService
 from app.services.file_service import FileService
@@ -264,9 +265,11 @@ class ProcessingService:
                         if route_provider == "krapi"
                         else f"{route_provider}_gemini"
                     )
+                    detail_provider = AIModelRouteService.resolve_snapshot_from_options(options, COMBINED_DETAIL_ROUTE)["provider"]
+                    detail_client = "seedream" if detail_provider == "seedream" else f"{detail_provider}_gemini"
                     provider = (
                         f"runninghub+{route_client}+"
-                        "tuzi_gpt_image_2_vip+seedream"
+                        f"tuzi_gpt_image_2_vip+{detail_client}"
                     )
                 except Exception:
                     provider = (
@@ -302,6 +305,19 @@ class ProcessingService:
             else:
                 provider = "meitu_v2"
 
+        # Snapshots are the authority for manually routed tasks; do not label a
+        # Tuzi/Kr API request as Apyi in admin diagnostics.
+        routed_keys = self.ai_model_route_service._routes_for_task(task_type, options)
+        routed_selection = None
+        if isinstance(route_snapshots, dict) and route_snapshots and task_type != TaskType.EXTRACT_PATTERN.value:
+            from app.services.ai_model_route_service import SUPPORTED_AI_MODEL_ROUTES
+            for key in routed_keys:
+                if key in route_snapshots:
+                    selected = AIModelRouteService.resolve_runtime_from_options(options, key)
+                    if selected["provider"] != "current":
+                        provider = SUPPORTED_AI_MODEL_ROUTES[key]["providers"][selected["provider"]]["client"]
+                        routed_selection = selected
+
         downstream: Dict[str, Any] = {"provider": provider}
         if engine:
             downstream["engine"] = engine
@@ -312,6 +328,9 @@ class ProcessingService:
         if task_type == TaskType.DENOISE.value:
             downstream["model"] = "gemini-3-pro-image-preview-4k"
             downstream["resolution"] = "4K"
+        if routed_selection and routed_selection["provider"] in {"apyi", "tuzi", "haoee", "krapi", "seedream"}:
+            downstream["model"] = routed_selection["api_model"]
+            downstream["resolution"] = routed_selection["resolution"]
         if pattern_type:
             downstream["patternType"] = pattern_type
         if embroidery_mode:
